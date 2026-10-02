@@ -10,7 +10,7 @@
                       最近調色盤色不等於原色的比例：線條被吃掉、變灰或斷裂時上升
   overshoot           HD 像素任一通道超出對應原圖 5x5 鄰域 [min-3, max+3] 的比例：光暈與振鈴
   hfe_o / hfe_h      非強邊緣處的高頻能量（拉普拉斯絕對值平均）：原圖與 HD 縮回後；hfe_h 遠低於 hfe_o 代表抖色去得多
-  band_bad            alpha 在 1 到 254 的像素中，顏色與最近不透明像素色距 > 60 的個數：色彩污染
+  band_bad            alpha 在 1 到 254 的像素中，任一通道超出 7x7 範圍內不透明像素該通道 [min-6, max+6] 的個數：色彩污染
 """
 import os
 import sys
@@ -105,15 +105,26 @@ def metrics(orig_path, hd_path, S):
         res["hfe_o"], res["hfe_h"] = float(eo), float(eh)
     else:
         res["hfe_o"], res["hfe_h"] = float("nan"), float("nan")
-    # 透明邊緣色彩污染
+    # 透明邊緣色彩污染：羽化像素（alpha 1 至 254）的任一色彩通道，超出 7x7 範圍內不透明像素該通道 [min-6, max+6] 才算污染
+    # （洋紅 255,0,255 這類來自透明色的顏色會落在範圍外；兩種顏色的混合落在範圍內，不算）
     a = hd[..., 3]
     band = (a > 0) & (a < 255)
     if band.any():
         opaque = a == 255
-        idx = ndimage.distance_transform_edt(~opaque, return_distances=False, return_indices=True)
-        near = hrgb[idx[0], idx[1]]
-        dist = np.sqrt(((hrgb - near) ** 2).sum(-1))
-        res["band_bad"] = int((dist[band] > 60).sum())
+        hh, ww = a.shape
+        r = 3
+        pr = np.pad(hrgb, ((r, r), (r, r), (0, 0)), mode="edge")
+        po = np.pad(opaque, r, mode="constant")
+        mn = np.full((hh, ww, 3), 999.0, np.float32)
+        mx = np.full((hh, ww, 3), -999.0, np.float32)
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                q = pr[r + dy:r + dy + hh, r + dx:r + dx + ww]
+                qo = po[r + dy:r + dy + hh, r + dx:r + dx + ww][..., None]
+                mn = np.minimum(mn, np.where(qo, q, 999.0))
+                mx = np.maximum(mx, np.where(qo, q, -999.0))
+        bad = ((hrgb < mn - 6) | (hrgb > mx + 6)).any(-1) & band
+        res["band_bad"] = int(bad.sum())
     else:
         res["band_bad"] = 0
     return res
@@ -147,7 +158,7 @@ def main():
                 continue
             p = os.path.join(root, f)
             rel = os.path.relpath(p, dst)
-            if only and only not in rel:
+            if only and not any(s in rel for s in only.split(",")):
                 continue
             o = os.path.join(src, rel)
             if not os.path.exists(o):

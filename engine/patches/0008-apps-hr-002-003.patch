@@ -1,0 +1,1814 @@
+From eaa99383516acaa11ee04610be5bfb2daf8d362c Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 06:43:28 +0800
+Subject: [PATCH 8/9] =?UTF-8?q?apps/hr:=20=E5=A0=86=E7=96=8A=E8=A3=9C?=
+ =?UTF-8?q?=E4=B8=81=E3=80=81=E5=9F=B7=E8=A1=8C=E5=B1=A4=E3=80=81=E6=A1=8C?=
+ =?UTF-8?q?=E9=9D=A2=E5=89=8D=E7=AB=AF=EF=BC=88=E8=A6=8F=E6=A0=BC=20002?=
+ =?UTF-8?q?=E3=80=81003=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- apps/hr/patch：_stklen 補丁，單元測試（含突變檢查）
+- apps/hr/runtime：Session（映像驗證、必要檔案、補丁、輸入佇列、輪詢點快照、計時與自動降速、暫存層、ScreenPNG）
+- apps/hr/cmd/hr-smoke：無頭驗收，重現 docs/re/008 收據 A、B
+- apps/hr/play：獨立 Go 模組（ebiten 2.9.9）的桌面前端 hr-play
+- internal/dos：AH=2Ah 可設日期（預設維持 1993-01-01）
+- hrsoak 改用 patch 套件
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hr-smoke/main.go    |  62 +++++
+ apps/hr/cmd/hrsoak/main.go      |  14 +-
+ apps/hr/patch/patch.go          |  69 +++++
+ apps/hr/patch/patch_test.go     | 113 ++++++++
+ apps/hr/play/game.go            | 179 +++++++++++++
+ apps/hr/play/go.mod             |  18 ++
+ apps/hr/play/go.sum             |  12 +
+ apps/hr/play/keys.go            |  63 +++++
+ apps/hr/play/main.go            |  71 +++++
+ apps/hr/play/paths.go           |  69 +++++
+ apps/hr/play/png.go             |  27 ++
+ apps/hr/runtime/keys.go         |  27 ++
+ apps/hr/runtime/png.go          |  36 +++
+ apps/hr/runtime/required.go     |  94 +++++++
+ apps/hr/runtime/required.tsv    |  77 ++++++
+ apps/hr/runtime/session.go      | 446 ++++++++++++++++++++++++++++++++
+ apps/hr/runtime/session_test.go | 180 +++++++++++++
+ apps/hr/runtime/trim.go         |  22 ++
+ internal/dos/dos.go             |  11 +-
+ internal/dos/int21.go           |  12 +-
+ 20 files changed, 1592 insertions(+), 10 deletions(-)
+ create mode 100644 apps/hr/cmd/hr-smoke/main.go
+ create mode 100644 apps/hr/patch/patch.go
+ create mode 100644 apps/hr/patch/patch_test.go
+ create mode 100644 apps/hr/play/game.go
+ create mode 100644 apps/hr/play/go.mod
+ create mode 100644 apps/hr/play/go.sum
+ create mode 100644 apps/hr/play/keys.go
+ create mode 100644 apps/hr/play/main.go
+ create mode 100644 apps/hr/play/paths.go
+ create mode 100644 apps/hr/play/png.go
+ create mode 100644 apps/hr/runtime/keys.go
+ create mode 100644 apps/hr/runtime/png.go
+ create mode 100644 apps/hr/runtime/required.go
+ create mode 100644 apps/hr/runtime/required.tsv
+ create mode 100644 apps/hr/runtime/session.go
+ create mode 100644 apps/hr/runtime/session_test.go
+ create mode 100644 apps/hr/runtime/trim.go
+
+diff --git a/apps/hr/cmd/hr-smoke/main.go b/apps/hr/cmd/hr-smoke/main.go
+new file mode 100644
+index 0000000..da51696
+--- /dev/null
++++ b/apps/hr/cmd/hr-smoke/main.go
+@@ -0,0 +1,62 @@
++// Command hr-smoke 不開視窗，用執行層（apps/hr/runtime）跑到指定步數並存畫面 PNG。
++// 打包驗收與無頭收據用：與 hr-play 走同一個 runtime.Open（映像驗證、必要檔案檢查、堆疊補丁），
++// 不依賴 ebiten 與顯示環境。⚠ 本專案不含任何原版檔案，-orig 由玩家自備。
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"flag"
++	"fmt"
++	"os"
++
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++func main() {
++	orig := flag.String("orig", "original", "原版檔案目錄（內含 MAIN.EXE）")
++	steps := flag.Uint64("steps", 90_000_000, "執行到的絕對步數")
++	clicks := flag.String("click", "", "在這個步數按下並放開左鍵：`步數:X:Y`（X、Y 是 640x480 畫面座標）")
++	out := flag.String("png", "smoke.png", "輸出 PNG")
++	native := flag.Bool("native", true, "使用 dosgolem 預設計時器間隔（收據用）；false ＝ play 預設")
++	noPatch := flag.Bool("no-stack-patch", false, "關掉堆疊補丁")
++	flag.Parse()
++	opt := hrrt.Options{Interval: hrrt.NativeInterval, NoStackPatch: *noPatch, Log: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) }}
++	if !*native {
++		opt.Interval = 0
++	}
++	s, err := hrrt.Open(*orig, opt)
++	if err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(2)
++	}
++	if *clicks != "" {
++		var at uint64
++		var x, y int
++		if _, err := fmt.Sscanf(*clicks, "%d:%d:%d", &at, &x, &y); err != nil {
++			fmt.Fprintln(os.Stderr, "-click 要寫成 步數:X:Y：", err)
++			os.Exit(2)
++		}
++		if st := s.RunSteps(at); st.Kind != hrrt.StopSteps {
++			fmt.Fprintln(os.Stderr, "提前停機：", st.Msg)
++			os.Exit(1)
++		}
++		s.Input(hrrt.MouseButtonEvent(x, y-40, 0, true))
++		s.Input(hrrt.MouseButtonEvent(x, y-40, 0, false))
++	}
++	if st := s.RunSteps(*steps); st.Kind != hrrt.StopSteps {
++		fmt.Fprintln(os.Stderr, "提前停機：", st.Msg)
++		os.Exit(1)
++	}
++	b, err := s.ScreenPNG()
++	if err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(1)
++	}
++	if err := os.WriteFile(*out, b, 0o644); err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(1)
++	}
++	h := sha256.Sum256(b)
++	fmt.Printf("步數 %d，畫面 PNG SHA-256 %s，%s\n", s.Machine().Steps, hex.EncodeToString(h[:]), *out)
++}
+diff --git a/apps/hr/cmd/hrsoak/main.go b/apps/hr/cmd/hrsoak/main.go
+index fef915d..1215b5f 100644
+--- a/apps/hr/cmd/hrsoak/main.go
++++ b/apps/hr/cmd/hrsoak/main.go
+@@ -26,6 +26,7 @@ import (
+ 	"strings"
+ 	"time"
+ 
++	"github.com/wicanr2/dosgolem/apps/hr/patch"
+ 	"github.com/wicanr2/dosgolem/internal/cpu"
+ 	"github.com/wicanr2/dosgolem/internal/dos"
+ 	"github.com/wicanr2/dosgolem/internal/machine"
+@@ -104,13 +105,14 @@ func main() {
+ 			die(err)
+ 		}
+ 		if *stklen != 0 {
+-			// 啟動碼（IDA 1000:0062）從 DGROUP:040C 讀 _stklen 決定堆疊大小，
+-			// 之後把 SS:SP 設在 SS 段頂端、程式區塊末端（1000:0096 的 AH=4Ah）。
+-			const stklenAddr = 0x540F*16 + 0x40C
+-			if old := m.Read16(stklenAddr); old != 0x1000 {
+-				die(fmt.Errorf("%05X 處的 _stklen 是 %04X，不是預期的 1000；映像或載入位置與假設不同", stklenAddr, old))
++			res, err := patch.ApplyStackPatch(m, patch.ImageSHA256(img), uint16(*stklen))
++			if err != nil {
++				die(err)
++			}
++			if !res.Applied {
++				die(fmt.Errorf("-stklen 只適用於 SHA-256 為 %s 的 MAIN.EXE", patch.MainEXESHA256))
+ 			}
+-			m.Write16(stklenAddr, uint16(*stklen))
++			fmt.Fprintln(rep, "#", res)
+ 		}
+ 	}
+ 	d := dos.New(m, *root)
+diff --git a/apps/hr/patch/patch.go b/apps/hr/patch/patch.go
+new file mode 100644
+index 0000000..08011f3
+--- /dev/null
++++ b/apps/hr/patch/patch.go
+@@ -0,0 +1,69 @@
++// Package patch 是《高報酬戰將》執行層的記憶體補丁（hr 專案的 `docs/spec/002-stack-size`）。
++//
++// 補丁只在記憶體內套用，不修改任何原版檔案。目前只有一個：把 Borland 啟動碼讀的
++// `_stklen` 從 0x1000 改成 0x8000，避免巢狀選單用完 4 KB 堆疊（`docs/re/011`）。
++package patch
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"fmt"
++
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++const (
++	// MainEXESHA256 是補丁適用的 MAIN.EXE。
++	MainEXESHA256 = "08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e"
++
++	// StklenAddr 是 `_stklen` 在載入後的線性位址：DGROUP 540F:040C。
++	// 原版檔案位移 0x57DFC（標頭 0x4A00 bytes，載入基底線性 0x1100）。
++	// 啟動碼讀它的位置是 IDA 1000:0062（執行期 0110:0062）。
++	StklenAddr = 0x540F*16 + 0x40C
++
++	StklenOriginal = 0x1000
++	StklenPatched  = 0x8000
++)
++
++// Result 描述一次套用。
++type Result struct {
++	Applied bool
++	Addr    uint32
++	Old     uint16
++	New     uint16
++}
++
++func (r Result) String() string {
++	if !r.Applied {
++		return "堆疊補丁：未套用"
++	}
++	return fmt.Sprintf("堆疊補丁：位址 %05X，_stklen %04X → %04X", r.Addr, r.Old, r.New)
++}
++
++// ImageSHA256 回傳映像的 SHA-256（小寫十六進位）。
++func ImageSHA256(img []byte) string {
++	h := sha256.Sum256(img)
++	return hex.EncodeToString(h[:])
++}
++
++// ApplyStackPatch 在尚未執行任何指令的機器上改寫 `_stklen`。
++//
++//   - 映像雜湊不是 MainEXESHA256：不改，回 Applied ＝ false。
++//   - 該位址的原值不是 StklenOriginal：回錯誤，不降級、不靜默略過。
++//   - 機器已執行過指令（Steps ≠ 0）：回錯誤。狀態檔載入後的記憶體內，這個位址存的是
++//     啟動碼寫回的 SP 起點，不是設定值，不可再當設定值處理。
++func ApplyStackPatch(m *machine.Machine, imageSHA string, newStklen uint16) (Result, error) {
++	if imageSHA != MainEXESHA256 {
++		return Result{}, nil
++	}
++	if m.Steps != 0 {
++		return Result{}, fmt.Errorf("堆疊補丁只能在尚未執行任何指令時套用（Steps ＝ %d）", m.Steps)
++	}
++	old := m.Read16(StklenAddr)
++	if old != StklenOriginal {
++		return Result{}, fmt.Errorf("%05X 處的 _stklen 是 %04X，不是預期的 %04X；映像或載入位置與假設不同",
++			StklenAddr, old, StklenOriginal)
++	}
++	m.Write16(StklenAddr, newStklen)
++	return Result{Applied: true, Addr: StklenAddr, Old: old, New: newStklen}, nil
++}
+diff --git a/apps/hr/patch/patch_test.go b/apps/hr/patch/patch_test.go
+new file mode 100644
+index 0000000..77108ed
+--- /dev/null
++++ b/apps/hr/patch/patch_test.go
+@@ -0,0 +1,113 @@
++package patch
++
++import (
++	"os"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++// 原版素材不在本儲存庫：缺檔就 skip，不用替代檔（CLAUDE.md [HARD]）。
++func loadMain(t *testing.T) (*machine.Machine, string) {
++	t.Helper()
++	path := os.Getenv("HR_MAIN_EXE")
++	if path == "" {
++		path = "/orig/orig/MAIN.EXE"
++	}
++	img, err := os.ReadFile(path)
++	if err != nil {
++		t.Skipf("沒有原版 MAIN.EXE（%s）：%v", path, err)
++	}
++	m := machine.New()
++	if err := m.LoadEXE(img); err != nil {
++		t.Fatal(err)
++	}
++	return m, ImageSHA256(img)
++}
++
++func TestApplyChangesStartupStack(t *testing.T) {
++	m, sha := loadMain(t)
++	if sha != MainEXESHA256 {
++		t.Skipf("MAIN.EXE 的雜湊不是補丁適用的版本：%s", sha)
++	}
++	if got := m.Read16(StklenAddr); got != StklenOriginal {
++		t.Fatalf("載入後的 _stklen ＝ %04X，預期 %04X", got, StklenOriginal)
++	}
++	r, err := ApplyStackPatch(m, sha, StklenPatched)
++	if err != nil || !r.Applied || r.Old != StklenOriginal || r.New != StklenPatched {
++		t.Fatalf("套用結果 %+v，錯誤 %v", r, err)
++	}
++	if got := m.Read16(StklenAddr); got != StklenPatched {
++		t.Fatalf("套用後 _stklen ＝ %04X", got)
++	}
++	d := dos.New(m, "/orig/orig")
++	d.Install()
++	for i := 0; i < 200 && m.CPU.R[cpu.SP] != 0x8010; i++ {
++		if err := m.Step(); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if sp := m.CPU.R[cpu.SP]; sp != StklenPatched+0x10 {
++		t.Fatalf("啟動後 SP ＝ %04X，預期 %04X", sp, StklenPatched+0x10)
++	}
++	if ss := m.CPU.Seg[cpu.SS]; ss != 0x54C0 {
++		t.Fatalf("啟動後 SS ＝ %04X，預期 54C0", ss)
++	}
++}
++
++func TestUnpatchedStartupSP(t *testing.T) {
++	m, sha := loadMain(t)
++	if sha != MainEXESHA256 {
++		t.Skipf("雜湊不符：%s", sha)
++	}
++	d := dos.New(m, "/orig/orig")
++	d.Install()
++	for i := 0; i < 200 && m.CPU.R[cpu.SP] != 0x1010; i++ {
++		if err := m.Step(); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if sp := m.CPU.R[cpu.SP]; sp != StklenOriginal+0x10 {
++		t.Fatalf("未修補時啟動後 SP ＝ %04X，預期 %04X", sp, StklenOriginal+0x10)
++	}
++}
++
++func TestHashMismatchLeavesImageAlone(t *testing.T) {
++	m, _ := loadMain(t)
++	before := m.Read16(StklenAddr)
++	r, err := ApplyStackPatch(m, "0000", StklenPatched)
++	if err != nil || r.Applied {
++		t.Fatalf("雜湊不符時不應套用：%+v，%v", r, err)
++	}
++	if m.Read16(StklenAddr) != before {
++		t.Fatal("雜湊不符時記憶體被改了")
++	}
++}
++
++func TestUnexpectedOldValueIsAnError(t *testing.T) {
++	m, sha := loadMain(t)
++	if sha != MainEXESHA256 {
++		t.Skip("雜湊不符")
++	}
++	m.Write16(StklenAddr, 0x2000)
++	if _, err := ApplyStackPatch(m, sha, StklenPatched); err == nil {
++		t.Fatal("原值不是 0x1000 時應回錯誤")
++	}
++}
++
++func TestRefusesAfterExecution(t *testing.T) {
++	m, sha := loadMain(t)
++	if sha != MainEXESHA256 {
++		t.Skip("雜湊不符")
++	}
++	d := dos.New(m, "/orig/orig")
++	d.Install()
++	if err := m.Step(); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := ApplyStackPatch(m, sha, StklenPatched); err == nil {
++		t.Fatal("已執行過指令時應回錯誤")
++	}
++}
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+new file mode 100644
+index 0000000..a6d6e06
+--- /dev/null
++++ b/apps/hr/play/game.go
+@@ -0,0 +1,179 @@
++package main
++
++import (
++	"context"
++	"fmt"
++	"image"
++	"os"
++	"path/filepath"
++	"time"
++
++	"github.com/hajimehoshi/ebiten/v2"
++	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
++	"github.com/hajimehoshi/ebiten/v2/inpututil"
++
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++const (
++	gameW, gameH = 640, 400 // 遊戲區；VRAM 的第 40 至 439 列
++	topBlank     = 40
++)
++
++type game struct {
++	s       *hrrt.Session
++	dataDir string
++	linear  bool
++
++	img    *ebiten.Image
++	rgba   []byte
++	lastSq uint64
++
++	mx, my  int
++	btn     [2]bool
++	help    bool
++	fullscr bool
++
++	stop    *hrrt.Stop
++	stopCh  chan *hrrt.Stop
++	started time.Time
++}
++
++func newGame(s *hrrt.Session, dataDir string, linear bool) *game {
++	g := &game{s: s, dataDir: dataDir, linear: linear, stopCh: make(chan *hrrt.Stop, 1), started: time.Now(), mx: -1}
++	g.img = ebiten.NewImage(640, 480)
++	g.rgba = make([]byte, 640*480*4)
++	go func() { g.stopCh <- s.Run(context.Background()) }()
++	return g
++}
++
++func (g *game) Update() error {
++	select {
++	case st := <-g.stopCh:
++		g.stop = st
++		if st != nil && st.Normal() {
++			return ebiten.Termination
++		}
++		if st != nil {
++			fmt.Fprintln(os.Stderr, "停機：", st.Msg)
++		}
++	default:
++	}
++	if ebiten.IsKeyPressed(ebiten.KeyControl) && inpututil.IsKeyJustPressed(ebiten.KeyQ) {
++		return ebiten.Termination
++	}
++	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
++		g.help = !g.help
++	}
++	if inpututil.IsKeyJustPressed(ebiten.KeyF11) || (ebiten.IsKeyPressed(ebiten.KeyAlt) && inpututil.IsKeyJustPressed(ebiten.KeyEnter)) {
++		g.fullscr = !g.fullscr
++		ebiten.SetFullscreen(g.fullscr)
++	}
++	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
++		g.screenshot()
++	}
++	if g.stop != nil {
++		return nil
++	}
++	// 滑鼠：Layout 回 640x400，所以 CursorPosition 就是遊戲區座標。
++	x, y := ebiten.CursorPosition()
++	x, y = clamp(x, 0, gameW-1), clamp(y, 0, gameH-1)
++	if x != g.mx || y != g.my {
++		g.mx, g.my = x, y
++		g.s.Input(hrrt.MouseMoveEvent(x, y))
++	}
++	for b, mb := range []ebiten.MouseButton{ebiten.MouseButtonLeft, ebiten.MouseButtonRight} {
++		if inpututil.IsMouseButtonJustPressed(mb) {
++			g.btn[b] = true
++			g.s.Input(hrrt.MouseButtonEvent(x, y, b, true))
++		}
++		if g.btn[b] && inpututil.IsMouseButtonJustReleased(mb) {
++			g.btn[b] = false
++			g.s.Input(hrrt.MouseButtonEvent(x, y, b, false))
++		}
++	}
++	if !g.help {
++		for _, ev := range keyEvents(ebiten.AppendInputChars(nil)) {
++			g.s.Input(ev)
++		}
++	}
++	return nil
++}
++
++func (g *game) Draw(screen *ebiten.Image) {
++	if f := g.s.Frame(); f != nil && f.Seq != g.lastSq {
++		g.lastSq = f.Seq
++		px := g.rgba
++		for i, j := 0, 0; i < len(f.RGB) && j < len(px); i, j = i+3, j+4 {
++			px[j], px[j+1], px[j+2], px[j+3] = f.RGB[i], f.RGB[i+1], f.RGB[i+2], 0xFF
++		}
++		g.img.WritePixels(px)
++	}
++	op := &ebiten.DrawImageOptions{}
++	if g.linear {
++		op.Filter = ebiten.FilterLinear
++	} else {
++		op.Filter = ebiten.FilterNearest
++	}
++	screen.DrawImage(g.img.SubImage(image.Rect(0, topBlank, 640, topBlank+gameH)).(*ebiten.Image), op)
++	if g.stop != nil && !g.stop.Normal() {
++		ebitenutil.DebugPrintAt(screen, "Stopped: "+stopKindName(g.stop.Kind)+" (details in the log). Close the window.", 4, 4)
++	}
++	if g.help {
++		st := g.s.Stats()
++		ebitenutil.DebugPrintAt(screen, fmt.Sprintf(
++			"F1 help   F11/Alt+Enter fullscreen   F12 screenshot   Ctrl+Q quit\n"+
++				"steps %d  ticks %d  sim %.0fs  interval %d  lowered %v\n"+
++				"stack min SP %04X top %04X  open files %d\n"+
++				"TPS %.1f  FPS %.1f",
++			st.Steps, st.Ticks, st.SimSeconds, st.Interval, st.Lowered, st.MinSP, st.StackTop, st.DOS.OpenHandles,
++			ebiten.ActualTPS(), ebiten.ActualFPS()), 4, 4)
++	}
++}
++
++func (g *game) Layout(w, h int) (int, int) { return gameW, gameH }
++
++func (g *game) screenshot() {
++	f := g.s.Frame()
++	if f == nil {
++		return
++	}
++	dir := filepath.Join(g.dataDir, "screenshots")
++	if err := os.MkdirAll(dir, 0o755); err != nil {
++		return
++	}
++	name := filepath.Join(dir, time.Now().Format("20060102-150405")+".png")
++	if err := writeFramePNG(name, f); err != nil {
++		fmt.Fprintln(os.Stderr, "截圖失敗：", err)
++		return
++	}
++	fmt.Println("截圖：", name)
++}
++
++func clamp(v, lo, hi int) int {
++	if v < lo {
++		return lo
++	}
++	if v > hi {
++		return hi
++	}
++	return v
++}
++
++func stopKindName(k hrrt.StopKind) string {
++	switch k {
++	case hrrt.StopStackOverflow:
++		return "stack overflow"
++	case hrrt.StopCPUError:
++		return "CPU error"
++	case hrrt.StopOutOfRange:
++		return "execution left memory"
++	case hrrt.StopHalted:
++		return "CPU halted"
++	case hrrt.StopDivide:
++		return "divide error"
++	case hrrt.StopExitOther:
++		return "program exit"
++	}
++	return "stopped"
++}
+diff --git a/apps/hr/play/go.mod b/apps/hr/play/go.mod
+new file mode 100644
+index 0000000..147bc49
+--- /dev/null
++++ b/apps/hr/play/go.mod
+@@ -0,0 +1,18 @@
++module github.com/wicanr2/dosgolem/apps/hr/play
++
++go 1.24.0
++
++require (
++	github.com/hajimehoshi/ebiten/v2 v2.9.9
++	github.com/wicanr2/dosgolem v0.0.0
++)
++
++require (
++	github.com/ebitengine/hideconsole v1.0.0 // indirect
++	github.com/ebitengine/purego v0.9.0 // indirect
++	github.com/jezek/xgb v1.1.1 // indirect
++	golang.org/x/sync v0.17.0 // indirect
++	golang.org/x/sys v0.36.0 // indirect
++)
++
++replace github.com/wicanr2/dosgolem => ../../..
+diff --git a/apps/hr/play/go.sum b/apps/hr/play/go.sum
+new file mode 100644
+index 0000000..4b2e6ab
+--- /dev/null
++++ b/apps/hr/play/go.sum
+@@ -0,0 +1,12 @@
++github.com/ebitengine/hideconsole v1.0.0 h1:5J4U0kXF+pv/DhiXt5/lTz0eO5ogJ1iXb8Yj1yReDqE=
++github.com/ebitengine/hideconsole v1.0.0/go.mod h1:hTTBTvVYWKBuxPr7peweneWdkUwEuHuB3C1R/ielR1A=
++github.com/ebitengine/purego v0.9.0 h1:mh0zpKBIXDceC63hpvPuGLiJ8ZAa3DfrFTudmfi8A4k=
++github.com/ebitengine/purego v0.9.0/go.mod h1:iIjxzd6CiRiOG0UyXP+V1+jWqUXVjPKLAI0mRfJZTmQ=
++github.com/hajimehoshi/ebiten/v2 v2.9.9 h1:JdDag6Ndj12iD4lxQGG8kbsrh7ssj4Sbzth6r929H/M=
++github.com/hajimehoshi/ebiten/v2 v2.9.9/go.mod h1:DAt4tnkYYpCvu3x9i1X/nK/vOruNXIlYq/tBXxnhrXM=
++github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
++github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
++golang.org/x/sync v0.17.0 h1:l60nONMj9l5drqw6jlhIELNv9I0A4OFgRsG9k2oT9Ug=
++golang.org/x/sync v0.17.0/go.mod h1:9KTHXmSnoGruLpwFjVSX0lNNA75CykiMECbovNTZqGI=
++golang.org/x/sys v0.36.0 h1:KVRy2GtZBrk1cBYA7MKu5bEZFxQk4NIDV6RLVcC8o0k=
++golang.org/x/sys v0.36.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
+diff --git a/apps/hr/play/keys.go b/apps/hr/play/keys.go
+new file mode 100644
+index 0000000..936d6ae
+--- /dev/null
++++ b/apps/hr/play/keys.go
+@@ -0,0 +1,63 @@
++package main
++
++import (
++	"github.com/hajimehoshi/ebiten/v2"
++	"github.com/hajimehoshi/ebiten/v2/inpututil"
++
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++// 前端保留鍵（docs/spec/003 第 7 節）：F1 說明、F11 或 Alt+Enter 全螢幕、F12 截圖、Ctrl+Q 結束。
++// 其餘按鍵送進遊戲。遊戲只用 int 21h 的讀鍵服務（docs/re/004）。
++
++type scanKey struct {
++	key   ebiten.Key
++	scan  uint8
++	ascii uint8
++}
++
++// 特殊鍵：ascii 為 0 的是擴充鍵（DOS 先回 00 再回掃描碼）。
++var specialKeys = []scanKey{
++	{ebiten.KeyEnter, 0x1C, '\r'},
++	{ebiten.KeyNumpadEnter, 0x1C, '\r'},
++	{ebiten.KeyEscape, 0x01, 0x1B},
++	{ebiten.KeyBackspace, 0x0E, 0x08},
++	{ebiten.KeyTab, 0x0F, '\t'},
++	{ebiten.KeyArrowUp, 0x48, 0},
++	{ebiten.KeyArrowDown, 0x50, 0},
++	{ebiten.KeyArrowLeft, 0x4B, 0},
++	{ebiten.KeyArrowRight, 0x4D, 0},
++	{ebiten.KeyHome, 0x47, 0},
++	{ebiten.KeyEnd, 0x4F, 0},
++	{ebiten.KeyPageUp, 0x49, 0},
++	{ebiten.KeyPageDown, 0x51, 0},
++	{ebiten.KeyInsert, 0x52, 0},
++	{ebiten.KeyDelete, 0x53, 0},
++	{ebiten.KeyF2, 0x3C, 0},
++	{ebiten.KeyF3, 0x3D, 0},
++	{ebiten.KeyF4, 0x3E, 0},
++	{ebiten.KeyF5, 0x3F, 0},
++	{ebiten.KeyF6, 0x40, 0},
++	{ebiten.KeyF7, 0x41, 0},
++	{ebiten.KeyF8, 0x42, 0},
++	{ebiten.KeyF9, 0x43, 0},
++	{ebiten.KeyF10, 0x44, 0},
++}
++
++// keyEvents 回傳這一幀要送進遊戲的鍵盤事件。可印出的字元走 ebiten 的文字輸入（含大小寫與
++// 鍵盤配置），特殊鍵走表（按下的那一幀送一次，按住 30 幀後每 3 幀重複一次）。
++func keyEvents(runes []rune) []hrrt.Event {
++	var out []hrrt.Event
++	for _, r := range runes {
++		if ev, ok := hrrt.RuneKeyEvent(r); ok {
++			out = append(out, ev)
++		}
++	}
++	for _, k := range specialKeys {
++		d := inpututil.KeyPressDuration(k.key)
++		if d == 1 || (d >= 30 && d%3 == 0) {
++			out = append(out, hrrt.KeyEvent(k.scan, k.ascii))
++		}
++	}
++	return out
++}
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+new file mode 100644
+index 0000000..cb186b5
+--- /dev/null
++++ b/apps/hr/play/main.go
+@@ -0,0 +1,71 @@
++// Command hr-play 是《高報酬戰將》的桌面前端（hr 專案的 docs/spec/003-runtime-and-frontend）。
++//
++// 玩家自備原版檔案（內含 MAIN.EXE 的目錄）；本程式不含、不下載任何原版檔案。
++// 存檔寫在使用者資料目錄的 high_reward/saves（dosgolem 的暫存層），原版目錄不動。
++package main
++
++import (
++	"flag"
++	"fmt"
++	"os"
++	"path/filepath"
++
++	"github.com/hajimehoshi/ebiten/v2"
++
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++var version = "dev"
++
++func main() {
++	orig := flag.String("orig", "", "原版檔案所在目錄（內含 MAIN.EXE）")
++	scale := flag.Int("scale", 2, "視窗倍率（遊戲區 640x400 的整數倍）")
++	linear := flag.Bool("linear", false, "放大時使用線性濾鏡（預設最近鄰）")
++	full := flag.Bool("fullscreen", false, "全螢幕啟動")
++	verify := flag.Bool("verify", false, "啟動時完整驗證必要檔案的 SHA-256")
++	interval := flag.Uint64("interval", 0, "計時器間隔（道指令／tick，分頻 65536）；0 ＝ 預設 300000")
++	noPatch := flag.Bool("no-stack-patch", false, "關掉堆疊補丁（診斷用）")
++	saves := flag.String("saves", "", "存檔目錄（預設在使用者資料目錄的 high_reward/saves）")
++	showVer := flag.Bool("version", false, "顯示版本")
++	flag.Parse()
++	if *showVer {
++		fmt.Println("hr-play", version)
++		return
++	}
++	root, err := findOriginal(*orig)
++	if err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(2)
++	}
++	dd, err := dataDir()
++	if err != nil {
++		fmt.Fprintln(os.Stderr, "建立資料目錄失敗：", err)
++		os.Exit(2)
++	}
++	saveDir := *saves
++	if saveDir == "" {
++		saveDir = filepath.Join(dd, "saves")
++	}
++	logf := func(format string, a ...any) { fmt.Fprintf(os.Stderr, format+"\n", a...) }
++	s, err := hrrt.Open(root, hrrt.Options{
++		SaveDir: saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf,
++	})
++	if err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(2)
++	}
++	if *scale < 1 {
++		*scale = 1
++	}
++	ebiten.SetWindowSize(gameW**scale, gameH**scale)
++	ebiten.SetWindowTitle("高報酬戰將 (hr-play " + version + ")")
++	ebiten.SetCursorMode(ebiten.CursorModeHidden)
++	ebiten.SetFullscreen(*full)
++	ebiten.SetTPS(60)
++	g := newGame(s, dd, *linear)
++	g.fullscr = *full
++	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(1)
++	}
++}
+diff --git a/apps/hr/play/paths.go b/apps/hr/play/paths.go
+new file mode 100644
+index 0000000..32a3333
+--- /dev/null
++++ b/apps/hr/play/paths.go
+@@ -0,0 +1,69 @@
++package main
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++)
++
++// findOriginal 找玩家自備的原版目錄（含 MAIN.EXE）。順序：-orig、環境變數 HR_ORIG、
++// 執行檔旁的 original、macOS app 的 Contents/Resources/original、目前目錄的 original。
++func findOriginal(flagVal string) (string, error) {
++	var tried []string
++	cands := []string{}
++	if flagVal != "" {
++		cands = append(cands, flagVal)
++	}
++	if v := os.Getenv("HR_ORIG"); v != "" {
++		cands = append(cands, v)
++	}
++	if exe, err := os.Executable(); err == nil {
++		dir := filepath.Dir(exe)
++		cands = append(cands, filepath.Join(dir, "original"), filepath.Join(dir, "..", "Resources", "original"))
++	}
++	cands = append(cands, "original")
++	for _, c := range cands {
++		tried = append(tried, c)
++		if st, err := os.Stat(filepath.Join(c, "MAIN.EXE")); err == nil && !st.IsDir() {
++			return c, nil
++		}
++		// 大小寫不分
++		if ents, err := os.ReadDir(c); err == nil {
++			for _, e := range ents {
++				if equalFold(e.Name(), "MAIN.EXE") {
++					return c, nil
++				}
++			}
++		}
++	}
++	return "", fmt.Errorf("找不到原版目錄（內含 MAIN.EXE）。已找過：%v\n請用 -orig <目錄> 指定，或把原版檔案放在執行檔旁的 original 目錄", tried)
++}
++
++func equalFold(a, b string) bool {
++	if len(a) != len(b) {
++		return false
++	}
++	for i := 0; i < len(a); i++ {
++		x, y := a[i], b[i]
++		if 'a' <= x && x <= 'z' {
++			x -= 32
++		}
++		if 'a' <= y && y <= 'z' {
++			y -= 32
++		}
++		if x != y {
++			return false
++		}
++	}
++	return true
++}
++
++// dataDir 是使用者資料目錄下的 high_reward。存檔放 saves，現場放 crash，截圖放 screenshots。
++func dataDir() (string, error) {
++	base, err := os.UserConfigDir()
++	if err != nil {
++		base = os.TempDir()
++	}
++	d := filepath.Join(base, "high_reward")
++	return d, os.MkdirAll(d, 0o755)
++}
+diff --git a/apps/hr/play/png.go b/apps/hr/play/png.go
+new file mode 100644
+index 0000000..a6acb02
+--- /dev/null
++++ b/apps/hr/play/png.go
+@@ -0,0 +1,27 @@
++package main
++
++import (
++	"image"
++	"image/color"
++	"image/png"
++	"os"
++
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++// writeFramePNG 把快照（遊戲區 640x400）存成 PNG。
++func writeFramePNG(path string, f *hrrt.Frame) error {
++	img := image.NewRGBA(image.Rect(0, 0, 640, 400))
++	for y := 0; y < 400; y++ {
++		for x := 0; x < 640; x++ {
++			i := ((y+40)*f.W + x) * 3
++			img.Set(x, y, color.RGBA{f.RGB[i], f.RGB[i+1], f.RGB[i+2], 255})
++		}
++	}
++	out, err := os.Create(path)
++	if err != nil {
++		return err
++	}
++	defer out.Close()
++	return png.Encode(out, img)
++}
+diff --git a/apps/hr/runtime/keys.go b/apps/hr/runtime/keys.go
+new file mode 100644
+index 0000000..1f3f792
+--- /dev/null
++++ b/apps/hr/runtime/keys.go
+@@ -0,0 +1,27 @@
++package runtime
++
++import "github.com/wicanr2/dosgolem/internal/dos"
++
++// 輸入事件的建構函式，讓前端不必引用 internal 套件。
++
++// MouseMoveEvent 是滑鼠移動（遊戲區座標 0..639、0..399）。
++func MouseMoveEvent(x, y int) Event { return Event{Kind: EvMouseMove, X: x, Y: y} }
++
++// MouseButtonEvent 是滑鼠按下或放開（btn：0 左、1 右）。
++func MouseButtonEvent(x, y, btn int, down bool) Event {
++	return Event{Kind: EvMouseButton, X: x, Y: y, Btn: btn, Down: down}
++}
++
++// KeyEvent 是鍵盤事件。一般鍵 ascii 非 0；擴充鍵（方向鍵、功能鍵）ascii ＝ 0，只有掃描碼。
++func KeyEvent(scan, ascii uint8) Event {
++	return Event{Kind: EvKey, Key: dos.Key{Scan: scan, ASCII: ascii}}
++}
++
++// RuneKeyEvent 把可印出的 ASCII 字元轉成鍵盤事件；不是可送入的字元回 false。
++func RuneKeyEvent(r rune) (Event, bool) {
++	k, ok := dos.KeyForRune(r)
++	if !ok {
++		return Event{}, false
++	}
++	return Event{Kind: EvKey, Key: k}, true
++}
+diff --git a/apps/hr/runtime/png.go b/apps/hr/runtime/png.go
+new file mode 100644
+index 0000000..2fd2027
+--- /dev/null
++++ b/apps/hr/runtime/png.go
+@@ -0,0 +1,36 @@
++package runtime
++
++import (
++	"bytes"
++	"fmt"
++	"image"
++	"image/color"
++	"image/png"
++)
++
++// ScreenPNG 回傳目前畫面的調色盤 PNG，編碼與 `cmd/probe -dump-screen-png` 相同
++// （Machine.Planar 加 VGA.DACIndex，標準庫預設壓縮），所以雜湊可與 docs/re/008 的收據比對。
++// 只能在 Run、RunSteps 沒有執行時呼叫。
++func (s *Session) ScreenPNG() ([]byte, error) {
++	m := s.m
++	w, h, px := m.Planar()
++	if px == nil {
++		return nil, fmt.Errorf("現在不是平面模式（視訊模式 %02Xh），沒有畫面可存", m.VideoMode())
++	}
++	dac := m.Palette()
++	pal := make(color.Palette, 256)
++	for i := range dac {
++		pal[i] = color.RGBA{dac[i][0], dac[i][1], dac[i][2], 255}
++	}
++	img := image.NewPaletted(image.Rect(0, 0, w, h), pal)
++	for y := 0; y < h; y++ {
++		for x := 0; x < w; x++ {
++			img.Pix[y*img.Stride+x] = m.VGA.DACIndex(px[y*w+x])
++		}
++	}
++	var buf bytes.Buffer
++	if err := png.Encode(&buf, img); err != nil {
++		return nil, err
++	}
++	return buf.Bytes(), nil
++}
+diff --git a/apps/hr/runtime/required.go b/apps/hr/runtime/required.go
+new file mode 100644
+index 0000000..7aabca4
+--- /dev/null
++++ b/apps/hr/runtime/required.go
+@@ -0,0 +1,94 @@
++package runtime
++
++import (
++	"bufio"
++	"crypto/sha256"
++	_ "embed"
++	"encoding/hex"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"strconv"
++	"strings"
++)
++
++// requiredTSV 是必要檔案清單：檔名、大小、SHA-256。來自 docs/re/source-inventory.tsv 中
++// jsdos 版含有、且 MAIN.EXE 讀取的資料檔（排除存檔 GAMEFILE.*、其他程式與片頭片尾素材）。
++// 清單只含檔名、大小與雜湊，不含任何原版內容。
++//
++//go:embed required.tsv
++var requiredTSV string
++
++// RequiredFile 是清單中的一列。
++type RequiredFile struct {
++	Name   string
++	Size   int64
++	SHA256 string
++}
++
++// RequiredFiles 解析內嵌清單。
++func RequiredFiles() []RequiredFile {
++	var out []RequiredFile
++	sc := bufio.NewScanner(strings.NewReader(requiredTSV))
++	for sc.Scan() {
++		f := strings.Split(sc.Text(), "\t")
++		if len(f) < 3 {
++			continue
++		}
++		n, err := strconv.ParseInt(f[1], 10, 64)
++		if err != nil {
++			continue
++		}
++		out = append(out, RequiredFile{Name: f[0], Size: n, SHA256: f[2]})
++	}
++	return out
++}
++
++// CheckRequiredFiles 檢查必要檔案存在且大小相符；verify 為真時另驗 SHA-256。
++// DOS 檔名大小寫不分：目錄中以大小寫不分的方式找。有問題就列出全部並回錯誤。
++func CheckRequiredFiles(root string, verify bool) error {
++	ents, err := os.ReadDir(root)
++	if err != nil {
++		return fmt.Errorf("讀不到原版目錄 %s：%w", root, err)
++	}
++	byUpper := map[string]string{}
++	for _, e := range ents {
++		byUpper[strings.ToUpper(e.Name())] = e.Name()
++	}
++	var bad []string
++	for _, rf := range RequiredFiles() {
++		real, ok := byUpper[strings.ToUpper(rf.Name)]
++		if !ok {
++			bad = append(bad, rf.Name+"（缺檔）")
++			continue
++		}
++		p := filepath.Join(root, real)
++		st, err := os.Stat(p)
++		if err != nil || st.IsDir() {
++			bad = append(bad, rf.Name+"（不是檔案）")
++			continue
++		}
++		if st.Size() != rf.Size {
++			bad = append(bad, fmt.Sprintf("%s（大小 %d，應為 %d）", rf.Name, st.Size(), rf.Size))
++			continue
++		}
++		if verify {
++			f, err := os.Open(p)
++			if err != nil {
++				bad = append(bad, rf.Name+"（無法開啟）")
++				continue
++			}
++			h := sha256.New()
++			_, err = io.Copy(h, f)
++			f.Close()
++			if err != nil || hex.EncodeToString(h.Sum(nil)) != rf.SHA256 {
++				bad = append(bad, rf.Name+"（SHA-256 不符）")
++			}
++		}
++	}
++	if len(bad) > 0 {
++		return fmt.Errorf("原版目錄 %s 不完整，%d 個檔案有問題：\n  %s", root, len(bad), strings.Join(bad, "\n  "))
++	}
++	return nil
++}
+diff --git a/apps/hr/runtime/required.tsv b/apps/hr/runtime/required.tsv
+new file mode 100644
+index 0000000..d5933e1
+--- /dev/null
++++ b/apps/hr/runtime/required.tsv
+@@ -0,0 +1,77 @@
++ALCOHOL.MID	0	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
++ARROW.GRP	5160	05141ccb0c023af81b5577dda4c9455c5310d9b88d202f61e4d5ef4d652ff1d1
++BATTLE1.MID	2227	063b16364f212b2ec50b5101dc65146b8092c3802c18ccfaf068d98e21928289
++BATTLE2.MID	3039	e01c00a1385c51301b5574fde557f54c3c380acc9b6b1b6f707c87339031004c
++BATTLE3.MID	4386	d0e72a483a53fbecaf65dedbaea2da8aee848ab82adac54e6daa4010260e69a2
++BC32.MRG	136840	fefb8bf32607f6fcc2017248979fb9ff0fe3b0d38abd923e61540efcc222d608
++BOMB.MRG	2602	58386e42d0339266e5e6beb5df1d55e0356ee742aa2630eeed7c80930a68b50d
++BSTAGE.MRG	91377	3ce5efaa6c0015e2c1efb520574a2b7c14142bc297f63120cf9fdb6cc0ae9d69
++BUILD.MID	375	577d1e78b82290f7a98497a8aa2d6f66b58daa7ced528acab448745abd75f709
++BUTTON.MRG	8435	c303c0cd1c0225d04a3a6db2f0b971da20db7a5d904736d9f289f22809597a36
++CANNON.MRG	64073	02a64758ac88906ced3b2ecb5fa795a94338c5a55bf0e65d2469853a730b2de4
++CFONT.15	416010	60e55cf73ba2eb8e83018e8a9b585e22524e730e240732adb5e746b7ed54d8db
++CHAPEL.MID	895	175bc4c26da124a0f06782ea5d9748a3eec6147c156b0930cbbd6281a083f220
++CLEAR.MID	368	1c39997b2c3605e1427ae0682470339887cec8aff3d32593bc57b3f620b9000b
++COIN.BIN	10320	b9449b6cc81bb771eb2d2107f1e21e4c181cdcdec195e78b28411ff5491ccba9
++COUNTRY.MES	2096	5a8dba3450ab27712f45469c67d304cb15bb7b0d911734af7ca1f871924431aa
++CURSOR.MRG	375	ce4c773cd95636830452eff3e47442f7815420242899188fde21f9988969ca25
++DANCER.MID	1292	1de552ad96e56dbb7800df9e670156004cd428aacb1695aa21544e2f5c973aff
++DANCE_E.MID	326	b1b1f7132edf135b6184954f43eeaf4aedc01ee317504b5346490b45f92ea92a
++DEAD.MRG	15537	27d1848685702c18c451d811af7357e460c563a722920f10bb51bc4a6ba86b38
++DISK_A.INF	4	c14066a3964effde08b591d0b9644c144bf430970960eb705686c491cabb1f67
++DISK_B.INF	4	f375d353fcff7ef056246517c1566b9926ca1324bd51a80fe8d86cd59c95f2b7
++DISK_C.INF	4	13aef87a1cd94c93710a5ecec57ecaa0167f988cd523fc625d59c912663df562
++DISK_E.INF	4	fe0f750fbd214e5a540c799bd8a8df5ad36e6fac6eac170b67af17e0dadf4240
++ENJOY.MID	3518	d5cb70c8dee281678cd887bc54f0875c35388f5ed5bb2424a96c964520162a67
++ESPMES.MRG	47717	e7cd0398746fafe9a0ba8b4c07de16662983b5071fa88595a48700fed22994d3
++EXIST.MRG	678	9104b86d47665ecb3288104510d934da83453fc78c5dfc5483d3575344009b8f
++FACE.MRG	399603	b4de318842719a14f255d42fa1f1c102ad50d5ca6ac3e9db03496ac39ee117ed
++FCHAR.MRG	16880	babb516e0071a517b46ee1637cdea5d8ca066947cd14e9caf12c583b53ca84cf
++FIGHT1.MID	398	35e9d6e69cc58fe3cc25d2ef39bdb1a0d3968244e07e3a69bd62a1ffbaec60c8
++FIGHT2.MID	450	aa10c6ab1ab35c8a4dc21398733a781e189118e377a069180bf801a8176f34df
++FIGHTEND.MID	380	8abb8a4e53533aacbd4e8a82cc1c9e7d8bee5d6e9195fbbf60d312ee04c76a71
++FNAME.DAT	158	79a1e43ef303b9782cd0c306f8b12cdb0b4bc773f9bfa0c2509e426a004ea1b3
++GMAP.PXS	31997	aa067493ee343a9fe584ec5dc806991065b7d5fc66040c4787b10281ada45583
++GOLD.MID	307	12c128a7949db35690110fa7c8400e377281e3e208cd152660391b2d0e3de565
++ITEM.MRG	22146	b4c2d98e2370db1266e285cce6ae61084581538a1ec6acde60a166e386573016
++KING.MID	1613	d6d95ec9b2abdcfe5376980a0006261ea1b0f23ddddf9d2e30da2dba12b467c3
++KING2.MID	737	115129554bc0aa1e8f600bd225445ef46a1d407e5b7f1d2b127e68f7217100b4
++KOMA.MRG	26574	b198aa5f80dcf4ce5e3af40079133a2bea49b918f43f1dae5bfbd062e7bd80f4
++LTIME.MRG	8283	5d2fe0ee3b60cc7a2330361ab409992af2ee4e837e0974e4ca17e7bbf834abac
++MAIN.EXE	539424	08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e
++MAP01.PXZ	51097	e2284185738c0cc0a7b0eb414c16e630e5b9dce05fbefb263442f775fc37f86f
++MAP02.PXZ	46791	32e2749f83c0f8fbe39504ac76c319deed4fbecaf7ab1a46d23f87502c9b5a61
++MAP03.PXZ	32368	9150074649086d12c074b288554c4bf5eba49a2ee1de23f7c47c552158fe332a
++MAP04.PXZ	39698	5c0d1e63442fa26bc09754c681652dc04446d62c2a5769a2ea0461462ece4dab
++MAP05.PXZ	56403	c5807f1f400c998ad6b5db2b68926f1b007c2c676c153c60fc9fa561e0f139cb
++MAP06.PXZ	46660	bbea08dfc7c50603a76d98450581fc1c7ce479805f0e72bcd76e61a8fa1d75c0
++MAP07.PXZ	36554	1d7f8e4ddee8208209271c5aa1103efc4177b4303be9a2e5d115e8dd4e1dd18a
++MAP08.PXZ	44368	6180cf06005363efa5996e609f6e97e4576c27bf4c2d2e58040c9bd91009ba4b
++MAP09.PXZ	39722	1e9584462cb89b6dd181a89e00e5b3489cba730d18400e4269b3f95958465ee3
++MAP1.MID	11743	8333e3a71c031a6f754941feb576226c8c14e7f30c33d5ab143150ebba541da6
++MAP10.PXZ	37313	9eb458478de4b04b080aee2a101f7c3152b70c68154af70e75ace0798aed102a
++MAP11.PXZ	56223	db9d7deba173f8d7c38a9258095d604428c4bb94762d9783a751cfc231b76e0e
++MAP2.MID	2006	d0f2dcc581a0acc0e9b133ab3c07e77ab14874ea32990be2d445b35cf3afe8e7
++MAP3_1.MID	8333	4d59b98d1597035cf0262a91bb58cf9e77d5e69b945371c8d9e54a4e181a2ada
++MAP3_2.MID	9224	cb6453c3ce7d843f010e30133bffa1643f9bc492982212477a0ed357055b0858
++MISSION.MID	519	9467f90c0abe43622ecb3f1d290a71cd6f0a90db8ca442e68ec6b26e9c1e91f0
++NATIONAL.MID	2823	17bf54e1590c7d8ac3924c578c3a245e5d51d301d43628839ac7829c66a63cb2
++NOWEAPON.MRG	11983	4a9ae3f810963e8ac3d171e6c548a7e6345fc1244bf8d5d2efd737817b4ad9ba
++PANZER.MRG	67863	8921b45c5e4d7739fa99f4bbbb0cf77714a1c094f2879295e1325df632e123ab
++PLANE.MRG	68032	c40bdff2857c337f775897d4b96aab32645f2b2c8b128683e9c1c79132d3257b
++PLATE1.PAT	128	4f32df39caecd88e6f239622311d6fcc057207ebd4ca06fbc7ad1e49c298baf8
++PLATE2.PAT	128	c512580a5cad8400638e57e137b2f56aa4d7b6328832e95915be3211c8b75b3b
++POWERMES.MES	7545	46f05b869906e5ba4d21a408f6a1672dc02f0a8c77e80fb727fec8b18598ba7a
++PRINCESS.MID	1136	8e4f81d0563a80d062feebae1d69da31432102c878f87ac9e8223660276a65e5
++ROUT.MID	391	12bc7bff0e8dcb3a3478f8b23b5c8bc0e0e6099de14ed5a3c65b72f3ea779157
++SCOUT.MID	1299	706bf29c6ba7fea6fe9c406fb8cc55af92c190d8a1b237cdb0fcb8b3cee7f554
++SHOPTAB.TBL	19800	ceb133f82c791cac6d8b6c5158aa75b1579b6d3bc8c034061b49c4565b9d4176
++SOUND_E.PCM	18388	8d86588cd24ec646a48f8217ce41e9ca543519376710f48371d3fbba2f3da012
++SP.MES	12039	f88fed9bbd525c5fb0972b2ef58718a59615b6fc92721c2ab83c5bd1cdd24b0c
++SPOINT.MRG	56634	b9b6032af1a9a5b3772f11754cab74cd3d93676c1b8b1ab2ef57b06e6dd22877
++SYSTEM.MES	10225	eb22a69369bff1dad2a6cfbc8812080df4d60a29d25ae0c545690ba5ec75cb0e
++SYS_LOAD.MID	1215	d13784d7aacb531684920a09c26bc0739d9bfb3297e53237f35f74c36ca124f8
++SYS_SAVE.MID	536	9227afc75758e8feb0d8f0d49dd473ce4762718b9beb5ecab8cff1182a516956
++UWASA.MES	5496	906cfaf382284466fa9f420db4c99e0d1227e60a41f537d6624df666ad4273d8
++VICTORY.MID	396	1397a8ff3d341504c3189a12868afb312b64fd7dbe367f3bcf676e43f39c4850
++VS.MRG	241495	5997ac71bd81d6810c79b8fdbc623727234fc80d681d9bf307cf51bbef1590ca
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+new file mode 100644
+index 0000000..be2a473
+--- /dev/null
++++ b/apps/hr/runtime/session.go
+@@ -0,0 +1,446 @@
++// Package runtime 是《高報酬戰將》的執行層（hr 專案的 `docs/spec/003-runtime-and-frontend`）。
++//
++// Session 包住 machine.Machine 與 dos.DOS，不認識視窗。一個模擬迴圈（Run）擁有機器，
++// 其他執行緒只經 Input（輸入佇列）、Frame（最近一個快照）與 Stats 與它互動。
++// 無頭驗收用 RunSteps（同步、不計時），此時不可同時呼叫 Run。
++//
++// ⚠ 本專案不含任何原版檔案；root 由玩家自備，且只讀（寫入走暫存層 SaveDir）。
++package runtime
++
++import (
++	"context"
++	"fmt"
++	"os"
++	"path/filepath"
++	"sync"
++	"sync/atomic"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/patch"
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++const (
++	// NativeInterval 表示不動 dosgolem 的預設計時器間隔（分頻 65536 時約 636,085 道指令）。
++	NativeInterval = ^uint64(0)
++	// DefaultInterval 是 play 模式的預設間隔（docs/spec/003 第 4 節）。
++	DefaultInterval = 300_000
++	// MinInterval 是自動降速的下限。
++	MinInterval = 150_000
++	// TickHz 是 PIT 通道 0 在分頻 65536 時的頻率。
++	TickHz float64 = 1193182.0 / 65536.0
++
++	trimEvery  = 2_000_000
++	batchSteps = 2048
++)
++
++// Options 是 Open 的選項。
++type Options struct {
++	// SaveDir 是可寫暫存層（dosgolem 的 d.Scratch）；空字串表示唯讀（寫入只記帳）。
++	SaveDir string
++	// Interval 是分頻 65536 時每個計時器中斷間隔幾道指令。0 ＝ DefaultInterval，
++	// NativeInterval ＝ 維持 dosgolem 預設。
++	Interval uint64
++	// NoStackPatch 關掉 docs/spec/002 的堆疊補丁（對照與診斷用）。
++	NoStackPatch bool
++	// HostClock 讓 DOS 日期與時間取主機時鐘（存檔列才有真的日期）；預設維持固定值（決定性）。
++	HostClock bool
++	// Verify 對必要檔案做完整 SHA-256 驗證（預設只驗存在與大小）。
++	Verify bool
++	// Log 收執行層的紀錄行；nil ＝ 丟棄。
++	Log func(format string, args ...any)
++	// NoPacing 讓 Run 不依牆鐘限速（測試用）。
++	NoPacing bool
++}
++
++// StopKind 是停機種類。
++type StopKind int
++
++const (
++	StopQuit      StopKind = iota + 1 // 結束碼 1：玩家結束遊戲
++	StopEnding                        // 結束碼 0：進入片尾（HR.BAT 會接著跑 END.EXE，第 1 版不跑）
++	StopExitOther                     // 其他結束碼
++	StopCPUError
++	StopOutOfRange
++	StopStackOverflow
++	StopHalted
++	StopDivide
++	StopSteps // RunSteps 跑滿
++)
++
++// Stop 是停機原因。RunSteps 跑滿步數時回 Kind ＝ StopSteps。
++type Stop struct {
++	Kind StopKind
++	Code int
++	Msg  string
++}
++
++func (s *Stop) Error() string { return s.Msg }
++
++// Normal 回報這是不是正常結束（玩家結束或進片尾）。
++func (s *Stop) Normal() bool { return s != nil && (s.Kind == StopQuit || s.Kind == StopEnding) }
++
++// Frame 是 Run 在滑鼠輪詢點產生的畫面快照，建立後不再修改。
++type Frame struct {
++	W, H  int
++	RGB   []uint8 // W*H*3
++	Steps uint64
++	Ticks uint64
++	Seq   uint64
++}
++
++// Stats 是 Run 定期更新的統計。
++type Stats struct {
++	Steps      uint64
++	Ticks      uint64
++	SimSeconds float64
++	DOS        dos.Stats
++	MinSP      uint16
++	StackTop   uint16
++	Interval   uint64 // 目前的間隔（分頻 65536 時每個 tick 幾道指令）
++	Lowered    bool   // 是否曾因跑不到 18.2 Hz 降低間隔
++}
++
++// EventKind 是輸入事件種類。
++type EventKind int
++
++const (
++	EvMouseMove EventKind = iota + 1
++	EvMouseButton
++	EvKey
++)
++
++// Event 是前端送來的輸入。座標是遊戲區座標（0..639、0..399）。
++type Event struct {
++	Kind EventKind
++	X, Y int
++	Btn  int  // 0 左、1 右
++	Down bool // 按下或放開
++	Key  dos.Key
++}
++
++// Session 是一次遊戲執行。
++type Session struct {
++	m    *machine.Machine
++	d    *dos.DOS
++	opt  Options
++	logf func(string, ...any)
++
++	imageSHA string
++	patchRes patch.Result
++
++	stackSeg uint16
++	stackTop uint16
++	minSP    uint16
++
++	mu     sync.Mutex
++	inbox  []Event
++	stats  Stats
++	frame  atomic.Pointer[Frame]
++	frmSeq uint64
++
++	// 以下欄位只由持有機器的迴圈（Run 或 RunSteps）使用。
++	held           [2]bool
++	relPending     [2]bool
++	pollsAt        [2]int
++	pos            [2]int
++	totalPolls     int
++	lastPolls      int
++	nextTrim       uint64
++	lastSnap       time.Time
++	lastSnapPollAt time.Time
++	interval       uint64
++	lowered        bool
++	lastDiv        int
++}
++
++// Open 驗證原版、載入 MAIN.EXE、套用補丁並安裝 DOS 服務。
++func Open(root string, opt Options) (*Session, error) {
++	s := &Session{opt: opt, logf: opt.Log, minSP: 0xFFFF}
++	if s.logf == nil {
++		s.logf = func(string, ...any) {}
++	}
++	img, err := os.ReadFile(filepath.Join(root, "MAIN.EXE"))
++	if err != nil {
++		return nil, fmt.Errorf("讀不到 MAIN.EXE：%w", err)
++	}
++	s.imageSHA = patch.ImageSHA256(img)
++	if s.imageSHA != patch.MainEXESHA256 {
++		return nil, fmt.Errorf("MAIN.EXE 的 SHA-256 是 %s，本程式只支援 %s", s.imageSHA, patch.MainEXESHA256)
++	}
++	if err := CheckRequiredFiles(root, opt.Verify); err != nil {
++		return nil, err
++	}
++	s.m = machine.New()
++	if err := s.m.LoadEXE(img); err != nil {
++		return nil, err
++	}
++	if !opt.NoStackPatch {
++		res, err := patch.ApplyStackPatch(s.m, s.imageSHA, patch.StklenPatched)
++		if err != nil {
++			return nil, err
++		}
++		s.patchRes = res
++		s.logf("%s", res)
++	}
++	s.d = dos.New(s.m, root)
++	s.d.Install()
++	if opt.SaveDir != "" {
++		if err := os.MkdirAll(opt.SaveDir, 0o755); err != nil {
++			return nil, err
++		}
++		s.d.Scratch = opt.SaveDir
++	}
++	if opt.HostClock {
++		now := time.Now()
++		s.d.Date = dos.Date{Year: uint16(now.Year()), Month: uint8(now.Month()), Day: uint8(now.Day()), Weekday: uint8(now.Weekday())}
++		s.d.Now = dos.Time{Hour: uint8(now.Hour()), Min: uint8(now.Minute()), Sec: uint8(now.Second())}
++	}
++	s.stackSeg = s.m.CPU.Seg[cpu.SS]
++	iv := opt.Interval
++	if iv == 0 {
++		iv = DefaultInterval
++	}
++	if iv != NativeInterval {
++		s.setInterval(iv)
++		s.logf("計時器間隔：每 %d 道指令一個 tick（分頻 65536）", iv)
++	} else {
++		s.interval = s.m.IRQ0Every
++	}
++	s.nextTrim = trimEvery
++	return s, nil
++}
++
++// setInterval 把分頻 65536 時的間隔設為 e。IRQ0Base 的標定分頻是 17,000
++// （machine.recalcIRQ0），所以要 IRQ0Base ＝ e × 17000 ÷ 65536 再 RecalcIRQ0。
++func (s *Session) setInterval(e uint64) {
++	s.interval = e
++	s.m.IRQ0Base = e * 17000 / 65536
++	s.m.RecalcIRQ0()
++}
++
++// PatchResult 回報啟動時的補丁結果。
++func (s *Session) PatchResult() patch.Result { return s.patchRes }
++
++// Input 把輸入事件放進佇列，由持有機器的迴圈在批次邊界取出。可由任何執行緒呼叫。
++func (s *Session) Input(ev Event) {
++	s.mu.Lock()
++	s.inbox = append(s.inbox, ev)
++	s.mu.Unlock()
++}
++
++// Frame 回傳最近一個快照；還沒有快照時回 nil。
++func (s *Session) Frame() *Frame { return s.frame.Load() }
++
++// Stats 回傳最近的統計。
++func (s *Session) Stats() Stats {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	return s.stats
++}
++
++// Machine 與 DOS 讓無頭測試與診斷工具讀機器；只能在 Run、RunSteps 沒有執行時使用。
++func (s *Session) Machine() *machine.Machine { return s.m }
++func (s *Session) DOS() *dos.DOS             { return s.d }
++
++func (s *Session) drainInput() {
++	s.mu.Lock()
++	evs := s.inbox
++	s.inbox = nil
++	s.mu.Unlock()
++	for _, ev := range evs {
++		switch ev.Kind {
++		case EvMouseMove:
++			s.pos = [2]int{ev.X, ev.Y + 40}
++			s.d.MoveMouse(ev.X, ev.Y+40)
++		case EvMouseButton:
++			b := ev.Btn & 1
++			s.d.MoveMouse(ev.X, ev.Y+40)
++			s.pos = [2]int{ev.X, ev.Y + 40}
++			if ev.Down {
++				if !s.held[b] {
++					s.d.PressMouse(b)
++					s.held[b] = true
++					s.relPending[b] = false
++					s.pollsAt[b] = len(s.d.Mouse.Polls)
++				}
++			} else if s.held[b] {
++				s.relPending[b] = true
++			}
++		case EvKey:
++			if ev.Key.ASCII != 0 {
++				s.d.Stdin = append(s.d.Stdin, ev.Key.ASCII)
++			} else {
++				s.d.Stdin = append(s.d.Stdin, 0x00, ev.Key.Scan)
++			}
++		}
++	}
++	// 按住到遊戲輪詢 3 次才放開，避免遊戲來不及讀到短按。
++	for b := 0; b < 2; b++ {
++		if s.held[b] && s.relPending[b] && len(s.d.Mouse.Polls)-s.pollsAt[b] >= 3 {
++			s.d.ReleaseMouse(b)
++			s.held[b], s.relPending[b] = false, false
++		}
++	}
++}
++
++func (s *Session) idleForTrim() bool {
++	return !s.held[0] && !s.held[1] && len(s.d.Stdin) == 0
++}
++
++// stepBatch 執行至多 n 道指令，回傳停機原因（nil ＝ 還沒停）。
++func (s *Session) stepBatch(n int) *Stop {
++	m, d := s.m, s.d
++	for i := 0; i < n; i++ {
++		c := m.CPU
++		if s.stackTop == 0 && m.Steps > 200 {
++			s.stackTop = m.Read16(patch.StklenAddr)
++		}
++		if s.stackTop != 0 && c.Seg[cpu.SS] == s.stackSeg {
++			sp := c.R[cpu.SP]
++			if sp > s.stackTop {
++				return &Stop{Kind: StopStackOverflow, Msg: fmt.Sprintf("堆疊溢位：SS:SP ＝ %04X:%04X，堆疊頂端 %04X，本次最低 SP %04X", s.stackSeg, sp, s.stackTop, s.minSP)}
++			}
++			if sp < s.minSP {
++				s.minSP = sp
++			}
++		}
++		if a := cpu.Linear(c.Seg[cpu.CS], c.IP); a >= machine.VideoSeg*16 && a < machine.MemSize {
++			return &Stop{Kind: StopOutOfRange, Msg: fmt.Sprintf("跑出可用記憶體：CS:IP ＝ %04X:%04X", c.Seg[cpu.CS], c.IP)}
++		}
++		if err := m.Step(); err != nil {
++			return &Stop{Kind: StopCPUError, Msg: "CPU 錯誤：" + err.Error()}
++		}
++		if d.Exited {
++			switch d.ExitCode {
++			case 1:
++				return &Stop{Kind: StopQuit, Code: 1, Msg: "玩家結束遊戲（結束碼 1）"}
++			case 0:
++				return &Stop{Kind: StopEnding, Code: 0, Msg: "遊戲結束（結束碼 0，原版會接著播片尾）"}
++			default:
++				return &Stop{Kind: StopExitOther, Code: int(d.ExitCode), Msg: fmt.Sprintf("程式以結束碼 %d 結束", d.ExitCode)}
++			}
++		}
++		if m.CPU.Halted {
++			return &Stop{Kind: StopHalted, Msg: "CPU 停在 HLT"}
++		}
++		if n := len(m.CPU.DivErrors); n != s.lastDiv {
++			s.lastDiv = n
++			return &Stop{Kind: StopDivide, Msg: "除以零或除法溢位"}
++		}
++	}
++	return nil
++}
++
++// afterBatch 做批次邊界的事：快照、清診斷紀錄、更新統計。
++func (s *Session) afterBatch(force bool) {
++	m, d := s.m, s.d
++	polls := len(d.Mouse.Polls)
++	if polls != s.lastPolls {
++		s.lastPolls = polls
++		// 輪詢點：遊戲回到等輸入的迴圈，游標已畫完。快照上限約 120 Hz。
++		if time.Since(s.lastSnap) >= 8*time.Millisecond || force {
++			s.snapshot()
++		}
++		s.lastSnapPollAt = time.Now()
++	} else if time.Since(s.lastSnapPollAt) > 100*time.Millisecond && time.Since(s.lastSnap) >= 100*time.Millisecond {
++		s.snapshot() // 動畫或載入中，滑鼠沒有輪詢
++	}
++	if m.Steps >= s.nextTrim && s.idleForTrim() {
++		s.nextTrim = m.Steps + trimEvery
++		s.totalPolls += TrimDiagnostics(m, d)
++		s.lastPolls = 0
++	}
++	st := Stats{
++		Steps: m.Steps, Ticks: m.Ticks, SimSeconds: float64(m.Ticks) / TickHz,
++		DOS: d.Stats(), MinSP: s.minSP, StackTop: s.stackTop, Interval: s.interval, Lowered: s.lowered,
++	}
++	s.mu.Lock()
++	s.stats = st
++	s.mu.Unlock()
++}
++
++func (s *Session) snapshot() {
++	w, h, rgb := s.m.PlanarRGB()
++	if rgb == nil {
++		return
++	}
++	s.frmSeq++
++	s.lastSnap = time.Now()
++	s.frame.Store(&Frame{W: w, H: h, RGB: rgb, Steps: s.m.Steps, Ticks: s.m.Ticks, Seq: s.frmSeq})
++}
++
++// RunSteps 同步執行到絕對步數 total（不計時）。回傳的 Stop 在跑滿時 Kind ＝ StopSteps。
++func (s *Session) RunSteps(total uint64) *Stop {
++	for s.m.Steps < total {
++		s.drainInput()
++		n := batchSteps
++		if rest := total - s.m.Steps; rest < uint64(n) {
++			n = int(rest)
++		}
++		if st := s.stepBatch(n); st != nil {
++			s.afterBatch(true)
++			return st
++		}
++		s.afterBatch(false)
++	}
++	s.afterBatch(true)
++	return &Stop{Kind: StopSteps, Msg: fmt.Sprintf("跑滿 %d 道指令", total)}
++}
++
++// Run 依牆鐘計時執行，直到停機或 ctx 取消（取消時回 nil）。
++func (s *Session) Run(ctx context.Context) *Stop {
++	start := time.Now()
++	baseTicks := s.m.Ticks
++	lastCheck := start
++	var checkTicks uint64 = baseTicks
++	for {
++		if ctx.Err() != nil {
++			return nil
++		}
++		s.drainInput()
++		if !s.opt.NoPacing {
++			desired := uint64(time.Since(start).Seconds()*TickHz) + baseTicks
++			if s.m.Ticks >= desired {
++				time.Sleep(time.Millisecond)
++				s.drainInput()
++				s.afterBatch(false)
++				continue
++			}
++			// 落後太多（視窗被擋住、機器暫停）時不補跑，重設基準，避免突然快轉。
++			if desired-s.m.Ticks > 18 {
++				start = time.Now()
++				baseTicks = s.m.Ticks
++			}
++		}
++		if st := s.stepBatch(batchSteps); st != nil {
++			s.afterBatch(true)
++			return st
++		}
++		s.afterBatch(false)
++		if !s.opt.NoPacing && time.Since(lastCheck) >= 2*time.Second {
++			s.adapt(time.Since(lastCheck), s.m.Ticks-checkTicks)
++			lastCheck, checkTicks = time.Now(), s.m.Ticks
++		}
++	}
++}
++
++// adapt 每 2 秒檢查：實際 tick 數落後 5% 以上就把間隔降為 90%（下限 MinInterval），不再調回。
++func (s *Session) adapt(elapsed time.Duration, ticks uint64) {
++	want := elapsed.Seconds() * TickHz
++	if want <= 0 || float64(ticks) >= want*0.95 {
++		return
++	}
++	if s.interval == 0 || s.interval <= MinInterval {
++		return
++	}
++	next := s.interval * 9 / 10
++	if next < MinInterval {
++		next = MinInterval
++	}
++	s.logf("跑不到 %.1f Hz（2 秒內 %d 個 tick，應有 %.0f）：間隔 %d → %d", TickHz, ticks, want, s.interval, next)
++	s.setInterval(next)
++	s.lowered = true
++}
+diff --git a/apps/hr/runtime/session_test.go b/apps/hr/runtime/session_test.go
+new file mode 100644
+index 0000000..892c89c
+--- /dev/null
++++ b/apps/hr/runtime/session_test.go
+@@ -0,0 +1,180 @@
++package runtime
++
++import (
++	"context"
++	"crypto/sha256"
++	"encoding/hex"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++	"time"
++
++	"github.com/wicanr2/dosgolem/internal/dos"
++)
++
++// 原版素材不在本儲存庫：缺檔就 skip，不用替代檔（CLAUDE.md [HARD]）。
++func origRoot(t *testing.T) string {
++	t.Helper()
++	root := os.Getenv("HR_ORIG")
++	if root == "" {
++		root = "/orig/orig"
++	}
++	if _, err := os.Stat(filepath.Join(root, "MAIN.EXE")); err != nil {
++		t.Skipf("沒有原版目錄（%s）：%v", root, err)
++	}
++	return root
++}
++
++func pngHash(t *testing.T, s *Session) string {
++	t.Helper()
++	b, err := s.ScreenPNG()
++	if err != nil {
++		t.Fatal(err)
++	}
++	h := sha256.Sum256(b)
++	return hex.EncodeToString(h[:])
++}
++
++func TestOpenRejectsWrongImage(t *testing.T) {
++	dir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(dir, "MAIN.EXE"), []byte("MZ not the real thing"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	_, err := Open(dir, Options{})
++	if err == nil || !strings.Contains(err.Error(), "SHA-256") {
++		t.Fatalf("應拒絕並顯示實際雜湊，得到 %v", err)
++	}
++}
++
++func TestRequiredFilesListsMissing(t *testing.T) {
++	root := origRoot(t)
++	dir := t.TempDir()
++	// 只放一個檔案：其餘全缺。連結原版的 MAIN.EXE（大小與雜湊都對）。
++	if err := os.Symlink(filepath.Join(root, "MAIN.EXE"), filepath.Join(dir, "MAIN.EXE")); err != nil {
++		t.Fatal(err)
++	}
++	err := CheckRequiredFiles(dir, false)
++	if err == nil || !strings.Contains(err.Error(), "缺檔") || !strings.Contains(err.Error(), "CFONT.15") {
++		t.Fatalf("應列出缺檔，得到 %v", err)
++	}
++	if err := CheckRequiredFiles(root, false); err != nil {
++		t.Fatalf("原版目錄應通過檢查：%v", err)
++	}
++}
++
++func TestRequiredFilesDetectsSizeMismatch(t *testing.T) {
++	root := origRoot(t)
++	dir := t.TempDir()
++	ents, _ := os.ReadDir(root)
++	for _, e := range ents {
++		if e.IsDir() {
++			continue
++		}
++		if err := os.Symlink(filepath.Join(root, e.Name()), filepath.Join(dir, e.Name())); err != nil {
++			t.Fatal(err)
++		}
++	}
++	// 換掉一個檔案：大小不同。
++	p := filepath.Join(dir, "ARROW.GRP")
++	os.Remove(p)
++	if err := os.WriteFile(p, []byte("short"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	if err := CheckRequiredFiles(dir, false); err == nil || !strings.Contains(err.Error(), "ARROW.GRP") {
++		t.Fatalf("應偵測大小不符，得到 %v", err)
++	}
++}
++
++// 收據 A（docs/re/008）：probe 跑 30,000,000 道指令的畫面 PNG。不經輸入，所以兩邊只差執行層的包裝。
++// 補丁開或關都應得到同一張畫面（堆疊補丁不改變指令數與畫面）。
++func TestColdStartReceiptA(t *testing.T) {
++	root := origRoot(t)
++	const want = "112cd52c2060d430c533b98ef8228ecc86063fce53a3db781b6047c4a3a86a6e"
++	for _, noPatch := range []bool{true, false} {
++		s, err := Open(root, Options{Interval: NativeInterval, NoStackPatch: noPatch})
++		if err != nil {
++			t.Fatal(err)
++		}
++		if st := s.RunSteps(30_000_000); st.Kind != StopSteps {
++			t.Fatalf("提前停機：%v", st)
++		}
++		if got := pngHash(t, s); got != want {
++			t.Errorf("NoStackPatch ＝ %v：畫面 PNG 雜湊 %s，預期 %s", noPatch, got, want)
++		}
++	}
++}
++
++func TestStackPatchAppliedAtStartup(t *testing.T) {
++	root := origRoot(t)
++	s, err := Open(root, Options{Interval: NativeInterval})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !s.PatchResult().Applied {
++		t.Fatal("預設應套用堆疊補丁")
++	}
++	s.RunSteps(1_000_000)
++	if top := s.Stats().StackTop; top != 0x8010 {
++		t.Fatalf("堆疊頂端 %04X，預期 8010", top)
++	}
++}
++
++// 輸入映射：遊戲區座標加 40 列後送入；按下到遊戲輪詢 3 次才放開。
++func TestMouseClickReachesGameAndHoldsForPolls(t *testing.T) {
++	root := origRoot(t)
++	s, err := Open(root, Options{Interval: NativeInterval})
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.RunSteps(35_000_000)
++	pollsBefore := len(s.DOS().Mouse.Polls)
++	// 標題選單的新遊戲項目在 640x480 畫面座標 (312, 211)，也就是遊戲區座標 (312, 171)。
++	s.Input(Event{Kind: EvMouseButton, X: 312, Y: 171, Btn: 0, Down: true})
++	s.Input(Event{Kind: EvMouseButton, X: 312, Y: 171, Btn: 0, Down: false})
++	s.RunSteps(90_000_000)
++	if s.held[0] {
++		t.Fatalf("9000 萬道指令後遊戲已恢復輪詢，按鍵應已放開（輪詢 %d → %d）", pollsBefore, len(s.DOS().Mouse.Polls))
++	}
++	// 收據 B（docs/re/008）：新遊戲第一畫面。
++	const wantB = "853a695340271b1e2540702d6d5f1e78f3807e230c666a181e3985097879adaf"
++	if got := pngHash(t, s); got != wantB {
++		t.Fatalf("90M 步畫面 PNG 雜湊 %s，預期 %s", got, wantB)
++	}
++}
++
++// 按鍵走 d.Stdin：一般鍵送 ASCII，擴充鍵送 00 加掃描碼。
++func TestKeyEventsGoToStdin(t *testing.T) {
++	root := origRoot(t)
++	s, err := Open(root, Options{Interval: NativeInterval})
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.Input(Event{Kind: EvKey, Key: dos.Key{Scan: 0x1C, ASCII: '\r'}})
++	s.Input(Event{Kind: EvKey, Key: dos.Key{Scan: 0x48}})
++	s.drainInput()
++	got := s.DOS().Stdin
++	want := []byte{'\r', 0x00, 0x48}
++	if string(got) != string(want) {
++		t.Fatalf("Stdin ＝ % X，預期 % X", got, want)
++	}
++}
++
++// Run 的取消路徑與快照：不計時地跑一小段，取到快照。
++func TestRunProducesFrameAndStopsOnCancel(t *testing.T) {
++	root := origRoot(t)
++	s, err := Open(root, Options{Interval: NativeInterval, NoPacing: true})
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.RunSteps(36_000_000)
++	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
++	defer cancel()
++	if st := s.Run(ctx); st != nil {
++		t.Fatalf("取消時應回 nil，得到 %v", st)
++	}
++	f := s.Frame()
++	if f == nil || f.W != 640 || f.H != 480 || len(f.RGB) != 640*480*3 {
++		t.Fatalf("快照不正確：%+v", f)
++	}
++}
+diff --git a/apps/hr/runtime/trim.go b/apps/hr/runtime/trim.go
+new file mode 100644
+index 0000000..ec93ee5
+--- /dev/null
++++ b/apps/hr/runtime/trim.go
+@@ -0,0 +1,22 @@
++package runtime
++
++import (
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++// TrimDiagnostics 清掉 dosgolem 為觀測而記下的無上限紀錄。長時間執行不清，約 10 億道指令
++// 就會用盡記憶體（docs/re/011）。回傳被清掉的滑鼠輪詢數。
++//
++// 呼叫端要在滑鼠按住、鍵盤佇列非空時避免呼叫：按住的釋放條件看輪詢數。
++func TrimDiagnostics(m *machine.Machine, d *dos.DOS) (polls int) {
++	polls = len(d.Mouse.Polls)
++	d.Mouse.Polls, d.Mouse.Sets, d.Mouse.Events, d.Mouse.PressReads = nil, nil, nil, nil
++	d.Opened, d.Missing, d.MissingAccess = nil, nil, nil
++	d.Reads, d.Allocs, d.EMSOps, d.XMSMoves = nil, nil, nil, nil
++	d.Wrote, d.VecSets, d.FileOps, d.PalOps = nil, nil, nil, nil
++	d.MemOps, d.ExecLog, d.Overlays, d.Resizes = nil, nil, nil, nil
++	d.CallTrace, d.MemTrace, d.KeyReads, d.Console = nil, nil, nil, nil
++	m.PortLog, m.SegLog, m.DSLoads, m.Speaker, m.OPL = nil, nil, nil, nil, nil
++	return polls
++}
+diff --git a/internal/dos/dos.go b/internal/dos/dos.go
+index adc3393..e217f4f 100644
+--- a/internal/dos/dos.go
++++ b/internal/dos/dos.go
+@@ -33,6 +33,12 @@ import (
+ // 逐點對拍才有意義（`docs/spec/001` MVP-B）。
+ type Time struct{ Hour, Min, Sec, Hundredth uint8 }
+ 
++// Date 是 DOS 日期。Weekday 以 0 ＝ 星期日。
++type Date struct {
++	Year                uint16
++	Month, Day, Weekday uint8
++}
++
+ // clock 是 `AH=2Ch` 回報的時刻：Now 當基準，再加上 PIT tick 推出來的時間。
+ //
+ // ⚠ **時鐘不能是固定值。** 第一版 `AH=2Ch` 直接回 `Now`，於是任何
+@@ -159,7 +165,10 @@ type DOS struct {
+ 	Scratch string
+ 
+ 	// Now 是固定時刻，Mouse 是滑鼠狀態，Font 是 DOS/V 字型服務。
+-	Now   Time
++	Now Time
++	// Date 是 `AH=2Ah` 回報的日期。零值（Year ＝ 0）維持固定的 1993-01-01（決定性路徑）；
++	// 玩家用的前端（hr 專案的 apps/hr/runtime）設成主機日期，存檔列才會顯示真的日期。
++	Date  Date
+ 	Mouse Mouse
+ 	Font  Font
+ 
+diff --git a/internal/dos/int21.go b/internal/dos/int21.go
+index 45ea8f1..4eb1a6f 100644
+--- a/internal/dos/int21.go
++++ b/internal/dos/int21.go
+@@ -123,9 +123,15 @@ func (d *DOS) int21(c *cpu.CPU) {
+ 		d.parseFilename(c)
+ 
+ 	case 0x2A: // 取系統日期 → CX:DH:DL
+-		c.R[cpu.CX] = 1993
+-		c.R[cpu.DX] = 1<<8 | 1
+-		setAL(c, 5) // 星期五
++		if d.Date.Year != 0 {
++			c.R[cpu.CX] = d.Date.Year
++			c.R[cpu.DX] = uint16(d.Date.Month)<<8 | uint16(d.Date.Day)
++			setAL(c, d.Date.Weekday)
++		} else {
++			c.R[cpu.CX] = 1993
++			c.R[cpu.DX] = 1<<8 | 1
++			setAL(c, 5) // 星期五
++		}
+ 		clearCarry(c)
+ 	case 0x2C: // 取系統時間 → CH:CL:DH:DL
+ 		t := d.clock()
+-- 
+2.43.0
+

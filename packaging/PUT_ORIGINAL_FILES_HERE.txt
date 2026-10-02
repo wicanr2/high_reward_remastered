@@ -1,0 +1,2 @@
+把原版《高報酬戰將》的檔案（含 MAIN.EXE）放進這個資料夾。
+Put your own copy of the original game files (including MAIN.EXE) in this folder.

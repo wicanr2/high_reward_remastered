@@ -1,0 +1,231 @@
+#!/usr/bin/env bash
+# 發行包（docs/spec/003 第 8 節）。產出放 dist-all/，每個平台只留最新一份。
+#
+#   tools/package.sh appimage   Linux：HighReward-<版本>-x86_64.AppImage
+#   tools/package.sh windows    HighReward-<版本>-win64.zip
+#   tools/package.sh macos      HighReward-<版本>-macos.zip（universal：arm64 加 x86_64，未簽章）
+#   tools/package.sh all
+#
+# 發行包不含原版素材（AGENTS.md 第 2 節）：玩家自備，放在執行檔旁的 original/。
+# 產出前以 tools/pkg/leakscan.py 依 docs/re/source-inventory.tsv 的檔名與雜湊掃描，有命中就不出包。
+# 建置一律在 Docker（--rm、目前 UID、--network none）。映像用本機已有的：
+#   Go 與 ebiten 2.9.9：eob-remake-go:1.26.7-ebiten2.9.9      （HR_GO_IMAGE）
+#   macOS 交叉編譯：    psychicwar-osxcross:latest              （HR_MAC_IMAGE）
+#   AppImage：          psychicwar-appimage:latest              （HR_APPIMAGE_IMAGE）
+# 這些映像屬於其他專案，這裡只 `docker run --rm`，不修改、不刪除。
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+TARGET="${1:-all}"
+DG="workplace/dosgolem"
+HRV="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
+DGV="$(git -C "$DG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+VER="${HR_VERSION:-$HRV-dg$DGV}"
+DIST="dist-all"
+STAGE="workplace/pkg-stage"
+GO_IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"
+MAC_IMAGE="${HR_MAC_IMAGE:-psychicwar-osxcross:latest}"
+APPIMAGE_IMAGE="${HR_APPIMAGE_IMAGE:-psychicwar-appimage:latest}"
+INV="docs/re/source-inventory.tsv"
+mkdir -p "$DIST" "$STAGE" workplace/gocache workplace/out
+
+for img in "$GO_IMAGE"; do
+  docker image inspect "$img" >/dev/null 2>&1 || { echo "缺映像 $img" >&2; exit 3; }
+done
+test -f "$DG/apps/hr/play/go.mod" || { echo "缺 $DG/apps/hr/play" >&2; exit 1; }
+test -f "$INV" || { echo "缺 $INV" >&2; exit 1; }
+
+# 共用的 docker run 前綴（唯讀的網路與資源限制寫在這裡，不在各處重複）。
+drun() { # 用法：drun <映像> [額外 docker 參數…] -- <指令…>
+  local image="$1"; shift
+  local extra=()
+  while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do extra+=("$1"); shift; done
+  shift
+  timeout "${HR_PKG_TIMEOUT:-30m}" docker run --rm --network none \
+    --memory "${HR_PKG_MEM:-6g}" --cpus "${HR_PKG_CPUS:-4}" --pids-limit 512 \
+    --log-opt max-size=10m --log-opt max-file=3 \
+    -u "$(id -u):$(id -g)" "${extra[@]}" "$image" "$@"
+}
+
+keep_latest() { # $1 glob，$2 這次要留的檔
+  local f
+  for f in $1; do
+    [ -e "$f" ] || continue
+    [ "$f" = "$2" ] || { echo "[package] 清掉舊的 $f"; rm -f "$f"; }
+  done
+}
+
+# 第三方授權：從建置映像的模組快取與 Go 發行版讀授權全文（不是憑記憶寫）。
+make_notices() { # $1 輸出檔
+  drun "$GO_IMAGE" -v "$ROOT/workplace:/w" -e HOME=/tmp -- sh -c '
+    set -e
+    M=/go/pkg/mod
+    echo "本程式靜態連結下列第三方軟體。授權全文如下。"
+    for d in github.com/hajimehoshi/ebiten/v2@v2.9.9 github.com/ebitengine/purego@v0.9.0 \
+             github.com/ebitengine/hideconsole@v1.0.0 github.com/jezek/xgb@v1.1.1 \
+             golang.org/x/sys@v0.36.0 golang.org/x/sync@v0.17.0; do
+      echo; echo "================================================================"; echo "$d"; echo "================================================================"
+      cat "$M/$d/LICENSE"
+    done
+    echo; echo "================================================================"; echo "Go 標準函式庫與執行期"; echo "================================================================"
+    cat "$(go env GOROOT)/LICENSE"
+  ' > "$1"
+  test -s "$1" || { echo "第三方授權檔是空的" >&2; exit 1; }
+}
+
+stage_common() { # $1 目的目錄
+  mkdir -p "$1/original"
+  cp packaging/README.dist.txt "$1/README.txt"
+  cp LICENSE "$1/LICENSE"
+  cp packaging/PUT_ORIGINAL_FILES_HERE.txt "$1/original/PUT_ORIGINAL_FILES_HERE.txt"
+  make_notices "$1/THIRD_PARTY_NOTICES.txt"
+}
+
+leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
+  cp "$INV" "$STAGE/inventory.tsv"
+  if ! tools/pkg/py.sh leakscan.py "/w/pkg-stage/inventory.tsv" "/w/${1#workplace/}"; then
+    echo "可散布的包夾帶原版檔，中止" >&2; exit 1
+  fi
+  echo "[package] 外洩掃描通過：$1"
+}
+
+go_build() { # $1 GOOS $2 CGO $3 輸出（/out 內）$4 額外 ldflags
+  drun "$GO_IMAGE" -v "$ROOT/$DG:/src" -v "$ROOT/workplace/out:/out" -v "$ROOT/workplace/gocache:/gocache" \
+    -e HOME=/tmp -e GOCACHE=/gocache -e GOFLAGS=-mod=mod -e GOPROXY=off -e GOSUMDB=off \
+    -e CGO_ENABLED="$2" -e GOOS="$1" -e GOARCH=amd64 \
+    -e "HR_LDFLAGS=-s -w -X main.version=$VER $4" -e "HR_OUT=$3" -w /src/apps/hr/play -- \
+    sh -c 'go build -trimpath -ldflags "$HR_LDFLAGS" -o "$HR_OUT" .'
+}
+
+icons() { # $1 icon 目錄（workplace 內，repo 相對）
+  tools/pkg/py.sh appicon.py "/w/${1#workplace/}" >/dev/null
+}
+
+do_appimage() {
+  local app="$STAGE/HighReward.AppDir" out="$DIST/HighReward-$VER-x86_64.AppImage"
+  rm -rf "$app"; mkdir -p "$app/usr/bin"
+  go_build linux 1 /out/pkg-hr-play-linux ""
+  cp workplace/out/pkg-hr-play-linux "$app/usr/bin/hr-play"; chmod +x "$app/usr/bin/hr-play"
+  stage_common "$app/usr/bin"
+  icons "$STAGE/icons"
+  cp "$STAGE/icons/icon_256.png" "$app/hr-play.png"
+  cat > "$app/AppRun" <<'SH'
+#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/bin/hr-play" "$@"
+SH
+  chmod +x "$app/AppRun"
+  cat > "$app/hr-play.desktop" <<'DESKTOP'
+[Desktop Entry]
+Type=Application
+Name=高報酬戰將 hr-play
+Comment=《高報酬戰將》（DOS，1993）的桌面執行器，需自備原版檔案
+Exec=hr-play
+Icon=hr-play
+Categories=Game;
+Terminal=false
+DESKTOP
+  leak_scan "$app"
+  docker image inspect "$APPIMAGE_IMAGE" >/dev/null 2>&1 || { echo "缺映像 $APPIMAGE_IMAGE" >&2; exit 3; }
+  keep_latest "$DIST/HighReward-*-x86_64.AppImage" "$out"
+  drun "$APPIMAGE_IMAGE" -e HOME=/tmp -v "$ROOT:/src" -w /src -- sh -c "
+    set -eu
+    mksquashfs '$app' /tmp/app.squashfs -root-owned -noappend -no-progress -comp zstd -Xcompression-level 19
+    cat /opt/runtime-x86_64 /tmp/app.squashfs > '$out'
+    chmod +x '$out'
+    file '$out'"
+  rm -rf "$app" "$STAGE/icons"
+  echo "$out"
+}
+
+do_windows() {
+  local dir="$STAGE/win/HighReward-$VER-win64" out="$DIST/HighReward-$VER-win64.zip"
+  rm -rf "$STAGE/win"; mkdir -p "$dir"
+  go_build windows 0 /out/pkg-hr-play.exe "-H=windowsgui"
+  cp workplace/out/pkg-hr-play.exe "$dir/hr-play.exe"
+  stage_common "$dir"
+  leak_scan "$dir"
+  keep_latest "$DIST/HighReward-*-win64.zip" "$out"
+  rm -f "$out"
+  tools/pkg/py.sh zipdir.py "/w/${dir#workplace/}" "/w/pkg-stage/out.zip" "HighReward-$VER-win64" >/dev/null
+  mv "$STAGE/out.zip" "$out"
+  rm -rf "$STAGE/win"
+  echo "$out"
+}
+
+do_macos() {
+  local app="$STAGE/mac/HighReward.app" out="$DIST/HighReward-$VER-macos.zip" min="${HR_MACOS_MIN:-11.0}"
+  docker image inspect "$MAC_IMAGE" >/dev/null 2>&1 || { echo "缺映像 $MAC_IMAGE" >&2; exit 3; }
+  rm -rf "$STAGE/mac"; mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$STAGE/mac-icons"
+  # 模組快取：osxcross 映像沒有 ebiten，從 Go 映像複製一份（唯讀來源，寫到 workplace/gomodcache）。
+  if [ ! -d workplace/gomodcache/github.com/hajimehoshi ]; then
+    echo "[package] 準備 workplace/gomodcache（取自 $GO_IMAGE 的 /go/pkg/mod）"
+    mkdir -p workplace/gomodcache
+    drun "$GO_IMAGE" -v "$ROOT/workplace/gomodcache:/dst" -- sh -c 'cp -a /go/pkg/mod/. /dst/'
+  fi
+  stage_common "$app/Contents/Resources"
+  icons "$STAGE/mac-icons"
+  tools/pkg/py.sh icns.py "/w/${STAGE#workplace/}/mac-icons" "/w/${STAGE#workplace/}/mac/HighReward.app/Contents/Resources/hr-play.icns" >/dev/null
+  drun "$MAC_IMAGE" -e HOME=/tmp -e "HR_VER=$VER" -e "HR_MIN=$min" -e HR_OUT=/src-out/hr-play-mac \
+    -v "$ROOT/$DG:/src" -v "$ROOT/workplace/out:/src-out" -v "$ROOT/workplace/gocache:/gocache" -v "$ROOT/workplace/gomodcache:/gomodcache" \
+    --tmpfs "/tmp:exec,uid=$(id -u),gid=$(id -g),size=2g" -w /src/apps/hr/play -- bash -c '
+      set -euo pipefail
+      eval "$(osxcross-conf)"
+      export GOCACHE=/gocache GOMODCACHE=/gomodcache GOPATH=/tmp/gopath
+      export GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=mod
+      export CGO_ENABLED=1 GOOS=darwin MACOSX_DEPLOYMENT_TARGET=$HR_MIN
+      for arch in arm64 amd64; do
+        case $arch in
+          arm64) pre=arm64-apple-$OSXCROSS_TARGET ;;
+          amd64) pre=x86_64-apple-$OSXCROSS_TARGET ;;
+        esac
+        echo "[macos] $arch（$pre）"
+        env GOARCH=$arch CC=$pre-clang CXX=$pre-clang++ \
+            CGO_CFLAGS="-mmacosx-version-min=$HR_MIN" CGO_LDFLAGS="-mmacosx-version-min=$HR_MIN" \
+          go build -trimpath -ldflags "-s -w -X main.version=$HR_VER" -o /tmp/hr-play-$arch .
+      done
+      x86_64-apple-$OSXCROSS_TARGET-lipo -create /tmp/hr-play-arm64 /tmp/hr-play-amd64 -output "$HR_OUT"
+      x86_64-apple-$OSXCROSS_TARGET-lipo -info "$HR_OUT"'
+  cp workplace/out/hr-play-mac "$app/Contents/MacOS/hr-play"; chmod +x "$app/Contents/MacOS/hr-play"
+  local short; short="$(printf '%s' "$VER" | sed -n 's/^v\{0,1\}\([0-9][0-9.]*\).*/\1/p')"; [ -n "$short" ] || short="0.0.0"
+  cat > "$app/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>zh_TW</string>
+	<key>CFBundleDisplayName</key><string>高報酬戰將</string>
+	<key>CFBundleExecutable</key><string>hr-play</string>
+	<key>CFBundleIconFile</key><string>hr-play</string>
+	<key>CFBundleIdentifier</key><string>io.github.wicanr2.highreward</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>HighReward</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>$short</string>
+	<key>CFBundleVersion</key><string>$VER</string>
+	<key>LSApplicationCategoryType</key><string>public.app-category.role-playing-games</string>
+	<key>LSMinimumSystemVersion</key><string>$min</string>
+	<key>NSHighResolutionCapable</key><true/>
+</dict>
+</plist>
+PLIST
+  tools/pkg/verify_macos.sh "$app"
+  leak_scan "$app"
+  keep_latest "$DIST/HighReward-*-macos.zip" "$out"
+  rm -f "$out"
+  # zip 的頂層是 HighReward.app：從 mac 目錄壓，不加額外資料夾。
+  tools/pkg/py.sh zipdir.py "/w/pkg-stage/mac" "/w/pkg-stage/out.zip" "" >/dev/null
+  mv "$STAGE/out.zip" "$out"
+  rm -rf "$STAGE/mac" "$STAGE/mac-icons"
+  echo "$out"
+}
+
+case "$TARGET" in
+  appimage) do_appimage ;;
+  windows) do_windows ;;
+  macos) do_macos ;;
+  all) do_appimage; do_windows; do_macos ;;
+  *) echo "目標要是 appimage、windows、macos 或 all" >&2; exit 2 ;;
+esac
+echo "== $DIST"
+ls -la "$DIST"

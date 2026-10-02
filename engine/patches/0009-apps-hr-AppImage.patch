@@ -1,0 +1,214 @@
+From b57c9592b0e9da39cd63e510374d2dad7d1c84aa Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 06:58:22 +0800
+Subject: [PATCH 9/9] =?UTF-8?q?apps/hr:=20=E5=89=8D=E7=AB=AF=E9=8C=AF?=
+ =?UTF-8?q?=E8=AA=A4=E8=A6=96=E7=AA=97=E3=80=81AppImage=20=E8=88=87?=
+ =?UTF-8?q?=E8=A8=98=E4=BD=8F=E7=9A=84=E5=8E=9F=E7=89=88=E8=B7=AF=E5=BE=91?=
+ =?UTF-8?q?=E3=80=81=E5=AD=98=E6=AA=94=E8=B5=B0=E6=9A=AB=E5=AD=98=E5=B1=A4?=
+ =?UTF-8?q?=E7=9A=84=E6=B8=AC=E8=A9=A6?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/play/errwin.go          | 29 +++++++++++++++
+ apps/hr/play/main.go            | 13 +++++--
+ apps/hr/play/paths.go           | 23 ++++++++++++
+ apps/hr/runtime/session_test.go | 66 +++++++++++++++++++++++++++++++++
+ 4 files changed, 127 insertions(+), 4 deletions(-)
+ create mode 100644 apps/hr/play/errwin.go
+
+diff --git a/apps/hr/play/errwin.go b/apps/hr/play/errwin.go
+new file mode 100644
+index 0000000..2d0eb55
+--- /dev/null
++++ b/apps/hr/play/errwin.go
+@@ -0,0 +1,29 @@
++package main
++
++import (
++	"fmt"
++	"os"
++	"strings"
++
++	"github.com/hajimehoshi/ebiten/v2"
++	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
++)
++
++// errWindow 在視窗內顯示啟動失敗的原因（雙擊啟動時看不到終端機）。內文只用 ASCII，
++// 因為除錯字型不含中文；完整的中文訊息同時印到 stderr。
++type errWindow struct{ lines []string }
++
++func (e errWindow) Update() error { return nil }
++func (e errWindow) Draw(screen *ebiten.Image) {
++	ebitenutil.DebugPrintAt(screen, strings.Join(e.lines, "\n"), 8, 8)
++}
++func (e errWindow) Layout(w, h int) (int, int) { return 640, 400 }
++
++// fail 印出錯誤，並嘗試開一個視窗顯示 asciiLines；視窗開不起來（沒有顯示環境）就直接結束。
++func fail(err error, asciiLines ...string) {
++	fmt.Fprintln(os.Stderr, err)
++	ebiten.SetWindowSize(960, 600)
++	ebiten.SetWindowTitle("hr-play")
++	_ = ebiten.RunGame(errWindow{lines: asciiLines})
++	os.Exit(2)
++}
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index cb186b5..d47c736 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -34,8 +34,13 @@ func main() {
+ 	}
+ 	root, err := findOriginal(*orig)
+ 	if err != nil {
+-		fmt.Fprintln(os.Stderr, err)
+-		os.Exit(2)
++		fail(err, "hr-play: original game files not found.",
++			"",
++			"Put your own copy of the game files (the folder that contains MAIN.EXE)",
++			"in a folder named \"original\" next to this program,",
++			"or start hr-play with:  -orig <folder>",
++			"",
++			"This program does not include or download any game files.")
+ 	}
+ 	dd, err := dataDir()
+ 	if err != nil {
+@@ -51,9 +56,9 @@ func main() {
+ 		SaveDir: saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf,
+ 	})
+ 	if err != nil {
+-		fmt.Fprintln(os.Stderr, err)
+-		os.Exit(2)
++		fail(err, "hr-play: cannot start.", "", "The game folder is missing files or is a different version.", "See the message printed to the terminal (run hr-play from a terminal).", "", "Folder: "+root)
+ 	}
++	rememberOriginal(root)
+ 	if *scale < 1 {
+ 		*scale = 1
+ 	}
+diff --git a/apps/hr/play/paths.go b/apps/hr/play/paths.go
+index 32a3333..8e6f8f8 100644
+--- a/apps/hr/play/paths.go
++++ b/apps/hr/play/paths.go
+@@ -4,6 +4,7 @@ import (
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ )
+ 
+ // findOriginal 找玩家自備的原版目錄（含 MAIN.EXE）。順序：-orig、環境變數 HR_ORIG、
+@@ -17,10 +18,19 @@ func findOriginal(flagVal string) (string, error) {
+ 	if v := os.Getenv("HR_ORIG"); v != "" {
+ 		cands = append(cands, v)
+ 	}
++	if ai := os.Getenv("APPIMAGE"); ai != "" {
++		// AppImage 的執行檔在唯讀的 squashfs 內：原版目錄放在 .AppImage 檔案旁。
++		cands = append(cands, filepath.Join(filepath.Dir(ai), "original"))
++	}
+ 	if exe, err := os.Executable(); err == nil {
+ 		dir := filepath.Dir(exe)
+ 		cands = append(cands, filepath.Join(dir, "original"), filepath.Join(dir, "..", "Resources", "original"))
+ 	}
++	if dd, err := dataDir(); err == nil {
++		if b, err := os.ReadFile(filepath.Join(dd, "original_path")); err == nil {
++			cands = append(cands, strings.TrimSpace(string(b)))
++		}
++	}
+ 	cands = append(cands, "original")
+ 	for _, c := range cands {
+ 		tried = append(tried, c)
+@@ -67,3 +77,16 @@ func dataDir() (string, error) {
+ 	d := filepath.Join(base, "high_reward")
+ 	return d, os.MkdirAll(d, 0o755)
+ }
++
++// rememberOriginal 記住這次用的原版目錄，下次不必再指定。
++func rememberOriginal(root string) {
++	dd, err := dataDir()
++	if err != nil {
++		return
++	}
++	abs, err := filepath.Abs(root)
++	if err != nil {
++		return
++	}
++	_ = os.WriteFile(filepath.Join(dd, "original_path"), []byte(abs+"\n"), 0o644)
++}
+diff --git a/apps/hr/runtime/session_test.go b/apps/hr/runtime/session_test.go
+index 892c89c..cb9adcd 100644
+--- a/apps/hr/runtime/session_test.go
++++ b/apps/hr/runtime/session_test.go
+@@ -178,3 +178,69 @@ func TestRunProducesFrameAndStopsOnCancel(t *testing.T) {
+ 		t.Fatalf("快照不正確：%+v", f)
+ 	}
+ }
++
++// 存檔走暫存層（docs/spec/003 第 5 節）：讀取槽 0、開系統選單、存入槽 2，
++// 暫存層出現 GAMEFILE.002 與 fname.dat，原版目錄的 GAMEFILE.002 與 FNAME.DAT 雜湊不變。
++func TestSaveGoesToScratchAndLeavesOriginalAlone(t *testing.T) {
++	root := origRoot(t)
++	hashOf := func(p string) string {
++		b, err := os.ReadFile(p)
++		if err != nil {
++			t.Fatal(err)
++		}
++		h := sha256.Sum256(b)
++		return hex.EncodeToString(h[:])
++	}
++	// 原版檔名大小寫不分：找出實際檔名。
++	find := func(name string) string {
++		ents, _ := os.ReadDir(root)
++		for _, e := range ents {
++			if strings.EqualFold(e.Name(), name) {
++				return filepath.Join(root, e.Name())
++			}
++		}
++		t.Skipf("原版目錄沒有 %s", name)
++		return ""
++	}
++	g2, fn := find("GAMEFILE.002"), find("FNAME.DAT")
++	g2Before, fnBefore := hashOf(g2), hashOf(fn)
++	saves := t.TempDir()
++	s, err := Open(root, Options{Interval: NativeInterval, SaveDir: saves})
++	if err != nil {
++		t.Fatal(err)
++	}
++	click := func(at uint64, x, y int) { // x、y 是 640x480 畫面座標
++		if st := s.RunSteps(at); st.Kind != StopSteps {
++			t.Fatalf("提前停機：%v", st)
++		}
++		s.Input(Event{Kind: EvMouseButton, X: x, Y: y - 40, Btn: 0, Down: true})
++		s.Input(Event{Kind: EvMouseButton, X: x, Y: y - 40, Btn: 0, Down: false})
++	}
++	click(35_000_000, 312, 228)  // 標題：讀取遊戲檔案
++	click(90_000_000, 312, 307)  // 槽 0
++	click(205_000_000, 615, 64)  // 地圖：筆圖示，系統選單
++	click(215_000_000, 560, 130) // 檔案存入
++	click(225_000_000, 312, 341) // 槽 2
++	if st := s.RunSteps(246_000_000); st.Kind != StopSteps {
++		t.Fatalf("提前停機：%v", st)
++	}
++	var found []string
++	ents, _ := os.ReadDir(saves)
++	for _, e := range ents {
++		found = append(found, e.Name())
++	}
++	has := func(name string) bool {
++		for _, f := range found {
++			if strings.EqualFold(f, name) {
++				return true
++			}
++		}
++		return false
++	}
++	if !has("GAMEFILE.002") || !has("FNAME.DAT") {
++		t.Fatalf("暫存層應有 GAMEFILE.002 與 fname.dat，實際 %v", found)
++	}
++	if hashOf(g2) != g2Before || hashOf(fn) != fnBefore {
++		t.Fatal("原版目錄的存檔檔案被改動")
++	}
++}
+-- 
+2.43.0
+

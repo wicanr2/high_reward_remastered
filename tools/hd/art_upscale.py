@@ -25,8 +25,8 @@ PRESETS = {
     "text": dict(per=0, beta=8, post=1),
     # 戰場地圖與世界地圖
     "map": dict(per=1, bil=30, beta=8, post=1),
-    # 類照片的戰鬥畫面（VS、兵器圖）：反半色調（導引雙邊濾波）
-    "photo": dict(per=1, bil=45, gs=1.0, beta=6),
+    # 類照片的戰鬥畫面（VS、兵器圖）：反半色調（導引雙邊濾波）加夾限銳化
+    "photo": dict(per=1, bil=35, gs=0.8, beta=6, sharp=0.6),
     # 戰鬥舞台地面：輕度雙邊濾波
     "stage": dict(per=1, bil=20, beta=8),
     # 棋盤格底圖加一條線
