@@ -1,0 +1,543 @@
+From 57e0ac24e2730c1d4c5f84b1b9255596bde1b584 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 05:37:15 +0800
+Subject: [PATCH 6/6] =?UTF-8?q?apps/hr:=20hrexplore=20=E4=BB=8B=E9=9D=A2?=
+ =?UTF-8?q?=E6=8E=A2=E7=B4=A2=E5=99=A8=EF=BC=9Bhrsoak=20=E5=8A=A0=E5=85=A5?=
+ =?UTF-8?q?=E6=9A=AB=E5=AD=98=E5=B1=A4=E3=80=81=E6=8C=89=E9=8D=B5=E8=B5=B0?=
+ =?UTF-8?q?=20stdin=E3=80=81=E6=BA=A2=E4=BD=8D=E5=81=B5=E6=B8=AC=E5=8F=AF?=
+ =?UTF-8?q?=E9=97=9C?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- hrexplore：從起點狀態以網格點擊與按鍵探索閒置畫面，畫面身分是輪詢點呼叫鏈加 SP
+- hrsoak -scratch 設可寫暫存層；-key-path 選 stdin（遊戲實際讀的路）或 bda（舊行為）；-no-overflow-stop
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrexplore/main.go | 438 ++++++++++++++++++++++++++++++++++
+ apps/hr/cmd/hrsoak/main.go    |  31 ++-
+ 2 files changed, 466 insertions(+), 3 deletions(-)
+ create mode 100644 apps/hr/cmd/hrexplore/main.go
+
+diff --git a/apps/hr/cmd/hrexplore/main.go b/apps/hr/cmd/hrexplore/main.go
+new file mode 100644
+index 0000000..3751ffb
+--- /dev/null
++++ b/apps/hr/cmd/hrexplore/main.go
+@@ -0,0 +1,438 @@
++// Command hrexplore 是《高報酬戰將》的介面探索器（hr 專案，`docs/re/011` 的後續）。
++//
++// 隨機點擊的長跑只走得到少數畫面（80 億步只到過 17 至 20 個 overlay 區塊）。這個工具從起點狀態出發，
++// 對每個「閒置畫面」系統性地試一組動作（網格左鍵、右鍵、幾個按鍵），把得到的新閒置畫面存成節點，
++// 再從新節點繼續，直到節點數或深度上限。
++//
++// 畫面識別：遊戲閒置時一定停在滑鼠輪詢點（常駐映像 1F8A:006E）。該處沿 BP 鏈取到的返回位址鏈
++// （overlay 段位址視為同一種，只留偏移）加 SP，就是「畫面身分」。同一鏈但 SP 不同表示堆疊累積。
++//
++// 輸出（-out 目錄）：
++//
++//	nodes/nNNNNN.state   節點狀態（原版記憶體的衍生物，只留在 workplace）
++//	nodes/nNNNNN.png     該節點的畫面
++//	nodes.tsv            節點表：編號、父節點、動作、鏈、SP、堆疊深度、本次動作新增的 overlay 區塊數
++//	edges.tsv            每個（節點，動作）的結果：新節點、已見節點、或停機原因
++//	stops.tsv            非正常結果（CPU 錯誤、跑出記憶體、堆疊溢位、無輪詢等）與重現路徑
++//
++// ⚠ 本專案不含任何原版檔案；起點狀態、輸出都在 workplace，不進版控。
++package main
++
++import (
++	"flag"
++	"fmt"
++	"image"
++	"image/color"
++	"image/png"
++	"os"
++	"path/filepath"
++	"sort"
++	"strings"
++	"sync"
++	"time"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++func die(err error) {
++	fmt.Fprintln(os.Stderr, "hrexplore:", err)
++	os.Exit(2)
++}
++
++type action struct {
++	kind string // L 左鍵、R 右鍵、K 按鍵
++	x, y int
++	key  dos.Key
++	name string
++}
++
++func (a action) String() string {
++	if a.kind == "K" {
++		return "K:" + a.name
++	}
++	return fmt.Sprintf("%s:%d,%d", a.kind, a.x, a.y)
++}
++
++type node struct {
++	id     int
++	parent int
++	act    string
++	path   string // 狀態檔
++	sig    string
++	depth  int // 目前節點在樹上的層數
++}
++
++type result struct {
++	node      *node  // 非 nil：新節點
++	seen      string // 已見節點的簽名
++	stop      string // 非空：停機原因
++	minSP     uint16
++	ovNew     int
++	statePath string
++}
++
++type worker struct {
++	m        *machine.Machine
++	d        *dos.DOS
++	root     string
++	stackSeg uint16
++	stackTop uint16
++}
++
++func newWorker(root string) *worker {
++	m := machine.New()
++	d := dos.New(m, root)
++	d.Install()
++	return &worker{m: m, d: d, root: root}
++}
++
++func (w *worker) load(path string) error {
++	if err := state.Load(path, w.m, w.d); err != nil {
++		return err
++	}
++	w.trim()
++	w.stackSeg = w.m.CPU.Seg[cpu.SS]
++	w.stackTop = w.m.Read16(0x540F*16 + 0x40C)
++	return nil
++}
++
++func (w *worker) trim() {
++	m, d := w.m, w.d
++	d.Mouse.Sets, d.Mouse.Events, d.Mouse.PressReads = nil, nil, nil
++	d.Opened, d.Missing, d.MissingAccess = nil, nil, nil
++	d.Reads, d.Allocs, d.EMSOps, d.XMSMoves = nil, nil, nil, nil
++	d.Wrote, d.VecSets, d.FileOps, d.PalOps = nil, nil, nil, nil
++	d.MemOps, d.ExecLog, d.Overlays, d.Resizes = nil, nil, nil, nil
++	d.CallTrace, d.MemTrace, d.KeyReads, d.Console = nil, nil, nil, nil
++	m.PortLog, m.SegLog, m.DSLoads, m.Speaker, m.OPL = nil, nil, nil, nil, nil
++}
++
++// chain 沿 BP 鏈走呼叫框，回傳由內到外的返回位址。overlay 區（段 ≥ 0x5400）只留偏移。
++func (w *worker) chain() string {
++	c := w.m.CPU
++	bp := c.R[cpu.BP]
++	var out []string
++	for i := 0; i < 12; i++ {
++		lin := cpu.Linear(c.Seg[cpu.SS], bp)
++		ip, cs := w.m.Read16(lin+2), w.m.Read16(lin+4)
++		if cs >= 0x5400 {
++			out = append(out, fmt.Sprintf("ovr:%04X", ip))
++		} else {
++			out = append(out, fmt.Sprintf("%04X:%04X", cs, ip))
++		}
++		next := w.m.Read16(lin)
++		if next <= bp || next > 0xFFF0 {
++			break
++		}
++		bp = next
++	}
++	return strings.Join(out, "<")
++}
++
++// runTo 執行到第 limit 道指令（相對現在），回傳停機原因（空字串＝正常）。
++func (w *worker) runFor(limit uint64, minSP *uint16, stopAtPoll bool, polled *bool) string {
++	m, d := w.m, w.d
++	end := m.Steps + limit
++	lastPolls := len(d.Mouse.Polls)
++	for m.Steps < end {
++		c := m.CPU
++		if c.Seg[cpu.SS] == w.stackSeg {
++			sp := c.R[cpu.SP]
++			if sp > w.stackTop {
++				return fmt.Sprintf("stack-overflow SS:SP=%04X:%04X top=%04X at CS:IP=%04X:%04X", w.stackSeg, sp, w.stackTop, c.Seg[cpu.CS], c.IP)
++			}
++			if sp < *minSP {
++				*minSP = sp
++			}
++		}
++		if a := cpu.Linear(c.Seg[cpu.CS], c.IP); a >= machine.VideoSeg*16 && a < machine.MemSize {
++			return fmt.Sprintf("out-of-memory-range CS:IP=%04X:%04X", c.Seg[cpu.CS], c.IP)
++		}
++		if err := m.Step(); err != nil {
++			return "cpu-error: " + err.Error()
++		}
++		if d.Exited {
++			return fmt.Sprintf("exit code=%d", d.ExitCode)
++		}
++		if m.CPU.Halted {
++			return "halted"
++		}
++		if len(m.CPU.DivErrors) > 0 {
++			return "divide-error"
++		}
++		// 滑鼠被輪詢一次（int 33h 功能 3 剛執行完）＝遊戲在等輸入；回傳時 IP 在輪詢呼叫之後。
++		if n := len(d.Mouse.Polls); n != lastPolls {
++			lastPolls = n
++			*polled = true
++			if stopAtPoll {
++				return ""
++			}
++		}
++	}
++	return ""
++}
++
++// apply 執行一個動作並等到閒置輪詢點。
++func (w *worker) apply(a action, actSteps, settleMax uint64) (stop string, minSP uint16, sig string, ovNew int) {
++	m, d := w.m, w.d
++	minSP = 0xFFFF
++	polled := false
++	base := len(d.Mouse.Polls)
++	switch a.kind {
++	case "L", "R":
++		btn := 0
++		if a.kind == "R" {
++			btn = 1
++		}
++		d.MoveMouse(a.x, a.y)
++		d.PressMouse(btn)
++		// 按住到遊戲輪詢 3 次（長跑驅動同規則），上限 3M 道。
++		deadline := m.Steps + 3_000_000
++		for len(d.Mouse.Polls)-base < 3 && m.Steps < deadline {
++			if s := w.runFor(20_000, &minSP, false, &polled); s != "" {
++				return s, minSP, "", 0
++			}
++		}
++		d.ReleaseMouse(btn)
++	case "K":
++		if a.key.ASCII != 0 {
++			d.Stdin = append(d.Stdin, a.key.ASCII)
++		} else {
++			d.Stdin = append(d.Stdin, 0x00, a.key.Scan)
++		}
++	}
++	if s := w.runFor(actSteps, &minSP, false, &polled); s != "" {
++		return s, minSP, "", 0
++	}
++	polled = false
++	if s := w.runFor(settleMax, &minSP, true, &polled); s != "" {
++		return s, minSP, "", 0
++	}
++	if !polled {
++		return "no-poll", minSP, "", 0
++	}
++	sig = fmt.Sprintf("%s@%04X", w.chain(), m.CPU.R[cpu.SP])
++	seen := map[int64]bool{}
++	for _, o := range d.FileOps {
++		if o.Op == "read" && !o.Failed && strings.EqualFold(o.Name, "main.exe") {
++			seen[o.Pos] = true
++		}
++	}
++	ovNew = len(seen)
++	return "", minSP, sig, ovNew
++}
++
++func writePNG(path string, m *machine.Machine) error {
++	w, h, px := m.Planar()
++	if px == nil {
++		return fmt.Errorf("不是平面模式，沒有畫面可存")
++	}
++	dac := m.Palette()
++	p := make(color.Palette, 256)
++	for i := range p {
++		p[i] = color.RGBA{dac[i][0], dac[i][1], dac[i][2], 255}
++	}
++	img := image.NewPaletted(image.Rect(0, 0, w, h), p)
++	for y := 0; y < h; y++ {
++		for x := 0; x < w; x++ {
++			img.Pix[y*img.Stride+x] = m.VGA.DACIndex(px[y*w+x])
++		}
++	}
++	f, err := os.Create(path)
++	if err != nil {
++		return err
++	}
++	defer f.Close()
++	return png.Encode(f, img)
++}
++
++func buildActions(step, x0, y0, x1, y1 int) []action {
++	var as []action
++	for y := y0; y <= y1; y += step {
++		for x := x0; x <= x1; x += step {
++			as = append(as, action{kind: "L", x: x, y: y})
++		}
++	}
++	as = append(as, action{kind: "R", x: 320, y: 240})
++	as = append(as,
++		action{kind: "K", key: dos.Key{Scan: 0x01, ASCII: 0x1B}, name: "Esc"},
++		action{kind: "K", key: dos.Key{Scan: 0x1C, ASCII: '\r'}, name: "Enter"},
++		action{kind: "K", key: dos.Key{Scan: 0x39, ASCII: ' '}, name: "Space"},
++		action{kind: "K", key: dos.Key{Scan: 0x48}, name: "Up"},
++		action{kind: "K", key: dos.Key{Scan: 0x50}, name: "Down"},
++		action{kind: "K", key: dos.Key{Scan: 0x4B}, name: "Left"},
++		action{kind: "K", key: dos.Key{Scan: 0x4D}, name: "Right"})
++	return as
++}
++
++func main() {
++	root := flag.String("root", "/orig/orig", "原版素材目錄（唯讀）")
++	out := flag.String("out", "/out/explore", "輸出目錄")
++	roots := flag.String("roots", "", "起點狀態檔，逗號分隔（必填）")
++	workers := flag.Int("workers", 4, "並行的 worker 數")
++	maxNodes := flag.Int("max-nodes", 200, "節點數上限")
++	maxDepth := flag.Int("max-depth", 8, "樹深度上限")
++	grid := flag.Int("grid", 32, "左鍵網格間距（像素）")
++	actSteps := flag.Uint64("act-steps", 3_000_000, "動作之後先執行幾道指令")
++	settle := flag.Uint64("settle-max", 60_000_000, "之後最多再等幾道指令讓遊戲回到輪詢點")
++	wall := flag.Duration("wall", 0, "牆鐘時間上限（0＝無）")
++	flag.Parse()
++	if *roots == "" {
++		die(fmt.Errorf("缺 -roots"))
++	}
++	if err := os.MkdirAll(filepath.Join(*out, "nodes"), 0o755); err != nil {
++		die(err)
++	}
++	openTSV := func(name, header string) *os.File {
++		f, err := os.Create(filepath.Join(*out, name))
++		if err != nil {
++			die(err)
++		}
++		fmt.Fprintln(f, header)
++		return f
++	}
++	nodesF := openTSV("nodes.tsv", "id\tparent\taction\tdepth\tstackDepth\tchain")
++	edgesF := openTSV("edges.tsv", "from\taction\tresult\tminSP\tovReads")
++	stopsF := openTSV("stops.tsv", "from\taction\tstop\tpath")
++	defer nodesF.Close()
++	defer edgesF.Close()
++	defer stopsF.Close()
++
++	actions := buildActions(*grid, 16, 56, 624, 424)
++
++	var mu sync.Mutex
++	seen := map[string]int{}
++	var nodes []*node
++	var queue []*node
++	nextID := 0
++	started := time.Now()
++
++	addNode := func(w *worker, parent int, act, path, sig string, depth int, saveFrom *worker) *node {
++		mu.Lock()
++		defer mu.Unlock()
++		if id, ok := seen[sig]; ok {
++			_ = id
++			return nil
++		}
++		if len(nodes) >= *maxNodes {
++			return nil
++		}
++		n := &node{id: nextID, parent: parent, act: act, sig: sig, depth: depth}
++		nextID++
++		n.path = filepath.Join(*out, "nodes", fmt.Sprintf("n%05d.state", n.id))
++		if err := state.Save(n.path, saveFrom.m, saveFrom.d); err != nil {
++			die(err)
++		}
++		if err := writePNG(filepath.Join(*out, "nodes", fmt.Sprintf("n%05d.png", n.id)), saveFrom.m); err != nil {
++			die(err)
++		}
++		seen[sig] = n.id
++		nodes = append(nodes, n)
++		queue = append(queue, n)
++		sp := saveFrom.m.CPU.R[cpu.SP]
++		fmt.Fprintf(nodesF, "%d\t%d\t%s\t%d\t%d\t%s\n", n.id, parent, act, depth, int(saveFrom.stackTop)-int(sp), sig)
++		nodesF.Sync()
++		return n
++	}
++
++	// 起點：載入每個根狀態，執行到閒置輪詢點，登記為節點。
++	w0 := newWorker(*root)
++	for _, p := range strings.Split(*roots, ",") {
++		if err := w0.load(p); err != nil {
++			die(err)
++		}
++		var minSP uint16 = 0xFFFF
++		polled := false
++		if s := w0.runFor(80_000_000, &minSP, true, &polled); s != "" || !polled {
++			die(fmt.Errorf("起點 %s 沒有走到輪詢點：%q，Steps=%d CS:IP=%04X:%04X polls=%d", p, s, w0.m.Steps, w0.m.CPU.Seg[cpu.CS], w0.m.CPU.IP, len(w0.d.Mouse.Polls)))
++		}
++		sig := fmt.Sprintf("%s@%04X", w0.chain(), w0.m.CPU.R[cpu.SP])
++		if addNode(w0, -1, "root:"+filepath.Base(p), p, sig, 0, w0) == nil {
++			fmt.Printf("起點 %s 與先前的起點同一畫面（%s）\n", p, sig)
++		}
++	}
++
++	var wg sync.WaitGroup
++	var active int
++	cond := sync.NewCond(&mu)
++	totalActions := 0
++	var stopsCount int
++
++	for i := 0; i < *workers; i++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			w := newWorker(*root)
++			for {
++				mu.Lock()
++				for len(queue) == 0 && active > 0 {
++					cond.Wait()
++				}
++				if len(queue) == 0 || (*wall > 0 && time.Since(started) > *wall) {
++					mu.Unlock()
++					cond.Broadcast()
++					return
++				}
++				n := queue[0]
++				queue = queue[1:]
++				active++
++				mu.Unlock()
++
++				if n.depth < *maxDepth {
++					for _, a := range actions {
++						if *wall > 0 && time.Since(started) > *wall {
++							break
++						}
++						if err := w.load(n.path); err != nil {
++							die(err)
++						}
++						stop, minSP, sig, ov := w.apply(a, *actSteps, *settle)
++						mu.Lock()
++						totalActions++
++						mu.Unlock()
++						if stop != "" {
++							isExit := strings.HasPrefix(stop, "exit code=0") || strings.HasPrefix(stop, "exit code=1")
++							mu.Lock()
++							fmt.Fprintf(edgesF, "%d\t%s\t%s\t%04X\t0\n", n.id, a, stop, minSP)
++							if !isExit {
++								stopsCount++
++								fmt.Fprintf(stopsF, "%d\t%s\t%s\t%s\n", n.id, a, stop, n.path)
++								p := filepath.Join(*out, fmt.Sprintf("stop-%d-%d.state", n.id, stopsCount))
++								_ = state.Save(p, w.m, w.d)
++							}
++							mu.Unlock()
++							continue
++						}
++						nn := addNode(w, n.id, a.String(), "", sig, n.depth+1, w)
++						mu.Lock()
++						if nn != nil {
++							fmt.Fprintf(edgesF, "%d\t%s\tnew:%d\t%04X\t%d\n", n.id, a, nn.id, minSP, ov)
++						} else {
++							fmt.Fprintf(edgesF, "%d\t%s\tseen:%d\t%04X\t%d\n", n.id, a, seen[sig], minSP, ov)
++						}
++						edgesF.Sync()
++						mu.Unlock()
++						if nn != nil {
++							cond.Broadcast()
++						}
++					}
++				}
++				mu.Lock()
++				active--
++				fmt.Printf("[%s] 節點 %d 展開完，節點 %d，佇列 %d，動作 %d，停機 %d\n", time.Since(started).Round(time.Second), n.id, len(nodes), len(queue), totalActions, stopsCount)
++				mu.Unlock()
++				cond.Broadcast()
++			}
++		}()
++	}
++	wg.Wait()
++
++	// 摘要
++	var depthMax int
++	sort.Slice(nodes, func(i, j int) bool { return nodes[i].id < nodes[j].id })
++	fmt.Printf("完成：節點 %d、動作 %d、非正常停機 %d，耗時 %s\n", len(nodes), totalActions, stopsCount, time.Since(started).Round(time.Second))
++	_ = depthMax
++}
+diff --git a/apps/hr/cmd/hrsoak/main.go b/apps/hr/cmd/hrsoak/main.go
+index c298fc5..fef915d 100644
+--- a/apps/hr/cmd/hrsoak/main.go
++++ b/apps/hr/cmd/hrsoak/main.go
+@@ -74,6 +74,9 @@ func main() {
+ 	traceRing := flag.Int("trace-ring", 4096, "指令軌跡環的長度")
+ 	spLogOn := flag.Bool("sp-log", false, "每個輸入事件記錄一行：步數、滑鼠輪詢點（1F8A:006E）當下的 SP、輸入描述，寫到 <out>/sp.tsv")
+ 	stklen := flag.Uint("stklen", 0, "新遊戲啟動前改寫 Borland 的 _stklen（DGROUP 540F:040C，原值 0x1000）；0 ＝ 不改（見 docs/re）")
++	scratch := flag.String("scratch", "", "DOS 的可寫暫存層目錄（寫入複製到這裡，原版目錄不動）；空字串 ＝ 唯讀")
++	keyPath := flag.String("key-path", "stdin", "按鍵送入哪條路：stdin（DOS 的 AH=01/07/08/0B 讀的佇列，遊戲實際用的路）｜bda（BIOS 鍵盤緩衝，遊戲不讀；早期長跑的行為，重現舊收據用）")
++	noOverflowStop := flag.Bool("no-overflow-stop", false, "堆疊溢位只記錄不停機（重現原版溢位後的後果用）")
+ 	tick := flag.Uint64("tick", 0, "每幾道指令送一次計時器中斷（0 ＝ 預設）；不同種子配不同值可以擾動計時器與主迴圈的相對時序")
+ 	ckAt := flag.String("checkpoint-at", "", "在這些步數各存一份檢查點（逗號分隔，不受只留兩份的限制）")
+ 	diagFrom := flag.Uint64("diag-from", 0, "從第幾道指令起不再清診斷紀錄，停機時印出最近的檔案操作與主控台輸出（0 ＝ 一律清）")
+@@ -112,6 +115,12 @@ func main() {
+ 	}
+ 	d := dos.New(m, *root)
+ 	d.Install()
++	if *scratch != "" {
++		if err := os.MkdirAll(*scratch, 0o755); err != nil {
++			die(err)
++		}
++		d.Scratch = *scratch
++	}
+ 	if *loadState != "" {
+ 		if err := state.Load(*loadState, m, d); err != nil {
+ 			die(err)
+@@ -287,7 +296,7 @@ func main() {
+ 			_ = pressStep
+ 		}
+ 		for len(keysAt) > 0 && m.Steps >= keysAt[0].step {
+-			d.PushKey(keysAt[0].key)
++			sendKey(d, *keyPath, keysAt[0].key)
+ 			keysAt = keysAt[1:]
+ 		}
+ 		if *inputMode == "random" && m.Steps >= nextInput && held == nil {
+@@ -309,7 +318,7 @@ func main() {
+ 				held = &click{x: x, y: y, btn: 1}
+ 			case r < 92: // 按鍵
+ 				k := randomKeys[rng.Intn(len(randomKeys))]
+-				d.PushKey(k)
++				sendKey(d, *keyPath, k)
+ 				logInput(fmt.Sprintf("按鍵 scan=%02X ascii=%02X", k.Scan, k.ASCII))
+ 			default: // 只移動
+ 				d.MoveMouse(8+rng.Intn(624), 48+rng.Intn(384))
+@@ -328,7 +337,7 @@ func main() {
+ 		}
+ 		if stackTop != 0 && m.CPU.Seg[cpu.SS] == stackSeg {
+ 			// 堆疊向下長，SP 從 stackTop 往 0 走。SP 大於 stackTop 只可能是減過 0 繞回去（堆疊溢位）。
+-			if sp := m.CPU.R[cpu.SP]; sp > stackTop {
++			if sp := m.CPU.R[cpu.SP]; sp > stackTop && !*noOverflowStop {
+ 				stopWhy = "stack-overflow"
+ 				runErr = fmt.Errorf("堆疊溢位：SS:SP ＝ %04X:%04X，堆疊頂端 %04X，本期最低 SP %04X", stackSeg, sp, stackTop, spMin)
+ 				break
+@@ -541,3 +550,19 @@ func trim(m *machine.Machine, d *dos.DOS) (polls int) {
+ 	m.PortLog, m.SegLog, m.DSLoads, m.Speaker, m.OPL = nil, nil, nil, nil, nil
+ 	return polls
+ }
++
++// sendKey 把一個按鍵送進遊戲。MAIN.EXE 只用 int 21h 的 AH=08、0B、0700 讀鍵盤（docs/re/004），
++// dosgolem 的這幾個服務只讀 d.Stdin；PushKey 寫的是 BDA 緩衝，沒有人讀（審查發現，
++// 早期長跑的 12% 按鍵輸入因此全是空操作）。DOS 的讀鍵規則：一般鍵回 ASCII，
++// 擴充鍵（方向鍵等）先回 00 再回掃描碼。
++func sendKey(d *dos.DOS, path string, k dos.Key) {
++	if path == "bda" {
++		d.PushKey(k)
++		return
++	}
++	if k.ASCII != 0 {
++		d.Stdin = append(d.Stdin, k.ASCII)
++		return
++	}
++	d.Stdin = append(d.Stdin, 0x00, k.Scan)
++}
+-- 
+2.43.0
+

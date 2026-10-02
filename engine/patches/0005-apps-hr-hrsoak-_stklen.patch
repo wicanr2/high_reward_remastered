@@ -1,0 +1,357 @@
+From 14c13a979f02e2c903c60a6f7c152a51f128fe0b Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 04:24:10 +0800
+Subject: [PATCH 5/6] =?UTF-8?q?apps/hr:=20hrsoak=20=E5=8A=A0=E5=85=A5?=
+ =?UTF-8?q?=E5=A0=86=E7=96=8A=E6=B7=B1=E5=BA=A6=E8=A7=80=E6=B8=AC=E3=80=81?=
+ =?UTF-8?q?=E6=BA=A2=E4=BD=8D=E5=81=B5=E6=B8=AC=E3=80=81=5Fstklen=20?=
+ =?UTF-8?q?=E6=94=B9=E5=AF=AB=E3=80=81=E6=8C=87=E4=BB=A4=E8=BB=8C=E8=B7=A1?=
+ =?UTF-8?q?=E7=92=B0=E8=88=87=E5=BE=A9=E5=8E=9F=E9=BB=9E=E8=BC=AA=E6=9B=BF?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- 回報期新增模擬秒數、overlay 覆蓋、閒置輪詢 SP、本期最低 SP 欄位
+- 堆疊溢位（SP 超過頂端）與一個回報期內滑鼠沒被輪詢列為停機條件
+- -sp-log 逐輸入事件記錄閒置 SP 與 BP 鏈
+- 正常結束（結束碼 0、1）退回復原點，-recover-depth 控制保留份數
+- -stklen 在新遊戲啟動前改寫 DGROUP 的 _stklen
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrsoak/main.go | 226 ++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 221 insertions(+), 5 deletions(-)
+
+diff --git a/apps/hr/cmd/hrsoak/main.go b/apps/hr/cmd/hrsoak/main.go
+index d685a06..c298fc5 100644
+--- a/apps/hr/cmd/hrsoak/main.go
++++ b/apps/hr/cmd/hrsoak/main.go
+@@ -68,6 +68,15 @@ func main() {
+ 	ckEvery := flag.Uint64("checkpoint-every", 200_000_000, "每幾道指令存一份檢查點（0 ＝ 不存）")
+ 	loadState := flag.String("load-state", "", "從狀態檔接著跑")
+ 	randomFrom := flag.Uint64("random-from", 36_000_000, "random 模式：從第幾道指令開始送隨機輸入（要給腳本點完標題選單與讀檔的時間）")
++	recoverQuit := flag.Bool("recover-quit", true, "程式以結束碼 0 或 1 結束（片尾、玩家結束遊戲）時，退回最近的復原點，換亂數序列繼續跑")
++	recoverDepth := flag.Int("recover-depth", 1, "保留幾份復原點（每 2000 萬道指令一份）；正常結束時退回最舊的一份。1 ＝ 只留最近的（重現舊結果用）")
++	traceFrom := flag.Uint64("trace-from", 0, "從第幾道指令起記錄指令軌跡環（0 ＝ 不記）")
++	traceRing := flag.Int("trace-ring", 4096, "指令軌跡環的長度")
++	spLogOn := flag.Bool("sp-log", false, "每個輸入事件記錄一行：步數、滑鼠輪詢點（1F8A:006E）當下的 SP、輸入描述，寫到 <out>/sp.tsv")
++	stklen := flag.Uint("stklen", 0, "新遊戲啟動前改寫 Borland 的 _stklen（DGROUP 540F:040C，原值 0x1000）；0 ＝ 不改（見 docs/re）")
++	tick := flag.Uint64("tick", 0, "每幾道指令送一次計時器中斷（0 ＝ 預設）；不同種子配不同值可以擾動計時器與主迴圈的相對時序")
++	ckAt := flag.String("checkpoint-at", "", "在這些步數各存一份檢查點（逗號分隔，不受只留兩份的限制）")
++	diagFrom := flag.Uint64("diag-from", 0, "從第幾道指令起不再清診斷紀錄，停機時印出最近的檔案操作與主控台輸出（0 ＝ 一律清）")
+ 	flag.Parse()
+ 	if *exe == "" && *loadState == "" {
+ 		die(fmt.Errorf("缺 -exe"))
+@@ -80,7 +89,7 @@ func main() {
+ 		die(err)
+ 	}
+ 	defer rep.Close()
+-	fmt.Fprintln(rep, "steps\tcsip\thandles\tfreeSeg\tarena\temsH\temsPages\tpolls\tscreen\tdivErr\topensInPeriod\theapMB\telapsed")
++	fmt.Fprintln(rep, "steps\tcsip\thandles\tfreeSeg\tarena\temsH\temsPages\tpolls\tscreen\tdivErr\topensInPeriod\theapMB\tsimSec\tovCum\tovNew\tspPoll\tspMin\telapsed")
+ 
+ 	m := machine.New()
+ 	if *loadState == "" {
+@@ -91,6 +100,15 @@ func main() {
+ 		if err := m.LoadEXE(img); err != nil {
+ 			die(err)
+ 		}
++		if *stklen != 0 {
++			// 啟動碼（IDA 1000:0062）從 DGROUP:040C 讀 _stklen 決定堆疊大小，
++			// 之後把 SS:SP 設在 SS 段頂端、程式區塊末端（1000:0096 的 AH=4Ah）。
++			const stklenAddr = 0x540F*16 + 0x40C
++			if old := m.Read16(stklenAddr); old != 0x1000 {
++				die(fmt.Errorf("%05X 處的 _stklen 是 %04X，不是預期的 1000；映像或載入位置與假設不同", stklenAddr, old))
++			}
++			m.Write16(stklenAddr, uint16(*stklen))
++		}
+ 	}
+ 	d := dos.New(m, *root)
+ 	d.Install()
+@@ -99,6 +117,9 @@ func main() {
+ 			die(err)
+ 		}
+ 	}
++	if *tick > 0 {
++		m.IRQ0Every = *tick
++	}
+ 
+ 	var clicks []click
+ 	var keysAt []struct {
+@@ -162,10 +183,91 @@ func main() {
+ 	nextTrim := m.Steps + 2_000_000
+ 	totalPolls := 0
+ 	nextCk := m.Steps + *ckEvery
++	const recoverEvery = 20_000_000
++	type recEnt struct {
++		path string
++		step uint64
++	}
++	var recList []recEnt
++	nextRecover := m.Steps + recoverEvery
++	quits := 0
++	type tr struct{ cs, ip, ax, bx, cx, dx, ss, sp, ds, es, bp, si, di uint16 }
++	ring := make([]tr, *traceRing)
++	ringN := 0
+ 	var ckPaths []string
+ 	ci := 0
+ 	pressed, pollsAtPress, pressStep := -1, 0, uint64(0)
+ 	var held *click
++	var inputRing []string
++	var ckAtSteps []uint64
++	for _, s := range strings.Split(*ckAt, ",") {
++		var v uint64
++		if _, err := fmt.Sscanf(s, "%d", &v); err == nil {
++			ckAtSteps = append(ckAtSteps, v)
++		}
++	}
++	sort.Slice(ckAtSteps, func(i, j int) bool { return ckAtSteps[i] < ckAtSteps[j] })
++	// overlay 覆蓋率：FBOV 的 overlay 管理員自己從 MAIN.EXE 讀取各 overlay
++	// （docs/re/007），所以對 MAIN.EXE 的 read 起點去重，就是「到過幾個不同的 overlay 區塊」。
++	// 診斷紀錄在 trim 之前先收割。
++	ovSeen := map[int64]bool{}
++	ovNewList := []string{}
++	fopsDone := 0
++	harvest := func() {
++		for ; fopsDone < len(d.FileOps); fopsDone++ {
++			o := d.FileOps[fopsDone]
++			if o.Op == "read" && !o.Failed && strings.EqualFold(o.Name, "main.exe") && !ovSeen[o.Pos] {
++				ovSeen[o.Pos] = true
++				ovNewList = append(ovNewList, fmt.Sprintf("%X", o.Pos))
++			}
++		}
++	}
++	lastPolls, skipFreeze := 0, true
++	// 堆疊深度觀測：滑鼠輪詢點（int 33h 之後，1F8A:006E，常駐映像）的 SP 是閒置時的
++	// 呼叫深度。每個輸入事件前記一筆，相鄰兩筆的差就是前一個事件造成的深度變化。
++	var spLog *os.File
++	if *spLogOn {
++		var err error
++		if spLog, err = os.Create(filepath.Join(*out, "sp.tsv")); err != nil {
++			die(err)
++		}
++		defer spLog.Close()
++		fmt.Fprintln(spLog, "step\tspAtPoll\tinput\tchain")
++	}
++	stackSeg := m.CPU.Seg[cpu.SS]
++	// 啟動碼把 SP 設成 _stklen + 0x10，並存回 DGROUP:040C（IDA 1000:00A9）；啟動完才讀。
++	var stackTop uint16
++	spMin := uint16(0xFFFF)
++	var lastPollSP uint16
++	var lastPollChain string
++	nextChain := uint64(0)
++	// chain 沿 BP 鏈走呼叫框（Borland 大模型：[BP]＝舊 BP，[BP+2]＝返回 IP，[BP+4]＝返回 CS），
++	// 回傳由內到外的返回位址，用來認出閒置輪詢是在哪一串呼叫底下。
++	chain := func() string {
++		c := m.CPU
++		bp := c.R[cpu.BP]
++		var out []string
++		for i := 0; i < 10; i++ {
++			lin := cpu.Linear(c.Seg[cpu.SS], bp)
++			ip, cs := m.Read16(lin+2), m.Read16(lin+4)
++			out = append(out, fmt.Sprintf("%04X:%04X", cs, ip))
++			next := m.Read16(lin)
++			if next <= bp || next > 0xFFF0 {
++				break
++			}
++			bp = next
++		}
++		return strings.Join(out, "<")
++	}
++	logInput := func(s string) {
++		if spLog != nil {
++			fmt.Fprintf(spLog, "%d\t%04X\t%s\t%s\n", m.Steps, lastPollSP, s, lastPollChain)
++		}
++		inputRing = append(inputRing, fmt.Sprintf("%d %s", m.Steps, s))
++		if len(inputRing) > 16 {
++			inputRing = inputRing[1:]
++		}
++	}
+ 
+ 	for m.Steps < *total {
+ 		// 輸入：決定性排程。
+@@ -177,6 +279,7 @@ func main() {
+ 			c := clicks[ci]
+ 			d.MoveMouse(c.x, c.y)
+ 			d.PressMouse(c.btn)
++			logInput(fmt.Sprintf("腳本點擊 %d,%d btn=%d", c.x, c.y, c.btn))
+ 			pollsAtPress, pressStep = len(d.Mouse.Polls), m.Steps
+ 			held = &c
+ 			ci++
+@@ -194,21 +297,51 @@ func main() {
+ 				x, y := 8+rng.Intn(624), 48+rng.Intn(384)
+ 				d.MoveMouse(x, y)
+ 				d.PressMouse(0)
++				logInput(fmt.Sprintf("左鍵 %d,%d", x, y))
+ 				pollsAtPress, pressStep = len(d.Mouse.Polls), m.Steps
+ 				held = &click{x: x, y: y}
+ 			case r < 80: // 右鍵（取消）
+ 				x, y := 8+rng.Intn(624), 48+rng.Intn(384)
+ 				d.MoveMouse(x, y)
+ 				d.PressMouse(1)
++				logInput(fmt.Sprintf("右鍵 %d,%d", x, y))
+ 				pollsAtPress, pressStep = len(d.Mouse.Polls), m.Steps
+ 				held = &click{x: x, y: y, btn: 1}
+ 			case r < 92: // 按鍵
+-				d.PushKey(randomKeys[rng.Intn(len(randomKeys))])
++				k := randomKeys[rng.Intn(len(randomKeys))]
++				d.PushKey(k)
++				logInput(fmt.Sprintf("按鍵 scan=%02X ascii=%02X", k.Scan, k.ASCII))
+ 			default: // 只移動
+ 				d.MoveMouse(8+rng.Intn(624), 48+rng.Intn(384))
+ 			}
+ 		}
+ 
++		if m.CPU.IP == 0x006E && m.CPU.Seg[cpu.CS] == 0x1F8A {
++			lastPollSP = m.CPU.R[cpu.SP]
++			if spLog != nil && m.Steps >= nextChain {
++				nextChain = m.Steps + 50_000
++				lastPollChain = chain()
++			}
++		}
++		if stackTop == 0 && m.Steps > 200 {
++			stackTop = m.Read16(0x540F*16 + 0x40C)
++		}
++		if stackTop != 0 && m.CPU.Seg[cpu.SS] == stackSeg {
++			// 堆疊向下長，SP 從 stackTop 往 0 走。SP 大於 stackTop 只可能是減過 0 繞回去（堆疊溢位）。
++			if sp := m.CPU.R[cpu.SP]; sp > stackTop {
++				stopWhy = "stack-overflow"
++				runErr = fmt.Errorf("堆疊溢位：SS:SP ＝ %04X:%04X，堆疊頂端 %04X，本期最低 SP %04X", stackSeg, sp, stackTop, spMin)
++				break
++			} else if sp < spMin {
++				spMin = sp
++			}
++		}
++		if *traceFrom != 0 && m.Steps >= *traceFrom {
++			c := m.CPU
++			ring[ringN%len(ring)] = tr{c.Seg[cpu.CS], c.IP, c.R[cpu.AX], c.R[cpu.BX], c.R[cpu.CX], c.R[cpu.DX],
++				c.Seg[cpu.SS], c.R[cpu.SP], c.Seg[cpu.DS], c.Seg[cpu.ES], c.R[cpu.BP], c.R[cpu.SI], c.R[cpu.DI]}
++			ringN++
++		}
+ 		if a := cpu.Linear(m.CPU.Seg[cpu.CS], m.CPU.IP); a >= machine.VideoSeg*16 && a < machine.MemSize {
+ 			runErr = fmt.Errorf("跑出可用記憶體：CS:IP ＝ %04X:%04X（線性 %05X）", m.CPU.Seg[cpu.CS], m.CPU.IP, a)
+ 			stopWhy = "out-of-memory-range"
+@@ -219,9 +352,39 @@ func main() {
+ 			break
+ 		}
+ 		if d.Exited {
++			// HR.BAT：MAIN 的結束碼 1 ＝ 玩家結束遊戲，0 ＝ 進片尾，兩者都是正常結束。
++			if (d.ExitCode == 0 || d.ExitCode == 1) && *recoverQuit && len(recList) > 0 && quits < 1000 {
++				quits++
++				rec := recList[0]
++				fmt.Fprintf(rep, "# 正常結束 code=%d @%d（第 %d 次），退回復原點 %d 換亂數序列\n", d.ExitCode, m.Steps, quits, rec.step)
++				fmt.Fprintf(rep, "#   最近的輸入：%s\n", strings.Join(inputRing, " | "))
++				rep.Sync()
++				if err := state.Load(rec.path, m, d); err != nil {
++					die(err)
++				}
++				recList = recList[:1]
++				rng = rand.New(rand.NewSource(*seed + int64(quits)*7919))
++				nextInput = m.Steps + *inputEvery
++				held, inputRing, skipFreeze = nil, nil, true
++				fopsDone = 0
++				nextReport, nextCk, nextTrim, nextRecover = m.Steps+*reportEvery, m.Steps+*ckEvery, m.Steps+2_000_000, m.Steps+recoverEvery
++				continue
++			}
+ 			stopWhy = fmt.Sprintf("program-exit code=%d", d.ExitCode)
+ 			break
+ 		}
++		if !d.Exited && held == nil && m.Steps >= nextRecover {
++			nextRecover += recoverEvery
++			p := filepath.Join(*out, fmt.Sprintf("recover-%012d.state", m.Steps))
++			if err := state.Save(p, m, d); err != nil {
++				die(err)
++			}
++			recList = append(recList, recEnt{p, m.Steps})
++			for len(recList) > *recoverDepth {
++				os.Remove(recList[0].path)
++				recList = recList[1:]
++			}
++		}
+ 		if m.CPU.Halted {
+ 			stopWhy = "halted"
+ 			break
+@@ -231,8 +394,17 @@ func main() {
+ 			stopWhy = "divide-error"
+ 			break
+ 		}
+-		if m.Steps >= nextTrim && held == nil {
++		for len(ckAtSteps) > 0 && m.Steps >= ckAtSteps[0] {
++			p := filepath.Join(*out, fmt.Sprintf("at-%012d.state", m.Steps))
++			if err := state.Save(p, m, d); err != nil {
++				die(err)
++			}
++			ckAtSteps = ckAtSteps[1:]
++		}
++		if m.Steps >= nextTrim && held == nil && (*diagFrom == 0 || m.Steps < *diagFrom) {
+ 			nextTrim += 2_000_000
++			harvest()
++			fopsDone = 0
+ 			totalPolls += trim(m, d)
+ 			pollsAtPress = 0
+ 		}
+@@ -249,10 +421,22 @@ func main() {
+ 			opens = map[string]int{}
+ 			var ms runtime.MemStats
+ 			runtime.ReadMemStats(&ms)
+-			fmt.Fprintf(rep, "%d\t%04X:%04X\t%d\t%04X\t%d\t%d\t%d\t%d\t%s\t%d\t%s\t%d\t%s\n",
++			harvest()
++			// 模擬秒數：計時器中斷次數 × 65536 ÷ 1193182（遊戲把 PIT 通道 0 設成 65536 分頻，18.2 Hz）。
++			simSec := float64(m.Ticks) * 65536 / 1193182
++			fmt.Fprintf(rep, "%d\t%04X:%04X\t%d\t%04X\t%d\t%d\t%d\t%d\t%s\t%d\t%s\t%d\t%.0f\t%d\t%s\t%04X\t%04X\t%s\n",
+ 				m.Steps, m.CPU.Seg[cpu.CS], m.CPU.IP, s.OpenHandles, s.FreeSeg, s.ArenaBlocks, s.EMSHandles, s.EMSPages,
+-				polls, screenHash(m), len(m.CPU.DivErrors), strings.Join(o, ","), ms.HeapAlloc>>20, time.Since(started).Round(time.Second))
++				polls, screenHash(m), len(m.CPU.DivErrors), strings.Join(o, ","), ms.HeapAlloc>>20,
++				simSec, len(ovSeen), strings.Join(ovNewList, ","), lastPollSP, spMin, time.Since(started).Round(time.Second))
++			ovNewList = ovNewList[:0]
++			spMin = 0xFFFF
+ 			rep.Sync()
++			if !skipFreeze && polls <= lastPolls {
++				stopWhy = "frozen-no-mouse-poll"
++				runErr = fmt.Errorf("一個回報期（%d 道指令）內滑鼠沒有被輪詢", *reportEvery)
++				break
++			}
++			lastPolls, skipFreeze = polls, false
+ 			for _, u := range d.UnimplementedReport() {
+ 				if !seenUnimpl[u] {
+ 					seenUnimpl[u] = true
+@@ -295,6 +479,38 @@ func main() {
+ 		if err := state.Save(p, m, d); err == nil {
+ 			fmt.Println("現場已存：", p)
+ 		}
++		if *traceFrom != 0 && ringN > 0 {
++			n := len(ring)
++			if ringN < n {
++				n = ringN
++			}
++			fmt.Printf("指令軌跡（最近 %d 道，由舊到新；最後一筆是停機前最後執行的指令）：\n", n)
++			for i := ringN - n; i < ringN; i++ {
++				e := ring[i%len(ring)]
++				fmt.Printf("  %04X:%04X AX=%04X BX=%04X CX=%04X DX=%04X SI=%04X DI=%04X BP=%04X DS=%04X ES=%04X SS:SP=%04X:%04X\n",
++					e.cs, e.ip, e.ax, e.bx, e.cx, e.dx, e.si, e.di, e.bp, e.ds, e.es, e.ss, e.sp)
++			}
++		}
++		if *diagFrom != 0 {
++			fmt.Println("最近的輸入：")
++			for _, s := range inputRing {
++				fmt.Println("  ", s)
++			}
++			fmt.Printf("主控台輸出 %d bytes：%q\n", len(d.Console), d.Console)
++			ops := d.FileOps
++			if len(ops) > 40 {
++				ops = ops[len(ops)-40:]
++			}
++			fmt.Println("最近的檔案操作（至多 40 筆，診斷紀錄從 -diag-from 起算）：")
++			for _, o := range ops {
++				fmt.Printf("   step=%d %s fn=%02X h=%d %s arg=%d pos=%d len=%d failed=%v\n", o.Step, o.Op, o.Fn, o.Handle, o.Name, o.Arg, o.Pos, o.Len, o.Failed)
++			}
++			opened := d.Opened
++			if len(opened) > 20 {
++				opened = opened[len(opened)-20:]
++			}
++			fmt.Println("最近開的檔：", opened, " 找不到的檔：", d.Missing)
++		}
+ 		// 現場前後 64 bytes 的程式碼，方便直接對 IDA。
+ 		lin := cpu.Linear(m.CPU.Seg[cpu.CS], m.CPU.IP)
+ 		var b [8]byte
+-- 
+2.43.0
+
