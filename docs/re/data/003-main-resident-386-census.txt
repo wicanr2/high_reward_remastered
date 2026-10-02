@@ -1,0 +1,14 @@
+functions 1968 code_heads 116749
+distinct 386 forms: 12 total instrs: 20
+    3  66 8B            e.g. 1000:206E  66 8b d4                     mov     edx, esp
+    3  66 9C            e.g. 1000:2074  66 9c                        pushfd
+    3  66 58            e.g. 1000:2076  66 58                        pop     eax
+    2  66 9D            e.g. 1000:2083  66 9d                        popfd
+    2  66 61            e.g. 1000:7044  66 61                        popad
+    1  66 35            e.g. 1000:207B  66 35 00 00 04 00            xor     eax, 40000h
+    1  66 50            e.g. 1000:2081  66 50                        push    eax
+    1  66 33            e.g. 1000:2089  66 33 c1                     xor     eax, ecx
+    1  66 60            e.g. 1000:7029  66 60                        pushad
+    1  66 C1/5          e.g. 1000:70BA  66 c1 e8 10                  shr     eax, 10h
+    1  0F A9            e.g. 1000:73E4  0f a9                        pop     gs
+    1  0F A1            e.g. 1000:73E6  0f a1                        pop     fs

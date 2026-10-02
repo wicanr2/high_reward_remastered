@@ -7,7 +7,7 @@
 | 項 | 工作 | 現況（2026-10-02） |
 |---|---|---|
 | 1 | 取得 jsdos 版原版 | 完成，見 `docs/re/001-source-intake.md` |
-| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 未開始 |
+| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中（M2 完成，M3 進行中） |
 | 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 未開始，要等第 2 項的整合完成 |
 | 4 | HD 化遊戲圖片 | 未開始，要先解圖像格式 |
 
@@ -113,7 +113,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | `IDEA.md` | 使用者的原始需求，不改 |
 | `AGENTS.md` | 本檔 |
 | `LICENSE` | RRSAL-1.0 |
-| `docs/re/` | 證據：位址、雜湊、樣本、推論等級、重跑方法。目前有 `001-source-intake.md`、`002-third-party-notes-verification.md` 與 `source-inventory.tsv` |
+| `docs/re/` | 證據：位址、雜湊、樣本、推論等級、重跑方法。編號 `NNN-主題.md` 為報告，`data/` 放原始輸出，`source-inventory.tsv` 是原版清冊 |
 | `docs/spec/` | DRAFT、READY、CONFORMED 規格 |
 | `tools/` | 容器包裝腳本與清冊工具 |
 | `workplace/` | 唯一可寫的研究工作區，已 gitignore：原版壓縮檔、解包、dosgolem 副本、探針輸出、截圖草稿 |
@@ -162,7 +162,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | 階段 | 內容 | 狀態 |
 |---|---|---|
 | M1 | 取得原版、雜湊清冊、啟動鏈與檔頭盤點 | 完成 |
-| M2 | 建立 `workplace/dosgolem` 副本，用 `cmd/probe` 產生冷啟動能力報告。缺口只記錄，不當場補 | 未開始 |
+| M2 | 建立 `workplace/dosgolem` 副本，用 `cmd/probe` 產生冷啟動能力報告。缺口只記錄，不當場補 | 完成，見 `docs/re/003-cold-start-capability-report.md` |
 | M3 | 冷啟動到片頭、主選單、進入遊戲的可重播收據（dosgolem 為權威，DOSBox-X 交叉驗證）。缺的服務逐項先寫 DRAFT 規格再補 | 未開始 |
 | M4 | 長跑，定位停機點並分類 | 未開始 |
 | M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 未開始 |
