@@ -1,6 +1,6 @@
 # 001 CPU：real mode 的 386 指令形式
 
-狀態：READY（第三版。第一輪審查 6 項阻擋、第二輪 4 項阻擋皆已修正，剩餘為文字層級修訂；審查紀錄見 `WORKLOG.md`）
+狀態：CONFORMED（2026-10-03，收據 `docs/re/005-cpu-386-acceptance-receipt`）。第三版曾為 READY：第一輪審查 6 項阻擋、第二輪 4 項阻擋皆已修正；審查紀錄見 `WORKLOG.md`
 日期：2026-10-03
 前置：dosgolem `docs/spec/002-cpu-8086`（CPU 驗收準則）、`docs/spec/012-cpu-386-subset`（現有的 EAX 最小子集）；本專案 `docs/re/003-cold-start-capability-report`
 實作位置：`workplace/dosgolem` 的 `internal/cpu` 及其呼叫端（本地分支 `hr`）
@@ -63,7 +63,7 @@ dosgolem 跑 `MAIN.EXE` 到第 61260 道指令時停在 `0110:206E`，原因是 
 3. `0F` 位元組：在 `Model80386` 下是雙位元組 opcode 的跳脫位元組，不再是 8086 的 `POP CS`。只支援 §3.1 列出的 `0F A0`、`A1`、`A8`、`A9`，其餘 `0F xx` 回傳「未實作」錯誤（失敗即關閉）。
 4. 運算元大小前綴 `66`：在 `Model80386` 且 16 位元碼段下，把本道指令的運算元寬度改為 32 位元。
 5. 堆疊：`push r32`、`pop r32`、`pushfd`、`popfd`、`pushad`、`popad` 每格 4 bytes，`SP`（16 位元）以 4 遞減或遞增，位移各自在 16 位元內計算。`push esp` 推入的是指令執行前的 ESP；`pop esp` 的結果是彈出的值（覆蓋遞增後的 ESP）。
-6. `pushad`：依序推入 EAX、ECX、EDX、EBX、指令執行前的 ESP（完整 32 位元，含高半）、EBP、ESI、EDI，`SP` 共減 32。`popad`：反向彈出，ESP 那一格丟棄，不動 ESP 的高半。
+6. `pushad`：依序推入 EAX、ECX、EDX、EBX、指令執行前的 ESP（完整 32 位元，含高半）、EBP、ESI、EDI，`SP` 共減 32。`popad`：反向彈出，ESP 那一格不載入 SP（SP 只是遞增 4）。依語料（`6661` 的有效測試逐筆如此，與手冊「ESP 丟棄」的說法不同），**彈出值的高 16 位元會寫進 ESP 的高半**。
 7. EFLAGS：
    - 語料的 INIT 與 FINA 的 `eflags` 位元 18 至 31 恆為 1（1000 筆 `669C` 中 979 筆非例外測試全為 `0xFFFC`，`669D` 的 FINA 同為 `0xFFFC`），與指令及彈出值都無關。這是 SMM 傾印的假象，不是 CPU 行為。
    - 因此 CPU 模型只保存低 16 位元（`Flags`，`Model80386` 的固定位元沿用 `SetFlags`：位元 1 恆為 1，位元 3、5、15 恆為 0，位元 12 至 14 可寫）。`pushfd` 推入 `uint32(Flags)`，位元 16 至 31 為 0（語料 `669C` 推入的 4 個位元組，高兩個皆為 0）。`popfd` 以彈出值的低 16 位元寫入 `Flags`，位元 16 至 31 忽略。
@@ -118,7 +118,7 @@ DOSGOLEM_SST386_REQUIRE=1 tools/dosgolem.sh go test ./internal/cpu -run TestSST3
 
 ### 6.2 既有基準不退化
 
-- 抓齊 8088 語料後，`tools/dosgolem.sh go test ./internal/cpu -v -count=1` 全綠，並列出 `singlestep_test.go` 實際執行的檔案數（323 檔都要被執行，不是 skip）。
+- 抓齊 8088 語料後，`tools/dosgolem.sh go test ./internal/cpu -v -count=1` 全綠，並列出 `singlestep_test.go` 實際執行的檔案數（323 個檔扣掉 FPU 八檔共 315 個都要被執行，不是 skip；FPU 整檔跳過是 dosgolem 既有規則）。
 - `tools/dosgolem.sh go test ./... -count=1` 全綠；缺原版素材而 skip 的測試列出數量。
 
 ### 6.3 負對照
@@ -141,7 +141,7 @@ DOSGOLEM_SST386_REQUIRE=1 tools/dosgolem.sh go test ./internal/cpu -run TestSST3
 
 固定 `-steps`，重跑 `tools/dosgolem.sh probe -exe /orig/orig/MAIN.EXE -root /orig/orig -watch 54794-54795`（線性位址 `0x54794` ＝ 執行期 `540F:06A4` ＝ IDA `62FF:06A4`，即 `word_63694`）：
 
-- `-watch` 印的寫入者位址是「指令執行完之後的 `CS:IP`」（`cmd/probe/main.go` 第 332、333 行），不是指令起點。偵測常式依序寫入 `word_63694`：`mov word_63694, 0`（起點 `2053`，印成 `0110:2059`）、`2`（起點 `2066`，印成 `0110:206C`）、`3`（起點 `208C`，六位元組，印成 `0110:2092`）。收據要顯示這三次寫入，最終值為 3，且沒有 `0110:209D`（`mov word_63694, 4`，起點 `2097`）。這證明偵測常式真的跑過，且結果不是靜態初值。
+- `-watch` 印的寫入者位址是「指令執行完之後的 `CS:IP`」（`cmd/probe/main.go` 第 332、333 行），不是指令起點。偵測常式依序寫入 `word_63694`：`mov word_63694, 0`（起點 `2053`，印成 `0110:2059`）、`2`（起點 `2066`，印成 `0110:206C`）、`3`（起點 `208C`，六位元組，印成 `0110:2092`）。`-watch` 只記值有改變的寫入，所以第一次寫 0 不會出現；收據要顯示 `0110:206C`（值 0 變 2）與 `0110:2092`（值 2 變 3），最終值為 3，且沒有 `0110:209D`（`mov word_63694, 4`，起點 `2097`）。這證明偵測常式真的跑過，且結果不是靜態初值。
 - 停止原因不是 §3.1 列出的任何形式。
 - 記錄 `7029`（`pushad`）與 `73E4`（`pop gs`）所在的路徑有沒有被冷啟動走到；沒走到的形式只有語料驗收，收據要寫明。
 

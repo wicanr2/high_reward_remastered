@@ -1,0 +1,34 @@
+ok  	github.com/wicanr2/dosgolem
+ok  	github.com/wicanr2/dosgolem/apps/eob1
+ok  	github.com/wicanr2/dosgolem/apps/eob1/cmd/logo
+?   	github.com/wicanr2/dosgolem/apps/fd2/cmd/bootprobe	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/fd2/cmd/framecompare	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/fd2/cmd/oracle	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/fd2/cmd/parity	[no test files]
+ok  	github.com/wicanr2/dosgolem/apps/fd2/parity
+ok  	github.com/wicanr2/dosgolem/apps/rich2
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/dice	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/frames	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/movetrace	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/parity	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/play	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/rng	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/solvepw	[no test files]
+?   	github.com/wicanr2/dosgolem/apps/rich2/cmd/state	[no test files]
+ok  	github.com/wicanr2/dosgolem/apps/wolong
+?   	github.com/wicanr2/dosgolem/apps/wolong/cmd/shot	[no test files]
+?   	github.com/wicanr2/dosgolem/cmd/clickgrid	[no test files]
+?   	github.com/wicanr2/dosgolem/cmd/leprobe	[no test files]
+ok  	github.com/wicanr2/dosgolem/cmd/probe
+?   	github.com/wicanr2/dosgolem/cmd/run	[no test files]
+?   	github.com/wicanr2/dosgolem/cmd/scenetime	[no test files]
+?   	github.com/wicanr2/dosgolem/cmd/shots	[no test files]
+ok  	github.com/wicanr2/dosgolem/cmd/worklist
+ok  	github.com/wicanr2/dosgolem/internal/cpu
+ok  	github.com/wicanr2/dosgolem/internal/cpu386
+ok  	github.com/wicanr2/dosgolem/internal/dos
+ok  	github.com/wicanr2/dosgolem/internal/dosfile
+ok  	github.com/wicanr2/dosgolem/internal/machine
+ok  	github.com/wicanr2/dosgolem/internal/state
+ok  	github.com/wicanr2/dosgolem/oracle
+?   	github.com/wicanr2/dosgolem/runtime/basic	[no test files]

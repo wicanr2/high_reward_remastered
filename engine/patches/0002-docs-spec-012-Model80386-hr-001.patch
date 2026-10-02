@@ -1,0 +1,40 @@
+From 16d87e556a73a6ee4c5050f1ebdf70bcf14b368f Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 02:51:42 +0800
+Subject: [PATCH 2/2] =?UTF-8?q?docs:=20spec=20012=20=E8=A3=9C=E8=A8=98=20M?=
+ =?UTF-8?q?odel80386=20=E7=9A=84=E6=93=B4=E5=85=85=EF=BC=88hr=20=E8=A6=8F?=
+ =?UTF-8?q?=E6=A0=BC=20001=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ docs/spec/012-cpu-386-subset.md | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/docs/spec/012-cpu-386-subset.md b/docs/spec/012-cpu-386-subset.md
+index 883bf29..99fa9f9 100644
+--- a/docs/spec/012-cpu-386-subset.md
++++ b/docs/spec/012-cpu-386-subset.md
+@@ -60,3 +60,17 @@ DOSJP.COM 的初始化與常駐 handler 使用 **80386 的 operand-size 前綴
+ 2. 新增釘死測試：六道指令各一個 case（含旗標與高半保留語意）；
+ 3. DOSJP 走完 init（`AH=31h` 常駐），收據在
+    `yuan/workplace/boot-20260906-02/`。
++
++---
++
++## 6. 後續擴充（2026-10-03，hr 專案）
++
++`Model80386` 的範圍在 hr 專案擴大：通用暫存器高半（`CPU.Hi`，取代 `EAXHi`）、FS／GS 與
++`64`／`65` 前綴、`0F` 雙位元組跳脫（`A0`／`A1`／`A8`／`A9`）、`8C`／`8E` 的 sreg 4、5，
++以及 `66` 前綴的 mov／push／pop／pushfd／popfd／pushad／popad／xor／shr，
++`Seg` 由 4 格改為 6 格。因此本規格 §1 的「升 model 的唯一影響是 0x66 不再報錯」不再成立：
++`Model80386` 下 `0F` 是跳脫位元組（不再是 8086 的 POP CS）。
++
++範圍、語意、對 `machine`／`dos` 狀態檔的影響（版本 3，接受 2 與 3）與驗收（真實 386EX 語料
++`SingleStepTests/80386` 的 30 個檔）見 hr 專案 `docs/spec/001-cpu-386-real-mode-forms`
++（CONFORMED）。DOSJP.COM 的六道指令行為保留，既有測試不變。
+-- 
+2.43.0
+

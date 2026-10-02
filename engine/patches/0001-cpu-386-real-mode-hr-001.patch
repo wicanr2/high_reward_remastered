@@ -1,0 +1,1844 @@
+From 3cdc3ae44b4c5586f7670293bf33e732a3beceb8 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 02:45:49 +0800
+Subject: [PATCH 1/2] =?UTF-8?q?cpu:=20386=20real=20mode=20=E5=BD=A2?=
+ =?UTF-8?q?=E5=BC=8F=EF=BC=88hr=20=E8=A6=8F=E6=A0=BC=20001=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Model80386：通用暫存器高半（Hi，取代 EAXHi）、FS／GS 與 64／65 前綴、
+  0F 雙位元組跳脫（A0／A1／A8／A9）、8C／8E 的 sreg 4、5、
+  66 前綴的 mov／push／pop／pushfd／popfd／pushad／popad／xor／shr
+- machine／dos：快照、回呼、EXEC 父行程框、狀態檔帶 Hi 與 FS／GS；
+  狀態檔版本升 3，接受 2 與 3
+- 測試：SingleStepTests/80386 real mode 的 MOO 讀檔器與 TestSST386（30 檔），
+  CPU 偵測序列、shr 旗標、pushad／popad 等單元測試，狀態與版本測試
+- tools/go.sh：轉交 DOSGOLEM_SST386*
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ internal/cpu/cpu.go                 |  30 +--
+ internal/cpu/moo_test.go            | 226 ++++++++++++++++++++++
+ internal/cpu/ops.go                 |  28 +++
+ internal/cpu/ops386.go              | 227 ++++++++++++++++------
+ internal/cpu/ops386_real_test.go    | 281 +++++++++++++++++++++++++++
+ internal/cpu/ops386_test.go         |   6 +-
+ internal/cpu/sst386_test.go         | 289 ++++++++++++++++++++++++++++
+ internal/dos/dos_test.go            |   6 +-
+ internal/dos/exec.go                |   7 +-
+ internal/dos/mouse_contract_test.go |   6 +-
+ internal/dos/state.go               |  28 ++-
+ internal/dos/state386_test.go       |  77 ++++++++
+ internal/machine/callback.go        |   7 +-
+ internal/machine/dpmi_real_mode.go  |   4 +-
+ internal/machine/le_startup.go      |   4 +-
+ internal/machine/snapshot.go        |   6 +-
+ internal/machine/state.go           |  24 ++-
+ internal/machine/state386_test.go   | 121 ++++++++++++
+ tools/go.sh                         |   2 +-
+ 19 files changed, 1282 insertions(+), 97 deletions(-)
+ create mode 100644 internal/cpu/moo_test.go
+ create mode 100644 internal/cpu/ops386_real_test.go
+ create mode 100644 internal/cpu/sst386_test.go
+ create mode 100644 internal/dos/state386_test.go
+ create mode 100644 internal/machine/state386_test.go
+
+diff --git a/internal/cpu/cpu.go b/internal/cpu/cpu.go
+index 4eb5ebf..c8b5842 100644
+--- a/internal/cpu/cpu.go
++++ b/internal/cpu/cpu.go
+@@ -29,12 +29,15 @@ const (
+ 	DI
+ )
+ 
+-// 段暫存器索引，同樣照編碼順序。
++// 段暫存器索引，同樣照編碼順序（x86 的 sreg 編碼：ES、CS、SS、DS、FS、GS）。
++// FS、GS 只在 Model80386 有意義（hr `docs/spec/001-cpu-386-real-mode-forms`）。
+ const (
+ 	ES = iota
+ 	CS
+ 	SS
+ 	DS
++	FS
++	GS
+ )
+ 
+ // 旗標位元（`docs/spec/002` §3）。
+@@ -77,15 +80,23 @@ const (
+ 	// **而且不會報錯**（`docs/spec/002` §1.1 那個方框）。
+ 	Model80186
+ 
+-	// Model80386 讓 0x66 成為 operand-size 前綴（EAX 那一小套，
+-	// `docs/spec/012`）。其餘與 80186 相同。DOSJP.COM 需要它。
++	// Model80386 讓 0x66 成為 operand-size 前綴，並開啟 386 real mode 的一小套形式：
++	// 32 位元暫存器高半（`Hi`）、FS／GS 與 `64`／`65` 前綴、`0F` 雙位元組跳脫
++	// （只有 `0F A0/A1/A8/A9`）、`8C`／`8E` 的 sreg 4、5，以及 `66` 前綴的
++	// mov／push／pop／pushfd／popfd／pushad／popad／xor／shr。
++	// 範圍與驗收：hr 專案 `docs/spec/001-cpu-386-real-mode-forms`（READY）；
++	// 最早的 EAX 子集見 `docs/spec/012`。其餘與 80186 相同。
++	// DOSJP.COM 與 Borland C++ 1993 執行期（高報酬戰將）需要它。
+ 	Model80386
+ )
+ 
+-// CPU 是一顆 8086（或 80186，看 Model）。零值不可用，用 New。
++// CPU 是一顆 8086（或 80186、80386，看 Model）。零值不可用，用 New。
+ type CPU struct {
+-	R     [8]uint16
+-	Seg   [4]uint16
++	R   [8]uint16
++	Seg [6]uint16 // ES、CS、SS、DS，Model80386 另有 FS、GS
++	// Hi 是各通用暫存器的高 16 位元（低半就是 R[i]），索引同 R。
++	// 只有 Model80386 的 0x66 指令會動它；16 位元寫入不清高半（386 的行為）。
++	Hi    [8]uint16
+ 	IP    uint16
+ 	Flags uint16
+ 	Bus   Bus
+@@ -123,10 +134,6 @@ type CPU struct {
+ 	lock        bool
+ 	operand32   bool // 0x66 前綴（`docs/spec/012`；只在 Model80386 有意義）
+ 
+-	// EAXHi 是 EAX 的高 16 位元（低半就是 R[AX]）。只有 Model80386 的
+-	// 0x66 指令會動它（`docs/spec/012`）。
+-	EAXHi uint16
+-
+ 	// 本道指令的起點，除法例外與中斷要用（`docs/spec/002` §4 第 3 點）。
+ 	opCS, opIP uint16
+ 
+@@ -145,7 +152,8 @@ func New(bus Bus) *CPU {
+ // Reset 把 CPU 拉回 8086 的重置狀態：CS:IP = F000:FFF0，其餘為 0。
+ func (c *CPU) Reset() {
+ 	c.R = [8]uint16{}
+-	c.Seg = [4]uint16{}
++	c.Hi = [8]uint16{}
++	c.Seg = [6]uint16{}
+ 	c.Seg[CS] = 0xFFFF
+ 	c.IP = 0
+ 	c.SetFlags(0)
+diff --git a/internal/cpu/moo_test.go b/internal/cpu/moo_test.go
+new file mode 100644
+index 0000000..1597315
+--- /dev/null
++++ b/internal/cpu/moo_test.go
+@@ -0,0 +1,226 @@
++package cpu
++
++// SingleStepTests/80386 的 MOO 格式讀檔器（只給測試用）。
++//
++// 格式說明：https://github.com/dbalsom/moo `doc/moo_format_v1.md`（MOO 1.1）。
++// 語料是真實 386EX 產生的 real mode 單步測試，授權是語料自己的，不隨本儲存庫散布：
++// 用 hr 專案的 `tools/fetch_sst386.sh` 抓到 `testdata/80386/v1_ex_real_mode/`，
++// 或以 DOSGOLEM_SST386 指到該目錄。缺檔時測試 skip，不用替代品。
++
++import (
++	"bytes"
++	"compress/gzip"
++	"encoding/binary"
++	"encoding/hex"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"strings"
++)
++
++// readRevocation 讀語料的 revocation_list.txt：每行一個測試 HASH（十六進位），`#` 開頭是註解。
++// 檔案在 v1_ex_real_mode 的上一層。缺檔回傳空集合與 false（REQUIRE 模式視為失敗）。
++func readRevocation(dir string) (map[string]bool, bool) {
++	out := map[string]bool{}
++	b, err := os.ReadFile(filepath.Join(filepath.Dir(dir), "revocation_list.txt"))
++	if err != nil {
++		return out, false
++	}
++	for _, ln := range strings.Split(string(b), "\n") {
++		ln = strings.ToLower(strings.TrimSpace(ln))
++		if ln == "" || strings.HasPrefix(ln, "#") {
++			continue
++		}
++		out[ln] = true
++	}
++	return out, true
++}
++
++// RG32／RM32 的暫存器順序（bit 0 起）。
++var mooRegNames = [...]string{
++	"cr0", "cr3", "eax", "ebx", "ecx", "edx", "esi", "edi", "ebp", "esp",
++	"cs", "ds", "es", "fs", "gs", "ss", "eip", "eflags", "dr6", "dr7",
++}
++
++type mooRAM struct {
++	addr uint32
++	val  uint8
++}
++
++type mooState struct {
++	regs  map[string]uint32 // RG32：初始狀態是全部，最終狀態只有被改動的
++	masks map[string]uint32 // RM32：最終狀態的遮罩（1 ＝ 要比對）；沒有的暫存器全比
++	ram   []mooRAM
++}
++
++type mooTest struct {
++	idx   uint32
++	name  string
++	bytes []byte
++	init  mooState
++	final mooState
++	excp  bool   // 有 EXCP 子區塊：硬體產生了例外
++	hash  string // HASH 子區塊（SHA-1，十六進位小寫），對照語料的 revocation_list.txt
++}
++
++type mooFile struct {
++	cpuID     string
++	topMasks  map[string]uint32 // 檔案層級的 RM32，套用到每一個測試
++	tests     []mooTest
++	testCount uint32
++	hasMeta   bool
++	cpuMode   uint8 // META 的 cpu_mode：real mode ＝ 0
++}
++
++func mooPath(dir, name string) string { return filepath.Join(dir, name+".MOO.gz") }
++
++func readMOO(path string) (*mooFile, error) {
++	f, err := os.Open(path)
++	if err != nil {
++		return nil, err
++	}
++	defer f.Close()
++	zr, err := gzip.NewReader(f)
++	if err != nil {
++		return nil, err
++	}
++	data, err := io.ReadAll(zr)
++	if err != nil {
++		return nil, err
++	}
++	return parseMOO(data)
++}
++
++type mooChunk struct {
++	typ  string
++	data []byte
++}
++
++// mooChunks 把一段位元組切成同層的 chunk 清單。
++func mooChunks(b []byte) ([]mooChunk, error) {
++	var out []mooChunk
++	for len(b) > 0 {
++		if len(b) < 8 {
++			return nil, fmt.Errorf("moo: chunk 標頭不完整（剩 %d bytes）", len(b))
++		}
++		n := binary.LittleEndian.Uint32(b[4:8])
++		if uint64(n) > uint64(len(b)-8) {
++			return nil, fmt.Errorf("moo: chunk %q 長度 %d 超出剩餘 %d", b[:4], n, len(b)-8)
++		}
++		out = append(out, mooChunk{typ: string(b[:4]), data: b[8 : 8+n]})
++		b = b[8+n:]
++	}
++	return out, nil
++}
++
++func parseRG32(b []byte) (map[string]uint32, error) {
++	if len(b) < 4 {
++		return nil, fmt.Errorf("moo: RG32/RM32 太短")
++	}
++	mask := binary.LittleEndian.Uint32(b)
++	b = b[4:]
++	out := map[string]uint32{}
++	for i, name := range mooRegNames {
++		if mask>>uint(i)&1 == 0 {
++			continue
++		}
++		if len(b) < 4 {
++			return nil, fmt.Errorf("moo: RG32/RM32 缺 %s", name)
++		}
++		out[name] = binary.LittleEndian.Uint32(b)
++		b = b[4:]
++	}
++	return out, nil
++}
++
++func parseState(b []byte) (mooState, error) {
++	st := mooState{regs: map[string]uint32{}}
++	cs, err := mooChunks(b)
++	if err != nil {
++		return st, err
++	}
++	for _, c := range cs {
++		switch c.typ {
++		case "RG32":
++			if st.regs, err = parseRG32(c.data); err != nil {
++				return st, err
++			}
++		case "RM32":
++			if st.masks, err = parseRG32(c.data); err != nil {
++				return st, err
++			}
++		case "RAM ":
++			n := binary.LittleEndian.Uint32(c.data)
++			d := c.data[4:]
++			if uint64(len(d)) < uint64(n)*5 {
++				return st, fmt.Errorf("moo: RAM 項目不足")
++			}
++			for i := uint32(0); i < n; i++ {
++				st.ram = append(st.ram, mooRAM{binary.LittleEndian.Uint32(d[i*5:]), d[i*5+4]})
++			}
++		}
++	}
++	return st, nil
++}
++
++func parseMOO(data []byte) (*mooFile, error) {
++	top, err := mooChunks(data)
++	if err != nil {
++		return nil, err
++	}
++	mf := &mooFile{}
++	for _, c := range top {
++		switch c.typ {
++		case "MOO ":
++			if len(c.data) < 12 {
++				return nil, fmt.Errorf("moo: 檔頭太短")
++			}
++			mf.testCount = binary.LittleEndian.Uint32(c.data[4:8])
++			mf.cpuID = string(c.data[8:12])
++		case "META":
++			// major(1) minor(1) cpu_type(1) opcode(4) mnemonic(8) test_ct(4) file_seed(8) cpu_mode(1)
++			if len(c.data) > 27 {
++				mf.hasMeta = true
++				mf.cpuMode = c.data[27]
++			}
++		case "RM32":
++			if mf.topMasks, err = parseRG32(c.data); err != nil {
++				return nil, err
++			}
++		case "TEST":
++			t := mooTest{idx: binary.LittleEndian.Uint32(c.data)}
++			subs, err := mooChunks(c.data[4:])
++			if err != nil {
++				return nil, err
++			}
++			for _, s := range subs {
++				switch s.typ {
++				case "NAME":
++					n := binary.LittleEndian.Uint32(s.data)
++					t.name = string(s.data[4 : 4+n])
++				case "BYTS":
++					n := binary.LittleEndian.Uint32(s.data)
++					t.bytes = bytes.Clone(s.data[4 : 4+n])
++				case "INIT":
++					if t.init, err = parseState(s.data); err != nil {
++						return nil, err
++					}
++				case "FINA":
++					if t.final, err = parseState(s.data); err != nil {
++						return nil, err
++					}
++				case "EXCP":
++					t.excp = true
++				case "HASH":
++					t.hash = hex.EncodeToString(s.data)
++				}
++			}
++			mf.tests = append(mf.tests, t)
++		}
++	}
++	if mf.testCount != 0 && int(mf.testCount) != len(mf.tests) {
++		return nil, fmt.Errorf("moo: 標頭宣告 %d 個測試，實際 %d", mf.testCount, len(mf.tests))
++	}
++	return mf, nil
++}
+diff --git a/internal/cpu/ops.go b/internal/cpu/ops.go
+index f149a77..f4e9865 100644
+--- a/internal/cpu/ops.go
++++ b/internal/cpu/ops.go
+@@ -36,6 +36,15 @@ func (c *CPU) Step() error {
+ 			c.segOverride = DS
+ 			c.charge(cycPrefix)
+ 			continue
++		case 0x64, 0x65:
++			// FS／GS 段覆寫只在 80386 存在（hr `docs/spec/001-cpu-386-real-mode-forms` §4.2）。
++			// 更低的機型落進 execute：8086 把它們當條件跳躍的別名（語料行為），
++			// 80186 報「未實作」。
++			if c.Model >= Model80386 {
++				c.segOverride = FS + int(op-0x64)
++				c.charge(cycPrefix)
++				continue
++			}
+ 		case 0x66:
+ 			// operand-size 前綴只在 80386 存在（`docs/spec/012`）。
+ 			// 80186 及以下落進 execute：8086 把它當 76h 的別名
+@@ -77,6 +86,10 @@ func (c *CPU) execute(op uint8) error {
+ 	case op == 0x0E:
+ 		c.push(c.Seg[CS])
+ 	case op == 0x0F:
++		if c.Model >= Model80386 {
++			// 386 的 0F 是雙位元組 opcode 的跳脫位元組（hr `docs/spec/001` §4.3）。
++			return c.execute0F()
++		}
+ 		// **8086 的 0F 是 POP CS**，不是雙位元組前綴。
+ 		c.Seg[CS] = c.pop()
+ 	case op == 0x16:
+@@ -160,6 +173,14 @@ func (c *CPU) execute(op uint8) error {
+ 		c.R[m.reg] = c.get16(m.rm)
+ 	case op == 0x8C: // MOV r/m16, Sreg
+ 		m := c.decodeModRM()
++		if c.Model >= Model80386 {
++			// 386：reg 4、5 是 FS、GS；6、7 是 #UD，本 CPU 不做例外，失敗即關閉。
++			if m.reg > GS {
++				return c.errf(op, "8C /%d：386 的 #UD，未實作", m.reg)
++			}
++			c.set16(m.rm, c.Seg[m.reg])
++			break
++		}
+ 		c.set16(m.rm, c.Seg[m.reg&3])
+ 	case op == 0x8D: // LEA r16, m
+ 		m := c.decodeModRM()
+@@ -169,6 +190,13 @@ func (c *CPU) execute(op uint8) error {
+ 	case op == 0x8E: // MOV Sreg, r/m16
+ 		c.charge(cycFar)
+ 		m := c.decodeModRM()
++		if c.Model >= Model80386 {
++			if m.reg > GS {
++				return c.errf(op, "8E /%d：386 的 #UD，未實作", m.reg)
++			}
++			c.Seg[m.reg] = c.get16(m.rm)
++			break
++		}
+ 		c.Seg[m.reg&3] = c.get16(m.rm)
+ 	case op == 0x8F: // POP r/m16
+ 		m := c.decodeModRM()
+diff --git a/internal/cpu/ops386.go b/internal/cpu/ops386.go
+index 4801d19..d7219e3 100644
+--- a/internal/cpu/ops386.go
++++ b/internal/cpu/ops386.go
+@@ -2,91 +2,210 @@ package cpu
+ 
+ import "fmt"
+ 
+-// 80386 最小子集（`docs/spec/012`）：0x66 operand-size 前綴。
++// 80386 real mode 的一小套形式。
+ //
+-// **指令清單是掃出來的，不是照手冊列的**——只有 DOSJP.COM 實際用到的
+-// 六道（CWDE／SHL EAX,imm8／MOV EAX,m16／MOV m16,EAX／MOV [m16],imm32，
+-// 加上段前綴的組合）。其他 opcode 帶 0x66 一樣報「未實作」——
+-// 靜靜放行才會讓錯誤看不見。
++// 範圍、語意與驗收：hr 專案 `docs/spec/001-cpu-386-real-mode-forms`（READY），
++// 以 SingleStepTests/80386 的 v1_ex_real_mode（真實 386EX）逐檔驗收。
++// 最早的 EAX 子集（DOSJP.COM 的六道指令）見 `docs/spec/012`，行為保留。
+ //
+-// EAX 的表示：`R[AX]` 是低半、`EAXHi` 是高半。**16 位元寫 AX 不清高半**
+-// （386 的行為）。
++// **指令清單是掃出來的，不是照手冊列的**：只有規格 §3.1 的形式。
++// 其他 opcode 帶 0x66 一樣報「未實作」——靜靜放行才會讓錯誤看不見。
++//
++// 暫存器：`R[i]` 是低半、`Hi[i]` 是高半。**16 位元寫入不清高半**（386 的行為）。
++
++func (c *CPU) getR32(i int) uint32 { return uint32(c.R[i]) | uint32(c.Hi[i])<<16 }
++
++func (c *CPU) setR32(i int, v uint32) {
++	c.R[i] = uint16(v)
++	c.Hi[i] = uint16(v >> 16)
++}
++
++func (c *CPU) getEAX() uint32  { return c.getR32(AX) }
++func (c *CPU) setEAX(v uint32) { c.setR32(AX, v) }
++func (c *CPU) fetch32() uint32 { lo := uint32(c.fetch16()); return lo | uint32(c.fetch16())<<16 }
++func (c *CPU) read32(seg, off uint16) uint32 {
++	return uint32(c.read16(seg, off)) | uint32(c.read16(seg, off+2))<<16
++}
++
++func (c *CPU) write32(seg, off uint16, v uint32) {
++	c.write16(seg, off, uint16(v))
++	c.write16(seg, off+2, uint16(v>>16))
++}
++
++func (c *CPU) get32(o operand) uint32 {
++	if o.isReg {
++		return c.getR32(o.reg)
++	}
++	return c.read32(o.seg, o.off)
++}
++
++func (c *CPU) set32(o operand, v uint32) {
++	if o.isReg {
++		c.setR32(o.reg, v)
++		return
++	}
++	c.write32(o.seg, o.off, v)
++}
++
++// push32／pop32：堆疊每格 4 bytes，SP 以 16 位元計算（real mode 的 16 位元堆疊）。
++// 只動 SP 的低半，ESP 的高半不變。
++func (c *CPU) push32(v uint32) {
++	c.charge(cycStack)
++	c.R[SP] -= 4
++	c.write32(c.Seg[SS], c.R[SP], v)
++}
++
++func (c *CPU) pop32() uint32 {
++	c.charge(cycStack)
++	v := c.read32(c.Seg[SS], c.R[SP])
++	c.R[SP] += 4
++	return v
++}
+ 
+-func (c *CPU) getEAX() uint32 { return uint32(c.R[AX]) | uint32(c.EAXHi)<<16 }
++// logic32Flags 設邏輯運算（xor）的旗標：CF＝OF＝0，SF、ZF、PF 依結果。
++// AF 未定義，這裡清成 0，語料用 RM32 遮罩處理。
++func (c *CPU) logic32Flags(res uint32) {
++	c.setFlag(CF, false)
++	c.setFlag(OF, false)
++	c.setFlag(AF, false)
++	c.setSZP32(res)
++}
+ 
+-func (c *CPU) setEAX(v uint32) {
+-	c.R[AX] = uint16(v)
+-	c.EAXHi = uint16(v >> 16)
++// shift32 做 SHL（kind 4）與 SHR（kind 5）。移位數先遮成 5 位元；
++// 移位數為 0 時結果與旗標都不變。AF 未定義，不動；OF 只在移位數為 1 時有定義，
++// 其餘移位數維持原值（語料對 SHR 的 CF、AF、OF 有遮罩，由單元測試補，
++// 見規格 §6.3）。
++func (c *CPU) shift32(kind int, v uint32, n uint8) (uint32, bool) {
++	count := n & 31
++	if count == 0 {
++		return v, false
++	}
++	var res uint32
++	var cf bool
++	switch kind {
++	case 4: // SHL
++		res = v << count
++		cf = v>>(32-count)&1 != 0
++		if count == 1 {
++			c.setFlag(OF, (res>>31&1 != 0) != cf)
++		}
++	case 5: // SHR
++		res = v >> count
++		cf = v>>(count-1)&1 != 0
++		if count == 1 {
++			c.setFlag(OF, v>>31&1 != 0)
++		}
++	}
++	c.setFlag(CF, cf)
++	c.setSZP32(res)
++	return res, true
+ }
+ 
+-// execute32 是 0x66 之後的分派（`docs/spec/012` §3）。
++// execute32 是 0x66 之後的分派（規格 §3.1、§4）。
+ func (c *CPU) execute32(op uint8) error {
+-	switch op {
+-	case 0x98: // CWDE：AX 符號擴展到 EAX
++	switch {
++	case op >= 0x50 && op <= 0x57: // PUSH r32（push esp 推的是執行前的值）
++		c.push32(c.getR32(int(op - 0x50)))
++
++	case op >= 0x58 && op <= 0x5F: // POP r32（pop esp 的結果是彈出的值）
++		c.setR32(int(op-0x58), c.pop32())
++
++	case op == 0x60: // PUSHAD：推入執行前的完整 ESP
++		esp := c.getR32(SP)
++		for _, r := range [...]int{AX, CX, DX, BX} {
++			c.push32(c.getR32(r))
++		}
++		c.push32(esp)
++		for _, r := range [...]int{BP, SI, DI} {
++			c.push32(c.getR32(r))
++		}
++
++	case op == 0x61: // POPAD
++		for _, r := range [...]int{DI, SI, BP} {
++			c.setR32(r, c.pop32())
++		}
++		// ESP 那一格不載入 SP（SP 只是遞增），但**彈出值的高 16 位元會寫進 ESP 的高半**。
++		// 這是真實 386EX 的行為，不是手冊寫的：語料 6661 的 2318 個有效測試全部如此
++		// （hr 規格 001 §4.6；手冊只說「ESP 丟棄」）。
++		slot := c.pop32()
++		for _, r := range [...]int{BX, DX, CX, AX} {
++			c.setR32(r, c.pop32())
++		}
++		c.Hi[SP] = uint16(slot >> 16)
++
++	case op == 0x33: // XOR r32, r/m32
++		m := c.decodeModRM()
++		res := c.getR32(m.reg) ^ c.get32(m.rm)
++		c.setR32(m.reg, res)
++		c.logic32Flags(res)
++
++	case op == 0x35: // XOR EAX, imm32
++		res := c.getEAX() ^ c.fetch32()
++		c.setEAX(res)
++		c.logic32Flags(res)
++
++	case op == 0x8B: // MOV r32, r/m32
++		m := c.decodeModRM()
++		c.setR32(m.reg, c.get32(m.rm))
++
++	case op == 0x98: // CWDE：AX 符號擴展到 EAX
+ 		c.setEAX(uint32(int32(int16(c.R[AX]))))
+ 
+-	case 0xA1: // MOV EAX, [moffs16]
++	case op == 0x9C: // PUSHFD：高 16 位元為 0（VM、RF 清除，386 沒有 AC）
++		c.push32(uint32(c.Flags))
++
++	case op == 0x9D: // POPFD：只取低 16 位元，高位元忽略
++		c.SetFlags(uint16(c.pop32()))
++
++	case op == 0xA1: // MOV EAX, [moffs16]
+ 		off := c.fetch16()
+ 		c.setEAX(c.read32(c.dataSeg(DS), off))
+ 
+-	case 0xA3: // MOV [moffs16], EAX
++	case op == 0xA3: // MOV [moffs16], EAX
+ 		off := c.fetch16()
+ 		c.write32(c.dataSeg(DS), off, c.getEAX())
+ 
+-	case 0xC1: // SHL EAX, imm8（只支援 modrm E0——DOSJP 的唯一用法）
++	case op == 0xC1: // SHL／SHR r/m32, imm8
+ 		m := c.decodeModRM()
+ 		n := c.fetch8()
+-		if m.reg != 4 || !m.rm.isReg || m.rm.reg != AX {
+-			return fmt.Errorf("cpu: %04X:%04X 66 C1 /%d：386 子集只有 SHL EAX,imm8",
+-				c.opCS, c.opIP, m.reg)
++		if m.reg != 4 && m.reg != 5 {
++			return c.errf(op, "66 C1 /%d：386 子集只有 SHL、SHR（hr docs/spec/001）", m.reg)
+ 		}
+-		v := c.getEAX()
+-		res := v << (n & 31)
+-		if n > 0 && n <= 31 {
+-			// CF ＝ 最後移出的位元。
+-			if v>>(32-n)&1 != 0 {
+-				c.SetFlags(c.Flags | CF)
+-			} else {
+-				c.SetFlags(c.Flags &^ CF)
+-			}
++		if res, changed := c.shift32(m.reg, c.get32(m.rm), n); changed {
++			c.set32(m.rm, res)
+ 		}
+-		c.setEAX(res)
+-		c.setSZP32(res)
+ 
+-	case 0xC7: // MOV dword [m16], imm32（modrm 06 是絕對位址）
++	case op == 0xC7: // MOV r/m32, imm32
+ 		m := c.decodeModRM()
+ 		if m.reg != 0 {
+-			return fmt.Errorf("cpu: %04X:%04X 66 C7 /%d：386 子集只有 /0",
+-				c.opCS, c.opIP, m.reg)
++			return c.errf(op, "66 C7 /%d：386 子集只有 /0（docs/spec/012）", m.reg)
+ 		}
+-		lo, hi := c.fetch16(), c.fetch16()
+-		c.setOperand32(m.rm, uint32(lo)|uint32(hi)<<16)
++		c.set32(m.rm, c.fetch32())
+ 
+ 	default:
+-		return fmt.Errorf("cpu: %04X:%04X op 66 %02X：386 子集沒有這一道（docs/spec/012）",
++		return fmt.Errorf("cpu: %04X:%04X op 66 %02X：386 子集沒有這一道（hr docs/spec/001、docs/spec/012）",
+ 			c.opCS, c.opIP, op)
+ 	}
+ 	return nil
+ }
+ 
+-func (c *CPU) read32(seg, off uint16) uint32 {
+-	return uint32(c.read16(seg, off)) | uint32(c.read16(seg, off+2))<<16
+-}
+-
+-func (c *CPU) write32(seg, off uint16, v uint32) {
+-	c.write16(seg, off, uint16(v))
+-	c.write16(seg, off+2, uint16(v>>16))
+-}
+-
+-func (c *CPU) setOperand32(o operand, v uint32) {
+-	if o.isReg {
+-		if o.reg != AX {
+-			panic("386 子集的暫存器運算元只有 EAX")
+-		}
+-		c.setEAX(v)
+-		return
++// execute0F 是 Model80386 下 0x0F 之後的分派：只有 FS／GS 的 push 與 pop。
++func (c *CPU) execute0F() error {
++	op2 := c.fetch8()
++	switch op2 {
++	case 0xA0: // PUSH FS
++		c.push(c.Seg[FS])
++	case 0xA1: // POP FS
++		c.Seg[FS] = c.pop()
++	case 0xA8: // PUSH GS
++		c.push(c.Seg[GS])
++	case 0xA9: // POP GS
++		c.Seg[GS] = c.pop()
++	default:
++		return fmt.Errorf("cpu: %04X:%04X op 0F %02X：386 子集沒有這一道（hr docs/spec/001）",
++			c.opCS, c.opIP, op2)
+ 	}
+-	c.write32(o.seg, o.off, v)
++	return nil
+ }
+ 
+ // setSZP32 是 32 位元版的 setSZP（SF 看 bit31、ZF 看整個 32 位元）。
+diff --git a/internal/cpu/ops386_real_test.go b/internal/cpu/ops386_real_test.go
+new file mode 100644
+index 0000000..895c5d2
+--- /dev/null
++++ b/internal/cpu/ops386_real_test.go
+@@ -0,0 +1,281 @@
++package cpu
++
++import "testing"
++
++// 386 real mode 形式的單元測試（hr 專案 `docs/spec/001-cpu-386-real-mode-forms` §6.3）。
++//
++// 不含任何原版位元組。期望值由人工依 Intel 386 手冊與語料行為逐列寫出，
++// 不以實作輸出回填。語料（SingleStepTests/80386）驗收在 `sst386_test.go`。
++
++// stack386 造一顆 386，堆疊放在 2000:1000，與程式碼段不重疊。
++func stack386() *CPU {
++	c, _ := new386()
++	c.Seg[SS], c.R[SP] = 0x2000, 0x1000
++	// New 以 8086 的旗標遮罩重置（位元 12 至 15 恆為 1）；機型切到 386 之後要重設一次，
++	// 否則第一次 popfd 會把位元 15 清掉，與真實 386 的狀態不同。
++	c.SetFlags(0)
++	return c
++}
++
++// 標準的 CPU 型號偵測序列（386 與 486 以上靠 EFLAGS 的 AC 位元區分）。
++// AC 不可寫（386）時，最後的 XOR 結果為 0。
++func TestCPUDetectionSequence386(t *testing.T) {
++	c := stack386()
++	for _, ins := range [][]byte{
++		{0x66, 0x9C},                         // pushfd
++		{0x66, 0x58},                         // pop eax
++		{0x66, 0x8B, 0xC8},                   // mov ecx, eax
++		{0x66, 0x35, 0x00, 0x00, 0x04, 0x00}, // xor eax, 40000h
++		{0x66, 0x50},                         // push eax
++		{0x66, 0x9D},                         // popfd
++		{0x66, 0x9C},                         // pushfd
++		{0x66, 0x58},                         // pop eax
++		{0x66, 0x33, 0xC1},                   // xor eax, ecx
++	} {
++		run386(t, c, ins)
++	}
++	if got := c.getEAX(); got != 0 {
++		t.Errorf("偵測序列結果 EAX=%08X，386（AC 不可寫）預期 0", got)
++	}
++	if !c.Flag(ZF) {
++		t.Error("xor 結果為 0，ZF 應該設起來")
++	}
++	if c.R[SP] != 0x1000 {
++		t.Errorf("序列結束後 SP=%04X，預期回到 1000", c.R[SP])
++	}
++}
++
++// shr／shl 32 位元的 CF 與 OF。語料 66C1.5 檔層級的遮罩把 CF、AF、OF 一併遮掉
++// （eflags 遮罩 FFFFF7EE），所以這些旗標只能靠這裡驗（規格 §6.1、§6.3）。
++func TestShift32Flags(t *testing.T) {
++	type tc struct {
++		name       string
++		modrm      byte // E8 ＝ shr eax；E0 ＝ shl eax
++		v          uint32
++		n          byte
++		want       uint32
++		cf, of     bool
++		checkOF    bool // 只有移位數遮罩後為 1 時 OF 有定義
++		sf, zf, pf bool
++	}
++	cases := []tc{
++		{"shr 1：高位是 1", 0xE8, 0x80000001, 1, 0x40000000, true, true, true, false, false, true},
++		{"shr 1：低位是 0", 0xE8, 0x00000002, 1, 0x00000001, false, false, true, false, false, false},
++		{"shr 1：結果為 0", 0xE8, 0x00000001, 1, 0, true, false, true, false, true, true},
++		{"shr 31", 0xE8, 0x80000000, 31, 0x00000001, false, false, false, false, false, false},
++		{"shr 31：CF 為 bit30", 0xE8, 0xFFFFFFFF, 31, 0x00000001, true, false, false, false, false, false},
++		{"shr 33 遮成 1", 0xE8, 0x80000000, 33, 0x40000000, false, true, true, false, false, true},
++		{"shr 4：全 1", 0xE8, 0xFFFFFFFF, 4, 0x0FFFFFFF, true, false, false, false, false, true},
++		{"shr 5：值為 0", 0xE8, 0, 5, 0, false, false, false, false, true, true},
++		{"shl 1：進位出去", 0xE0, 0x80000000, 1, 0, true, true, true, false, true, true},
++		{"shl 1：符號改變", 0xE0, 0x40000000, 1, 0x80000000, false, true, true, true, false, true},
++		{"shl 1：CF 與符號相同", 0xE0, 0xC0000000, 1, 0x80000000, true, false, true, true, false, true},
++		{"shl 31", 0xE0, 0x00000001, 31, 0x80000000, false, false, false, true, false, true},
++	}
++	for _, k := range cases {
++		c := stack386()
++		c.setEAX(k.v)
++		c.SetFlags(0)
++		run386(t, c, []byte{0x66, 0xC1, k.modrm, k.n})
++		if got := c.getEAX(); got != k.want {
++			t.Errorf("%s：結果 %08X，預期 %08X", k.name, got, k.want)
++		}
++		if c.Flag(CF) != k.cf {
++			t.Errorf("%s：CF=%v，預期 %v", k.name, c.Flag(CF), k.cf)
++		}
++		if k.checkOF && c.Flag(OF) != k.of {
++			t.Errorf("%s：OF=%v，預期 %v", k.name, c.Flag(OF), k.of)
++		}
++		if c.Flag(SF) != k.sf || c.Flag(ZF) != k.zf || c.Flag(PF) != k.pf {
++			t.Errorf("%s：SF=%v ZF=%v PF=%v，預期 %v %v %v", k.name, c.Flag(SF), c.Flag(ZF), c.Flag(PF), k.sf, k.zf, k.pf)
++		}
++	}
++	// 移位數遮成 5 位元後為 0：結果與旗標都不變。
++	for _, n := range []byte{0, 32, 64} {
++		c := stack386()
++		c.setEAX(0x12345678)
++		c.SetFlags(CF | OF | ZF)
++		before := c.Flags
++		run386(t, c, []byte{0x66, 0xC1, 0xE8, n})
++		if c.getEAX() != 0x12345678 || c.Flags != before {
++			t.Errorf("shr 移位數 %d：結果 %08X 旗標 %04X，預期不變（%04X）", n, c.getEAX(), c.Flags, before)
++		}
++	}
++}
++
++func TestPushadPopad(t *testing.T) {
++	c := stack386()
++	c.Hi[SP] = 0x1234
++	vals := map[int]uint32{AX: 0x11112222, CX: 0x33334444, DX: 0x55556666, BX: 0x77778888,
++		BP: 0x9999AAAA, SI: 0xBBBBCCCC, DI: 0xDDDDEEEE}
++	for r, v := range vals {
++		c.setR32(r, v)
++	}
++	run386(t, c, []byte{0x66, 0x60})
++	if c.R[SP] != 0x1000-32 || c.Hi[SP] != 0x1234 {
++		t.Fatalf("pushad 後 ESP=%04X%04X，預期 1234 0FE0", c.Hi[SP], c.R[SP])
++	}
++	// 位址由低到高：EDI、ESI、EBP、ESP、EBX、EDX、ECX、EAX。
++	want := []uint32{0xDDDDEEEE, 0xBBBBCCCC, 0x9999AAAA, 0x12341000, 0x77778888, 0x55556666, 0x33334444, 0x11112222}
++	for i, w := range want {
++		if got := c.read32(c.Seg[SS], c.R[SP]+uint16(i*4)); got != w {
++			t.Errorf("堆疊第 %d 格 %08X，預期 %08X（ESP 那一格要是執行前的完整 ESP）", i, got, w)
++		}
++	}
++	for r := range vals {
++		c.setR32(r, 0)
++	}
++	run386(t, c, []byte{0x66, 0x61})
++	for r, v := range vals {
++		if got := c.getR32(r); got != v {
++			t.Errorf("popad 後暫存器 %d = %08X，預期 %08X", r, got, v)
++		}
++	}
++	if c.R[SP] != 0x1000 || c.Hi[SP] != 0x1234 {
++		t.Errorf("popad 後 ESP=%04X%04X，預期 1234 1000", c.Hi[SP], c.R[SP])
++	}
++
++	// 真實 386EX：ESP 那一格不載入 SP，但彈出值的高 16 位元會寫進 ESP 高半（語料 6661）。
++	c = stack386()
++	c.Hi[SP] = 0xAAAA
++	c.write32(c.Seg[SS], 0x1000+12, 0x5678BEEF)
++	run386(t, c, []byte{0x66, 0x61})
++	if c.R[SP] != 0x1020 || c.Hi[SP] != 0x5678 {
++		t.Errorf("popad 的 ESP 格：ESP=%04X%04X，預期 5678 1020", c.Hi[SP], c.R[SP])
++	}
++}
++
++func TestPushEspAndPopEsp(t *testing.T) {
++	c := stack386()
++	c.Hi[SP] = 0xABCD
++	run386(t, c, []byte{0x66, 0x54}) // push esp：推的是執行前的值
++	if got := c.read32(c.Seg[SS], c.R[SP]); got != 0xABCD1000 {
++		t.Errorf("push esp 推入 %08X，預期 ABCD1000（執行前的值）", got)
++	}
++	if c.R[SP] != 0x0FFC {
++		t.Errorf("push esp 後 SP=%04X，預期 0FFC", c.R[SP])
++	}
++	c.write32(c.Seg[SS], c.R[SP], 0x12345678)
++	run386(t, c, []byte{0x66, 0x5C}) // pop esp：結果是彈出的值，不是遞增後的 ESP
++	if c.R[SP] != 0x5678 || c.Hi[SP] != 0x1234 {
++		t.Errorf("pop esp 後 ESP=%04X%04X，預期 1234 5678", c.Hi[SP], c.R[SP])
++	}
++}
++
++func TestPushfdPopfd(t *testing.T) {
++	c := stack386()
++	c.SetFlags(CF | ZF | IF)
++	run386(t, c, []byte{0x66, 0x9C})
++	want := uint32(c.Flags)
++	if got := c.read32(c.Seg[SS], c.R[SP]); got != want || got>>16 != 0 {
++		t.Errorf("pushfd 推入 %08X，預期 %08X（高 16 位元為 0）", got, want)
++	}
++	// popfd：高位元忽略（VM、RF、AC 不會進來），固定位元維持。
++	c.write32(c.Seg[SS], c.R[SP], 0xFFFFFFFF)
++	run386(t, c, []byte{0x66, 0x9D})
++	if c.Flags != 0x7FD5|2 {
++		t.Errorf("popfd 全 1 後 Flags=%04X，預期 %04X", c.Flags, 0x7FD5|2)
++	}
++	if c.R[SP] != 0x1000 {
++		t.Errorf("popfd 後 SP=%04X，預期 1000", c.R[SP])
++	}
++}
++
++func TestFSGS(t *testing.T) {
++	c := stack386()
++	c.Seg[FS], c.Seg[GS] = 0xBEEF, 0x1357
++	run386(t, c, []byte{0x0F, 0xA0}) // push fs
++	if c.R[SP] != 0x0FFE || c.read16(c.Seg[SS], c.R[SP]) != 0xBEEF {
++		t.Errorf("push fs：SP=%04X 值=%04X", c.R[SP], c.read16(c.Seg[SS], c.R[SP]))
++	}
++	run386(t, c, []byte{0x0F, 0xA8}) // push gs
++	run386(t, c, []byte{0x0F, 0xA1}) // pop fs（取到 gs 的值）
++	run386(t, c, []byte{0x0F, 0xA9}) // pop gs（取到 fs 的值）
++	if c.Seg[FS] != 0x1357 || c.Seg[GS] != 0xBEEF || c.R[SP] != 0x1000 {
++		t.Errorf("push／pop：FS=%04X GS=%04X SP=%04X，預期 1357 BEEF 1000", c.Seg[FS], c.Seg[GS], c.R[SP])
++	}
++	c.R[AX] = 0x2468
++	run386(t, c, []byte{0x8E, 0xE0}) // mov fs, ax
++	run386(t, c, []byte{0x8E, 0xE8}) // mov gs, ax
++	if c.Seg[FS] != 0x2468 || c.Seg[GS] != 0x2468 {
++		t.Errorf("mov fs／gs, ax：FS=%04X GS=%04X", c.Seg[FS], c.Seg[GS])
++	}
++	c.Seg[FS], c.Seg[GS] = 0x1111, 0x2222
++	run386(t, c, []byte{0x8C, 0xE1}) // mov cx, fs
++	run386(t, c, []byte{0x8C, 0xEA}) // mov dx, gs
++	if c.R[CX] != 0x1111 || c.R[DX] != 0x2222 {
++		t.Errorf("mov cx／dx, fs／gs：CX=%04X DX=%04X", c.R[CX], c.R[DX])
++	}
++	// 8C／8E 的 reg 6、7 在 386 是 #UD，本 CPU 失敗即關閉。
++	c.IP = 0
++	c.Bus.Write8(Addr(c.Seg[CS], 0), 0x8C)
++	c.Bus.Write8(Addr(c.Seg[CS], 1), 0xF0) // mod 11 reg 6
++	if err := c.Step(); err == nil {
++		t.Error("8C /6 應該回傳錯誤")
++	}
++}
++
++func TestFSGSOverridePrefixes(t *testing.T) {
++	for _, tc := range []struct {
++		name   string
++		prefix byte
++		seg    int
++	}{{"fs", 0x64, FS}, {"gs", 0x65, GS}} {
++		c := stack386()
++		c.Seg[DS], c.Seg[tc.seg] = 0x3000, 0x4000
++		c.R[BX] = 0x10
++		c.Bus.Write8(Addr(0x3000, 0x10), 0x11)
++		c.Bus.Write8(Addr(0x4000, 0x10), 0x5A)
++		run386(t, c, []byte{tc.prefix, 0x8A, 0x07}) // mov al, [bx] 帶段覆寫
++		if c.reg8(0) != 0x5A {
++			t.Errorf("%s 前綴：AL=%02X，預期 5A（走覆寫的段，不是 DS）", tc.name, c.reg8(0))
++		}
++	}
++}
++
++// 0F 在 386 是雙位元組跳脫：只認 FS／GS 的 push／pop，其餘失敗即關閉；
++// 8086 與 80186 維持原行為（0F ＝ POP CS，語料驗證過）。
++func TestEscape0F(t *testing.T) {
++	c := stack386()
++	c.Bus.Write8(Addr(c.Seg[CS], 0), 0x0F)
++	c.Bus.Write8(Addr(c.Seg[CS], 1), 0x05)
++	if err := c.Step(); err == nil {
++		t.Error("0F 05 在 386 子集應該回傳錯誤")
++	}
++	for _, m := range []Model{Model8086, Model80186} {
++		c := stack386()
++		c.Model = m
++		c.write16(c.Seg[SS], c.R[SP]-2, 0x4321)
++		c.R[SP] -= 2
++		c.Bus.Write8(Addr(c.Seg[CS], 0), 0x0F)
++		if err := c.Step(); err != nil || c.Seg[CS] != 0x4321 {
++			t.Errorf("機型 %d：0F 應該是 POP CS（CS=%04X err=%v）", m, c.Seg[CS], err)
++		}
++	}
++}
++
++// 64、65 在 80186 以下不是前綴。
++func TestFSGSPrefixesOnlyOn386(t *testing.T) {
++	c := stack386()
++	c.Model = Model80186
++	c.Bus.Write8(Addr(c.Seg[CS], 0), 0x64)
++	if err := c.Step(); err == nil {
++		t.Error("80186 上 0x64 應該是未實作的 opcode")
++	}
++}
++
++func TestSixteenBitWriteKeepsHighHalves(t *testing.T) {
++	c := stack386()
++	for i := 0; i < 8; i++ {
++		c.Hi[i] = uint16(0x1000 + i)
++	}
++	c.R[AX], c.R[BX] = 0x1111, 0x2222
++	run386(t, c, []byte{0x8B, 0xC3}) // mov ax, bx（16 位元）
++	if c.R[AX] != 0x2222 || c.Hi[AX] != 0x1000 {
++		t.Errorf("16 位元 mov：AX=%04X 高半=%04X，高半應保留 1000", c.R[AX], c.Hi[AX])
++	}
++	run386(t, c, []byte{0x66, 0x8B, 0xC3}) // mov eax, ebx（32 位元）
++	if c.getEAX() != 0x10032222 {
++		t.Errorf("32 位元 mov：EAX=%08X，預期 10032222", c.getEAX())
++	}
++}
+diff --git a/internal/cpu/ops386_test.go b/internal/cpu/ops386_test.go
+index 48f5a2f..e9f130f 100644
+--- a/internal/cpu/ops386_test.go
++++ b/internal/cpu/ops386_test.go
+@@ -33,7 +33,7 @@ func TestCWDE(t *testing.T) {
+ 		t.Errorf("CWDE 後 EAX=%08X，預期 FFFF8001", got)
+ 	}
+ 	c.R[AX] = 0x0007
+-	c.EAXHi = 0x1234
++	c.Hi[AX] = 0x1234
+ 	run386(t, c, []byte{0x66, 0x98})
+ 	if got := c.getEAX(); got != 0x00000007 {
+ 		t.Errorf("CWDE 後 EAX=%08X，預期 00000007", got)
+@@ -44,7 +44,7 @@ func TestSHLEAX(t *testing.T) {
+ 	c, _ := new386()
+ 	// DOSJP 的用法：JIS 碼左移 4 變 XMS 位移。
+ 	c.R[AX] = 0x253F
+-	c.EAXHi = 0
++	c.Hi[AX] = 0
+ 	run386(t, c, []byte{0x66, 0xC1, 0xE0, 0x04})
+ 	if got := c.getEAX(); got != 0x000253F0 {
+ 		t.Errorf("SHL EAX,4 後 EAX=%08X，預期 000253F0", got)
+@@ -89,7 +89,7 @@ func TestMovDwordImm32(t *testing.T) {
+ // 字型全部搬到位元組 0——不會報錯，只會顯示垃圾。
+ func TestWriteAXKeepsEAXHi(t *testing.T) {
+ 	c, _ := new386()
+-	c.EAXHi = 0xBEEF
++	c.Hi[AX] = 0xBEEF
+ 	run386(t, c, []byte{0xB8, 0x34, 0x12}) // mov ax,1234h
+ 	if got := c.getEAX(); got != 0xBEEF1234 {
+ 		t.Errorf("mov ax 之後 EAX=%08X，高半被清了", got)
+diff --git a/internal/cpu/sst386_test.go b/internal/cpu/sst386_test.go
+new file mode 100644
+index 0000000..4a1b44a
+--- /dev/null
++++ b/internal/cpu/sst386_test.go
+@@ -0,0 +1,289 @@
++package cpu
++
++// SingleStepTests/80386（real mode）驗收：`docs/spec/001-cpu-386-real-mode-forms`（hr 專案）。
++//
++// 每個測試是「一道指令加 HLT」。照語料 README 的用法：載入初始暫存器與記憶體，從 CS:IP 起跑
++// 一道指令（Step 一次），比對最終暫存器、被列出的記憶體位元組，並確認沒有寫到沒列出的位址。
++// 週期、匯流排狀態不比。
++//
++// 契約（規格 §6.1）：
++//   - Step 回傳錯誤、暫存器或記憶體不符、多寫、讀到沒列出的位址，一律算失敗。
++//   - 只排除兩類，逐檔計數、不靜默：excp（測試含 EXCP 子區塊，硬體產生了例外，本 CPU 不做例外）、
++//     revoked（HASH 在語料的 revocation_list.txt）。
++//   - 暫存器遮罩只用語料附的 RM32（檔案層級與單筆最終狀態，兩者都有時取交集），
++//     加上唯一一條明文規則：eflags 只比對位元 0 至 17。語料的 INIT／FINA eflags 位元 18 至 31 恆為 1，
++//     與指令和彈出值都無關（SMM dump 的假象，見規格 §4.7）。
++//   - 記憶體是平坦的稀疏位址空間，不做 A20 折返（語料假設 A20 開啟）。
++//   - DOSGOLEM_SST386_REQUIRE=1 時，缺語料目錄或缺檔算失敗；否則 skip（驗收一律用 REQUIRE=1）。
++
++import (
++	"fmt"
++	"os"
++	"sort"
++	"strings"
++	"testing"
++)
++
++// sst386Forms 是規格 §6.1 列出的語料檔。
++var sst386Forms = []string{
++	"668B", "669C", "669D",
++	"6650", "6651", "6652", "6653", "6654", "6655", "6656", "6657",
++	"6658", "6659", "665A", "665B", "665C", "665D", "665E", "665F",
++	"6633", "6635", "66C1.5", "6660", "6661",
++	"0FA0", "0FA1", "0FA8", "0FA9", "8C", "8E",
++}
++
++const sstEflagsMask = 0x0003FFFF
++
++func sst386Dir() string {
++	for _, d := range []string{
++		os.Getenv("DOSGOLEM_SST386"),
++		"testdata/80386/v1_ex_real_mode",
++		"/orig/testdata/80386/v1_ex_real_mode",
++	} {
++		if d == "" {
++			continue
++		}
++		if st, err := os.Stat(d); err == nil && st.IsDir() {
++			return d
++		}
++	}
++	return ""
++}
++
++type sstBus struct {
++	mem     map[uint32]uint8
++	init    map[uint32]uint8
++	written map[uint32]struct{}
++	badRead map[uint32]struct{}
++}
++
++func (b *sstBus) Read8(a uint32) uint8 {
++	v, ok := b.mem[a]
++	if !ok {
++		b.badRead[a] = struct{}{}
++	}
++	return v
++}
++func (b *sstBus) Write8(a uint32, v uint8) { b.mem[a] = v; b.written[a] = struct{}{} }
++func (b *sstBus) In8(uint16) uint8         { return 0xFF }
++func (b *sstBus) Out8(uint16, uint8)       {}
++
++var sstGP = [...]struct {
++	name string
++	idx  int
++}{{"eax", AX}, {"ebx", BX}, {"ecx", CX}, {"edx", DX}, {"esi", SI}, {"edi", DI}, {"ebp", BP}, {"esp", SP}}
++
++var sstSeg = [...]struct {
++	name string
++	idx  int
++}{{"cs", CS}, {"ds", DS}, {"es", ES}, {"fs", FS}, {"gs", GS}, {"ss", SS}}
++
++func sstLoad(c *CPU, regs map[string]uint32) {
++	for _, g := range sstGP {
++		v := regs[g.name]
++		c.R[g.idx], c.Hi[g.idx] = uint16(v), uint16(v>>16)
++	}
++	for _, s := range sstSeg {
++		c.Seg[s.idx] = uint16(regs[s.name])
++	}
++	c.IP = uint16(regs["eip"])
++	c.Flags = uint16(regs["eflags"])
++}
++
++func sstDump(c *CPU) map[string]uint32 {
++	m := map[string]uint32{}
++	for _, g := range sstGP {
++		m[g.name] = uint32(c.R[g.idx]) | uint32(c.Hi[g.idx])<<16
++	}
++	for _, s := range sstSeg {
++		m[s.name] = uint32(c.Seg[s.idx])
++	}
++	m["eip"] = uint32(c.IP)
++	m["eflags"] = uint32(c.Flags)
++	return m
++}
++
++type sstResult struct {
++	total, ran, excp, revoked, fail int
++	firstFails                      []string
++}
++
++// runMOOTest 回傳 (失敗訊息, 排除類別)。兩者皆空表示通過。
++func runMOOTest(mf *mooFile, rev map[string]bool, t *mooTest) (failMsg string, skipped string) {
++	if t.excp {
++		return "", "excp"
++	}
++	if rev[t.hash] {
++		return "", "revoked"
++	}
++	bus := &sstBus{mem: map[uint32]uint8{}, init: map[uint32]uint8{}, written: map[uint32]struct{}{}, badRead: map[uint32]struct{}{}}
++	for _, r := range t.init.ram {
++		bus.mem[r.addr] = r.val
++		bus.init[r.addr] = r.val
++	}
++	c := New(bus)
++	c.Model = Model80386
++	sstLoad(c, t.init.regs)
++	if err := c.Step(); err != nil {
++		return fmt.Sprintf("%s [% X]: Step 失敗：%v", t.name, t.bytes, err), ""
++	}
++	// 語料每個測試是「被測指令加一道 F4（HLT）」，FINA 的 eip 落在 HLT 之後（規格 §6.1）。
++	if op := bus.Read8(Linear(c.Seg[CS], c.IP)); op != 0xF4 {
++		return fmt.Sprintf("%s [% X]: 被測指令之後的位元組是 %02X，不是 HLT（F4）", t.name, t.bytes, op), ""
++	}
++	if err := c.Step(); err != nil || !c.Halted {
++		return fmt.Sprintf("%s [% X]: 執行 HLT 失敗（err=%v halted=%v）", t.name, t.bytes, err, c.Halted), ""
++	}
++	want := map[string]uint32{}
++	for k, v := range t.init.regs {
++		want[k] = v
++	}
++	for k, v := range t.final.regs {
++		want[k] = v
++	}
++	got := sstDump(c)
++	var diffs []string
++	check := func(name string) {
++		mask := uint32(0xFFFFFFFF)
++		if m, ok := mf.topMasks[name]; ok {
++			mask &= m
++		}
++		if m, ok := t.final.masks[name]; ok {
++			mask &= m
++		}
++		switch {
++		case name == "eflags":
++			mask &= sstEflagsMask
++		case name == "eip" || len(name) == 2 && strings.HasSuffix(name, "s"):
++			mask &= 0xFFFF
++		}
++		w, g := want[name], got[name]
++		if w&mask != g&mask {
++			diffs = append(diffs, fmt.Sprintf("%s 期望 %08X 實得 %08X（遮罩 %08X）", name, w&mask, g&mask, mask))
++		}
++	}
++	for _, g := range sstGP {
++		check(g.name)
++	}
++	for _, s := range sstSeg {
++		check(s.name)
++	}
++	check("eip")
++	check("eflags")
++	finalRAM := map[uint32]uint8{}
++	for _, r := range t.final.ram {
++		finalRAM[r.addr] = r.val
++		if g, ok := bus.mem[r.addr]; !ok || g != r.val {
++			diffs = append(diffs, fmt.Sprintf("記憶體 %06X 期望 %02X 實得 %02X", r.addr, r.val, g))
++		}
++	}
++	var extra []uint32
++	for a := range bus.written {
++		_, inInit := bus.init[a]
++		_, inFinal := finalRAM[a]
++		switch {
++		case !inInit && !inFinal: // 寫到 INIT 與 FINA 都沒列出的位址（含寫入 0）
++			extra = append(extra, a)
++		case inInit && !inFinal && bus.mem[a] != bus.init[a]: // 列在 INIT 但 FINA 說沒變，實際改了
++			extra = append(extra, a)
++		}
++	}
++	sort.Slice(extra, func(i, j int) bool { return extra[i] < extra[j] })
++	for _, a := range extra {
++		diffs = append(diffs, fmt.Sprintf("多寫了未列出的位址 %06X（%02X→%02X）", a, bus.init[a], bus.mem[a]))
++	}
++	var bad []uint32
++	for a := range bus.badRead {
++		if _, listed := bus.init[a]; !listed {
++			bad = append(bad, a)
++		}
++	}
++	sort.Slice(bad, func(i, j int) bool { return bad[i] < bad[j] })
++	if len(bad) > 0 {
++		diffs = append(diffs, fmt.Sprintf("讀了未列出的位址 %06X 等 %d 處", bad[0], len(bad)))
++	}
++	if len(diffs) > 0 {
++		return fmt.Sprintf("%s [% X]: %s", t.name, t.bytes, strings.Join(diffs, "；")), ""
++	}
++	return "", ""
++}
++
++func TestSST386(t *testing.T) {
++	require := os.Getenv("DOSGOLEM_SST386_REQUIRE") == "1"
++	dir := sst386Dir()
++	if dir == "" {
++		if require {
++			t.Fatal("沒有 SingleStepTests/80386 語料目錄（DOSGOLEM_SST386_REQUIRE=1）")
++		}
++		t.Skip("沒有 SingleStepTests/80386 語料（hr 專案 tools/fetch_sst386.sh；或設 DOSGOLEM_SST386）")
++	}
++	rev, revOK := readRevocation(dir)
++	if require && !revOK {
++		t.Fatal("缺語料的 revocation_list.txt（DOSGOLEM_SST386_REQUIRE=1）")
++	}
++	only := os.Getenv("DOSGOLEM_SST386_ONLY")
++	if require && only != "" {
++		t.Fatal("DOSGOLEM_SST386_REQUIRE=1 時不接受 DOSGOLEM_SST386_ONLY 篩選")
++	}
++	var sum sstResult
++	for _, name := range sst386Forms {
++		if only != "" && !strings.Contains(","+only+",", ","+name+",") {
++			continue
++		}
++		name := name
++		t.Run(name, func(t *testing.T) {
++			path := mooPath(dir, name)
++			if _, err := os.Stat(path); err != nil {
++				if require {
++					t.Fatalf("缺語料檔 %s（DOSGOLEM_SST386_REQUIRE=1）", path)
++				}
++				t.Skipf("缺語料檔 %s", path)
++			}
++			mf, err := readMOO(path)
++			if err != nil {
++				t.Fatal(err)
++			}
++			if mf.cpuID != "386E" || !mf.hasMeta || mf.cpuMode != 0 {
++				t.Fatalf("%s：語料不是 386EX real mode（CPU ID %q，META %v，cpu_mode %d）", name, mf.cpuID, mf.hasMeta, mf.cpuMode)
++			}
++			if len(mf.tests) == 0 {
++				t.Fatalf("%s：語料內沒有測試", name)
++			}
++			res := sstResult{total: len(mf.tests)}
++			for i := range mf.tests {
++				fm, sk := runMOOTest(mf, rev, &mf.tests[i])
++				switch {
++				case sk == "excp":
++					res.excp++
++				case sk == "revoked":
++					res.revoked++
++				case fm != "":
++					res.ran++
++					res.fail++
++					if len(res.firstFails) < 5 {
++						res.firstFails = append(res.firstFails, fm)
++					}
++				default:
++					res.ran++
++				}
++			}
++			t.Logf("RECEIPT %-7s 總數 %4d 執行 %4d 失敗 %3d 排除 excp=%d revoked=%d", name, res.total, res.ran, res.fail, res.excp, res.revoked)
++			sum.total += res.total
++			sum.ran += res.ran
++			sum.fail += res.fail
++			sum.excp += res.excp
++			sum.revoked += res.revoked
++			for _, m := range res.firstFails {
++				t.Error(m)
++			}
++			if res.fail > 0 {
++				t.Errorf("%s：%d 個測試失敗", name, res.fail)
++			}
++			if res.ran*10 < res.total*9 {
++				t.Errorf("%s：有效測試 %d 少於總數 %d 的 90%%，排除過多", name, res.ran, res.total)
++			}
++		})
++	}
++	t.Logf("RECEIPT 合計 總數 %d 執行 %d 失敗 %d 排除 excp=%d revoked=%d", sum.total, sum.ran, sum.fail, sum.excp, sum.revoked)
++}
+diff --git a/internal/dos/dos_test.go b/internal/dos/dos_test.go
+index c9594b1..16e0cd5 100644
+--- a/internal/dos/dos_test.go
++++ b/internal/dos/dos_test.go
+@@ -431,7 +431,9 @@ func TestMouseCallbackUsesFarCallContract(t *testing.T) {
+ 		0xA111, 0xB222, 0xC333, 0xD444
+ 	m.CPU.R[cpu.SI], m.CPU.R[cpu.DI], m.CPU.R[cpu.BP] = 0x5111, 0xD111, 0xB111
+ 	m.CPU.SetFlags(cpu.IF | cpu.DF | cpu.CF)
+-	wantR, wantSeg, wantIP, wantFlags := m.CPU.R, m.CPU.Seg, m.CPU.IP, m.CPU.Flags
++	m.CPU.Hi = [8]uint16{0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8}
++	m.CPU.Seg[cpu.FS], m.CPU.Seg[cpu.GS] = 0xFACE, 0xBEEF
++	wantR, wantHi, wantSeg, wantIP, wantFlags := m.CPU.R, m.CPU.Hi, m.CPU.Seg, m.CPU.IP, m.CPU.Flags
+ 	d.Mouse.X, d.Mouse.Y, d.Mouse.Buttons = 100, 50, 1
+ 
+ 	dispatched, err := d.RunMouseEvent(0x0002, 3, -4)
+@@ -441,7 +443,7 @@ func TestMouseCallbackUsesFarCallContract(t *testing.T) {
+ 	if !dispatched {
+ 		t.Fatal("符合mask的左鍵按下沒有觸發callback")
+ 	}
+-	if m.CPU.R != wantR || m.CPU.Seg != wantSeg || m.CPU.IP != wantIP || m.CPU.Flags != wantFlags {
++	if m.CPU.R != wantR || m.CPU.Hi != wantHi || m.CPU.Seg != wantSeg || m.CPU.IP != wantIP || m.CPU.Flags != wantFlags {
+ 		t.Fatalf("callback返回後污染呼叫者狀態：R=%04X Seg=%04X IP=%04X Flags=%04X",
+ 			m.CPU.R, m.CPU.Seg, m.CPU.IP, m.CPU.Flags)
+ 	}
+diff --git a/internal/dos/exec.go b/internal/dos/exec.go
+index fbe8cc8..15ed12c 100644
+--- a/internal/dos/exec.go
++++ b/internal/dos/exec.go
+@@ -25,7 +25,8 @@ import (
+ // procFrame 是一個被 EXEC 暫停的父行程（`docs/spec/008` §2）。
+ type procFrame struct {
+ 	r       [8]uint16
+-	seg     [4]uint16
++	hi      [8]uint16
++	seg     [6]uint16
+ 	ip, fl  uint16
+ 	psp     uint16 // 父行程的 PSP（回來時還原 curPSP）
+ 	freeSeg uint16 // 進子行程之前的配置游標
+@@ -129,7 +130,7 @@ func (d *DOS) spawn(c *cpu.CPU, name string, p execParams) {
+ 	// 壓父行程框。此時 IP 已指到 int 21h 的下一道，存起來的就是
+ 	// 正確的接續點。
+ 	f := procFrame{
+-		r: c.R, seg: c.Seg, ip: c.IP, fl: c.Flags,
++		r: c.R, hi: c.Hi, seg: c.Seg, ip: c.IP, fl: c.Flags,
+ 		psp: d.curPSP, freeSeg: d.freeSeg,
+ 	}
+ 	for i, n := range savedVectors {
+@@ -301,7 +302,7 @@ func (d *DOS) terminate(c *cpu.CPU, code uint8, tsr bool, keep uint16) {
+ 			d.M.Write16(uint32(n)*4+2, f.ivt[i][1])
+ 		}
+ 
+-		c.R, c.Seg, c.IP, c.Flags = f.r, f.seg, f.ip, f.fl
++		c.R, c.Hi, c.Seg, c.IP, c.Flags = f.r, f.hi, f.seg, f.ip, f.fl
+ 		if tsr {
+ 			// TSR：常駐區保留。bump 配置器沒有洞的觀念，所以
+ 			// **只能往前推不能往回收**（`docs/spec/008` §2.1）——
+diff --git a/internal/dos/mouse_contract_test.go b/internal/dos/mouse_contract_test.go
+index d329672..dc34c82 100644
+--- a/internal/dos/mouse_contract_test.go
++++ b/internal/dos/mouse_contract_test.go
+@@ -162,7 +162,9 @@ func TestMouseCallbackRestoresCallerRegisters(t *testing.T) {
+ 	m.CPU.R[cpu.AX], m.CPU.R[cpu.BX] = 0x1111, 0x2222
+ 	m.CPU.R[cpu.CX], m.CPU.R[cpu.DX] = 0x3333, 0x4444
+ 	m.CPU.R[cpu.SI], m.CPU.R[cpu.DI] = 0x5555, 0x6666
+-	wantR, wantSeg, wantFlags := m.CPU.R, m.CPU.Seg, m.CPU.Flags
++	m.CPU.Hi = [8]uint16{0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8}
++	m.CPU.Seg[cpu.FS], m.CPU.Seg[cpu.GS] = 0xFACE, 0xBEEF
++	wantR, wantHi, wantSeg, wantFlags := m.CPU.R, m.CPU.Hi, m.CPU.Seg, m.CPU.Flags
+ 
+ 	if !d.MouseEvent(EventMove) {
+ 		t.Fatal("事件沒有排進去")
+@@ -175,7 +177,7 @@ func TestMouseCallbackRestoresCallerRegisters(t *testing.T) {
+ 	if m.CallbackActive() {
+ 		t.Fatal("回呼沒有收尾")
+ 	}
+-	if m.CPU.R != wantR || m.CPU.Seg != wantSeg || m.CPU.Flags != wantFlags {
++	if m.CPU.R != wantR || m.CPU.Hi != wantHi || m.CPU.Seg != wantSeg || m.CPU.Flags != wantFlags {
+ 		t.Errorf("回呼污染了呼叫端：R=%04X Seg=%04X Flags=%04X",
+ 			m.CPU.R, m.CPU.Seg, m.CPU.Flags)
+ 	}
+diff --git a/internal/dos/state.go b/internal/dos/state.go
+index 6a54802..6a569fe 100644
+--- a/internal/dos/state.go
++++ b/internal/dos/state.go
+@@ -5,6 +5,8 @@ import (
+ 	"fmt"
+ 	"io"
+ 	"os"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
+ )
+ 
+ // 存檔／讀檔：DOS 這一層的狀態。與 `machine.SaveState` 合起來才是一台
+@@ -17,7 +19,10 @@ import (
+ 
+ const (
+ 	dosStateMagic   = "DOSGOLEM-D"
+-	dosStateVersion = 2
++	dosStateVersion = 3
++	// dosStateMinVersion 是仍可載入的最舊版本。v3 的 procState 新增 FS、GS 與通用暫存器高半
++	//（hr `docs/spec/001`），v2 檔沒有這些欄位，gob 解碼時補 0。
++	dosStateMinVersion = 2
+ )
+ 
+ type handleState struct {
+@@ -48,8 +53,11 @@ type blockState struct {
+ }
+ 
+ type procState struct {
+-	R       [8]uint16
+-	Seg     [4]uint16
++	R   [8]uint16
++	Seg [4]uint16 // ES、CS、SS、DS（陣列長度不能改：gob 對長度不同的陣列會報錯）
++	// v3 新增：FS、GS 與各通用暫存器的高 16 位元。
++	FS, GS  uint16
++	Hi      [8]uint16
+ 	IP, Fl  uint16
+ 	PSP     uint16
+ 	FreeSeg uint16
+@@ -148,7 +156,7 @@ func (d *DOS) SaveState(w io.Writer) error {
+ 		s.EMB[k] = append([]byte(nil), v...)
+ 	}
+ 	for _, f := range d.procStack {
+-		s.Stack = append(s.Stack, procState{R: f.r, Seg: f.seg, IP: f.ip, Fl: f.fl,
++		s.Stack = append(s.Stack, procState{R: f.r, Seg: [4]uint16(f.seg[:4]), FS: f.seg[cpu.FS], GS: f.seg[cpu.GS], Hi: f.hi, IP: f.ip, Fl: f.fl,
+ 			PSP: f.psp, FreeSeg: f.freeSeg, IVT: f.ivt})
+ 	}
+ 	if d.ems != nil {
+@@ -179,7 +187,7 @@ func (d *DOS) LoadState(r io.Reader) error {
+ 	if err := gob.NewDecoder(r).Decode(&s); err != nil {
+ 		return fmt.Errorf("dos: 讀不開狀態檔：%w", err)
+ 	}
+-	if s.Magic != dosStateMagic || s.Version != dosStateVersion {
++	if s.Magic != dosStateMagic || s.Version < dosStateMinVersion || s.Version > dosStateVersion {
+ 		return fmt.Errorf("dos: 狀態檔不認得（%q v%d）", s.Magic, s.Version)
+ 	}
+ 	for _, h := range d.handles {
+@@ -224,7 +232,7 @@ func (d *DOS) LoadState(r io.Reader) error {
+ 	d.nextEMB = s.NextEMB
+ 	d.procStack = nil
+ 	for _, f := range s.Stack {
+-		d.procStack = append(d.procStack, procFrame{r: f.R, seg: f.Seg, ip: f.IP, fl: f.Fl,
++		d.procStack = append(d.procStack, procFrame{r: f.R, hi: f.Hi, seg: segsFromState(f), ip: f.IP, fl: f.Fl,
+ 			psp: f.PSP, freeSeg: f.FreeSeg, ivt: f.IVT})
+ 	}
+ 	d.ems = &ems{handles: map[uint16]*emsHandle{}, next: s.EMSNext}
+@@ -245,3 +253,11 @@ func (d *DOS) LoadState(r io.Reader) error {
+ 	}
+ 	return nil
+ }
++
++// segsFromState 把線上格式的段暫存器還原成 CPU 的六個段（ES、CS、SS、DS、FS、GS）。
++func segsFromState(f procState) [6]uint16 {
++	var s [6]uint16
++	copy(s[:4], f.Seg[:])
++	s[cpu.FS], s[cpu.GS] = f.FS, f.GS
++	return s
++}
+diff --git a/internal/dos/state386_test.go b/internal/dos/state386_test.go
+new file mode 100644
+index 0000000..373ad4f
+--- /dev/null
++++ b/internal/dos/state386_test.go
+@@ -0,0 +1,77 @@
++package dos
++
++import (
++	"bytes"
++	"encoding/gob"
++	"testing"
++)
++
++// EXEC 暫停的父行程框要保存暫存器高半與 FS／GS（hr `docs/spec/001-cpu-386-real-mode-forms` §5）。
++func TestStateKeepsProcFrameHiAndFSGS(t *testing.T) {
++	d := newAt(t, t.TempDir())
++	frame := procFrame{
++		r:   [8]uint16{1, 2, 3, 4, 5, 6, 7, 8},
++		hi:  [8]uint16{0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8},
++		seg: [6]uint16{0x1000, 0x2000, 0x3000, 0x4000, 0xFACE, 0xBEEF},
++		ip:  0x1234, fl: 0x0202, psp: 0x0100, freeSeg: 0x2000,
++	}
++	d.procStack = []procFrame{frame}
++	var buf bytes.Buffer
++	if err := d.SaveState(&buf); err != nil {
++		t.Fatal(err)
++	}
++	d2 := newAt(t, t.TempDir())
++	if err := d2.LoadState(bytes.NewReader(buf.Bytes())); err != nil {
++		t.Fatal(err)
++	}
++	if len(d2.procStack) != 1 || d2.procStack[0] != frame {
++		t.Errorf("父行程框來回後不同：%+v，預期 %+v", d2.procStack, frame)
++	}
++}
++
++func TestStateFileVersions(t *testing.T) {
++	d := newAt(t, t.TempDir())
++	d.procStack = []procFrame{{
++		hi:  [8]uint16{9, 9, 9, 9, 9, 9, 9, 9},
++		seg: [6]uint16{1, 2, 3, 4, 5, 6},
++	}}
++	var buf bytes.Buffer
++	if err := d.SaveState(&buf); err != nil {
++		t.Fatal(err)
++	}
++	var s dosState
++	if err := gob.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&s); err != nil {
++		t.Fatal(err)
++	}
++	if s.Version != 3 {
++		t.Fatalf("寫出的版本是 %d，預期 3", s.Version)
++	}
++	encode := func(s dosState) *bytes.Reader {
++		var b bytes.Buffer
++		if err := gob.NewEncoder(&b).Encode(&s); err != nil {
++			t.Fatal(err)
++		}
++		return bytes.NewReader(b.Bytes())
++	}
++	v2 := s
++	v2.Version = 2
++	v2.Stack = append([]procState(nil), s.Stack...)
++	for i := range v2.Stack {
++		v2.Stack[i].FS, v2.Stack[i].GS, v2.Stack[i].Hi = 0, 0, [8]uint16{}
++	}
++	d2 := newAt(t, t.TempDir())
++	if err := d2.LoadState(encode(v2)); err != nil {
++		t.Fatalf("v2 狀態檔應該可載入：%v", err)
++	}
++	f := d2.procStack[0]
++	if f.hi != [8]uint16{} || f.seg[4] != 0 || f.seg[5] != 0 || f.seg[0] != 1 || f.seg[3] != 4 {
++		t.Errorf("v2 檔載入後：hi=%v seg=%v，預期新欄位為 0、ES..DS 保留", f.hi, f.seg)
++	}
++	for _, v := range []int{1, 4} {
++		bad := s
++		bad.Version = v
++		if err := newAt(t, t.TempDir()).LoadState(encode(bad)); err == nil {
++			t.Errorf("版本 %d 應該被拒絕", v)
++		}
++	}
++}
+diff --git a/internal/machine/callback.go b/internal/machine/callback.go
+index 2744b42..43bf718 100644
+--- a/internal/machine/callback.go
++++ b/internal/machine/callback.go
+@@ -30,7 +30,8 @@ type QueuedCall struct {
+ // callbackFrame 是被打斷的那一刻的完整 CPU 狀態。
+ type callbackFrame struct {
+ 	regs  [8]uint16
+-	segs  [4]uint16
++	hi    [8]uint16
++	segs  [6]uint16
+ 	ip    uint16
+ 	flags uint16
+ }
+@@ -70,7 +71,7 @@ func (m *Machine) startCallback() bool {
+ 	m.cbQueue = m.cbQueue[1:]
+ 
+ 	c := m.CPU
+-	m.cbSaved = callbackFrame{regs: c.R, segs: c.Seg, ip: c.IP, flags: c.Flags}
++	m.cbSaved = callbackFrame{regs: c.R, hi: c.Hi, segs: c.Seg, ip: c.IP, flags: c.Flags}
+ 	m.cbActive = true
+ 	m.cbMade++
+ 
+@@ -91,7 +92,7 @@ func (m *Machine) FinishCallback() bool {
+ 		return false
+ 	}
+ 	c := m.CPU
+-	c.R, c.Seg, c.IP = m.cbSaved.regs, m.cbSaved.segs, m.cbSaved.ip
++	c.R, c.Hi, c.Seg, c.IP = m.cbSaved.regs, m.cbSaved.hi, m.cbSaved.segs, m.cbSaved.ip
+ 	c.SetFlags(m.cbSaved.flags)
+ 	m.cbActive = false
+ 	return true
+diff --git a/internal/machine/dpmi_real_mode.go b/internal/machine/dpmi_real_mode.go
+index c60faaa..8a81cfa 100644
+--- a/internal/machine/dpmi_real_mode.go
++++ b/internal/machine/dpmi_real_mode.go
+@@ -130,7 +130,7 @@ func (h *DPMIHost) simulateRealModeInterrupt(c *cpu386.CPU) error {
+ 			r.R[i] = word(o)
+ 		}
+ 	}
+-	r.EAXHi = word(30)
++	r.Hi[cpu.AX] = word(30)
+ 	r.Seg[cpu.DS], r.Seg[cpu.ES], r.Seg[cpu.SS] = word(36), word(34), ss
+ 	r.R[cpu.SP] = sp
+ 	r.SetFlags(word(32))
+@@ -178,7 +178,7 @@ func (h *DPMIHost) simulateRealModeInterrupt(c *cpu386.CPU) error {
+ 					binary.LittleEndian.PutUint16(packet[o:], r.R[i])
+ 				}
+ 			}
+-			binary.LittleEndian.PutUint16(packet[30:], r.EAXHi)
++			binary.LittleEndian.PutUint16(packet[30:], r.Hi[cpu.AX])
+ 			binary.LittleEndian.PutUint16(packet[32:], r.Flags)
+ 			binary.LittleEndian.PutUint16(packet[34:], r.Seg[cpu.ES])
+ 			binary.LittleEndian.PutUint16(packet[36:], r.Seg[cpu.DS])
+diff --git a/internal/machine/le_startup.go b/internal/machine/le_startup.go
+index ea5e012..a430457 100644
+--- a/internal/machine/le_startup.go
++++ b/internal/machine/le_startup.go
+@@ -461,7 +461,7 @@ func (s *FD2StartupDOS) HandleRealMode(r *cpu.CPU, n uint8) bool {
+ 	for i, v := range r.R {
+ 		c.R[i] = uint32(v)
+ 	}
+-	c.R[cpu386.EAX] |= uint32(r.EAXHi) << 16
++	c.R[cpu386.EAX] |= uint32(r.Hi[cpu.AX]) << 16
+ 	c.EFlags = uint32(r.Flags)
+ 	for _, v := range []struct {
+ 		dst, src int
+@@ -478,7 +478,7 @@ func (s *FD2StartupDOS) HandleRealMode(r *cpu.CPU, n uint8) bool {
+ 	for i, v := range c.R {
+ 		r.R[i] = uint16(v)
+ 	}
+-	r.EAXHi = uint16(c.R[cpu386.EAX] >> 16)
++	r.Hi[cpu.AX] = uint16(c.R[cpu386.EAX] >> 16)
+ 	r.SetFlags(uint16(c.EFlags))
+ 	return true
+ }
+diff --git a/internal/machine/snapshot.go b/internal/machine/snapshot.go
+index 4f49cbd..07e199b 100644
+--- a/internal/machine/snapshot.go
++++ b/internal/machine/snapshot.go
+@@ -13,7 +13,8 @@ import "github.com/wicanr2/dosgolem/internal/cpu"
+ type Snapshot struct {
+ 	mem   []uint8
+ 	regs  [8]uint16
+-	segs  [4]uint16
++	hi    [8]uint16
++	segs  [6]uint16
+ 	ip    uint16
+ 	flags uint16
+ 
+@@ -89,6 +90,7 @@ func (m *Machine) Snapshot() *Snapshot {
+ 	s := &Snapshot{
+ 		mem:       make([]uint8, len(m.Mem)),
+ 		regs:      m.CPU.R,
++		hi:        m.CPU.Hi,
+ 		segs:      m.CPU.Seg,
+ 		ip:        m.CPU.IP,
+ 		flags:     m.CPU.Flags,
+@@ -153,7 +155,7 @@ func (m *Machine) Snapshot() *Snapshot {
+ // Restore 把機器倒回快照。
+ func (m *Machine) Restore(s *Snapshot) {
+ 	copy(m.Mem, s.mem)
+-	m.CPU.R, m.CPU.Seg, m.CPU.IP = s.regs, s.segs, s.ip
++	m.CPU.R, m.CPU.Hi, m.CPU.Seg, m.CPU.IP = s.regs, s.hi, s.segs, s.ip
+ 	m.CPU.SetFlags(s.flags)
+ 	m.CPU.Halted = false
+ 
+diff --git a/internal/machine/state.go b/internal/machine/state.go
+index a312d43..98b8958 100644
+--- a/internal/machine/state.go
++++ b/internal/machine/state.go
+@@ -21,7 +21,10 @@ import (
+ // stateMagic 認檔用；版本不合就拒絕，不要讓舊檔悄悄餵出錯的狀態。
+ const (
+ 	stateMagic   = "DOSGOLEM-M"
+-	stateVersion = 2
++	stateVersion = 3
++	// stateMinVersion 是仍可載入的最舊版本。v3 新增 FS、GS 與通用暫存器高半（hr `docs/spec/001`），
++	// v2 檔沒有這些欄位，gob 解碼時補 0。
++	stateMinVersion = 2
+ )
+ 
+ // machineState 是機器狀態的線上格式。**欄位要匯出**，gob 才看得到。
+@@ -31,8 +34,11 @@ type machineState struct {
+ 
+ 	Mem []uint8
+ 
+-	R      [8]uint16
+-	Seg    [4]uint16
++	R   [8]uint16
++	Seg [4]uint16 // ES、CS、SS、DS（陣列長度不能改：gob 對長度不同的陣列會報錯）
++	// v3 新增：FS、GS 與各通用暫存器的高 16 位元。
++	FS, GS uint16
++	Hi     [8]uint16
+ 	IP     uint16
+ 	Flags  uint16
+ 	Halted bool
+@@ -88,7 +94,10 @@ func (m *Machine) SaveState(w io.Writer) error {
+ 		Magic: stateMagic, Version: stateVersion,
+ 		Mem:         append([]uint8(nil), m.Mem...),
+ 		R:           m.CPU.R,
+-		Seg:         m.CPU.Seg,
++		Seg:         [4]uint16(m.CPU.Seg[:4]),
++		FS:          m.CPU.Seg[cpu.FS],
++		GS:          m.CPU.Seg[cpu.GS],
++		Hi:          m.CPU.Hi,
+ 		IP:          m.CPU.IP,
+ 		Flags:       m.CPU.Flags,
+ 		Halted:      m.CPU.Halted,
+@@ -143,14 +152,17 @@ func (m *Machine) LoadState(r io.Reader) error {
+ 	if err := gob.NewDecoder(r).Decode(&s); err != nil {
+ 		return fmt.Errorf("machine: 讀不開狀態檔：%w", err)
+ 	}
+-	if s.Magic != stateMagic || s.Version != stateVersion {
++	if s.Magic != stateMagic || s.Version < stateMinVersion || s.Version > stateVersion {
+ 		return fmt.Errorf("machine: 狀態檔不認得（%q v%d）", s.Magic, s.Version)
+ 	}
+ 	if len(s.Mem) != len(m.Mem) {
+ 		return fmt.Errorf("machine: 狀態檔的記憶體是 %d bytes，這台是 %d", len(s.Mem), len(m.Mem))
+ 	}
+ 	copy(m.Mem, s.Mem)
+-	m.CPU.R, m.CPU.Seg, m.CPU.IP = s.R, s.Seg, s.IP
++	m.CPU.R, m.CPU.IP = s.R, s.IP
++	copy(m.CPU.Seg[:4], s.Seg[:])
++	m.CPU.Seg[cpu.FS], m.CPU.Seg[cpu.GS] = s.FS, s.GS
++	m.CPU.Hi = s.Hi
+ 	m.CPU.SetFlags(s.Flags)
+ 	m.CPU.Halted = s.Halted
+ 	m.CPU.Model = cpu.Model(s.Model)
+diff --git a/internal/machine/state386_test.go b/internal/machine/state386_test.go
+new file mode 100644
+index 0000000..9152d2a
+--- /dev/null
++++ b/internal/machine/state386_test.go
+@@ -0,0 +1,121 @@
++package machine
++
++import (
++	"bytes"
++	"encoding/gob"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++)
++
++// 386 real mode 的暫存器高半與 FS／GS 要跟著快照、狀態檔、回呼走
++// （hr `docs/spec/001-cpu-386-real-mode-forms` §5、§6.4）。漏掉不會報錯，
++// 還原後的機器看起來正常，只是高半變成 0。
++
++func set386State(m *Machine) {
++	m.CPU.Model = cpu.Model80386
++	for i := 0; i < 8; i++ {
++		m.CPU.R[i] = uint16(0x0100 + i)
++		m.CPU.Hi[i] = uint16(0xA000 + i)
++	}
++	m.CPU.Seg[cpu.FS], m.CPU.Seg[cpu.GS] = 0xFACE, 0xBEEF
++}
++
++func wipe386State(m *Machine) {
++	m.CPU.Hi = [8]uint16{}
++	m.CPU.Seg[cpu.FS], m.CPU.Seg[cpu.GS] = 0, 0
++}
++
++func check386State(t *testing.T, what string, m *Machine) {
++	t.Helper()
++	for i := 0; i < 8; i++ {
++		if m.CPU.Hi[i] != uint16(0xA000+i) {
++			t.Errorf("%s：暫存器 %d 高半 %04X，預期 %04X", what, i, m.CPU.Hi[i], 0xA000+i)
++		}
++	}
++	if m.CPU.Seg[cpu.FS] != 0xFACE || m.CPU.Seg[cpu.GS] != 0xBEEF {
++		t.Errorf("%s：FS=%04X GS=%04X，預期 FACE BEEF", what, m.CPU.Seg[cpu.FS], m.CPU.Seg[cpu.GS])
++	}
++}
++
++func TestSnapshotKeepsHiAndFSGS(t *testing.T) {
++	m := New()
++	set386State(m)
++	snap := m.Snapshot()
++	wipe386State(m)
++	m.Restore(snap)
++	check386State(t, "快照還原", m)
++}
++
++func TestStateFileKeepsHiAndFSGS(t *testing.T) {
++	m := New()
++	set386State(m)
++	var buf bytes.Buffer
++	if err := m.SaveState(&buf); err != nil {
++		t.Fatal(err)
++	}
++	m2 := New()
++	if err := m2.LoadState(bytes.NewReader(buf.Bytes())); err != nil {
++		t.Fatal(err)
++	}
++	check386State(t, "狀態檔來回", m2)
++	if m2.CPU.R != m.CPU.R || m2.CPU.Seg != m.CPU.Seg {
++		t.Errorf("狀態檔來回後 R 或 Seg 不同：%v %v", m2.CPU.R, m2.CPU.Seg)
++	}
++}
++
++func TestCallbackKeepsHiAndFSGS(t *testing.T) {
++	m := New()
++	m.Write8(0x3000*16, 0xCB) // retf
++	set386State(m)
++	m.QueueCallback(QueuedCall{Seg: 0x3000, Off: 0})
++	if !m.startCallback() {
++		t.Fatal("回呼沒有送出去")
++	}
++	wipe386State(m) // 回呼常式裡把它們弄髒
++	if !m.FinishCallback() {
++		t.Fatal("回呼沒有收尾")
++	}
++	check386State(t, "回呼還原", m)
++}
++
++// v2 檔沒有新欄位：載入成功且新欄位為 0；版本不在 2 至 3 之間就拒絕。
++func TestStateFileVersions(t *testing.T) {
++	m := New()
++	set386State(m)
++	var buf bytes.Buffer
++	if err := m.SaveState(&buf); err != nil {
++		t.Fatal(err)
++	}
++	var s machineState
++	if err := gob.NewDecoder(bytes.NewReader(buf.Bytes())).Decode(&s); err != nil {
++		t.Fatal(err)
++	}
++	if s.Version != 3 {
++		t.Fatalf("寫出的版本是 %d，預期 3", s.Version)
++	}
++	encode := func(s machineState) *bytes.Reader {
++		var b bytes.Buffer
++		if err := gob.NewEncoder(&b).Encode(&s); err != nil {
++			t.Fatal(err)
++		}
++		return bytes.NewReader(b.Bytes())
++	}
++	v2 := s
++	v2.Version, v2.FS, v2.GS, v2.Hi = 2, 0, 0, [8]uint16{}
++	m2 := New()
++	set386State(m2)
++	if err := m2.LoadState(encode(v2)); err != nil {
++		t.Fatalf("v2 狀態檔應該可載入：%v", err)
++	}
++	if m2.CPU.Hi != [8]uint16{} || m2.CPU.Seg[cpu.FS] != 0 || m2.CPU.Seg[cpu.GS] != 0 {
++		t.Errorf("v2 檔沒有新欄位，載入後高半與 FS／GS 應為 0：%v %04X %04X", m2.CPU.Hi, m2.CPU.Seg[cpu.FS], m2.CPU.Seg[cpu.GS])
++	}
++	for _, v := range []int{1, 4} {
++		bad := s
++		bad.Version = v
++		if err := New().LoadState(encode(bad)); err == nil {
++			t.Errorf("版本 %d 應該被拒絕", v)
++		}
++	}
++}
+diff --git a/tools/go.sh b/tools/go.sh
+index 1e855c0..b965d03 100755
+--- a/tools/go.sh
++++ b/tools/go.sh
+@@ -28,7 +28,7 @@ mkdir -p "$ROOT/workplace/gocache" "$ROOT/workplace/gomodcache"
+ 
+ # docker 預設不繼承 shell 的環境；交叉編譯要靠這幾個。
+ PASS=()
+-for v in GOOS GOARCH CGO_ENABLED DOSGOLEM_TEST_EXE DOSGOLEM_TEST_ROOT DOSGOLEM_FD2_EXE DOSGOLEM_FD2_ROOT DOSGOLEM_PSYS DOSGOLEM_PME; do
++for v in GOOS GOARCH CGO_ENABLED DOSGOLEM_TEST_EXE DOSGOLEM_TEST_ROOT DOSGOLEM_FD2_EXE DOSGOLEM_FD2_ROOT DOSGOLEM_PSYS DOSGOLEM_PME DOSGOLEM_SST386 DOSGOLEM_SST386_REQUIRE DOSGOLEM_SST386_ONLY; do
+   [[ -n "${!v:-}" ]] && PASS+=(-e "$v=${!v}")
+ done
+ 
+-- 
+2.43.0
+
