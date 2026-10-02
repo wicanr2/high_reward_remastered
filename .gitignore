@@ -1,0 +1,26 @@
+# 使用者本機持有的原版輸入與其解包內容：不得提交或推送。
+/workplace/
+*.jsdos
+*.jsdos.zip
+
+# 本機建置、測試、快照與交付產物。
+/dist-all/
+/build/
+/tmp/
+*.sav
+*.state
+
+# IDA 資料庫與反組譯輸出（可由原版重建）。
+*.i64
+*.idb
+*.id0
+*.id1
+*.id2
+*.nam
+*.til
+*.asm
+
+# 編輯器與作業系統暫存檔。
+__pycache__/
+*.swp
+.DS_Store
