@@ -41,7 +41,7 @@ confirmed（`tools/inventory.sh`）：兩份各含 148 個檔案，檔名與逐�
 | 壓縮檔有但 `FILELIST` 沒列 | `FNAME.DA_`、`INST.BAT`、`复件 GAMEFILE.001` |
 | `DISK_D.INF` | `MAIN.EXE`、`OP.EXE`、`END.EXE` 內都有此字串，`FILELIST` 與壓縮檔都沒有此檔（只有 A、B、C、E） |
 | `DEARJ` | `INST.BAT` 呼叫 `DEARJ x -vv -y %1*.001`，壓縮檔內沒有 DEARJ |
-| `GAMEFILE.000` 至 `.004` | 各 31839 bytes，內容兩兩不同；`复件 GAMEFILE.001` 同為 31839 bytes 但內容與 `GAMEFILE.001` 不同。用途：假說為存檔槽，未驗證 |
+| `GAMEFILE.000` 至 `.004` | 各 31839 bytes，內容兩兩不同；`复件 GAMEFILE.001` 同為 31839 bytes 但內容與 `GAMEFILE.001` 不同。用途：假說為存檔槽。`复件 GAMEFILE.001` 內有符合人物記錄格式的資料，見 `002-third-party-notes-verification.md` |
 
 ## 4. jsdos 設定與啟動鏈（confirmed）
 

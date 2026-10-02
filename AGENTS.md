@@ -22,6 +22,7 @@
 - 兩份原版壓縮檔與解出的檔案只放 `workplace/`（已 gitignore）。不得提交原版 EXE、資料檔、字型、圖像、音樂、解包輸出、存檔，或可重建它們的轉存副本。
 - 原版缺失時，依賴它的測試明確 skip，不用自製替代品。
 - 原版輸入以檔名與 SHA-256 登錄（`docs/re/source-inventory.tsv`）。位址、攔截點與圖像指紋都綁定特定檔案與雜湊，版本不符時失敗即關閉，不猜測套用。
+- 使用者放在根目錄的第三方玩家文件（攻略、能力值修改法）作者與授權不明，不進版控，已列入 `.gitignore`。從中得到的線索以自己對原版位元組的驗證結果記入 `docs/re/`，驗證前不升級推論等級。
 - 授權是 RRSAL-1.0（`LICENSE`），它不涵蓋原版素材。對外一律寫 source-available，不寫 open source。
 - [HARD] 使用者 2026-10-02 決定 HD 素材放進專案版控，repo 為 private。HD 素材是原版美術的衍生物，因此：
   - repo 保持 private。轉公開、建立公開 Release、對外散布含 HD 素材的任何包，都先問使用者。
@@ -112,7 +113,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | `IDEA.md` | 使用者的原始需求，不改 |
 | `AGENTS.md` | 本檔 |
 | `LICENSE` | RRSAL-1.0 |
-| `docs/re/` | 證據：位址、雜湊、樣本、推論等級、重跑方法。目前有 `001-source-intake.md` 與 `source-inventory.tsv` |
+| `docs/re/` | 證據：位址、雜湊、樣本、推論等級、重跑方法。目前有 `001-source-intake.md`、`002-third-party-notes-verification.md` 與 `source-inventory.tsv` |
 | `docs/spec/` | DRAFT、READY、CONFORMED 規格 |
 | `tools/` | 容器包裝腳本與清冊工具 |
 | `workplace/` | 唯一可寫的研究工作區，已 gitignore：原版壓縮檔、解包、dosgolem 副本、探針輸出、截圖草稿 |
