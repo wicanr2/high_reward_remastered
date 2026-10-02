@@ -1,0 +1,357 @@
+From 18c43e96d6e8f0a3649dba8d90f51e89de90f6d1 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 03:03:01 +0800
+Subject: [PATCH 3/3] =?UTF-8?q?apps/hr:=20hrsoak=20=E9=95=B7=E8=B7=91?=
+ =?UTF-8?q?=E9=A9=85=E5=8B=95=E3=80=81dos.Stats=20=E8=B3=87=E6=BA=90?=
+ =?UTF-8?q?=E8=A8=88=E6=95=B8?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrsoak/main.go | 301 +++++++++++++++++++++++++++++++++++++
+ internal/dos/stats.go      |  23 +++
+ 2 files changed, 324 insertions(+)
+ create mode 100644 apps/hr/cmd/hrsoak/main.go
+ create mode 100644 internal/dos/stats.go
+
+diff --git a/apps/hr/cmd/hrsoak/main.go b/apps/hr/cmd/hrsoak/main.go
+new file mode 100644
+index 0000000..39a420c
+--- /dev/null
++++ b/apps/hr/cmd/hrsoak/main.go
+@@ -0,0 +1,301 @@
++// Command hrsoak 是《高報酬戰將》的長跑驅動（hr 專案，`docs/spec` 的 M4）。
++//
++// 用決定性的輸入（固定種子的隨機點擊與按鍵，或指令數排程的腳本）把遊戲跑很久，
++// 定期輸出資源計數（開著的檔案、配置游標、EMS、滑鼠輪詢），並在停機條件成立時存下現場：
++//
++//   - 停機條件：CPU 回傳「解不出的 opcode」、CS:IP 跑出可用記憶體、程式自己結束、
++//     新出現「沒實作的服務」、發生除以零。
++//   - 檢查點：每隔一段指令存一份狀態檔，只留最近兩份，停機時另存 crash 狀態。
++//     之後用 `cmd/probe -load-state` 從檢查點接著跑並開追蹤。
++//
++// 不做逐呼叫追蹤（探針的 -log-calls 與呼叫軌跡在長跑會吃光記憶體）。
++//
++// ⚠ 本專案不含任何原版檔案，-exe 與 -root 由玩家自備。
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/binary"
++	"flag"
++	"fmt"
++	"math/rand"
++	"os"
++	"path/filepath"
++	"sort"
++	"strings"
++	"time"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++func die(err error) {
++	fmt.Fprintln(os.Stderr, "hrsoak:", err)
++	os.Exit(2)
++}
++
++type click struct {
++	step uint64
++	x, y int
++	btn  int // 0 左、1 右
++}
++
++// pressedKeys 是隨機模式會送的按鍵（掃描碼與 ASCII）。
++var randomKeys = []dos.Key{
++	{Scan: 0x1C, ASCII: '\r'}, {Scan: 0x01, ASCII: 0x1B}, {Scan: 0x39, ASCII: ' '},
++	{Scan: 0x48}, {Scan: 0x50}, {Scan: 0x4B}, {Scan: 0x4D},
++}
++
++func screenHash(m *machine.Machine) string {
++	h := sha256.Sum256(m.Indexed())
++	return fmt.Sprintf("%x", h[:6])
++}
++
++func main() {
++	exe := flag.String("exe", "", "MAIN.EXE 路徑（必填）")
++	root := flag.String("root", ".", "原版素材目錄")
++	total := flag.Uint64("steps", 1_000_000_000, "跑到第幾道指令（絕對步數）")
++	reportEvery := flag.Uint64("report-every", 50_000_000, "每幾道指令輸出一行資源計數")
++	out := flag.String("out", "/out/soak", "輸出目錄（報告、檢查點、現場）")
++	seed := flag.Int64("seed", 1, "隨機輸入的種子")
++	inputMode := flag.String("input", "random", "輸入模式：none｜random｜script")
++	inputEvery := flag.Uint64("input-every", 3_000_000, "random 模式：每幾道指令一個輸入事件")
++	script := flag.String("script", "", "script 模式：每行 `步數 click X Y [r]`（r 為右鍵）或 `步數 key 名稱`")
++	startClick := flag.String("start-click", "35000000:312:211", "開機後先點的位置 `步數:X:Y`（預設點標題選單的新遊戲）；空字串不點")
++	ckEvery := flag.Uint64("checkpoint-every", 200_000_000, "每幾道指令存一份檢查點（0 ＝ 不存）")
++	loadState := flag.String("load-state", "", "從狀態檔接著跑")
++	flag.Parse()
++	if *exe == "" && *loadState == "" {
++		die(fmt.Errorf("缺 -exe"))
++	}
++	if err := os.MkdirAll(*out, 0o755); err != nil {
++		die(err)
++	}
++	rep, err := os.Create(filepath.Join(*out, "report.tsv"))
++	if err != nil {
++		die(err)
++	}
++	defer rep.Close()
++	fmt.Fprintln(rep, "steps\tcsip\thandles\tfreeSeg\tarena\temsH\temsPages\tpolls\tscreen\tdivErr\topensInPeriod\telapsed")
++
++	m := machine.New()
++	if *loadState == "" {
++		img, err := os.ReadFile(*exe)
++		if err != nil {
++			die(err)
++		}
++		if err := m.LoadEXE(img); err != nil {
++			die(err)
++		}
++	}
++	d := dos.New(m, *root)
++	d.Install()
++	if *loadState != "" {
++		if err := state.Load(*loadState, m, d); err != nil {
++			die(err)
++		}
++	}
++
++	var clicks []click
++	var keysAt []struct {
++		step uint64
++		key  dos.Key
++	}
++	if *startClick != "" {
++		var c click
++		if _, err := fmt.Sscanf(*startClick, "%d:%d:%d", &c.step, &c.x, &c.y); err != nil {
++			die(fmt.Errorf("-start-click 要寫成 步數:X:Y：%w", err))
++		}
++		clicks = append(clicks, c)
++	}
++	if *inputMode == "script" {
++		b, err := os.ReadFile(*script)
++		if err != nil {
++			die(err)
++		}
++		for _, ln := range strings.Split(string(b), "\n") {
++			f := strings.Fields(ln)
++			if len(f) < 3 || strings.HasPrefix(f[0], "#") {
++				continue
++			}
++			var step uint64
++			fmt.Sscanf(f[0], "%d", &step)
++			switch f[1] {
++			case "click":
++				c := click{step: step}
++				fmt.Sscanf(f[2]+" "+f[3], "%d %d", &c.x, &c.y)
++				if len(f) > 4 && f[4] == "r" {
++					c.btn = 1
++				}
++				clicks = append(clicks, c)
++			case "key":
++				if k, ok := dos.KeyForRune(rune(f[2][0])); ok && len(f[2]) == 1 {
++					keysAt = append(keysAt, struct {
++						step uint64
++						key  dos.Key
++					}{step, k})
++				}
++			}
++		}
++	}
++	sort.Slice(clicks, func(i, j int) bool { return clicks[i].step < clicks[j].step })
++	rng := rand.New(rand.NewSource(*seed))
++	nextInput := *inputEvery * 12 // 先給遊戲時間跑到標題選單與新遊戲
++	if d.Mouse.XScale == 0 {
++		d.Mouse.XScale = 0
++	}
++
++	// 開檔計數（報告期間內每個檔名開了幾次，找洩漏用）。
++	opens := map[string]int{}
++	d.OnOpen = func(name string) { opens[strings.ToUpper(name)]++ }
++
++	started := time.Now()
++	lastDiv := 0
++	seenUnimpl := map[string]bool{}
++	var runErr error
++	var stopWhy string
++	nextReport := m.Steps + *reportEvery
++	nextCk := m.Steps + *ckEvery
++	var ckPaths []string
++	ci := 0
++	pressed, pollsAtPress, pressStep := -1, 0, uint64(0)
++	var held *click
++
++	for m.Steps < *total {
++		// 輸入：決定性排程。
++		if held != nil && len(d.Mouse.Polls)-pollsAtPress >= 3 {
++			d.ReleaseMouse(held.btn)
++			held = nil
++		}
++		for ci < len(clicks) && m.Steps >= clicks[ci].step && held == nil {
++			c := clicks[ci]
++			d.MoveMouse(c.x, c.y)
++			d.PressMouse(c.btn)
++			pollsAtPress, pressStep = len(d.Mouse.Polls), m.Steps
++			held = &c
++			ci++
++			_ = pressed
++			_ = pressStep
++		}
++		for len(keysAt) > 0 && m.Steps >= keysAt[0].step {
++			d.PushKey(keysAt[0].key)
++			keysAt = keysAt[1:]
++		}
++		if *inputMode == "random" && m.Steps >= nextInput && held == nil {
++			nextInput += *inputEvery/2 + uint64(rng.Int63n(int64(*inputEvery)))
++			switch r := rng.Intn(100); {
++			case r < 70: // 左鍵點擊
++				x, y := 8+rng.Intn(624), 48+rng.Intn(384)
++				d.MoveMouse(x, y)
++				d.PressMouse(0)
++				pollsAtPress, pressStep = len(d.Mouse.Polls), m.Steps
++				held = &click{x: x, y: y}
++			case r < 80: // 右鍵（取消）
++				x, y := 8+rng.Intn(624), 48+rng.Intn(384)
++				d.MoveMouse(x, y)
++				d.PressMouse(1)
++				pollsAtPress, pressStep = len(d.Mouse.Polls), m.Steps
++				held = &click{x: x, y: y, btn: 1}
++			case r < 92: // 按鍵
++				d.PushKey(randomKeys[rng.Intn(len(randomKeys))])
++			default: // 只移動
++				d.MoveMouse(8+rng.Intn(624), 48+rng.Intn(384))
++			}
++		}
++
++		if a := cpu.Linear(m.CPU.Seg[cpu.CS], m.CPU.IP); a >= machine.VideoSeg*16 && a < machine.MemSize {
++			runErr = fmt.Errorf("跑出可用記憶體：CS:IP ＝ %04X:%04X（線性 %05X）", m.CPU.Seg[cpu.CS], m.CPU.IP, a)
++			stopWhy = "out-of-memory-range"
++			break
++		}
++		if runErr = m.Step(); runErr != nil {
++			stopWhy = "cpu-error"
++			break
++		}
++		if d.Exited {
++			stopWhy = fmt.Sprintf("program-exit code=%d", d.ExitCode)
++			break
++		}
++		if m.CPU.Halted {
++			stopWhy = "halted"
++			break
++		}
++		if n := len(m.CPU.DivErrors); n != lastDiv {
++			lastDiv = n
++			stopWhy = "divide-error"
++			break
++		}
++		if m.Steps >= nextReport {
++			nextReport += *reportEvery
++			s := d.Stats()
++			polls, _ := 0, 0
++			polls = len(d.Mouse.Polls)
++			var o []string
++			for k, v := range opens {
++				o = append(o, fmt.Sprintf("%s=%d", k, v))
++			}
++			sort.Strings(o)
++			opens = map[string]int{}
++			fmt.Fprintf(rep, "%d\t%04X:%04X\t%d\t%04X\t%d\t%d\t%d\t%d\t%s\t%d\t%s\t%s\n",
++				m.Steps, m.CPU.Seg[cpu.CS], m.CPU.IP, s.OpenHandles, s.FreeSeg, s.ArenaBlocks, s.EMSHandles, s.EMSPages,
++				polls, screenHash(m), len(m.CPU.DivErrors), strings.Join(o, ","), time.Since(started).Round(time.Second))
++			rep.Sync()
++			for _, u := range d.UnimplementedReport() {
++				if !seenUnimpl[u] {
++					seenUnimpl[u] = true
++					fmt.Fprintf(rep, "# 新的未實作服務 @%d: %s\n", m.Steps, u)
++				}
++			}
++		}
++		if *ckEvery > 0 && m.Steps >= nextCk {
++			nextCk += *ckEvery
++			p := filepath.Join(*out, fmt.Sprintf("ck-%012d.state", m.Steps))
++			if err := state.Save(p, m, d); err != nil {
++				die(err)
++			}
++			ckPaths = append(ckPaths, p)
++			for len(ckPaths) > 2 {
++				os.Remove(ckPaths[0])
++				ckPaths = ckPaths[1:]
++			}
++		}
++	}
++
++	s := d.Stats()
++	if stopWhy == "" {
++		stopWhy = "reached-step-limit"
++	}
++	fmt.Printf("停機原因：%s\n", stopWhy)
++	if runErr != nil {
++		fmt.Printf("錯誤：%v\n", runErr)
++	}
++	fmt.Printf("步數 %d  CS:IP %04X:%04X  AX=%04X BX=%04X CX=%04X DX=%04X  DS=%04X ES=%04X SS:SP=%04X:%04X\n",
++		m.Steps, m.CPU.Seg[cpu.CS], m.CPU.IP, m.CPU.R[cpu.AX], m.CPU.R[cpu.BX], m.CPU.R[cpu.CX], m.CPU.R[cpu.DX],
++		m.CPU.Seg[cpu.DS], m.CPU.Seg[cpu.ES], m.CPU.Seg[cpu.SS], m.CPU.R[cpu.SP])
++	fmt.Printf("開著的檔 %d  配置游標 %04X  區塊 %d  EMS 控制代碼 %d 頁 %d  畫面雜湊 %s  耗時 %s\n",
++		s.OpenHandles, s.FreeSeg, s.ArenaBlocks, s.EMSHandles, s.EMSPages, screenHash(m), time.Since(started).Round(time.Second))
++	for _, u := range d.UnimplementedReport() {
++		fmt.Println("未實作服務：", u)
++	}
++	if stopWhy != "reached-step-limit" {
++		p := filepath.Join(*out, fmt.Sprintf("crash-%012d.state", m.Steps))
++		if err := state.Save(p, m, d); err == nil {
++			fmt.Println("現場已存：", p)
++		}
++		// 現場前後 64 bytes 的程式碼，方便直接對 IDA。
++		lin := cpu.Linear(m.CPU.Seg[cpu.CS], m.CPU.IP)
++		var b [8]byte
++		binary.LittleEndian.PutUint64(b[:], 0)
++		fmt.Printf("CS:IP 附近：")
++		for i := int64(-8); i < 24; i++ {
++			a := int64(lin) + i
++			if a >= 0 {
++				fmt.Printf("%02X ", m.Read8(uint32(a)))
++			}
++		}
++		fmt.Println()
++		os.Exit(1)
++	}
++}
+diff --git a/internal/dos/stats.go b/internal/dos/stats.go
+new file mode 100644
+index 0000000..3320ffa
+--- /dev/null
++++ b/internal/dos/stats.go
+@@ -0,0 +1,23 @@
++package dos
++
++// Stats 是 DOS 層的資源計數，給長跑監看用（hr 專案 `apps/hr/cmd/hrsoak`）。
++// 只讀，不改狀態。
++type Stats struct {
++	OpenHandles int    // 開著的檔案代號數
++	FreeSeg     uint16 // 配置游標（下一個可配置的段）
++	ArenaBlocks int    // AH=48h 配出去且未釋放的區塊數
++	EMSHandles  int    // EMS 控制代碼數
++	EMSPages    int    // EMS 已配置的頁數
++}
++
++// Stats 回報目前的資源計數。
++func (d *DOS) Stats() Stats {
++	s := Stats{OpenHandles: len(d.handles), FreeSeg: d.freeSeg, ArenaBlocks: len(d.arena)}
++	if d.ems != nil {
++		s.EMSHandles = len(d.ems.handles)
++		for _, h := range d.ems.handles {
++			s.EMSPages += len(h.pages)
++		}
++	}
++	return s
++}
+-- 
+2.43.0
+

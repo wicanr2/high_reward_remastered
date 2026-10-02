@@ -43,7 +43,7 @@ tools/ida.sh run MAIN.EXE ida_census_386.py /work/out/census386.json
 
 `MAIN.EXE` 是 16 位元 real mode 程式，但含少量 386 指令。dosgolem 的 `internal/cpu` 只有 DOSJP 用的最小子集（`docs/spec/012-cpu-386-subset`，只支援六道 EAX 相關指令），`internal/cpu386` 是 DOS/4GW 平坦模式用的另一套，兩者都不適用。
 
-IDA 對常駐映像（載入段 `0110`，119 個段落、1968 個函式、116749 個 code head）的普查：全部指令中只有 22 條帶 386 形式，共 14 種（含無前綴的 `8C`／`8E` FS、GS 段暫存器移動，完整清單見 `data/003-main-resident-386-census.txt`）：
+IDA 對常駐映像（載入段 `0110`，510 個段落（常駐 232、stub 139、overlay 139）、1968 個函式、116749 個 code head）的普查：全部指令中只有 22 條帶 386 形式，共 14 種（含無前綴的 `8C`／`8E` FS、GS 段暫存器移動，完整清單見 `data/003-main-resident-386-census.txt`）：
 
 | 次數 | 形式 | 範例（IDA 位址） | 指令 |
 |---:|---|---|---|
@@ -67,21 +67,20 @@ IDA 位址與 dosgolem 執行期位址的換算：`IDA 段 = 執行期段 + 0xEF
 用途（強推論，依反組譯上下文）：
 
 - `1000:2042` 起是 Borland C++ 執行期的 CPU 型號偵測：依序測 `FLAGS` 高 4 位元（8086）、`FLAGS` 位元 12 至 15（286）、`EFLAGS` 的 AC 位元 18（386 對 486 以上），結果寫入資料段的 `word_63694`，值為 0（8086）、2（286）、3（386）、4（486 以上）。IDA 在該處加註 `BCC v4.x/5.x DOS runtime`。
-- `1000:7010` 起的函式在 `word_63694 >= 3` 時走 386 路徑：`pushad`、複製 32 bytes 暫存器區、`popad`、`pushfd` 後取高 16 位元（`shr eax, 10h`）。`1000:73E4` 起以 `pop gs`、`pop fs`、`pop es`、`pop ds`、`popad`、`popfd`、`retf` 還原現場。推測是類似 `intr` 的軟體中斷呼叫包裝，未驗證。
+- `1000:7010` 起的函式在 `word_63694 >= 3` 時走 386 路徑：`pushad`、複製 32 bytes 暫存器區、`popad`、`pushfd` 後取高 16 位元（`shr eax, 10h`）。`1000:73E4` 起以 `pop gs`、`pop fs`、`pop es`、`pop ds`、`popad`、`popfd`、`retf` 還原現場。用途未驗證；IDA 的 FLIRT 把該函式標為 `_RaiseException`（導覽名，不是證據）。
 - 偵測結果決定走哪條路徑。AC 位元可寫（值 4）或不可寫（值 3）是 M3 要決定的 CPU 模型選擇；jsdos 設定 `cputype=auto` 在原版執行時對應哪一種，未驗證，要在 M3 以兩側收據比對。
 
-限制：這份普查只涵蓋常駐映像。`FBOV` 區（177568 bytes）的 overlay 內容在 IDA 內尚未載入，所以 overlay 內是否還有 386 指令，未知。
+說明：IDA 9.4 的 DOS loader 預設就載入 `FBOV` overlay（139 段，`docs/re/007` 第 9 節），上表因此涵蓋整個程式；overlay 內的 386 形式為 0。普查只涵蓋 IDA 判定為 code 的位址。
 
-## 4. 缺口二：overlay 區尚未涵蓋
+## 4. overlay 區
 
-- `MAIN.EXE` 的程式碼大部分在 `FBOV` 區。IDA 常駐映像只有 119 個段落，overlay 內的函式與資料不在其中。
-- 探針只載入了第一個區塊（50896 bytes）。之後的 overlay 載入路徑、overlay manager 的 `int 3Fh` 行為，要等 CPU 缺口補完才跑得到。
-- dosgolem 規格庫沒有 Borland overlay manager 的專屬規格（`AGENTS.md` 第 3 節已記錄搜尋方式與結果）。
+- `MAIN.EXE` 的程式碼大部分在 `FBOV` 區，結構已解（`docs/re/007`）：139 段 overlay，每段有 stub 與入口，初始化預載其中 122 段（共 50896 bytes，即探針讀到的位元組數）。
+- 探針只跑到第一個 CPU 缺口，沒有走到之後的 `int 3Fh`。dosgolem 規格庫沒有 Borland overlay manager 的專屬規格（`AGENTS.md` 第 3 節記錄搜尋方式與結果）；overlay manager 只用 DOS 檔案與記憶體服務，後續實跑收據見 `docs/re/008`。
 
 ## 5. 還沒量到（未知）
 
-- 視訊模式與解析度。
-- 鍵盤、滑鼠、計時器、Sound Blaster 與 MIDI 的使用。
+- 視訊模式與解析度（已量到，見 `docs/re/006`、`docs/re/008`）。
+- 鍵盤、滑鼠、計時器、Sound Blaster 與 MIDI 的使用（滑鼠與視訊見 `docs/re/007` 第 9 節）。
 - `SIG.COM` 是否被 `MAIN.EXE` 依賴。
 - 缺檔（`CTMIDI.DRV`、`DISK_D.INF`）的影響。
 - `HR.BAT` 完整啟動鏈（`PSH`、`OP`、`END`）在 dosgolem 下的行為。

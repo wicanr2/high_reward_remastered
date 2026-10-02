@@ -7,9 +7,9 @@
 | 項 | 工作 | 現況（2026-10-02） |
 |---|---|---|
 | 1 | 取得 jsdos 版原版 | 完成，見 `docs/re/001-source-intake.md` |
-| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中（M2 完成，M3 進行中） |
-| 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 未開始，要等第 2 項的整合完成 |
-| 4 | HD 化遊戲圖片 | 未開始，要先解圖像格式 |
+| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中：`MAIN.EXE` 已能在 dosgolem 內跑到標題選單與新遊戲的第一個畫面（`docs/re/008`）；前端與打包未開始 |
+| 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 進行中：整合已可長跑，M4 開始 |
+| 4 | HD 化遊戲圖片 | 進行中：圖像格式已全部解碼（`docs/re/006`），替換機制未開始 |
 
 - 目前範圍是用 dosgolem 執行原版。原版 EXE、資料檔、遊戲規則與存檔格式保持原樣。改變遊戲行為、存檔格式或平衡的提案超出範圍，先經使用者決定。
 - 原版文字已是 Big5 繁體中文，目前範圍不含翻譯。
@@ -35,15 +35,15 @@
 
 | 檔案 | 已知事實 | 等級 |
 |---|---|---|
-| `MAIN.EXE` | 純 MZ，字串含 `Borland C++ - Copyright 1993 Borland Intl.`，檔案位移 361856 起附 `FBOV` 區（177568 bytes） | 事實為 confirmed。16 位元 real mode 加 Borland overlay 為強推論 |
+| `MAIN.EXE` | 純 MZ，字串含 `Borland C++ - Copyright 1993 Borland Intl.`，檔案位移 361856 起附 `FBOV` 區（177568 bytes，139 段 overlay，結構見 `docs/re/007`）。16 位元 real mode，386 指令只有 22 條 | confirmed |
 | `OP.EXE`、`END.EXE` | 純 MZ，含 Borland RTTI 字串 | 強推論 |
 | `PSH.EXE` | 帶 `LE` 標頭，與 `DOS4GW.EXE` 配套 | 標頭為 confirmed。用途（PCX 顯示）為強推論 |
 | `SIG.COM` | 常駐程式，由 `HR.BAT` 在 `OP` 前載入 | 強推論。`MAIN` 是否依賴它：未知 |
 
 - `HR.BAT` 的完整啟動鏈是 `PSH` 顯示兩張 PCX、`sig`、`OP`、`MAIN`、`END`、`sig /r`。jsdos 版的 autoexec 只執行 `main`。以哪條路徑為目標，M3 決定。
 - dosgolem 的 `dos4gw-*`、`flat-386` 規格只與 `PSH.EXE` 有關，不適用 `MAIN.EXE`。
-- `MAIN.EXE` 需要的是 16 位元 real mode、Borland overlay manager（`INT 3Fh` stub），可能還有 EMS 與 XMS（jsdos 設定開啟 `xms`、`ems`、`umb`）。2026-10-02 以 `INT 3F`、`FBOV`、`VROOMM`、`CD 3F`、`overlay manager` 搜尋 dosgolem 的 `docs/spec` 與 `docs/re`，只命中 `195-xms-entry-must-not-touch-caller-stack` 的一句觀察，沒有 Borland overlay manager 的專屬規格。視為未涵蓋。
-- `~/.claude/knowledge-base/retro/borland-tpov-overlay-re.md` 涵蓋 Turbo Pascal 的 `TPOV`，沒有涵蓋 Borland C++ 的 `FBOV`。`INT 3Fh` stub 與除錯符號的做法可以借鏡，`FBOV` 的欄位要自己反組譯驗證。
+- `MAIN.EXE` 需要 16 位元 real mode、Borland overlay manager（`INT 3Fh`）、EMS（全套 `int 67h`）；視訊是 VGA 模式 12h（640x480，16 色平面，遊戲畫面 640x400 置中），輸入是滑鼠（`_int86(0x33)`）與 DOS 鍵盤服務。overlay manager 只用 DOS 檔案與記憶體服務，dosgolem 不需要它的專屬規格（實跑收據見 `docs/re/008`）。
+- IDA 9.4 的 DOS loader 預設就載入 `FBOV` overlay（510 段，含 139 段 overlay），反組譯與普查涵蓋整個程式（`docs/re/007`）。`~/.claude/knowledge-base/retro/borland-tpov-overlay-re.md` 涵蓋的是 Turbo Pascal 的 `TPOV`，不涵蓋 `FBOV`；`FBOV` 以 `docs/re/007` 為準。
 
 ## 4. 分層與 dosgolem 的使用
 
@@ -92,14 +92,14 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 - IDA 用 `ida-pro-9.4-idapython:locked-v1`（現行專案 `/home/anr2/ida_94_official`），headless 的 `idat` 包成 `tools/ida.sh`。動手前讀 `~/.claude/knowledge-base/retro/ida-pro-9.4.md`。
 - 操作要點：IDAPython 的結果寫檔，不看 stdout。腳本結尾 `ida_pro.qexit(0)`，要保留修改就顯式存庫。對同一個 `.i64` 的批次合併成單次 `idat`。`idapyswitch` 以最終 UID 執行。位址查詢走 xref 圖，不 grep `.asm`，16 位元的線性位址不會出現在 `.asm` 文字。Hex-Rays 不支援 16 位元 real mode，只能讀反組譯。
 - `.i64`、`.asm`、解包後的 binary 全部 gitignore。每份筆記標輸入檔 SHA-256、IDA linear address 與推論等級。讀 `sub_XXXXX` 之前先查函式索引。
-- `MAIN.EXE` 的 overlay：單獨載入 raw overlay 只會得到很少的函式，entry 在常駐段的 `CD 3F` stub。`FBOV` 區的建庫方式先寫 DRAFT 規格再實作。
+- `MAIN.EXE` 的 overlay：IDA 預設載入已含 139 段 overlay（`docs/re/007`），不需另外建庫。執行期位址換算見 `docs/re/007` 第 8 節。
 - 缺檔（`CTMIDI.DRV`、`DISK_D.INF`）先判斷是否影響執行，記入 `docs/re/`，不憑空補檔。
 - 若遇磁片檢查或防拷，依老遊戲保存的例外處理：對象是使用者自備的原版，優先在執行層攔截判定，不散布改過的原版執行檔與素材，能照原版流程作答的保留原流程。判定邏輯的位址與證據照常寫進 RE 文件。
 
 ## 8. HD 美術重製
 
 - 使用者 2026-10-02 決定：HD 素材放進專案（repo 為 private），並另外啟用美術專家處理。
-- 順序：圖像格式解碼（`GS`、`MRG`、`PXZ`、`PXS`、`GRP`、`BIN`、`PCX`，除 `PCX` 外格式都未解）、清冊（每張圖的識別、尺寸、色盤、出現的畫面）、替換機制的 DRAFT 規格、美術處理、驗收。遊戲的視訊模式與解析度尚未量測，替換機制在量測後才能定。
+- 順序：圖像格式解碼（已完成，`docs/re/006`）、清冊（每張圖的識別、尺寸、色盤、出現的畫面；目前只有解碼清冊，缺「出現在哪個畫面與座標」）、替換機制的 DRAFT 規格、美術處理、驗收。顯示環境已量到：VGA 模式 12h，遊戲畫面 640x400 置中，替換機制據此設計。
 - 美術專家以獨立子代理執行。prompt 要寫明可寫目錄、輸入唯讀、檔名規則、風格基準、色盤與關鍵色限制，以及不得改動邏輯座標與尺寸。草稿放 `workplace/hd-work/`，驗收後的成品放 `hd/`（版控）。
 - 每張 HD 圖綁定原圖的識別與 SHA-256，記錄方法、工具與版本、處理者。HD 圖缺漏時回退原圖。
 - 遊戲邏輯仍使用原版座標與尺寸，HD 只影響呈現。
@@ -163,10 +163,10 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 |---|---|---|
 | M1 | 取得原版、雜湊清冊、啟動鏈與檔頭盤點 | 完成 |
 | M2 | 建立 `workplace/dosgolem` 副本，用 `cmd/probe` 產生冷啟動能力報告。缺口只記錄，不當場補 | 完成，見 `docs/re/003-cold-start-capability-report.md` |
-| M3 | 冷啟動到片頭、主選單、進入遊戲的可重播收據（dosgolem 為權威，DOSBox-X 交叉驗證）。缺的服務逐項先寫 DRAFT 規格再補 | 未開始 |
-| M4 | 長跑，定位停機點並分類 | 未開始 |
+| M3 | 冷啟動到片頭、主選單、進入遊戲的可重播收據（dosgolem 為權威，DOSBox-X 交叉驗證）。缺的服務逐項先寫 DRAFT 規格再補 | 進行中：已到標題選單與新遊戲（`docs/re/008`）；片頭（`OP.EXE`）、`SIG.COM`、存檔讀取與長跑路徑待做 |
+| M4 | 長跑，定位停機點並分類 | 進行中 |
 | M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 未開始 |
-| M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 未開始 |
+| M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 格式解碼完成（`docs/re/006`、`tools/img/`），其餘未開始 |
 | M7 | 三平台前端、打包與發行前驗證 | 未開始 |
 
 M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。
