@@ -1,72 +1,161 @@
 # 001 CPU：real mode 的 386 指令形式
 
-狀態：DRAFT
+狀態：DRAFT（第二版，依第一輪獨立審查修訂，待第二輪審查）
 日期：2026-10-03
 前置：dosgolem `docs/spec/002-cpu-8086`（CPU 驗收準則）、`docs/spec/012-cpu-386-subset`（現有的 EAX 最小子集）；本專案 `docs/re/003-cold-start-capability-report`
-實作位置：`workplace/dosgolem` 的 `internal/cpu`（本地分支 `hr`）
+實作位置：`workplace/dosgolem` 的 `internal/cpu` 及其呼叫端（本地分支 `hr`）
 
 ## 1. 為什麼要做
 
-dosgolem 跑 `MAIN.EXE` 到第 61260 道指令時停在 `0110:206E`，原因是 `66 8B`（`mov edx, esp`）不在現有 386 子集內（`docs/re/003` 第 2 節）。`MAIN.EXE` 是 16 位元 real mode 程式，但 Borland C++ 執行期含少量 386 指令。現有子集只認 EAX 與六道 DOSJP 專用指令，EBX 以下的暫存器高半部不存在。
+dosgolem 跑 `MAIN.EXE` 到第 61260 道指令時停在 `0110:206E`，原因是 `66 8B`（`mov edx, esp`）不在現有 386 子集內（`docs/re/003` 第 2 節）。`MAIN.EXE` 是 16 位元 real mode 程式，Borland C++ 執行期含少量 386 指令。現有子集只認 EAX 與六道 DOSJP 專用指令，EBX 以下的暫存器高半部不存在，也沒有 FS、GS。
 
-## 2. 範圍
+## 2. 輸入、工具與位址空間
 
-### 2.1 納入的形式
+| 項目 | 內容 |
+|---|---|
+| 被分析的程式 | `MAIN.EXE`，SHA-256 `08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e` |
+| 反組譯 | IDA Pro 9.4，映像 `ida-pro-9.4-idapython:locked-v1`，非 root，對一次性資料庫執行 |
+| 普查命令 | `tools/ida.sh run MAIN.EXE ida_census_386.py /work/out/census386.json`，完整輸出 `docs/re/data/003-main-resident-386-census.txt` |
+| 位址空間 | IDA 選擇子 : 偏移。執行期段 = IDA 段 − 0xEF0（載入段 `0110` 對應 IDA `1000`），偏移相同。只涵蓋常駐映像 |
+| 驗收語料 | `SingleStepTests/80386`，目錄 `v1_ex_real_mode`，真實 Intel 386EX 產生；固定 commit `459d49fbe6280e9ed46fee887b58dacd9cb880ab`（2026-08-09），各檔 SHA-256 見 `docs/re/data/005-sst386-corpus-manifest.txt`；revocation 清單目前一筆（SHA-1 `8abbbc61a5866292b0bc816660d7b334bea7962a`） |
+| 既有基準 | `SingleStepTests/8088` v2（323 檔，約 761 MB），`tools/fetch_sst8088.sh` 抓到 `workplace/dosgolem/testdata/8088` |
 
-來源：IDA 對 `MAIN.EXE` 常駐映像的普查（`docs/re/data/003-main-resident-386-census.txt`）加上同一函式內的無前綴 386 指令。證據等級 confirmed（位元組與反組譯可重跑）。
+## 3. 範圍
 
-| 形式 | 指令 | 出處（IDA 位址） |
-|---|---|---|
-| `66 8B /r` | `mov r32, r/m32` | `1000:206E`、`2078`、`2092` |
-| `66 9C` | `pushfd` | `1000:2074`、`2085`、`70B6` |
-| `66 9D` | `popfd` | `1000:2083`、`73EC` |
-| `66 50+r` | `push r32` | `1000:2081` |
-| `66 58+r` | `pop r32` | `1000:2076`、`2087`、`70B8` |
-| `66 33 /r` | `xor r32, r/m32` | `1000:2089` |
-| `66 35 id` | `xor eax, imm32` | `1000:207B` |
-| `66 C1 /5 ib` | `shr r/m32, imm8` | `1000:70BA` |
-| `66 60` | `pushad` | `1000:7029` |
-| `66 61` | `popad` | `1000:7044`、`73EA` |
-| `0F A0`、`0F A1` | `push fs`、`pop fs` | `1000:73E6`（`pop fs`） |
-| `0F A8`、`0F A9` | `push gs`、`pop gs` | `1000:73E4`（`pop gs`） |
-| `8C /r`（`reg`＝4、5） | `mov r/m16, fs`、`mov r/m16, gs` | `1000:70CF` |
+### 3.1 納入的形式
 
-`push fs`、`push gs` 與 `8E /r`（`reg`＝4、5）雖然普查沒有命中，但與 `pop fs`、`pop gs`、`mov r/m16, fs/gs` 同屬 FS/GS 的存取，一併納入，避免日後同一個暫存器只做一半。
+證據等級：confirmed ＝ 普查在 `MAIN.EXE` 常駐映像由 IDA 解出該指令；泛化 ＝ 普查只命中其中一種運算元組合，其餘由語料驗收；完整性 ＝ 與已命中的形式同屬一個暫存器或指令族，普查沒有命中，只為避免只做一半，沒有 `MAIN.EXE` 的證據。
 
-### 2.2 不納入
+| 形式 | 指令 | IDA 位址（普查命中） | 等級 |
+|---|---|---|---|
+| `66 8B /r` | `mov r32, r/m32` | `1000:206E`（`edx, esp`）、`2078`（`ecx, eax`）、`2092`（`esp, edx`） | confirmed（暫存器對暫存器）；記憶體運算元泛化 |
+| `66 9C` | `pushfd` | `1000:2074`、`2085`、`70B6` | confirmed |
+| `66 9D` | `popfd` | `1000:2083`、`73EC` | confirmed |
+| `66 50+r` | `push r32` | `1000:2081`（`eax`） | confirmed（EAX）；其餘暫存器泛化 |
+| `66 58+r` | `pop r32` | `1000:2076`、`2087`、`70B8`（`eax`） | confirmed（EAX）；其餘暫存器泛化 |
+| `66 33 /r` | `xor r32, r/m32` | `1000:2089`（`eax, ecx`） | confirmed（暫存器對暫存器）；記憶體運算元泛化 |
+| `66 35 id` | `xor eax, imm32` | `1000:207B` | confirmed |
+| `66 C1 /5 ib` | `shr r/m32, imm8` | `1000:70BA`（`eax, 10h`） | confirmed（EAX）；其餘運算元泛化 |
+| `66 60` | `pushad` | `1000:7029` | confirmed |
+| `66 61` | `popad` | `1000:7044`、`73EA` | confirmed |
+| `0F A1` | `pop fs` | `1000:73E6` | confirmed |
+| `0F A9` | `pop gs` | `1000:73E4` | confirmed |
+| `8C /4`、`8C /5` | `mov r/m16, fs`、`mov r/m16, gs` | `1000:70CF`（`[bp+var_C2], fs`）、`70D9`（`[bp+var_C6], gs`） | confirmed |
+| `0F A0`、`0F A8` | `push fs`、`push gs` | 無 | 完整性 |
+| `8E /4`、`8E /5` | `mov fs, r/m16`、`mov gs, r/m16` | 無 | 完整性 |
+| `64`、`65` 前綴 | FS、GS 段覆寫 | 無（常駐映像沒有 FS/GS 前綴的指令） | 完整性；語料的 `668B`、`6633`、`66C1.5` 測試含這兩個前綴，必須做 |
+
+普查共 14 種形式、22 條指令（`docs/re/data/003-main-resident-386-census.txt`）。
+
+### 3.2 不納入
 
 - `0x67` 位址大小前綴與 SIB 定址。普查在常駐映像沒有命中。
 - 上表以外的 32 位元 ALU、乘除、位元運算、字串指令。
-- 保護模式、分頁、除錯暫存器、x87。
+- 保護模式、分頁、除錯暫存器、x87、例外（`#GP`、`#SS`、`#UD`）。
 - `FBOV` overlay 區的指令。overlay 內容尚未載入 IDA，是否有其他 386 形式未知；探針遇到時會停在新缺口，屆時增補本規格。
 
-## 3. 語意
+## 4. 語意
 
-語意以 `SingleStepTests/80386` 的 `v1_ex_real_mode`（真實 386EX 產生）為準。下列是預期行為；語料與本節衝突時以語料為準，並把本節改成語料的行為。
+語意以語料為準。下列是預期行為，語料與本節衝突時以語料為準，並把本節改成語料的行為。
 
-1. 暫存器：EAX 至 EDI 各有高 16 位元（`Hi`），16 位元寫入不動高半部。`ESP` 的高半部同樣保留。
-2. `FS`、`GS`：新增兩個段暫存器，與 ES、DS 同樣只存 16 位元值，real mode 的段基底為 `段 × 16`。`64`、`65` 前綴與 FS/GS 的記憶體覆寫由後續形式需要時再加；本規格只要求 `push/pop/mov` 這幾道。
-3. 運算元大小前綴 `66`：在 `Model80386` 且 16 位元碼段下，把本道指令的運算元寬度改為 32 位元。
-4. `push r32`、`pop r32`、`pushfd`、`popfd`、`pushad`、`popad`：堆疊每格 4 bytes，`SP`（16 位元）遞減與遞增 4。
-5. `pushad`：依序推入 EAX、ECX、EDX、EBX、進入時的 ESP、EBP、ESI、EDI。`popad`：反向取出，ESP 那一格丟棄。
-6. `pushfd`：推入 EFLAGS，VM（位元 17）與 RF（位元 16）清為 0。`popfd`：real mode 下只改低 15 位元中可寫的位元；位元 1 恆為 1，位元 3、5、15 恆為 0；VM 與 RF 不被改動。AC（位元 18）在 386 不存在，popfd 不能設定它。這是 `MAIN.EXE` 的 CPU 型號偵測（`word_63694`）區分 386 與 486 的依據，所以本規格選定 386：偵測結果為 3。
-7. `xor`、`shr`：32 位元結果；旗標依 386 定義（`xor` 的 CF＝OF＝0，SF、ZF、PF 依結果，AF 未定義；`shr` 的 CF 為最後移出位元，移位數為 0 時旗標不變，OF 只在移位數為 1 時有定義）。未定義旗標用語料附的遮罩處理。
-8. `mov r32, r/m32`：`r/m` 為記憶體時用 16 位元定址模式（本規格不含 `67`），讀 4 bytes，位移各自 wrap 在 16 位元。
-9. `8C /r` 對 `reg`＝4、5 取出 FS、GS 的 16 位元值；`r/m` 為暫存器時寫入完整 16 位元，高半部行為依語料。
+1. 暫存器：EAX 至 EDI 各有高 16 位元（`Hi`）。16 位元寫入不動高半部；32 位元寫入同時寫低半與高半。現有 `EAXHi` 欄位併入 `Hi`。
+2. 段暫存器：新增 `FS`、`GS`，與 ES、DS 同樣存 16 位元值，段基底為 `段 × 16`。索引依 x86 的段暫存器編碼：ES=0、CS=1、SS=2、DS=3、FS=4、GS=5。`64`、`65` 前綴在 `Model80386` 下設定本道指令的段覆寫為 FS、GS，行為與 `26`、`2E`、`36`、`3E` 相同。
+3. `0F` 位元組：在 `Model80386` 下是雙位元組 opcode 的跳脫位元組，不再是 8086 的 `POP CS`。只支援 §3.1 列出的 `0F A0`、`A1`、`A8`、`A9`，其餘 `0F xx` 回傳「未實作」錯誤（失敗即關閉）。
+4. 運算元大小前綴 `66`：在 `Model80386` 且 16 位元碼段下，把本道指令的運算元寬度改為 32 位元。
+5. 堆疊：`push r32`、`pop r32`、`pushfd`、`popfd`、`pushad`、`popad` 每格 4 bytes，`SP`（16 位元）以 4 遞減或遞增，位移各自在 16 位元內計算。`push esp` 推入的是指令執行前的 ESP；`pop esp` 的結果是彈出的值（覆蓋遞增後的 ESP）。
+6. `pushad`：依序推入 EAX、ECX、EDX、EBX、指令執行前的 ESP（完整 32 位元，含高半）、EBP、ESI、EDI，`SP` 共減 32。`popad`：反向彈出，ESP 那一格丟棄，不動 ESP 的高半。
+7. EFLAGS：
+   - 語料的 INIT 與 FINA 的 `eflags` 位元 18 至 31 恆為 1（1000 筆 `669C` 中 979 筆非例外測試全為 `0xFFFC`，`669D` 的 FINA 同為 `0xFFFC`），與指令及彈出值都無關。這是 SMM 傾印的假象，不是 CPU 行為。
+   - 因此 CPU 模型只保存低 16 位元（`Flags`，`Model80386` 的固定位元沿用 `SetFlags`：位元 1 恆為 1，位元 3、5、15 恆為 0，位元 12 至 14 可寫）。`pushfd` 推入 `uint32(Flags)`，位元 16 至 31 為 0（語料 `669C` 推入的 4 個位元組，高兩個皆為 0）。`popfd` 以彈出值的低 16 位元寫入 `Flags`，位元 16 至 31 忽略。
+   - harness 載入 `eflags` 只取低 16 位元，比對只看位元 0 至 17（RF、VM 在語料恆為 0），這是唯一的 harness 自加遮罩，明文在此。其餘遮罩一律只用語料附的 `RM32`。
+   - AC（位元 18）不可寫：語料 `669D` 的彈出值取自測試的隨機記憶體內容，FINA 的位元 18 恆為 1，不隨彈出值改變。這個行為決定 `MAIN.EXE` 的 CPU 型號偵測（`word_63694`）得到 3（386）而不是 4。語料的直接證據只到「popfd 不改變傾印的位元 18」，將它解讀為「CPU 沒有 AC」屬強推論。
+8. `xor`、`shr`（32 位元）：結果與旗標依 386 定義。`xor`：CF＝OF＝0，SF、ZF、PF 依結果。`shr`：移位數先遮成 5 位元；移位數為 0 時旗標不變；CF 為最後移出的位元；SF、ZF、PF 依結果；OF 只在移位數為 1 時有定義；AF 未定義。未定義的旗標位元由語料的 `RM32` 遮罩處理，實作不得為了通過而自行遮罩。32 位元的移位與 ALU 是新程式碼，現有 `shiftRotate`、`aluCore` 只有 16 位元。
+9. `mov r32, r/m32`：`r/m` 為記憶體時用 16 位元定址模式，讀 4 bytes。
+10. `8C /r`：`reg` 為 4、5 時取出 FS、GS 的 16 位元值，`r/m` 為暫存器時只寫低 16 位元（不加 `66` 前綴的形式）；`8E /r` 反向。`reg` 為 6、7 以及 `8E /1`（寫 CS）在 386 是 `#UD`，語料以 EXCP 呈現，不在本規格處理。
 
-## 4. 驗收
+## 5. 對現有程式的影響
 
-全部條件都要成立：
+這些位置都會被動到，實作要逐一處理並有測試：
 
-1. 以下語料檔在 `v1_ex_real_mode` 全部通過（單側：實作對硬體語料零失敗）：`668B`、`669C`、`669D`、`6650` 至 `6657`、`6658` 至 `665F`、`6633`、`6635`、`66C1.5`、`6660`、`6661`、`0FA0`、`0FA1`、`0FA8`、`0FA9`、`8C`、`8E`。檔名對照語料的 `*.MOO.gz`。
-   - 排除項目只有三類，且每一類都要在測試輸出逐檔計數：測試含 `EXCP` 子區塊（硬體產生例外，本規格不做例外）；任何 RAM 項目或段基底加位移超過 `0x10FFEF`（語料假設 A20 開啟與 16 MB 記憶體，本 CPU 的匯流排另有規格）；`RM32` 遮罩涵蓋的未定義位元。
-   - 排除後的有效測試數量記入 `docs/re/` 的收據。有效測試少於該檔總數的 90% 時，視為排除過多，要重審。
-2. 既有 `internal/cpu` 單元測試與 8088 語料測試全綠（`Model8086` 路徑不受影響）。
-3. 負對照：把 `popfd` 的 AC 位元處理改成「可寫」後，`669D` 測試必須失敗；把 `pushad` 的 ESP 值改成遞減後的值後，`6660` 必須失敗。確認測試真的會抓到。
-4. 程式層收據：重跑 `tools/dosgolem.sh probe -exe /orig/orig/MAIN.EXE -root /orig/orig`，越過 `0110:206E`，且停止原因不是 §2.1 列出的任何形式。CPU 型號偵測常式（`1000:2042`）跑完後，以 `-peek 540F:06A4:2` 讀資料段 `word_63694`（IDA 的 `62FF:06A4`，換算見 `docs/re/003` 第 3 節），值為 `03 00`。
+| 位置 | 變更 |
+|---|---|
+| `internal/cpu/cpu.go` | `Seg [4]uint16` 改 `[6]uint16`（讓所有按值複製的呼叫端編譯失敗，逼逐一處理）；新增 `FS`、`GS` 常數；`Hi [8]uint16` 取代 `EAXHi`；`Reset` |
+| `internal/cpu/ops.go` | `Step` 增加 `0x64`、`0x65` 前綴；`execute` 在 `Model80386` 下 `0x0F` 走雙位元組分派；`8C`／`8E` 在 `Model80386` 下接受 `reg` 4、5（現有 `reg&3` 會把 4、5 當成 ES、CS） |
+| `internal/cpu/ops386.go` | 泛化現有只認 EAX 的實作（`setOperand32` 遇非 AX 目前會 panic，`66 C1` 只接受 `SHL EAX`）；保住 `docs/spec/012` 的六道 DOSJP 指令行為 |
+| `internal/machine/le_startup.go`、`dpmi_real_mode.go`、`ops386_test.go` | 引用 `EAXHi` 的地方改用 `Hi[AX]` |
+| `internal/machine/snapshot.go`、`state.go`、`callback.go`、`internal/dos/exec.go`、`dos/state.go` | 按值複製或序列化 `Seg` 與暫存器的地方，要包含 `Hi`、`FS`、`GS`。`state.go` 的 `stateVersion` 由 2 升為 3；讀取 v2 時缺的欄位視為 0；新增快照來回測試（寫出再讀回，`Hi`、`FS`、`GS` 逐位元相同） |
+| `internal/machine/machine.go` | 對所有程式設定 `Model80386`。`docs/spec/012` 宣稱「升 model 的唯一影響是 0x66 不再報錯」，本規格擴大了影響面（`0F`、`64`、`65`、`8C`／`8E`），012 要同步修訂 |
 
-## 5. 已知差異與停止線
+## 6. 驗收
 
-- CPU 型號固定為 386（偵測值 3）。jsdos 的 `cputype=auto` 在原版執行時對應 386 還是 486 以上，未驗證；若 M3 的雙側收據顯示兩者在 `MAIN.EXE` 的行為不同，再開新規格處理。
-- 不做例外（`#GP`、`#UD`）。遇到語料的 `EXCP` 測試只計數。
-- 本規格結束於 §2.1 的形式。overlay 區新缺口不在這裡處理。
+全部條件都要成立，收據記入 `docs/re/`。
+
+### 6.1 80386 語料
+
+harness 在 `internal/cpu/moo_test.go`（MOO 1.1 讀檔器）與 `sst386_test.go`（`TestSST386`）。
+
+```text
+tools/fetch_sst386.sh <規格 §6.1 的檔名…>
+DOSGOLEM_SST386_REQUIRE=1 tools/dosgolem.sh go test ./internal/cpu -run TestSST386 -v -count=1
+```
+
+契約：
+
+- 載入：32 位元暫存器拆成低半（`R`）與高半（`Hi`）；段暫存器取低 16 位元；`eip` 取低 16 位元；`eflags` 取低 16 位元（§4.7）。記憶體是平坦稀疏位址空間，不做 A20 折返。
+- 執行：從 `CS:IP` 呼叫 `Step()` 一次（語料每個測試是「一道指令加 HLT」，不執行 HLT）。`Step()` 回傳錯誤算失敗。
+- 比對：只比對 FINA 列出的暫存器（其餘暫存器等於 INIT）與 RAM 項目；週期與匯流排不比。多寫了 FINA 沒列出且值改變的位址，或讀了 INIT 沒列出的位址，都算失敗。
+- 遮罩：只用語料的 `RM32`（檔案層級與單筆最終狀態，兩者都有時取交集）與 §4.7 的 `eflags` 規則。
+- 排除只有兩類，逐檔計數輸出：`excp`（測試含 `EXCP` 子區塊，硬體產生例外，本規格不做例外）；`revoked`（測試的 HASH 在語料的 `revocation_list.txt`）。
+- `DOSGOLEM_SST386_REQUIRE=1` 時缺語料目錄或缺檔算失敗。驗收一律用此模式。
+- 通過條件：下列 30 個檔每一個都有測試被執行，且失敗數為 0；每個檔有效（未排除）測試數不少於總數的 90%（工程門檻，不是統計宣稱）。
+  `668B`、`669C`、`669D`、`6650` 至 `6657`、`6658` 至 `665F`、`6633`、`6635`、`66C1.5`、`6660`、`6661`、`0FA0`、`0FA1`、`0FA8`、`0FA9`、`8C`、`8E`。
+- 收據：測試輸出的 `RECEIPT` 行（每檔的總數、執行、失敗、各類排除）與 `go test` 的 `ok` 行，存 `docs/re/data/`。
+
+### 6.2 既有基準不退化
+
+- 抓齊 8088 語料後，`tools/dosgolem.sh go test ./internal/cpu -v -count=1` 全綠，並列出 `singlestep_test.go` 實際執行的檔案數（323 檔都要被執行，不是 skip）。
+- `tools/dosgolem.sh go test ./... -count=1` 全綠；缺原版素材而 skip 的測試列出數量。
+
+### 6.3 負對照
+
+確認測試真的會抓到錯誤，每一項都要先做出會失敗的變體再還原：
+
+- `pushad` 推入遞減後的 ESP：`6660` 必須失敗。
+- 移除 `64`、`65` 前綴支援：`668B` 必須失敗。
+- `popfd` 讓位元 18 可寫並寫入內部旗標：下列 CPU 型號偵測單元測試必須失敗。
+- 單元測試（不含任何原版位元組）：以標準的偵測序列 `pushfd / pop eax / mov ecx, eax / xor eax, 40000h / push eax / popfd / pushfd / pop eax / xor eax, ecx` 執行，期望結果為 0（AC 不可寫，386）。
+
+### 6.4 快照與狀態
+
+快照來回測試與 `stateVersion` 3 的讀寫測試（§5 最後一列）。
+
+### 6.5 程式層收據
+
+固定 `-steps`，重跑 `tools/dosgolem.sh probe -exe /orig/orig/MAIN.EXE -root /orig/orig -watch 54794-54795`（線性位址 `0x54794` ＝ 執行期 `540F:06A4` ＝ IDA `62FF:06A4`，即 `word_63694`）：
+
+- 收據顯示該位置被 `0110:208C` 寫入，值為 3；沒有 `0110:2097` 的寫入。這證明偵測常式真的跑過，且結果不是靜態初值。
+- 停止原因不是 §3.1 列出的任何形式。
+- 記錄 `7029`（`pushad`）與 `73E4`（`pop gs`）所在的路徑有沒有被冷啟動走到；沒走到的形式只有語料驗收，收據要寫明。
+
+## 7. 失敗模式
+
+- 遇到 §3.1 以外的 386 形式：`Step()` 回傳「未實作」錯誤，不靜默放行（與 `docs/spec/012` 同）。
+- 語料缺檔：預設 skip；`REQUIRE=1` 時失敗。
+- 舊版狀態檔（v2）：可讀，缺的欄位為 0；寫出一律 v3。
+
+## 8. 玩家垂直路徑與存檔影響
+
+本規格沒有直接的玩家可見行為。它讓冷啟動越過 CPU 型號偵測，是 M3「冷啟動到片頭、主選單、進入遊戲」的第一步。存檔影響：dosgolem 的狀態檔版本 2 升 3（§5）；遊戲自己的存檔不受影響。
+
+## 9. 原版 oracle 與已知差異
+
+- oracle：指令層級用硬體語料（真實 386EX）。程式層（`MAIN.EXE` 是否走對的路徑）尚無原版 oracle；jsdos 的 `cputype=auto` 對應哪種 CPU 型號未驗證。
+- CPU 型號固定為 386（偵測值 3）。若 M3 的雙側收據顯示 386 與 486 以上在 `MAIN.EXE` 的行為不同，另開規格。
+- 不做例外。語料的 `EXCP` 測試只計數。包含：dword 存取跨過 `0xFFFF` 位移時 386 real mode 會 `#GP` 或 `#SS`（本實作的位移各自 wrap，不處理）、`LOCK` 前綴用在不合法的指令、前綴超過長度上限。
+- `0x67` 與 SIB 不支援。
+- 語料是 386EX（16 位元匯流排），與 386DX 的差異只在時序，本驗收不比時序。
+
+## 10. 停止線與權利邊界
+
+- 本規格結束於 §3.1 的形式。overlay 區的新缺口不在這裡處理。
+- 語料有自己的授權，不進本 repo、不進發行包；`docs/re/` 只收指令位址、助憶碼與位元組數，不收原版的連續反組譯或資料。測試用語料檔留在 `workplace/`。

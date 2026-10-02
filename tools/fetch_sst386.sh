@@ -4,6 +4,7 @@
 #   tools/fetch_sst386.sh 668B 669C 66C1.5 0FA1
 #
 # 檔名對照語料的 `<名稱>.MOO.gz`；群組 opcode 以 `.<reg>` 結尾。語料授權是它自己的，不隨本 repo 散布。
+# 固定 commit 459d49fbe6280e9ed46fee887b58dacd9cb880ab；各檔 SHA-256 見 docs/re/data/005-sst386-corpus-manifest.txt。
 # 在容器內以 Python urllib 下載（需要網路），已存在且非空的檔案略過。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -13,7 +14,7 @@ mkdir -p "$OUT"
 exec timeout 600 docker run --rm -u "$(id -u):$(id -g)" --memory 256m --cpus 1 --pids-limit 32 \
   --log-opt max-size=10m --log-opt max-file=3 -v "$OUT:/out" python:3.13-alpine python -c '
 import os, sys, urllib.request
-base = "https://raw.githubusercontent.com/SingleStepTests/80386/main/v1_ex_real_mode/"
+base = "https://raw.githubusercontent.com/SingleStepTests/80386/459d49fbe6280e9ed46fee887b58dacd9cb880ab/v1_ex_real_mode/"
 for n in sys.argv[1:]:
     f = f"/out/{n}.MOO.gz"
     if os.path.exists(f) and os.path.getsize(f) > 0:

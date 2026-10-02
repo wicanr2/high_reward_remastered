@@ -1,8 +1,10 @@
 """統計 16 位元 DOS 程式內所有指令的 386 形式（前綴與雙位元組 opcode）。
 
 用法（經 tools/ida.sh）：ida_census_386.py <輸出.json>
-輸出：段落清單、函式數、各 386 形式的次數與前 5 個位址（segment:offset、線性位址、bytes）。
+輸出：段落清單、函式數、各 386 形式的次數與前 40 個位址（segment:offset、線性位址、bytes）。
 只讀 IDA 已反組譯出的指令，不改資料庫。
+形式包含：帶 66、67、64、65 前綴的指令、`0F` 雙位元組 opcode，以及無前綴但只存在於 386 的
+`8C`／`8E`（reg 欄位為 4、5，即 FS、GS 的段暫存器移動）。
 """
 import json
 import sys
@@ -49,6 +51,8 @@ for s in idautils.Segments():
             if op[0] == 0x0F:
                 key = "0F %02X" % op[1] if len(op) > 1 else "0F"
                 if has66: key = "66 " + key
+            elif op[0] in (0x8C, 0x8E) and len(op) > 1 and ((op[1] >> 3) & 7) in (4, 5):
+                key = "%02X /%d (FS/GS 段暫存器移動)" % (op[0], (op[1] >> 3) & 7)
             elif has66 or has67 or fs_gs:
                 key = ("66 " if has66 else "") + ("67 " if has67 else "") + ("FS/GS " if fs_gs else "") + "%02X" % op[0]
                 # 群組 opcode 再依 modrm.reg 拆
@@ -57,13 +61,13 @@ for s in idautils.Segments():
             if key:
                 f = forms.setdefault(key, {"n": 0, "ex": []})
                 f["n"] += 1
-                if len(f["ex"]) < 5:
+                if len(f["ex"]) < 40:
                     f["ex"].append({"ea": ea, "sel_off": "%04X:%04X" % (seg.sel, ea - (seg.sel << 4)),
                                     "bytes": b.hex(" "), "text": idc.generate_disasm_line(ea, 0)})
         ea = idc.next_head(ea, seg.end_ea)
 
 res = {"segments": segs, "functions": len(list(idautils.Functions())), "code_heads": total,
        "forms": dict(sorted(forms.items(), key=lambda kv: -kv[1]["n"]))}
-with open(out_path, "w") as f:
+with open(out_path, "w", encoding="utf-8") as f:
     json.dump(res, f, indent=1, ensure_ascii=False)
 ida_pro.qexit(0)

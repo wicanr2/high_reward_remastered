@@ -75,5 +75,5 @@ for ea in idautils.Heads():
     if len(e["ex"]) < 6:
         e["ex"].append("%04X:%04X" % ((ea >> 4) & 0xFFFF if False else (ea - (ea & 0xF)) >> 4 & 0xFFFF, ea & 0xF))
 
-json.dump({"calls": dict(sorted(res.items())), "unresolved_sample": unresolved[:60]}, open(out_path, "w"), indent=1, ensure_ascii=False)
+json.dump({"calls": dict(sorted(res.items())), "unresolved_sample": unresolved[:60]}, open(out_path, "w", encoding="utf-8"), indent=1, ensure_ascii=False)
 ida_pro.qexit(0)
