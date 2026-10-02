@@ -1,0 +1,39 @@
+From 3d81a327a71db1c0e7a7ea64bfdfaf054c15101e Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 06:26:49 +0800
+Subject: [PATCH 7/7] =?UTF-8?q?apps/hr:=20hrexplore=20=E5=8A=A0=E7=B6=B2?=
+ =?UTF-8?q?=E6=A0=BC=E8=B5=B7=E9=BB=9E=E6=97=97=E6=A8=99?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrexplore/main.go | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/apps/hr/cmd/hrexplore/main.go b/apps/hr/cmd/hrexplore/main.go
+index 3751ffb..15a2139 100644
+--- a/apps/hr/cmd/hrexplore/main.go
++++ b/apps/hr/cmd/hrexplore/main.go
+@@ -276,6 +276,8 @@ func main() {
+ 	maxNodes := flag.Int("max-nodes", 200, "節點數上限")
+ 	maxDepth := flag.Int("max-depth", 8, "樹深度上限")
+ 	grid := flag.Int("grid", 32, "左鍵網格間距（像素）")
++	x0 := flag.Int("x0", 16, "網格起點 X")
++	y0 := flag.Int("y0", 56, "網格起點 Y")
+ 	actSteps := flag.Uint64("act-steps", 3_000_000, "動作之後先執行幾道指令")
+ 	settle := flag.Uint64("settle-max", 60_000_000, "之後最多再等幾道指令讓遊戲回到輪詢點")
+ 	wall := flag.Duration("wall", 0, "牆鐘時間上限（0＝無）")
+@@ -301,7 +303,7 @@ func main() {
+ 	defer edgesF.Close()
+ 	defer stopsF.Close()
+ 
+-	actions := buildActions(*grid, 16, 56, 624, 424)
++	actions := buildActions(*grid, *x0, *y0, 624, 424)
+ 
+ 	var mu sync.Mutex
+ 	seen := map[string]int{}
+-- 
+2.43.0
+

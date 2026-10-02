@@ -19,19 +19,19 @@
 | 牆鐘上限 | 55 分鐘 |
 | 實際耗時 | 39 分 16 秒（佇列清空，非被上限終止） |
 
-⚠ 這一輪探索在鍵盤路徑修正之前跑（`docs/re/011` 第 1 節的更正）：Esc、Enter、空白三個按鍵動作寫入的是遊戲不讀的 BIOS 緩衝，實際是空操作。有效的動作只有滑鼠。
+限制：這一輪的 Esc、Enter、空白三個按鍵動作寫入 BIOS 鍵盤緩衝，遊戲不讀（`docs/re/011` 第 1 節），實際是空操作；有效的動作只有滑鼠。
 
 ### 1.2 結果（confirmed）
 
 | 項目 | 數值 |
 |---|---|
-| 節點 | 104（深度 0 至 7：5、7、9、9、9、9、12、4 個） |
+| 節點 | 104（深度 0 至 12：5、7、9、9、10、10、13、15、7、6、6、4、3 個；深度上限 12） |
 | 動作 | 24,644 |
 | 非正常停機（CPU 錯誤、跑出記憶體、溢位、無輪詢、結束碼非 0 與 1） | 0 |
 | 最大堆疊深度 | 1364 bytes（節點 25 與 54，頂端 `0x8010`，`SP ＝ 7ABC`） |
 | 不同呼叫鏈（不含 `SP`） | 104 |
 
-節點畫面類別（目視 104 張畫面，PNG 在 `workplace/out/explore2/shots/`，不進版控）：
+節點畫面類別（目視 104 張畫面，PNG 在 `workplace/out/explore2/nodes/`，不進版控）：
 
 | 類別 | 說明 |
 |---|---|
@@ -100,6 +100,5 @@ tools/dosgolem.sh soak -load-state /out/roots/slot0/at-000200000000.state -steps
   -out /out/savetest -input none -start-click "" -script /out/save-script2.txt -scratch /out/savetest/scratch
 ```
 
-輸出：`nodes.tsv`（節點、父節點、動作、堆疊深度、呼叫鏈）、`edges.tsv`（24,644 筆結果）、`stops.tsv`（無內容）、`nodes/`（狀態檔與當時的 PNG，PNG 的色彩對應有誤已重生）。畫面的 PNG 重生用 `probe -load-state ... -dump-screen-png`。
+輸出：`nodes.tsv`（節點、父節點、動作、堆疊深度、呼叫鏈）、`edges.tsv`（24,644 筆結果）、`stops.tsv`（無內容）、`nodes/`（狀態檔與畫面 PNG；PNG 由 `probe -load-state ... -dump-screen-png` 對每個狀態檔產生）。
 
-探索器的第一版畫面 PNG 以 320x200 的 mode 13h 寫法輸出，內容是亂碼；已改用 `Machine.Planar` 與 `VGA.DACIndex`（與 `probe` 一致）。節點狀態檔不受影響。
