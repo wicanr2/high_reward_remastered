@@ -132,7 +132,8 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 - 禁止 `docker {image,system,volume,builder,container,network} prune`、`docker rmi`、`docker rm` 他人的 container。只清理自己建立的 container，名稱用 `hr-*` 前綴。不碰其他專案的 image 與 volume，也不刪 `~/.cache/` 下的任何東西。
 - git 身分一律 `wicanr2@gmail.com`。進 repo 先看 `git config user.email`，再跑 `git log --format=%ae | sort -u`。
 - commit message 用繁體中文，不放 `Claude-Session:` 連結，`Co-Authored-By` 行可以留。
-- GitHub repo 是 `wicanr2/high_reward_remastered`，private。使用者 2026-10-02 授權建立此 repo，首次推送含在內。之後的對外操作（push、改公開性、Issue、Release、PR、變更授權、公開任何原版衍生內容）依使用者明確授權的範圍執行，不擴張解讀。
+- GitHub repo 是 `wicanr2/high_reward_remastered`，private。使用者 2026-10-02 授權建立此 repo，2026-10-03 授權對此 repo 做 git push。授權範圍只有對本 repo 的一般 push，不含 force push、刪除分支與其他 repo。改公開性、Issue、Release、PR、變更授權、公開任何原版衍生內容，仍依使用者明確授權的範圍執行，不擴張解讀。
+- 每次 push 前確認 `gh repo view` 的可見性仍是 PRIVATE，並用 `git ls-files` 確認沒有原版素材。
 - 每次工作結束前檢查：工作樹狀態、原版素材是否被誤追蹤（`git ls-files`）、Docker 清理狀態、文件現況是否一致。
 
 ## 11. 子代理分工
@@ -151,8 +152,8 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | 2026-10-02 | repo 名稱 `high_reward_remastered`，private |
 | 2026-10-02 | HD 素材放進專案版控，repo 為 private，另外啟用美術專家 |
 | 2026-10-02 | 當機沒有已知重現畫面，要在 dosgolem 整合完成後以長跑定位 |
-
-待使用者確認：三平台預設為 Linux AppImage、Windows zip、macOS universal `.app`，沿用姊妹專案做法，Android 不在範圍。
+| 2026-10-03 | 三平台是 Linux AppImage、Windows zip、macOS universal `.app`，Android 不做 |
+| 2026-10-03 | 授權對本 repo 做 git push（範圍見第 10 節），並開始 M2 |
 
 實作時照定案走，不重新詢問。與定案衝突的新需求，先指出衝突再動手。
 
