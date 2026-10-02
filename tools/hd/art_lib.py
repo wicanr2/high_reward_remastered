@@ -12,12 +12,12 @@ from scipy import ndimage
 
 # ---------------------------------------------------------------- 載入
 
-def load(path):
+def load(path, vt=128):
     """回傳 dict：rgb (h,w,3 float32)、valid (h,w bool，alpha>127)、idx (h,w int32，無效為 -1)、
     has_alpha。透明像素的 RGB 一律不參與任何計算（解碼器把索引 16 塗成洋紅 255,0,255）。"""
     im = Image.open(path)
     rgba = np.array(im.convert("RGBA"))
-    valid = rgba[..., 3] > 127
+    valid = rgba[..., 3] >= vt
     rgb = rgba[..., :3].astype(np.float32)
     key = (rgba[..., 0].astype(np.int64) << 16) | (rgba[..., 1].astype(np.int64) << 8) | rgba[..., 2]
     key = np.where(valid, key, -1)
@@ -319,7 +319,7 @@ def process(path, S, opt):
     per 週期性去抖色（0/1）；bil、bs、gs、br、bp 雙邊濾波的 sigma_r、sigma_s、導引 sigma、半徑、次數（bil ＝ 0 不做）；
     up 上採樣：ru（模式搜尋）、lz（Lanczos）；beta、sk、cb、ss 模式搜尋參數；
     post、psk、pbeta、pcb HD 解析度的輪廓平滑次數與參數；sharp 夾限銳化量。"""
-    d = load(path)
+    d = load(path, int(opt.get("vt", 128)))
     C = d["rgb"]
     if int(opt.get("per", 1)):
         wins = WINDOWS if opt.get("wins", "all") == "all" else WINDOWS[:3]

@@ -7,7 +7,7 @@
 | 項 | 工作 | 現況（2026-10-03） |
 |---|---|---|
 | 1 | 取得 jsdos 版原版 | 完成，見 `docs/re/001-source-intake.md` |
-| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中：`MAIN.EXE` 在 dosgolem 內可到標題、新遊戲、讀檔、存檔（暫存層）、戰鬥佈陣等畫面（`docs/re/008`、`docs/re/012`）；執行層與前端規格 DRAFT（`docs/spec/003`），實作與打包未開始 |
+| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中：`MAIN.EXE` 在 dosgolem 內可到標題、新遊戲、讀檔、存檔（暫存層）、戰鬥佈陣等畫面（`docs/re/008`、`docs/re/012`）；執行層、前端與三平台打包已實作（`docs/spec/003` READY，`docs/re/013`）；沒有聲音，不播片頭片尾 |
 | 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 進行中：找到並重現一個堆疊溢位當機（`docs/re/011`），修補規格 DRAFT（`docs/spec/002`，在記憶體內把 `_stklen` 由 0x1000 改成 0x8000）；是否即使用者說的當機：未確認 |
 | 4 | HD 化遊戲圖片 | 進行中：圖像格式已全部解碼（`docs/re/006`），繪圖原語已逆向（`docs/re/009` DRAFT），替換機制規格 DRAFT（`docs/spec/004`）；美術處理未開始 |
 
@@ -52,9 +52,10 @@
 | 層 | 位置 | 職責 |
 |---|---|---|
 | 機器與觀測 | dosgolem | CPU、DOS 與 BIOS 服務、視訊、輸入、快照、`OnCall`。不放本遊戲的位址 |
-| 遊戲專屬 | 本 repo | 檔案指紋、原始位址、攔截點、圖像格式解碼、HD 替換表、證據 |
-| 前端與打包 | 本 repo | 視窗、輸入、倍率、音訊、三平台封裝。不重實作遊戲規則 |
+| 遊戲專屬 | `workplace/dosgolem` 本地分支 `hr` 的 `apps/hr`；證據在本 repo | 堆疊補丁（`apps/hr/patch`）、執行層（`apps/hr/runtime`）、長跑與探索工具（`apps/hr/cmd`）；圖像格式解碼在本 repo 的 `tools/img` |
+| 前端與打包 | `apps/hr/play`（獨立 Go 模組，ebiten）；打包腳本在本 repo | 視窗、輸入、倍率、三平台封裝。不重實作遊戲規則 |
 
+- Go 的 `internal` 規則要求遊戲專屬程式碼與 dosgolem 在同一個模組樹，所以它們放在 `workplace/dosgolem` 的 `hr` 分支，本 repo 的 `engine/patches/` 是 `git format-patch` 備份（每次提交該分支後重新產生）。把該分支推到 `wicanr2/dosgolem` 尚未授權。
 - 動手前讀 `/home/anr2/cht/dosgolem/CLAUDE.md`、`README.md` 與 `docs/spec/000-index.md`。引用規格要連號碼帶檔名，例如 `docs/spec/010-overlay-loading`，因為同一號碼底下有多份不同主題的規格。
 - 「用 dosgolem」不表示它已支援本遊戲。缺的服務先在本 repo 留下最小重現與 DRAFT 規格，再補進 dosgolem。
 - 本專案使用的 dosgolem 是 `workplace/dosgolem` 的獨立 git 副本，取自已提交的 commit，不帶原目錄的未提交改動。不得修改 `/home/anr2/cht/dosgolem`，副本的 `upstream` 推送位址設為 `DISABLED`。
@@ -118,6 +119,8 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | `tools/` | 容器包裝腳本與清冊工具 |
 | `workplace/` | 唯一可寫的研究工作區，已 gitignore：原版壓縮檔、解包、dosgolem 副本、探針輸出、截圖草稿 |
 | `hd/` | 驗收後的 HD 素材，版控，private。尚未建立 |
+| `engine/patches/` | `workplace/dosgolem` 分支 `hr` 的 `git format-patch` 備份 |
+| `packaging/` | 發行包內的說明文字（README、PUT_ORIGINAL_FILES_HERE） |
 | `dist-all/` | 唯一的交付根目錄，已 gitignore。尚未建立 |
 
 - `README.md`、`WORKLOG.md` 尚未建立。建立或大改 README 前先讀 `~/.claude/rulebook/80-retro-cht-readme-polish.md`，對外文字寫完過一次 `humanizer-zh-tw`。
@@ -167,7 +170,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | M4 | 長跑，定位停機點並分類 | 進行中：隨機輸入與介面探索兩條線已建（`docs/re/011`、`docs/re/012`）；覆蓋不足（overlay 讀取起點 17 至 20 個，共 139 個）；計時器擾動、音效路徑、戰鬥進行未量 |
 | M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 進行中：堆疊溢位已定位，規格 `docs/spec/002` 第二版待第二輪審查，實作待 READY |
 | M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 進行中：格式解碼完成；繪圖原語逆向（`docs/re/009` DRAFT）；替換機制規格 DRAFT（`docs/spec/004`）；實作與美術處理未開始 |
-| M7 | 三平台前端、打包與發行前驗證 | 規格 DRAFT（`docs/spec/003`）；實作未開始 |
+| M7 | 三平台前端、打包與發行前驗證 | 進行中：規格 `docs/spec/003` READY，執行層、前端、三平台打包腳本已實作；Linux 與 Windows（Wine）已驗，macOS 只驗結構；聲音、片頭片尾、HD 疊層未做（`docs/re/013`） |
 
 M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。
 
@@ -175,8 +178,8 @@ M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。
 
 完整做法見 `/home/anr2/cht/AGENTS_DOSGOLEM_CHT.md` 第 15 節。本專案的要點：
 
-- 入口是單一腳本 `tools/package.sh [all|linux|windows|macos]`，全部在 Docker 內，任何一步失敗即非零結束。版本字串取自 `git describe --tags`，工作樹要乾淨。
-- Linux 是 AppImage。Windows 是 `CGO_ENABLED=0` 交叉編譯的 zip，以 Wine 驗收。macOS 以交叉工具鏈建 x86_64 與 arm64，用 `lipo` 合成 universal `.app`，讀我寫明未簽章。沒有實機測試的平台，已知限制照實寫。
+- 入口是單一腳本 `tools/package.sh [all|appimage|windows|macos]`，全部在 Docker 內，任何一步失敗即非零結束。版本字串取自 `git describe --tags --always --dirty` 加 dosgolem 分支的 commit；發行用的包要在乾淨工作樹上建（版本字串不含 `dirty`）。
+- Linux 是 AppImage（`tools/pkg/verify_appimage.sh` 在 Xvfb 內啟動並點新遊戲）。Windows 是 `CGO_ENABLED=0` 交叉編譯的 zip，以 Wine 驗收（Wine 與軟體繪圖下很慢，只驗證能啟動並顯示標題）。macOS 以 osxcross 建 arm64 與 x86_64，`lipo` 合成 universal `.app`，未簽章，只驗結構（`tools/pkg/verify_macos.sh`），沒有實機測試。
 - 發行包不含原版素材。原版放在程式旁的方式與第一次啟動的雜湊核對，在 M7 的規格定案。是否含 HD 素材見第 2 節。
 - `LICENSE` 要出現在每個發行包、發行根目錄與 AppImage 的 `usr/share/doc/`。
 - 外洩掃描：以原版檔案雜湊與檔名比對整個包，命中即失敗並刪除產物。

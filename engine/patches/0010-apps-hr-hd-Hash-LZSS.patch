@@ -1,0 +1,512 @@
+From f9ee98039ee7663ff556915991af346db75251d6 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 07:39:29 +0800
+Subject: [PATCH 10/10] =?UTF-8?q?apps/hr:=20hd=20=E8=B3=87=E6=96=99?=
+ =?UTF-8?q?=E9=9D=A2=EF=BC=88Hash=E3=80=81=E7=B2=BE=E9=9D=88=E8=88=87=20LZ?=
+ =?UTF-8?q?SS=20=E8=A7=A3=E7=A2=BC=EF=BC=89=E3=80=81=E8=BC=AA=E8=A9=A2?=
+ =?UTF-8?q?=E9=BB=9E=E5=8D=B3=E6=99=82=E5=BF=AB=E7=85=A7?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- apps/hr/hd：Hash（SHA-256 全長）、DecodePlanarSprite、LZSSDecode、DecodeUnpacked、DecodeMRGItem；
+  與 tools/hd/catalog.py 的清冊跨語言驗證（553 個 MRG 項目）
+- runtime：快照改在輪詢指令剛執行完取（逐指令檢查）
+- hrsoak -interval
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrsoak/main.go |   5 ++
+ apps/hr/hd/hash.go         |  22 +++++
+ apps/hr/hd/lzss.go         | 165 +++++++++++++++++++++++++++++++++++++
+ apps/hr/hd/sprite.go       |  67 +++++++++++++++
+ apps/hr/hd/sprite_test.go  | 138 +++++++++++++++++++++++++++++++
+ apps/hr/runtime/session.go |  21 +++--
+ 6 files changed, 409 insertions(+), 9 deletions(-)
+ create mode 100644 apps/hr/hd/hash.go
+ create mode 100644 apps/hr/hd/lzss.go
+ create mode 100644 apps/hr/hd/sprite.go
+ create mode 100644 apps/hr/hd/sprite_test.go
+
+diff --git a/apps/hr/cmd/hrsoak/main.go b/apps/hr/cmd/hrsoak/main.go
+index 1215b5f..0993623 100644
+--- a/apps/hr/cmd/hrsoak/main.go
++++ b/apps/hr/cmd/hrsoak/main.go
+@@ -78,6 +78,7 @@ func main() {
+ 	scratch := flag.String("scratch", "", "DOS 的可寫暫存層目錄（寫入複製到這裡，原版目錄不動）；空字串 ＝ 唯讀")
+ 	keyPath := flag.String("key-path", "stdin", "按鍵送入哪條路：stdin（DOS 的 AH=01/07/08/0B 讀的佇列，遊戲實際用的路）｜bda（BIOS 鍵盤緩衝，遊戲不讀；早期長跑的行為，重現舊收據用）")
+ 	noOverflowStop := flag.Bool("no-overflow-stop", false, "堆疊溢位只記錄不停機（重現原版溢位後的後果用）")
++	interval := flag.Uint64("interval", 0, "計時器間隔（分頻 65536 時每個 tick 幾道指令），與 apps/hr/runtime 同一條路徑（IRQ0Base ＋ RecalcIRQ0）；0 ＝ 不改")
+ 	tick := flag.Uint64("tick", 0, "每幾道指令送一次計時器中斷（0 ＝ 預設）；不同種子配不同值可以擾動計時器與主迴圈的相對時序")
+ 	ckAt := flag.String("checkpoint-at", "", "在這些步數各存一份檢查點（逗號分隔，不受只留兩份的限制）")
+ 	diagFrom := flag.Uint64("diag-from", 0, "從第幾道指令起不再清診斷紀錄，停機時印出最近的檔案操作與主控台輸出（0 ＝ 一律清）")
+@@ -128,6 +129,10 @@ func main() {
+ 			die(err)
+ 		}
+ 	}
++	if *interval != 0 {
++		m.IRQ0Base = *interval * 17000 / 65536
++		m.RecalcIRQ0()
++	}
+ 	if *tick > 0 {
+ 		m.IRQ0Every = *tick
+ 	}
+diff --git a/apps/hr/hd/hash.go b/apps/hr/hd/hash.go
+new file mode 100644
+index 0000000..aa626ea
+--- /dev/null
++++ b/apps/hr/hd/hash.go
+@@ -0,0 +1,22 @@
++// Package hd 是 HD 疊層的資料面（hr 專案的 docs/spec/004-hd-overlay）：以解碼後的像素內容為鍵的
++// 雜湊、記憶體內精靈的解碼、清冊。鉤子與合成在這個套件的後續檔案。
++//
++// ⚠ 本專案不含任何原版檔案。
++package hd
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++)
++
++// Transparent 是索引色陣列中表示透明（遮罩為 0）的值；顏色是 0 至 15。
++const Transparent = 16
++
++// Hash 是 docs/spec/004 第 3.1 節的雜湊：SHA-256( u16le 寬 ∥ u16le 高 ∥ 逐列每像素一個位元組的索引色 )
++// 的完整 64 個小寫十六進位字元。離線的 tools/hd/catalog.py 用同一個定義。
++func Hash(w, h int, idx []byte) string {
++	hh := sha256.New()
++	hh.Write([]byte{byte(w), byte(w >> 8), byte(h), byte(h >> 8)})
++	hh.Write(idx)
++	return hex.EncodeToString(hh.Sum(nil))
++}
+diff --git a/apps/hr/hd/lzss.go b/apps/hr/hd/lzss.go
+new file mode 100644
+index 0000000..45a75c1
+--- /dev/null
++++ b/apps/hr/hd/lzss.go
+@@ -0,0 +1,165 @@
++package hd
++
++import (
++	"errors"
++	"fmt"
++)
++
++// LZSSDecode 解《高報酬戰將》共用的 LZSS 串流（docs/re/006 第 5 節；OP.EXE 1A75:0D32、
++// END.EXE 1BD0:040C 與 MAIN 的 33AD:0D3E 同一格式）：
++//
++//	u32 解壓後長度；環狀緩衝 1024 bytes 初值 0，寫入位置起點 0x3BE；
++//	旗標位元組 LSB 先，1 ＝ 字面值，0 ＝ 兩 bytes 的參照 (b1, b2)：
++//	位置 ＝ b1 | (b2 & 0xC0) << 2，長度 ＝ (b2 & 0x3F) + 3。
++//
++// 回傳解壓結果與消耗的輸入長度（含 4 bytes 長度欄）。
++func LZSSDecode(buf []byte) (out []byte, used int, err error) {
++	if len(buf) < 4 {
++		return nil, 0, errors.New("LZSS 串流太短")
++	}
++	total := int(uint32(buf[0]) | uint32(buf[1])<<8 | uint32(buf[2])<<16 | uint32(buf[3])<<24)
++	if total > 4*1024*1024 {
++		return nil, 0, fmt.Errorf("LZSS 解壓長度 %d 不合理", total)
++	}
++	var ring [1024]byte
++	r := 0x3BE
++	out = make([]byte, 0, total)
++	p := 4
++	var flags byte
++	nbits := 0
++	remaining := total
++	for remaining > 0 {
++		if nbits == 0 {
++			if p >= len(buf) {
++				return nil, 0, fmt.Errorf("LZSS 在旗標處提前結束（輸出 %d／%d）", len(out), total)
++			}
++			flags = buf[p]
++			p++
++			nbits = 8
++		}
++		bit := flags & 1
++		flags >>= 1
++		nbits--
++		if bit != 0 {
++			if p >= len(buf) {
++				return nil, 0, errors.New("LZSS 在字面值處提前結束")
++			}
++			c := buf[p]
++			p++
++			ring[r] = c
++			r = (r + 1) & 0x3FF
++			out = append(out, c)
++			remaining--
++		} else {
++			if p+1 >= len(buf) {
++				return nil, 0, fmt.Errorf("LZSS 在參照處提前結束（輸出 %d／%d）", len(out), total)
++			}
++			b1, b2 := int(buf[p]), int(buf[p+1])
++			p += 2
++			pos := b1 | (b2&0xC0)<<2
++			ln := (b2 & 0x3F) + 3
++			remaining -= ln
++			for i := 0; i < ln; i++ {
++				c := ring[pos]
++				pos = (pos + 1) & 0x3FF
++				ring[r] = c
++				r = (r + 1) & 0x3FF
++				out = append(out, c)
++			}
++		}
++	}
++	if len(out) < total {
++		return nil, 0, errors.New("LZSS 輸出不足")
++	}
++	return out[:total], p, nil
++}
++
++// DecodeUnpacked 解 LZSS 解壓後的精靈（標頭加資料，tools/img/hrimg.py 的 decode_unpacked_sprite）：
++// 旗標 0x80 是 packed 4bpp（`348F:0005` 的輸入，每 byte 兩像素、高 4 位元在左）；
++// 旗標 0 是每列平面 0 至 3（`2E92:0414`）；其他是每列遮罩加平面 0 至 3（`2E92:066A`）。
++func DecodeUnpacked(b []byte) (Sprite, error) {
++	if len(b) < 5 {
++		return Sprite{}, errors.New("精靈標頭不足")
++	}
++	w := int(b[0]) | int(b[1])<<8
++	h := int(b[2]) | int(b[3])<<8
++	flag := b[4]
++	if w == 0 || h == 0 {
++		return Sprite{}, fmt.Errorf("不合理的尺寸 %dx%d", w, h)
++	}
++	if flag == 0x80 {
++		if 5+w*h/2 != len(b) {
++			return Sprite{}, fmt.Errorf("packed4 長度不符：%dx%d 需要 %d，實際 %d", w, h, 5+w*h/2, len(b))
++		}
++		idx := make([]byte, w*h)
++		bpr := w / 2
++		for y := 0; y < h; y++ {
++			for i := 0; i < bpr; i++ {
++				v := b[5+y*bpr+i]
++				idx[y*w+2*i] = v >> 4
++				idx[y*w+2*i+1] = v & 0x0F
++			}
++		}
++		return Sprite{W: w, H: h, Flag: flag, Idx: idx}, nil
++	}
++	if w%8 != 0 {
++		return Sprite{}, fmt.Errorf("平面精靈寬 %d 不是 8 的倍數", w)
++	}
++	planes := 5
++	if flag == 0 {
++		planes = 4
++	}
++	bpp := w / 8
++	if 5+bpp*h*planes != len(b) {
++		return Sprite{}, fmt.Errorf("平面長度不符：%dx%d 旗標 %02X 需要 %d，實際 %d", w, h, flag, 5+bpp*h*planes, len(b))
++	}
++	idx := make([]byte, w*h)
++	for y := 0; y < h; y++ {
++		base := 5 + y*bpp*planes
++		for xb := 0; xb < bpp; xb++ {
++			var p [5]byte
++			for k := 0; k < planes; k++ {
++				p[k] = b[base+k*bpp+xb]
++			}
++			for bit := 0; bit < 8; bit++ {
++				m := byte(0x80) >> uint(bit)
++				// 遮罩在列首（旗標非 0）：平面順序是 mask, p0, p1, p2, p3。
++				off := 0
++				if planes == 5 {
++					off = 1
++				}
++				v := byte(0)
++				for k := 0; k < 4; k++ {
++					if p[k+off]&m != 0 {
++						v |= 1 << uint(k)
++					}
++				}
++				if planes == 5 && p[0]&m == 0 {
++					v = Transparent
++				}
++				idx[y*w+xb*8+bit] = v
++			}
++		}
++	}
++	return Sprite{W: w, H: h, Flag: flag, Idx: idx}, nil
++}
++
++// DecodeMRGItem 照 MAIN.EXE 的 MRG 項目載入邏輯解一個項目：寬高合理且長度等於未壓縮精靈的大小就是
++// 未壓縮精靈，否則是 LZSS 串流。
++func DecodeMRGItem(it []byte) (Sprite, error) {
++	if len(it) >= 5 {
++		w := int(it[0]) | int(it[1])<<8
++		h := int(it[2]) | int(it[3])<<8
++		if w != 0 && h != 0 && w%8 == 0 && RawSpriteSize(w, h, it[4]) == len(it) {
++			return DecodePlanarSprite(it)
++		}
++	}
++	out, used, err := LZSSDecode(it)
++	if err != nil {
++		return Sprite{}, err
++	}
++	if used != len(it) {
++		return Sprite{}, fmt.Errorf("LZSS 消耗 %d bytes，項目長度 %d", used, len(it))
++	}
++	return DecodeUnpacked(out)
++}
+diff --git a/apps/hr/hd/sprite.go b/apps/hr/hd/sprite.go
+new file mode 100644
+index 0000000..de87834
+--- /dev/null
++++ b/apps/hr/hd/sprite.go
+@@ -0,0 +1,67 @@
++package hd
++
++import "fmt"
++
++// Sprite 是解碼後的精靈：Idx 逐列每像素一個位元組，0 至 15 是顏色，Transparent 是透明。
++type Sprite struct {
++	W, H int
++	Flag uint8
++	Idx  []byte
++}
++
++// RawSpriteSize 回傳未壓縮精靈（5 bytes 標頭加逐列平面資料）的總長度：
++// 5 ＋ (w÷8) × h × (4 或 5)，旗標 bit 0 為 1 時多一個遮罩平面（docs/re/006 第 4 節）。
++func RawSpriteSize(w, h int, flag uint8) int {
++	n := 4
++	if flag&1 != 0 {
++		n = 5
++	}
++	return 5 + (w/8)*h*n
++}
++
++// DecodePlanarSprite 解出記憶體內的精靈（`2B47:0022` 讀的格式）：u16 寬、u16 高、u8 旗標，
++// 之後每列依序平面 0、1、2、3（旗標 bit 0 為 1 時再加遮罩平面），每平面 w÷8 bytes，最高位元在左。
++// 遮罩為 1 的像素不透明，為 0 的像素索引設成 Transparent；沒有遮罩的精靈全部不透明。
++func DecodePlanarSprite(b []byte) (Sprite, error) {
++	if len(b) < 5 {
++		return Sprite{}, fmt.Errorf("精靈標頭不足（%d bytes）", len(b))
++	}
++	w := int(b[0]) | int(b[1])<<8
++	h := int(b[2]) | int(b[3])<<8
++	flag := b[4]
++	if w == 0 || h == 0 || w%8 != 0 {
++		return Sprite{}, fmt.Errorf("不合理的尺寸 %dx%d", w, h)
++	}
++	if len(b) < RawSpriteSize(w, h, flag) {
++		return Sprite{}, fmt.Errorf("資料不足：%dx%d 旗標 %02X 需要 %d bytes，只有 %d", w, h, flag, RawSpriteSize(w, h, flag), len(b))
++	}
++	planes := 4
++	if flag&1 != 0 {
++		planes = 5
++	}
++	bpp := w / 8
++	idx := make([]byte, w*h)
++	for y := 0; y < h; y++ {
++		base := 5 + y*bpp*planes
++		for xb := 0; xb < bpp; xb++ {
++			var p [5]byte
++			for k := 0; k < planes; k++ {
++				p[k] = b[base+k*bpp+xb]
++			}
++			for bit := 0; bit < 8; bit++ {
++				m := byte(0x80) >> uint(bit)
++				v := byte(0)
++				for k := 0; k < 4; k++ {
++					if p[k]&m != 0 {
++						v |= 1 << uint(k)
++					}
++				}
++				if planes == 5 && p[4]&m == 0 {
++					v = Transparent
++				}
++				idx[y*w+xb*8+bit] = v
++			}
++		}
++	}
++	return Sprite{W: w, H: h, Flag: flag, Idx: idx}, nil
++}
+diff --git a/apps/hr/hd/sprite_test.go b/apps/hr/hd/sprite_test.go
+new file mode 100644
+index 0000000..0bfd215
+--- /dev/null
++++ b/apps/hr/hd/sprite_test.go
+@@ -0,0 +1,138 @@
++package hd
++
++import (
++	"bufio"
++	"encoding/binary"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++func TestHashDefinition(t *testing.T) {
++	// 測試向量：與 tools/hd/catalog.py 的定義逐字相同（u16le 寬、u16le 高、索引色位元組）。
++	// 2x1：索引 [1, 16]。
++	got := Hash(2, 1, []byte{1, 16})
++	// python3: hashlib.sha256(struct.pack("<HH", 2, 1) + bytes([1, 16])).hexdigest()[:16]
++	const want = "269893da1404ba549e0e823406e741047636e9f295adeb6c2991826cf1362fc0"
++	if got != want {
++		t.Fatalf("Hash ＝ %s，預期 %s", got, want)
++	}
++}
++
++func TestDecodeSmallSpriteWithMask(t *testing.T) {
++	// 8x1，旗標 1（有遮罩）：平面 0＝10000000、平面 1＝01000000、平面 2、3＝0、遮罩＝11000000。
++	b := []byte{8, 0, 1, 0, 1, 0x80, 0x40, 0, 0, 0xC0}
++	s, err := DecodePlanarSprite(b)
++	if err != nil {
++		t.Fatal(err)
++	}
++	want := []byte{1, 2, Transparent, Transparent, Transparent, Transparent, Transparent, Transparent}
++	if string(s.Idx) != string(want) {
++		t.Fatalf("Idx ＝ %v，預期 %v", s.Idx, want)
++	}
++	// 無遮罩：全部不透明。
++	b2 := []byte{8, 0, 1, 0, 0, 0x80, 0x40, 0, 0}
++	s2, err := DecodePlanarSprite(b2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if s2.Idx[0] != 1 || s2.Idx[1] != 2 || s2.Idx[2] != 0 {
++		t.Fatalf("無遮罩 Idx ＝ %v", s2.Idx)
++	}
++	if _, err := DecodePlanarSprite(b[:7]); err == nil {
++		t.Fatal("資料不足應回錯誤")
++	}
++}
++
++// 跨語言驗證：未壓縮的 MRG 項目，Go 解碼加 Hash 的結果必須等於 tools/hd/catalog.py 產生的清冊。
++// 缺原版或清冊就 skip。
++func TestCatalogCrossCheck(t *testing.T) {
++	orig := os.Getenv("HR_ORIG")
++	if orig == "" {
++		orig = "/orig/orig"
++	}
++	catPath := os.Getenv("HR_CATALOG")
++	if catPath == "" {
++		catPath = "/orig/hd-work/catalog.tsv"
++	}
++	f, err := os.Open(catPath)
++	if err != nil {
++		t.Skipf("沒有清冊 %s：%v", catPath, err)
++	}
++	defer f.Close()
++	want := map[string]string{} // id -> hash
++	sc := bufio.NewScanner(f)
++	sc.Scan() // 標題列
++	for sc.Scan() {
++		c := strings.Split(sc.Text(), "\t")
++		if len(c) < 2 {
++			continue
++		}
++		for _, id := range strings.Split(c[1], ";") {
++			want[id] = c[0]
++		}
++	}
++	checked, skipped := 0, 0
++	ents, err := os.ReadDir(orig)
++	if err != nil {
++		t.Skipf("讀不到原版目錄 %s：%v", orig, err)
++	}
++	var names []string
++	for _, e := range ents {
++		if n := strings.ToUpper(e.Name()); strings.HasSuffix(n, ".MRG") && n != "ESPMES.MRG" {
++			names = append(names, e.Name())
++		}
++	}
++	for _, name := range names {
++		d, err := os.ReadFile(filepath.Join(orig, name))
++		if err != nil {
++			t.Skipf("沒有 %s：%v", name, err)
++		}
++		n := int(binary.LittleEndian.Uint16(d))
++		offs := make([]int, n-1)
++		for i := range offs {
++			offs[i] = int(binary.LittleEndian.Uint32(d[2+4*i:]))
++		}
++		for i := 0; i < n-2; i++ {
++			it := d[offs[i]:offs[i+1]]
++			if len(it) < 5 {
++				skipped++
++				continue
++			}
++			w := int(binary.LittleEndian.Uint16(it))
++			h := int(binary.LittleEndian.Uint16(it[2:]))
++			_ = w
++			_ = h
++			s, err := DecodeMRGItem(it)
++			if err != nil {
++				t.Fatalf("%s:%d：%v", name, i, err)
++			}
++			id := strings.ToUpper(name) + ":" + itoa(i)
++			wh, ok := want[id]
++			if !ok {
++				t.Fatalf("清冊沒有 %s", id)
++			}
++			if got := Hash(s.W, s.H, s.Idx); got != wh {
++				t.Fatalf("%s：Go 雜湊 %s，清冊 %s", id, got, wh)
++			}
++			checked++
++		}
++	}
++	if checked < 100 {
++		t.Fatalf("只核對了 %d 個項目（略過 %d），預期至少 100", checked, skipped)
++	}
++	t.Logf("核對 %d 個 MRG 項目（含 LZSS 壓縮），略過 %d 個長度不足的空項目", checked, skipped)
++}
++
++func itoa(i int) string {
++	if i == 0 {
++		return "0"
++	}
++	var b []byte
++	for i > 0 {
++		b = append([]byte{byte('0' + i%10)}, b...)
++		i /= 10
++	}
++	return string(b)
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index be2a473..0392e12 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -330,6 +330,15 @@ func (s *Session) stepBatch(n int) *Stop {
+ 			s.lastDiv = n
+ 			return &Stop{Kind: StopDivide, Msg: "除以零或除法溢位"}
+ 		}
++		// 滑鼠輪詢指令剛執行完：遊戲回到等輸入的迴圈，游標已畫完，這一刻取快照
++		//（批次邊界取樣時游標完整的比例只有 8% 至 9%，這裡是 158/159，docs/spec/004 第 5.1 節）。
++		if np := len(d.Mouse.Polls); np != s.lastPolls {
++			s.lastPolls = np
++			if time.Since(s.lastSnap) >= 8*time.Millisecond {
++				s.snapshot()
++			}
++			s.lastSnapPollAt = time.Now()
++		}
+ 	}
+ 	return nil
+ }
+@@ -337,16 +346,10 @@ func (s *Session) stepBatch(n int) *Stop {
+ // afterBatch 做批次邊界的事：快照、清診斷紀錄、更新統計。
+ func (s *Session) afterBatch(force bool) {
+ 	m, d := s.m, s.d
+-	polls := len(d.Mouse.Polls)
+-	if polls != s.lastPolls {
+-		s.lastPolls = polls
+-		// 輪詢點：遊戲回到等輸入的迴圈，游標已畫完。快照上限約 120 Hz。
+-		if time.Since(s.lastSnap) >= 8*time.Millisecond || force {
+-			s.snapshot()
+-		}
+-		s.lastSnapPollAt = time.Now()
++	if force && s.lastSnap.IsZero() {
++		s.snapshot()
+ 	} else if time.Since(s.lastSnapPollAt) > 100*time.Millisecond && time.Since(s.lastSnap) >= 100*time.Millisecond {
+-		s.snapshot() // 動畫或載入中，滑鼠沒有輪詢
++		s.snapshot() // 動畫或載入中，滑鼠沒有輪詢：退回牆鐘 100 毫秒的快照
+ 	}
+ 	if m.Steps >= s.nextTrim && s.idleForTrim() {
+ 		s.nextTrim = m.Steps + trimEvery
+-- 
+2.43.0
+

@@ -33,8 +33,8 @@ PRESETS = {
     "plain": dict(per=1, beta=8),
     # 小精靈、道具、按鈕、戰場單位：只做週期抖色，不做雙邊濾波（保留小細節）
     "sprite": dict(per=1, beta=8, post=1),
-    # 256 色連續調（PCX）：Lanczos 加夾限銳化
-    "cont": dict(per=0, up="lz", sharp=0.3),
+    # 256 色連續調（PCX）：不去抖色，只做模式搜尋上採樣（保真度優於 Lanczos 加銳化，且無光暈）
+    "cont": dict(per=0, beta=6),
 }
 
 
