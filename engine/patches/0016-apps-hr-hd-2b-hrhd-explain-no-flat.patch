@@ -1,0 +1,480 @@
+From c8a4eba4863791d5cb08e3f1dc2bf78f23ee8c19 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 10:48:13 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/hd:=20=E9=A9=97=E8=AD=89=E7=AC=AC=202b?=
+ =?UTF-8?q?=20=E6=AD=A5=EF=BC=88=E5=96=AE=E8=89=B2=E9=80=A3=E9=80=9A?=
+ =?UTF-8?q?=E5=8D=80=E7=A7=BB=E9=99=A4=EF=BC=8C=E6=B6=88=E9=99=A4=E5=B0=8D?=
+ =?UTF-8?q?=E8=A9=B1=E6=A1=86=E5=90=8C=E8=89=B2=E6=AE=98=E5=BD=B1=EF=BC=89?=
+ =?UTF-8?q?=EF=BC=9Bhrhd=20=E5=8A=A0=20-explain=E3=80=81-no-flat?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrhd/explain.go |  70 ++++++++++++++
+ apps/hr/cmd/hrhd/main.go    |  11 +++
+ apps/hr/hd/compose.go       |   5 +-
+ apps/hr/hd/compose_draw.go  |   3 +-
+ apps/hr/hd/verify.go        |  71 +++++++++++++-
+ apps/hr/hd/verify_test.go   | 181 ++++++++++++++++++++++++++++++++++++
+ 6 files changed, 337 insertions(+), 4 deletions(-)
+ create mode 100644 apps/hr/cmd/hrhd/explain.go
+
+diff --git a/apps/hr/cmd/hrhd/explain.go b/apps/hr/cmd/hrhd/explain.go
+new file mode 100644
+index 0000000..ce17329
+--- /dev/null
++++ b/apps/hr/cmd/hrhd/explain.go
+@@ -0,0 +1,70 @@
++package main
++
++import (
++	"fmt"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++// explainRect 列出與 Px 矩形 [x0,x1) x [y0,y1) 重疊的每個戳記：清冊 id、相符與通過驗證的像素數
++// （只算落在矩形內的），用來找出疊層在某個區域畫了什麼（例如對話框內的殘影）。
++func explainRect(f *hrrt.Frame, assets *hd.Assets, x0, y0, x1, y1 int) {
++	var vf hd.Verifier
++	masks := vf.Run(f.Stamps, f.Px, f.W, f.H)
++	var vk hd.Verifier
++	vk.KeepFlat = true
++	keep := vk.Run(f.Stamps, f.Px, f.W, f.H)
++	fmt.Printf("# 矩形 (%d,%d)-(%d,%d) 內的戳記（序號 id 位置 大小 矩形內不透明 相符 通過）\n", x0, y0, x1, y1)
++	for k, s := range f.Stamps {
++		op, ma, pa := 0, 0, 0
++		var colors [17]bool
++		allPass := 0
++		for j := 0; j < s.H; j++ {
++			y := s.Y + j
++			if y < y0 || y >= y1 {
++				continue
++			}
++			for i := 0; i < s.W; i++ {
++				x := s.X + i
++				if x < x0 || x >= x1 {
++					continue
++				}
++				e := s.E[j*s.W+i]
++				if e == hd.Transparent {
++					continue
++				}
++				op++
++				if x < f.W && y < f.H && f.Px[y*f.W+x] == e {
++					ma++
++				}
++				if masks[k].Get(i, j) {
++					colors[e] = true
++					pa++
++				}
++			}
++		}
++		for j := 0; j < s.H; j++ {
++			for i := 0; i < s.W; i++ {
++				if masks[k].Get(i, j) {
++					allPass++
++					colors[s.E[j*s.W+i]] = true
++				}
++			}
++		}
++		nc := 0
++		for _, b := range colors {
++			if b {
++				nc++
++			}
++		}
++		if op == 0 {
++			continue
++		}
++		id := ""
++		if e := assets.Lookup(s.Hash); e != nil {
++			id = e.ID
++		}
++		fmt.Printf("%d\t%s\t(%d,%d)\t%dx%d\t%d\t%d\t%d\t全部通過 %d（不做第 2b 步 %d），通過的顏色數 %d\n", s.Seq, id, s.X, s.Y, s.W, s.H, op, ma, pa, allPass, keep[k].Count(), nc)
++	}
++}
+diff --git a/apps/hr/cmd/hrhd/main.go b/apps/hr/cmd/hrhd/main.go
+index a6c5215..9f455c6 100644
+--- a/apps/hr/cmd/hrhd/main.go
++++ b/apps/hr/cmd/hrhd/main.go
+@@ -41,6 +41,8 @@ func main() {
+ 	var moves clickList
+ 	flag.Var(&moves, "move", "在『相對步數』把滑鼠移到：`步數:X:Y`（640x480 畫面座標），可重複")
+ 	dumpDir := flag.String("dump-unknown", "", "把未識別戳記（例如游標）的索引色存成調色盤 PNG 到這個目錄（需要 -hd 以取得 MAIN 調色盤）")
++	explain := flag.String("explain", "", "列出與 Px 矩形 x0,y0,x1,y1 重疊的戳記及其相符與通過的像素數")
++	noFlat := flag.Bool("no-flat", false, "關掉單色連通區移除（規格 004 第 5.3 節第 2b 步，對照用）")
+ 	pollN := flag.Int("poll-scan", 0, "額外取 N 個拉取式快照，統計游標矩形完整的比例（docs/spec/004 第 7 節「快照完整」）")
+ 	flag.Parse()
+ 
+@@ -137,6 +139,14 @@ func main() {
+ 		s.RunSteps(s.Machine().Steps + 50_000)
+ 	}
+ 	f := s.Frame()
++	if *explain != "" && s.Frame() != nil {
++		var x0, y0, x1, y1 int
++		if _, err := fmt.Sscanf(*explain, "%d,%d,%d,%d", &x0, &y0, &x1, &y1); err != nil {
++			fmt.Fprintln(os.Stderr, "-explain 要寫成 x0,y0,x1,y1：", err)
++			os.Exit(2)
++		}
++		explainRect(s.Frame(), assets, x0, y0, x1, y1)
++	}
+ 	if *pollN > 0 && s.Overlay() != nil {
+ 		pollScan(s, *pollN)
+ 	}
+@@ -193,6 +203,7 @@ func main() {
+ 		ca = assets
+ 	}
+ 	cmp := hd.NewComposer(ca, 2)
++	cmp.NoFlat = *noFlat
+ 	ow, oh := cmp.OutSize(f.W, f.H)
+ 	dst := make([]byte, ow*oh*4)
+ 	cmp.Compose(dst, f.Px, f.W, f.H, f.Map, &f.DAC, f.Stamps) // 暖機：PNG 解碼只算一次
+diff --git a/apps/hr/hd/compose.go b/apps/hr/hd/compose.go
+index 758cb36..51d2b60 100644
+--- a/apps/hr/hd/compose.go
++++ b/apps/hr/hd/compose.go
+@@ -12,6 +12,7 @@ type ComposeStats struct {
+ 	Fast                  int           // 快速路徑（全相符）的戳記數
+ 	Slow                  int           // 做了 3x3 的戳記數
+ 	Empty                 int           // 全不符的戳記數
++	Flat                  int           // 第 2b 步移除的單色連通區像素數
+ 	TBase, TVerify, TDraw time.Duration // 各階段耗時：基底層、驗證、繪製
+ }
+ 
+@@ -22,7 +23,9 @@ type Composer struct {
+ 	// Workers 是平行的 band 數；0 ＝ min(GOMAXPROCS, 8)。
+ 	A       *Assets
+ 	Workers int
+-	Stats   ComposeStats
++	// NoFlat 關掉第 2b 步的單色連通區移除（對照與診斷用）。
++	NoFlat bool
++	Stats  ComposeStats
+ 
+ 	vf      Verifier
+ 	accA    []uint8
+diff --git a/apps/hr/hd/compose_draw.go b/apps/hr/hd/compose_draw.go
+index 4ede32b..1d772e3 100644
+--- a/apps/hr/hd/compose_draw.go
++++ b/apps/hr/hd/compose_draw.go
+@@ -104,9 +104,10 @@ func (c *Composer) Compose(dst []byte, px []uint8, pxW, pxH int, mp [16]uint8, d
+ 		return
+ 	}
+ 	t1 := time.Now()
++	c.vf.KeepFlat = c.NoFlat
+ 	vs := c.vf.Run(stamps, px, pxW, pxH)
+ 	c.Stats.Stamps = len(stamps)
+-	c.Stats.Fast, c.Stats.Slow, c.Stats.Empty = c.vf.Fast, c.vf.Slow, c.vf.Empty
++	c.Stats.Fast, c.Stats.Slow, c.Stats.Empty, c.Stats.Flat = c.vf.Fast, c.vf.Slow, c.vf.Empty, c.vf.FlatDropped
+ 	c.Stats.TVerify = time.Since(t1)
+ 
+ 	t2 := time.Now()
+diff --git a/apps/hr/hd/verify.go b/apps/hr/hd/verify.go
+index a741d7a..849ee30 100644
+--- a/apps/hr/hd/verify.go
++++ b/apps/hr/hd/verify.go
+@@ -36,7 +36,14 @@ type Verifier struct {
+ 	o, m   []uint64
+ 	b, dh  []uint64
+ 	xl     []uint64
+-	out    []Mask
++	todo   []uint64
++	stack  []int32
++	comp   []int32
++	// KeepFlat 為 true 時不做第 2b 步（對照與診斷用）。
++	KeepFlat bool
++	// 統計
++	FlatDropped int
++	out         []Mask
+ 	// 統計（驗收用）
+ 	Fast, Slow, Empty int
+ }
+@@ -46,7 +53,7 @@ type Verifier struct {
+ // （該位置被序號更大的戳記相符）。由序號最大的戳記往小處理並維護解釋點陣。
+ // 範圍外（Px 之外）的像素視為不存在（第 1 節：落在範圍外的丟棄）。
+ func (v *Verifier) Run(stamps []*Stamp, px []uint8, pxW, pxH int) []Mask {
+-	v.Fast, v.Slow, v.Empty = 0, 0, 0
++	v.Fast, v.Slow, v.Empty, v.FlatDropped = 0, 0, 0, 0
+ 	v.scrStr = (pxW + 63) >> 6
+ 	need := v.scrStr * pxH
+ 	if cap(v.scr) < need {
+@@ -142,6 +149,9 @@ func (v *Verifier) one(s *Stamp, px []uint8, pxW, pxH int, vm Mask) {
+ 	default:
+ 		v.Slow++
+ 		v.neighborhood(s, vm, O, M)
++		if !v.KeepFlat {
++			v.FlatDropped += v.dropFlat(s, vm)
++		}
+ 	}
+ 	v.orScreen(s, M, st)
+ }
+@@ -246,3 +256,60 @@ func (v *Verifier) orScreen(s *Stamp, M []uint64, st int) {
+ 		}
+ 	}
+ }
++
++// dropFlat 做第 2b 步：V 的 8 連通區若只含一種顏色（期望像素），整區從 V 移除。
++// 單色區是弱證據：對話框、面板這類單色蓋住物也會讓精靈裡同色的區域「相符」，畫出一塊殘影
++// （docs/spec/004 第 5.3 節；審查實測 `SPOINT_012` 被對話框蓋住時 54 至 79 個像素全是單色區）。
++// 多色的連通區（精靈露出的部分）不受影響。回傳移除的像素數。
++func (v *Verifier) dropFlat(s *Stamp, vm Mask) int {
++	w, h, st := s.W, s.H, vm.Stride
++	if cap(v.todo) < len(vm.Bits) {
++		v.todo = make([]uint64, len(vm.Bits))
++	}
++	todo := v.todo[:len(vm.Bits)]
++	copy(todo, vm.Bits)
++	dropped := 0
++	for j0 := 0; j0 < h; j0++ {
++		for k := 0; k < st; k++ {
++			for todo[j0*st+k] != 0 {
++				b := bits.TrailingZeros64(todo[j0*st+k])
++				i0 := k*64 + b
++				todo[j0*st+k] &^= 1 << uint(b)
++				// 洪水填充這個連通區
++				v.stack = append(v.stack[:0], int32(j0*w+i0))
++				v.comp = append(v.comp[:0], int32(j0*w+i0))
++				var seen uint32 = 1 << (s.E[j0*w+i0] & 31)
++				for len(v.stack) > 0 {
++					p := int(v.stack[len(v.stack)-1])
++					v.stack = v.stack[:len(v.stack)-1]
++					pj, pi := p/w, p%w
++					for dj := -1; dj <= 1; dj++ {
++						for di := -1; di <= 1; di++ {
++							nj, ni := pj+dj, pi+di
++							if nj < 0 || nj >= h || ni < 0 || ni >= w {
++								continue
++							}
++							wd := &todo[nj*st+ni>>6]
++							bit := uint64(1) << (uint(ni) & 63)
++							if *wd&bit == 0 {
++								continue
++							}
++							*wd &^= bit
++							seen |= 1 << (s.E[nj*w+ni] & 31)
++							v.stack = append(v.stack, int32(nj*w+ni))
++							v.comp = append(v.comp, int32(nj*w+ni))
++						}
++					}
++				}
++				if bits.OnesCount32(seen) == 1 {
++					for _, p := range v.comp {
++						pj, pi := int(p)/w, int(p)%w
++						vm.Bits[pj*st+pi>>6] &^= 1 << (uint(pi) & 63)
++					}
++					dropped += len(v.comp)
++				}
++			}
++		}
++	}
++	return dropped
++}
+diff --git a/apps/hr/hd/verify_test.go b/apps/hr/hd/verify_test.go
+index 700eb2c..8e69859 100644
+--- a/apps/hr/hd/verify_test.go
++++ b/apps/hr/hd/verify_test.go
+@@ -81,6 +81,7 @@ func randStamp(r *rand.Rand, pxW, pxH int) *Stamp {
+ func TestVerifyMatchesNaive(t *testing.T) {
+ 	r := rand.New(rand.NewSource(7))
+ 	var vf Verifier
++	vf.KeepFlat = true // 這個測試只驗第 2 步；第 2b 步另有測試
+ 	const pxW, pxH = 200, 60
+ 	for round := 0; round < 400; round++ {
+ 		px := make([]uint8, pxW*pxH)
+@@ -143,6 +144,7 @@ func TestVerifyPaths(t *testing.T) {
+ 		s.E[i] = 5
+ 	}
+ 	var vf Verifier
++	vf.KeepFlat = true // 這個測試只驗第 2 步；第 2b 步另有測試
+ 	for j := 0; j < 4; j++ {
+ 		for i := 0; i < 8; i++ {
+ 			px[(2+j)*pxW+3+i] = 5
+@@ -224,3 +226,182 @@ func TestQueue(t *testing.T) {
+ 		t.Fatalf("len=%d", q2.Len())
+ 	}
+ }
++
++// naiveFlat 是第 2b 步的逐像素定義（用遞迴 DFS，與 Verifier 的非遞迴填充獨立）：
++// 做過第 2 步的戳記（有不透明且在 Px 內卻不相符的像素），V 的 8 連通區若只含一種顏色就整區移除。
++func naiveFlat(stamps []*Stamp, px []uint8, pxW, pxH int, res [][]bool) {
++	for k, s := range stamps {
++		partial := false
++		for j := 0; j < s.H && !partial; j++ {
++			for i := 0; i < s.W; i++ {
++				x, y := s.X+i, s.Y+j
++				e := s.E[j*s.W+i]
++				if e == Transparent || x < 0 || y < 0 || x >= pxW || y >= pxH {
++					continue
++				}
++				if px[y*pxW+x] != e {
++					partial = true
++					break
++				}
++			}
++		}
++		if !partial {
++			continue
++		}
++		seen := make([]bool, s.W*s.H)
++		var dfs func(i, j int, comp *[]int, colors map[byte]bool)
++		dfs = func(i, j int, comp *[]int, colors map[byte]bool) {
++			if i < 0 || j < 0 || i >= s.W || j >= s.H || seen[j*s.W+i] || !res[k][j*s.W+i] {
++				return
++			}
++			seen[j*s.W+i] = true
++			*comp = append(*comp, j*s.W+i)
++			colors[s.E[j*s.W+i]] = true
++			for dj := -1; dj <= 1; dj++ {
++				for di := -1; di <= 1; di++ {
++					dfs(i+di, j+dj, comp, colors)
++				}
++			}
++		}
++		for j := 0; j < s.H; j++ {
++			for i := 0; i < s.W; i++ {
++				if seen[j*s.W+i] || !res[k][j*s.W+i] {
++					continue
++				}
++				var comp []int
++				colors := map[byte]bool{}
++				dfs(i, j, &comp, colors)
++				if len(colors) == 1 {
++					for _, p := range comp {
++						res[k][p] = false
++					}
++				}
++			}
++		}
++	}
++}
++
++// 第 2b 步與逐像素定義逐位元相同；KeepFlat 時等於不做第 2b 步。
++func TestVerifyFlatMatchesNaive(t *testing.T) {
++	r := rand.New(rand.NewSource(21))
++	const pxW, pxH = 120, 50
++	for _, keep := range []bool{false, true} {
++		var vf Verifier
++		vf.KeepFlat = keep
++		dropped := 0
++		for round := 0; round < 300; round++ {
++			px := make([]uint8, pxW*pxH)
++			// 低複雜度：大塊同色加少量雜訊，讓單色連通區常出現
++			for i := range px {
++				px[i] = byte((i / 17) % 3)
++			}
++			var stamps []*Stamp
++			for k := 0; k < 1+r.Intn(5); k++ {
++				s := randStamp(r, pxW, pxH)
++				for i := range s.E {
++					if s.E[i] != Transparent && r.Intn(3) != 0 {
++						s.E[i] = byte(r.Intn(2)) // 兩色為主
++					}
++				}
++				s.Seq = uint64(k + 1)
++				stamps = append(stamps, s)
++				for j := 0; j < s.H; j++ {
++					for i := 0; i < s.W; i++ {
++						x, y := s.X+i, s.Y+j
++						if x >= 0 && y >= 0 && x < pxW && y < pxH && s.E[j*s.W+i] != Transparent && r.Intn(4) != 0 {
++							px[y*pxW+x] = s.E[j*s.W+i]
++						}
++					}
++				}
++			}
++			got := vf.Run(stamps, px, pxW, pxH)
++			want := naiveVerify(stamps, px, pxW, pxH)
++			if !keep {
++				naiveFlat(stamps, px, pxW, pxH, want)
++			}
++			dropped += vf.FlatDropped
++			for k, s := range stamps {
++				for j := 0; j < s.H; j++ {
++					for i := 0; i < s.W; i++ {
++						if got[k].Get(i, j) != want[k][j*s.W+i] {
++							t.Fatalf("keep=%v round %d stamp %d：(%d,%d) 位元列 %v 逐像素 %v", keep, round, k, i, j, got[k].Get(i, j), want[k][j*s.W+i])
++						}
++					}
++				}
++			}
++		}
++		if !keep && dropped == 0 {
++			t.Fatal("測試資料沒有觸發任何單色連通區移除")
++		}
++		if keep && dropped != 0 {
++			t.Fatal("KeepFlat 時不該移除")
++		}
++	}
++}
++
++// 對話框蓋住精靈：露出的多色部分保留，被同色蓋住的單色區移除（docs/spec/004 第 5.3 節第 2b 步的動機）。
++func TestVerifyFlatDropsGhost(t *testing.T) {
++	const pxW, pxH = 64, 16
++	px := make([]uint8, pxW*pxH)
++	// 精靈 16x8：左半（x<8）顏色 1 與 2 交錯，右半全是顏色 3
++	s := &Stamp{W: 16, H: 8, X: 0, Y: 0, E: make([]byte, 16*8), Seq: 1}
++	for j := 0; j < 8; j++ {
++		for i := 0; i < 16; i++ {
++			if i < 8 {
++				s.E[j*16+i] = byte(1 + (i+j)%2)
++			} else {
++				s.E[j*16+i] = 3
++			}
++		}
++	}
++	// VRAM：左半露出（相符），右半被「顏色 3 的面板」蓋住：面板的像素剛好等於精靈右半的顏色
++	for j := 0; j < 8; j++ {
++		for i := 0; i < 16; i++ {
++			px[j*pxW+i] = s.E[j*16+i]
++		}
++	}
++	// 把左半的一個像素改掉，避免走全相符快速路徑
++	px[0] = 9
++	var vf Verifier
++	m := vf.Run([]*Stamp{s}, px, pxW, pxH)
++	left, right := 0, 0
++	for j := 0; j < 8; j++ {
++		for i := 0; i < 16; i++ {
++			if m[0].Get(i, j) {
++				if i < 8 {
++					left++
++				} else {
++					right++
++				}
++			}
++		}
++	}
++	// 右半與左半連通（精靈完整相連），整體是多色連通區：兩半都保留
++	if left == 0 || right == 0 {
++		t.Fatalf("相連的多色區不該被移除：左 %d 右 %d", left, right)
++	}
++	// 精靈中間挖空（透明）：右半成為獨立的單色區
++	for j := 0; j < 8; j++ {
++		s.E[j*16+7] = Transparent
++		s.E[j*16+8] = Transparent
++	}
++	m = vf.Run([]*Stamp{s}, px, pxW, pxH)
++	left, right = 0, 0
++	for j := 0; j < 8; j++ {
++		for i := 0; i < 16; i++ {
++			if m[0].Get(i, j) {
++				if i < 8 {
++					left++
++				} else {
++					right++
++				}
++			}
++		}
++	}
++	if left == 0 || right != 0 {
++		t.Fatalf("獨立的單色區應被移除：左 %d 右 %d", left, right)
++	}
++	if vf.FlatDropped == 0 {
++		t.Fatal("FlatDropped 應大於 0")
++	}
++}
+-- 
+2.43.0
+

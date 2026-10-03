@@ -9,9 +9,13 @@ IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"
 test -f "$AI" || { echo "缺 $AI" >&2; exit 1; }
 test -f "$ROOT/workplace/orig/MAIN.EXE" || { echo "缺 workplace/orig" >&2; exit 1; }
 mkdir -p "$ROOT/workplace/out"
+HDMOUNT=()
+# HR_HD_DIR（workplace 內、不含符號連結的 HD 目錄）有設就掛到 .AppImage 旁的 hd，驗收 HD 疊層
+if [ -n "${HR_HD_DIR:-}" ]; then HDMOUNT=(-v "$(cd "$HR_HD_DIR" && pwd):/work/hd:ro"); fi
+SHOT="${HR_SHOT_PREFIX:-pkg-appimage}"
 timeout 10m docker run --rm --network none --memory 3g --cpus 2 --pids-limit 512 \
   --log-opt max-size=10m --log-opt max-file=3 -u "$(id -u):$(id -g)" \
-  -v "$AI:/work/HR.AppImage:ro" -v "$ROOT/workplace/orig:/work/original:ro" -v "$ROOT/workplace/out:/out" \
+  -v "$AI:/work/HR.AppImage:ro" -v "$ROOT/workplace/orig:/work/original:ro" -v "$ROOT/workplace/out:/out" "${HDMOUNT[@]}" -e SHOT="$SHOT" \
   -e HOME=/tmp -w /work "$IMAGE" sh -c '
     set -e
     mkdir -p /tmp/.X11-unix
@@ -24,8 +28,8 @@ timeout 10m docker run --rm --network none --memory 3g --cpus 2 --pids-limit 512
     ./HR.AppImage >/tmp/play.log 2>&1 &
     PID=$!
     sleep 15
-    import -window root /out/pkg-appimage-title.png
+    import -window root /out/${SHOT}-title.png
     xdotool mousemove 640 342; sleep 1; xdotool click 1; sleep 25
-    import -window root /out/pkg-appimage-newgame.png
+    import -window root /out/${SHOT}-newgame.png
     kill $PID 2>/dev/null || true; kill $XPID 2>/dev/null || true
     tail -4 /tmp/play.log'
