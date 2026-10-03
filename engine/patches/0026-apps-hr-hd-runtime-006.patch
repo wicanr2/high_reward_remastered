@@ -1,0 +1,2330 @@
+From c9c8ec33862a3d9533a2b50c8498705ab453807e Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sun, 4 Oct 2026 03:03:05 +0800
+Subject: [PATCH 26/28] =?UTF-8?q?apps/hr/hd=E3=80=81runtime=EF=BC=9A?=
+ =?UTF-8?q?=E5=88=87=E6=8F=9B=E7=B4=A0=E6=9D=90=E8=88=87=E9=99=8D=E9=A0=BB?=
+ =?UTF-8?q?=E8=A6=96=E7=AA=97=EF=BC=88docs/spec/006=20=E7=AC=AC=E4=B8=83?=
+ =?UTF-8?q?=E7=89=88=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- hd：Composer.A 改原子指標與 SetAssets；Assets.SetGetHook、ErrorStats；
+  Preload 與 Release 的語意；CheckTheme；快照、Release 並行、CheckTheme、
+  ErrorStats、Preload 取消的測試（含負對照）
+- runtime：holdGate、windowVerdict 與 Session.HoldAdapt；Run 的檢查點只在滿 2 秒時
+  take；adapt 成為薄包裝；單持有者並行測試
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/hd/assets.go             |  46 ++-
+ apps/hr/hd/compose.go            |  34 +-
+ apps/hr/hd/compose_draw.go       |  10 +-
+ apps/hr/hd/snapshot_test.go      | 373 +++++++++++++++++
+ apps/hr/hd/theme.go              | 156 ++++++++
+ apps/hr/hd/theme_spec_test.go    | 515 ++++++++++++++++++++++++
+ apps/hr/hd/theme_test.go         | 172 ++++++++
+ apps/hr/runtime/holdgate.go      |  91 +++++
+ apps/hr/runtime/holdgate_test.go | 663 +++++++++++++++++++++++++++++++
+ apps/hr/runtime/session.go       |  49 ++-
+ 10 files changed, 2091 insertions(+), 18 deletions(-)
+ create mode 100644 apps/hr/hd/snapshot_test.go
+ create mode 100644 apps/hr/hd/theme.go
+ create mode 100644 apps/hr/hd/theme_spec_test.go
+ create mode 100644 apps/hr/hd/theme_test.go
+ create mode 100644 apps/hr/runtime/holdgate.go
+ create mode 100644 apps/hr/runtime/holdgate_test.go
+
+diff --git a/apps/hr/hd/assets.go b/apps/hr/hd/assets.go
+index 2e35fff..6d5d057 100644
+--- a/apps/hr/hd/assets.go
++++ b/apps/hr/hd/assets.go
+@@ -11,6 +11,7 @@ import (
+ 	"strconv"
+ 	"strings"
+ 	"sync"
++	"sync/atomic"
+ )
+ 
+ // CatalogEntry 是清冊 hd/catalog.tsv 的一列（docs/spec/004 第 3.3 節）。
+@@ -38,9 +39,45 @@ type Assets struct {
+ 	cat  map[string]*CatalogEntry
+ 	pals map[string]*[16][3]uint8
+ 
+-	mu     sync.Mutex
+-	cache  map[string]*Asset // nil 值表示載入失敗或沒有 HD，不重試
+-	Errors []string          // 載入失敗與不一致的紀錄（每筆只記一次）
++	mu    sync.Mutex
++	cache map[string]*Asset // nil 值表示載入失敗或沒有 HD，不重試
++	// Errors 是載入失敗與不一致的紀錄（每個雜湊最多一筆）。合成執行緒在 mu 下 append，Release 會把它設為 nil，
++	// 所以其他執行緒不可直接讀這個欄位（docs/spec/006 第 4 節），改用帶鎖的 ErrorStats。
++	Errors []string
++
++	getHook atomic.Pointer[getHook] // 測試控制點，見 SetGetHook
++}
++
++// getHook 是 SetGetHook 安裝的一次性鉤子。
++type getHook struct {
++	f     func(hash string)
++	fired atomic.Bool
++}
++
++// SetGetHook 安裝測試控制點（docs/spec/006 第 4 節「測試控制點與可觀察手段」），只給測試用：
++// 安裝之後第一次 Get 在進入時、查快取之前、a.mu 之外呼叫 f(hash)，之後不再呼叫（一次性，每次安裝各一次）。
++// f 為 nil 解除。在 mu 之外呼叫，所以 f 可以阻塞或呼叫 ErrorStats、Release、Composer.SetAssets 而不死鎖。
++// 觸發前提是 Get 真的被呼叫：Assets 非 nil，Compose 的戳記至少一個通過驗證（compose_draw.go）。
++func (a *Assets) SetGetHook(f func(hash string)) {
++	if f == nil {
++		a.getHook.Store(nil)
++		return
++	}
++	a.getHook.Store(&getHook{f: f})
++}
++
++// ErrorStats 帶鎖回傳目前 Errors 的筆數 n，以及整個 Assets 的第一筆錯誤原因 first（沒有錯誤則為空字串；
++// first 不是「新增的第一筆」）。已套用的 Assets 不 Release，所以 n 單調不減；Release 會把兩者歸零。
++func (a *Assets) ErrorStats() (n int, first string) {
++	if a == nil {
++		return 0, ""
++	}
++	a.mu.Lock()
++	defer a.mu.Unlock()
++	if len(a.Errors) == 0 {
++		return 0, ""
++	}
++	return len(a.Errors), a.Errors[0]
+ }
+ 
+ // LoadAssets 讀 dir/catalog.tsv、dir/palettes.tsv；HD 圖在 dir/x<S>/。清冊缺檔回錯誤。
+@@ -162,6 +199,9 @@ func (a *Assets) Get(hash string) *Asset {
+ 	if a == nil {
+ 		return nil
+ 	}
++	if h := a.getHook.Load(); h != nil && h.fired.CompareAndSwap(false, true) {
++		h.f(hash) // 測試控制點：在 mu 之外、查快取之前
++	}
+ 	a.mu.Lock()
+ 	defer a.mu.Unlock()
+ 	if as, ok := a.cache[hash]; ok {
+diff --git a/apps/hr/hd/compose.go b/apps/hr/hd/compose.go
+index 51d2b60..143f85a 100644
+--- a/apps/hr/hd/compose.go
++++ b/apps/hr/hd/compose.go
+@@ -1,6 +1,7 @@
+ package hd
+ 
+ import (
++	"sync/atomic"
+ 	"time"
+ )
+ 
+@@ -17,29 +18,54 @@ type ComposeStats struct {
+ }
+ 
+ // Composer 做 docs/spec/004 第 5 節的合成：基底層放大，再把有效戳記通過驗證的像素換成 HD。
+-// 內部緩衝區重複使用，不可同時由多個執行緒使用。
++// 內部緩衝區重複使用，不可同時由多個執行緒使用（Compose 只能由一個 goroutine 呼叫）。
++//
++// 素材 A 是原子指標（docs/spec/006 第 4 節）：任何執行緒都可以呼叫 SetAssets 換素材，
++// Compose 在取任何素材之前載入一次，整幀只用這個快照；換素材從下一次 Compose 起生效。
+ type Composer struct {
+ 	S int
++	// A 是目前的素材；用 SetAssets 設定。nil ＝ 只做基底層放大，戳記照樣遮蔽但沒有 HD 可畫。
++	A atomic.Pointer[Assets]
+ 	// Workers 是平行的 band 數；0 ＝ min(GOMAXPROCS, 8)。
+-	A       *Assets
+ 	Workers int
+ 	// NoFlat 關掉第 2b 步的單色連通區移除（對照與診斷用）。
+ 	NoFlat bool
+ 	Stats  ComposeStats
+ 
++	// rereadPerStamp 是測試用的建構選項（負對照）：Compose 每個戳記都重讀 A，而不是用整幀的快照。
++	// 只能在建立時設定（newComposer），建立之後才設會與 Compose 的讀取競爭。
++	rereadPerStamp bool
++
+ 	vf      Verifier
+ 	accA    []uint8
+ 	scratch []bandScratch
+ }
+ 
++// composerOption 是 newComposer 的建構選項（只給測試用）。
++type composerOption func(*Composer)
++
++// withRereadPerStamp 讓 Compose 每個戳記重讀 A（快照測試的負對照，docs/spec/006 第 10 節）。
++func withRereadPerStamp() composerOption { return func(c *Composer) { c.rereadPerStamp = true } }
++
+ // NewComposer 建立合成器；a 可為 nil（只做基底層放大，戳記照樣遮蔽但沒有 HD 可畫）。
+-func NewComposer(a *Assets, s int) *Composer {
++func NewComposer(a *Assets, s int) *Composer { return newComposer(a, s) }
++
++func newComposer(a *Assets, s int, opts ...composerOption) *Composer {
+ 	if s < 1 {
+ 		s = 1
+ 	}
+-	return &Composer{S: s, A: a}
++	c := &Composer{S: s}
++	c.A.Store(a)
++	for _, o := range opts {
++		o(c)
++	}
++	return c
+ }
+ 
++// SetAssets 換素材（nil ＝ 暫停 HD，只做基底層放大）。可由任何執行緒呼叫；
++// 正在進行的 Compose 不受影響（它用開始時載入的快照），下一次 Compose 才用新素材。
++func (c *Composer) SetAssets(a *Assets) { c.A.Store(a) }
++
+ // OutSize 回傳輸出的寬高。
+ func (c *Composer) OutSize(pxW, pxH int) (int, int) { return pxW * c.S, pxH * c.S }
+ 
+diff --git a/apps/hr/hd/compose_draw.go b/apps/hr/hd/compose_draw.go
+index 1d772e3..9090f59 100644
+--- a/apps/hr/hd/compose_draw.go
++++ b/apps/hr/hd/compose_draw.go
+@@ -65,6 +65,9 @@ type stampJob struct {
+ // （長度至少 pxW*S*pxH*S*4），再疊上 stamps（依序號遞增）。基底層與繪製依來源像素列分成
+ // 幾個 band 平行處理（Workers）。
+ func (c *Composer) Compose(dst []byte, px []uint8, pxW, pxH int, mp [16]uint8, dac *[256][3]uint8, stamps []*Stamp) {
++	// 整幀只用這個快照（docs/spec/006 第 4 節）：在取任何素材之前載入一次。SetAssets 可由其他執行緒隨時呼叫，
++	// 換素材只影響下一次 Compose，同一幀不會混用兩套素材。
++	assets := c.A.Load()
+ 	S := c.S
+ 	ow, oh := pxW*S, pxH*S
+ 	var base [16][3]uint8
+@@ -119,8 +122,11 @@ func (c *Composer) Compose(dst []byte, px []uint8, pxW, pxH int, mp [16]uint8, d
+ 			continue
+ 		}
+ 		jobs[i].ok = true
+-		if c.A != nil {
+-			jobs[i].as = c.A.Get(s.Hash)
++		if c.rereadPerStamp { // 測試用的負對照（建構選項）：不用快照，每個戳記重讀
++			assets = c.A.Load()
++		}
++		if assets != nil {
++			jobs[i].as = assets.Get(s.Hash)
+ 		}
+ 		if as := jobs[i].as; as != nil {
+ 			c.Stats.WithHD++
+diff --git a/apps/hr/hd/snapshot_test.go b/apps/hr/hd/snapshot_test.go
+new file mode 100644
+index 0000000..487f68d
+--- /dev/null
++++ b/apps/hr/hd/snapshot_test.go
+@@ -0,0 +1,373 @@
++package hd
++
++import (
++	"bytes"
++	"runtime"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++// docs/spec/006 第 4 節與第 10 節：Composer.A 原子指標與 Compose 的整幀快照、Release 與 Compose 並行、SetGetHook。
++// 素材是 writeTheme 在暫存目錄寫出的真 PNG（實心、alpha 255），不含任何原版素材。
++
++const (
++	snapW, snapH, snapS = 16, 8, 2
++	snapStampW          = 4 // 戳記 4x4，第一個在 (0,0)，第二個在 (8,0)，互不重疊
++)
++
++var (
++	snapColA = [4]uint8{200, 30, 30, 255}
++	snapColB = [4]uint8{30, 30, 200, 255}
++)
++
++// testPalDAC 回傳與 testPal 逐項相同的 DAC，使淡入淡出表為恆等（素材顏色原樣輸出，A、B 的差異不被縮放掩蓋）。
++func testPalDAC() (mp [16]uint8, dac [256][3]uint8) {
++	for i := 0; i < 16; i++ {
++		mp[i] = uint8(i)
++		dac[i] = [3]uint8{0, 0, uint8(i)}
++	}
++	dac[15] = [3]uint8{255, 255, 255}
++	return
++}
++
++type snapFix struct {
++	A, B   *Assets
++	px     []uint8
++	stamps []*Stamp
++	mp     [16]uint8
++	dac    [256][3]uint8
++	refA   []byte // 只用 A 的輸出
++	refB   []byte // 只用 B 的輸出
++}
++
++func (f *snapFix) compose(c *Composer) []byte {
++	out := make([]byte, snapW*snapS*snapH*snapS*4)
++	c.Compose(out, f.px, snapW, snapH, f.mp, &f.dac, f.stamps)
++	return out
++}
++
++func newSnapFix(t *testing.T) *snapFix {
++	t.Helper()
++	mk := func(col [4]uint8) *Assets {
++		dir := writeTheme(t, []fakeRow{
++			{hash: hx('1'), id: "S:1", w: snapStampW, h: snapStampW, pal: "MAIN", hd: "s/1.png", pngW: snapStampW * snapS, pngH: snapStampW * snapS, fill: col},
++			{hash: hx('2'), id: "S:2", w: snapStampW, h: snapStampW, pal: "MAIN", hd: "s/2.png", pngW: snapStampW * snapS, pngH: snapStampW * snapS, fill: col},
++		}, "MAIN")
++		a, err := LoadAssets(dir, snapS)
++		if err != nil {
++			t.Fatal(err)
++		}
++		return a
++	}
++	f := &snapFix{A: mk(snapColA), B: mk(snapColB)}
++	f.mp, f.dac = testPalDAC()
++	f.px = make([]uint8, snapW*snapH)
++	for i := range f.px {
++		f.px[i] = 1
++	}
++	f.stamps = []*Stamp{
++		{Kind: KindSprite, X: 0, Y: 0, W: snapStampW, H: snapStampW, Hash: hx('1'), E: filled(snapStampW*snapStampW, 1), Seq: 1},
++		{Kind: KindSprite, X: 8, Y: 0, W: snapStampW, H: snapStampW, Hash: hx('2'), E: filled(snapStampW*snapStampW, 1), Seq: 2},
++	}
++	f.refA = f.compose(NewComposer(f.A, snapS))
++	f.refB = f.compose(NewComposer(f.B, snapS))
++	// 夾具自檢：A、B 的輸出必須不同，且兩個戳記區域都是素材顏色（否則下面的測試沒有鑑別力）
++	if bytes.Equal(f.refA, f.refB) {
++		t.Fatal("夾具無效：只用 A 與只用 B 的輸出相同")
++	}
++	for _, c := range []struct {
++		ref []byte
++		col [4]uint8
++	}{{f.refA, snapColA}, {f.refB, snapColB}} {
++		for _, p := range [][2]int{{0, 0}, {7, 7}, {16, 0}, {23, 7}} { // 兩個戳記的角落（輸出座標）
++			if got := pixelAt(c.ref, p[0], p[1]); got != c.col {
++				t.Fatalf("夾具無效：(%d,%d) ＝ %v，應為素材顏色 %v", p[0], p[1], got, c.col)
++			}
++		}
++		if got := pixelAt(c.ref, 12, 0); got == snapColA || got == snapColB { // 兩個戳記之間是基底層
++			t.Fatalf("夾具無效：戳記外 (12,0) 不是基底層：%v", got)
++		}
++	}
++	return f
++}
++
++func pixelAt(buf []byte, x, y int) [4]uint8 {
++	o := (y*snapW*snapS + x) * 4
++	return [4]uint8{buf[o], buf[o+1], buf[o+2], buf[o+3]}
++}
++
++// 決定性：A 的第一個戳記的第一次 Get 進入時（查快取之前），同步 SetAssets(B)；整幀輸出必須逐位元等於只用 A。
++func TestComposeSnapshotDeterministic(t *testing.T) {
++	f := newSnapFix(t)
++	c := NewComposer(f.A, snapS)
++	fired := 0
++	var firstHash string
++	f.A.SetGetHook(func(h string) {
++		fired++
++		firstHash = h
++		c.SetAssets(f.B) // 在 Compose 進行中換素材
++	})
++	out := f.compose(c)
++	if fired != 1 {
++		t.Fatalf("鉤子觸發 %d 次，應為 1（沒觸發則測試沒有換素材，無效）", fired)
++	}
++	if firstHash != hx('1') {
++		t.Fatalf("鉤子應在第一個戳記的 Get 觸發，實際雜湊 %s", firstHash[:8])
++	}
++	if c.A.Load() != f.B {
++		t.Fatal("鉤子內的 SetAssets(B) 沒有生效")
++	}
++	if !bytes.Equal(out, f.refA) {
++		t.Fatalf("Compose 進行中換素材，整幀輸出應仍等於只用 A；第二個戳記 (16,0) ＝ %v", pixelAt(out, 16, 0))
++	}
++	// 換素材從下一次 Compose 起生效
++	if next := f.compose(c); !bytes.Equal(next, f.refB) {
++		t.Fatal("下一次 Compose 應整幀用 B")
++	}
++}
++
++// 負對照：rereadPerStamp 讓每個戳記重讀 A，第二個戳記取到 B，輸出必須不同；否則上面的測試沒有鑑別力。
++func TestComposeSnapshotNegativeControl(t *testing.T) {
++	f := newSnapFix(t)
++	c := newComposer(f.A, snapS, withRereadPerStamp())
++	fired := 0
++	f.A.SetGetHook(func(string) {
++		fired++
++		c.SetAssets(f.B)
++	})
++	out := f.compose(c)
++	if fired != 1 {
++		t.Fatalf("鉤子觸發 %d 次，應為 1", fired)
++	}
++	if bytes.Equal(out, f.refA) {
++		t.Fatal("負對照無效：逐戳記重讀時輸出仍等於只用 A")
++	}
++	if got := pixelAt(out, 0, 0); got != snapColA {
++		t.Fatalf("第一個戳記已取得 A，應為 A 的顏色：%v", got)
++	}
++	if got := pixelAt(out, 16, 0); got != snapColB {
++		t.Fatalf("逐戳記重讀時第二個戳記應取到 B：%v", got)
++	}
++}
++
++// 統計式輔助：GOMAXPROCS 至少 2，N 不小於 200 幀，切換者與合成者以通道交握（每幀一次，不跑自由競速），
++// 每幀輸出必須逐位元等於全 A 或全 B，且兩種都至少出現一次。偶數幀不在 Compose 期間切換（決定性地保證兩種都出現），
++// 奇數幀在 Compose 期間持續 SetAssets 交替，與快照載入競爭。
++func TestComposeSnapshotStatistical(t *testing.T) {
++	if runtime.GOMAXPROCS(0) < 2 {
++		old := runtime.GOMAXPROCS(2)
++		t.Cleanup(func() { runtime.GOMAXPROCS(old) })
++	}
++	f := newSnapFix(t)
++	const N = 400
++	c := NewComposer(f.A, snapS)
++	type job struct{}
++	start := make(chan job)
++	done := make(chan []byte)
++	go func() {
++		for range start {
++			done <- f.compose(c)
++		}
++		close(done)
++	}()
++	var nA, nB, mixed int
++	other := func(a *Assets) *Assets {
++		if a == f.A {
++			return f.B
++		}
++		return f.A
++	}
++	for k := 0; k < N; k++ {
++		cur := f.A
++		if k%4 >= 2 {
++			cur = f.B
++		}
++		c.SetAssets(cur) // 這一幀開始前的素材（交握：Compose 還沒開始）
++		start <- job{}
++		var out []byte
++		if k%2 == 0 {
++			out = <-done // 偶數幀：Compose 期間不切換，輸出必為 cur
++		} else {
++			flip := cur
++		spin:
++			for {
++				select {
++				case out = <-done:
++					break spin
++				default:
++					flip = other(flip)
++					c.SetAssets(flip)
++					runtime.Gosched()
++				}
++			}
++		}
++		switch {
++		case bytes.Equal(out, f.refA):
++			nA++
++		case bytes.Equal(out, f.refB):
++			nB++
++		default:
++			mixed++
++		}
++	}
++	close(start)
++	<-done
++	t.Logf("N ＝ %d：全 A %d、全 B %d、混合 %d", N, nA, nB, mixed)
++	if mixed != 0 {
++		t.Fatalf("%d 幀混用了兩套素材", mixed)
++	}
++	if nA == 0 || nB == 0 {
++		t.Fatalf("測試無效：全 A %d 幀、全 B %d 幀，兩種都要出現", nA, nB)
++	}
++}
++
++// SetAssets(nil) ＝ 暫停 HD：之後的 Compose 只做基底層放大，與沒有素材的 Composer 輸出相同。
++func TestComposeSetAssetsNil(t *testing.T) {
++	f := newSnapFix(t)
++	c := NewComposer(f.A, snapS)
++	if !bytes.Equal(f.compose(c), f.refA) {
++		t.Fatal("起點應等於 refA")
++	}
++	c.SetAssets(nil)
++	base := f.compose(NewComposer(nil, snapS))
++	if got := f.compose(c); !bytes.Equal(got, base) {
++		t.Fatal("SetAssets(nil) 之後應只做基底層放大")
++	}
++	if bytes.Equal(base, f.refA) {
++		t.Fatal("夾具無效：基底層與 refA 相同")
++	}
++	c.SetAssets(f.B)
++	if !bytes.Equal(f.compose(c), f.refB) {
++		t.Fatal("恢復素材後應用 B")
++	}
++}
++
++// Release 與 Compose 並行：一個 goroutine 連續 Compose，另一個連續 Release（素材是真 PNG，Get 能重新解碼），
++// 每幀輸出逐位元等於參考輸出。-race 下無競爭。
++func TestReleaseConcurrentWithCompose(t *testing.T) {
++	f := newSnapFix(t)
++	c := NewComposer(f.A, snapS)
++	var stop atomic.Bool
++	var releases atomic.Int64
++	var wg sync.WaitGroup
++	for r := 0; r < 2; r++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			for !stop.Load() {
++				f.A.Release()
++				releases.Add(1)
++				runtime.Gosched()
++			}
++		}()
++	}
++	// 觀察者：Release 之後 Get 會重新解碼，所以看得到不同的 *Asset 指標（證明 Release 真的和 Compose 交錯）
++	seen := map[*Asset]bool{}
++	wg.Add(1)
++	go func() {
++		defer wg.Done()
++		for !stop.Load() {
++			if as := f.A.Get(hx('1')); as != nil {
++				seen[as] = true
++			}
++			runtime.Gosched()
++		}
++	}()
++	const N = 300
++	bad := -1
++	for k := 0; k < N && bad < 0; k++ {
++		if !bytes.Equal(f.compose(c), f.refA) {
++			bad = k
++		}
++	}
++	stop.Store(true)
++	wg.Wait()
++	if bad >= 0 {
++		t.Fatalf("第 %d 幀的輸出與參考輸出不同", bad)
++	}
++	t.Logf("%d 幀；Release %d 次；觀察到 %d 個不同的 *Asset", N, releases.Load(), len(seen))
++	if releases.Load() < 10 || len(seen) < 2 {
++		t.Fatalf("測試無效：Release %d 次、不同 *Asset %d 個（Release 沒有和 Compose 交錯）", releases.Load(), len(seen))
++	}
++}
++
++// SetGetHook 的語意：進入 Get 時、查快取之前、a.mu 之外呼叫；一次性（每次安裝各一次）；nil 解除。
++func TestSetGetHook(t *testing.T) {
++	f := newSnapFix(t)
++	a := f.A
++	var calls []string
++	a.SetGetHook(func(h string) { calls = append(calls, h) })
++	// 快取已有時鉤子仍觸發（查快取之前）：先讓 hx('1') 進快取
++	if a.Get(hx('1')) == nil {
++		t.Fatal("Get 應成功")
++	}
++	if len(calls) != 1 || calls[0] != hx('1') {
++		t.Fatalf("第一次 Get 應觸發鉤子：%v", calls)
++	}
++	a.Get(hx('1'))
++	a.Get(hx('2'))
++	if len(calls) != 1 {
++		t.Fatalf("鉤子是一次性的，之後的 Get 不再觸發：%d 次", len(calls))
++	}
++	// 重新安裝：再來一次（對已在快取的雜湊也觸發）
++	a.SetGetHook(func(h string) { calls = append(calls, "again:"+h[:4]) })
++	a.Get(hx('1'))
++	if len(calls) != 2 || !strings.HasPrefix(calls[1], "again:") {
++		t.Fatalf("重新安裝後第一次 Get 應再觸發：%v", calls)
++	}
++	// nil 解除
++	a.SetGetHook(func(string) { t.Error("已解除的鉤子不該被呼叫") })
++	a.SetGetHook(nil)
++	a.Get(hx('2'))
++	// nil 素材不 panic、不觸發
++	var nilAssets *Assets
++	if nilAssets.Get(hx('1')) != nil {
++		t.Fatal("nil 素材的 Get 應回 nil")
++	}
++}
++
++// 鉤子在 a.mu 之外：鉤子內呼叫 ErrorStats、Release、Get（其他雜湊）不死鎖。
++func TestSetGetHookOutsideLock(t *testing.T) {
++	f := newSnapFix(t)
++	a := f.A
++	finished := make(chan struct{})
++	go func() {
++		defer close(finished)
++		a.SetGetHook(func(string) {
++			a.ErrorStats()
++			a.Release()
++			a.Get(hx('2'))
++		})
++		if a.Get(hx('1')) == nil {
++			t.Error("鉤子之後 Get 仍應成功")
++		}
++	}()
++	select {
++	case <-finished:
++	case <-time.After(10 * time.Second):
++		t.Fatal("鉤子內呼叫 ErrorStats、Release 卡死：鉤子可能在 a.mu 之內被呼叫")
++	}
++}
++
++// docs/spec/006 第 4 節：play 套件的 hdView 測試用「只有表頭的 TSV」建 Assets，戳記的雜湊不在清冊也要觸發鉤子；
++// 此時 Get 回 nil，輸出與素材無關（等於只有基底層）。
++func TestSetGetHookFiresForHashNotInCatalog(t *testing.T) {
++	f := newSnapFix(t)
++	empty, err := LoadAssets(writeTheme(t, nil, "MAIN"), snapS)
++	if err != nil {
++		t.Fatal(err)
++	}
++	c := NewComposer(empty, snapS)
++	var got []string
++	empty.SetGetHook(func(h string) { got = append(got, h) })
++	out := f.compose(c)
++	if len(got) != 1 || got[0] != hx('1') {
++		t.Fatalf("鉤子應在第一個戳記的 Get 觸發一次：%v", got)
++	}
++	if base := f.compose(NewComposer(nil, snapS)); !bytes.Equal(out, base) {
++		t.Fatal("清冊沒有的雜湊：輸出應等於只有基底層")
++	}
++}
+diff --git a/apps/hr/hd/theme.go b/apps/hr/hd/theme.go
+new file mode 100644
+index 0000000..9dc74fb
+--- /dev/null
++++ b/apps/hr/hd/theme.go
+@@ -0,0 +1,156 @@
++package hd
++
++import (
++	"context"
++	"errors"
++	"fmt"
++	"image"
++	_ "image/png" // image.DecodeConfig 讀 PNG 檔頭
++	"os"
++	"path/filepath"
++	"sort"
++	"strconv"
++	"strings"
++)
++
++// 以下是 docs/spec/006 第 4 節的 theme 支援：預載、釋放、檢查。
++
++// Preload 逐筆解碼所有有 HD 圖的清冊列（Get 的延遲解碼提前做完），在每次迴圈開頭檢查 ctx，取消即停。
++// progress 非 nil 時每解碼一筆呼叫一次（done 從 1 起，total 是有 HD 圖的清冊列數），呼叫時不持有任何鎖，
++// 所以 progress 阻塞期間其他執行緒的 Get 與 ErrorStats 不受影響。
++//
++// 回傳成功解碼數 ok 與失敗數 failed（失敗的原因記在 Errors，並且該筆之後 Get 回 nil，退回基底層）：
++//   - err ＝ nil：迴圈跑完（即使 ctx 在跑完之後才被取消）；清冊的 hd 欄全空時回 (0, 0, nil)；
++//   - err ≠ nil：ctx 在迴圈開頭被取消（err 是 ctx.Err()），已解碼的部分留在快取，ok 可以大於 0。
++//     呼叫端丟棄這份預載時要自己 Release。
++//
++// 解碼順序依雜湊排序（決定性）。
++func (a *Assets) Preload(ctx context.Context, progress func(done, total int)) (ok, failed int, err error) {
++	hashes := make([]string, 0, len(a.cat))
++	for h, e := range a.cat {
++		if e.HD != "" {
++			hashes = append(hashes, h)
++		}
++	}
++	sort.Strings(hashes)
++	for i, h := range hashes {
++		if err := ctx.Err(); err != nil {
++			return ok, failed, err
++		}
++		if a.Get(h) != nil {
++			ok++
++		} else {
++			failed++
++		}
++		if progress != nil {
++			progress(i+1, len(hashes))
++		}
++	}
++	return ok, failed, nil
++}
++
++// Release 清空解碼快取與錯誤紀錄（保留清冊與調色盤）。之後 Get 會重新延遲解碼。
++//
++// 只用在尚未套用的預載被丟棄或被拒時（docs/spec/006 第 4 節「常駐策略」）：由載入 goroutine 在回報結果之前
++// 同步呼叫，此時沒有其他使用者。已套用（常駐）的 Assets 不 Release。Release 會清掉錯誤原因，
++// 所以要先讀 ErrorStats 再 Release。先前 Get 回傳的 *Asset 不受影響（Release 只換掉快取表，不改圖），
++// 與 Compose 並行呼叫也安全。
++func (a *Assets) Release() {
++	a.mu.Lock()
++	a.cache = map[string]*Asset{}
++	a.Errors = nil
++	a.mu.Unlock()
++}
++
++// Entries 回傳清冊列數與有 HD 圖的列數。
++func (a *Assets) Entries() (total, withHD int) {
++	for _, e := range a.cat {
++		total++
++		if e.HD != "" {
++			withHD++
++		}
++	}
++	return
++}
++
++// maxThemeProblems 是 CheckTheme 回報的問題數上限。
++const maxThemeProblems = 20
++
++// CheckTheme 是衍生 theme 的嚴格檢查（docs/spec/006 第 4 節「檢查的內容」）。它載入 dir 的清冊與調色盤，
++// 成功時回傳載入好的 *Assets（呼叫端不必再解析一次 TSV），並依 base（基底 theme，辨識用的清冊）對每一列檢查：
++//   - hash 必須存在於 base，且 w、h 相同（允許只涵蓋部分雜湊，缺的回退基底層）；
++//   - pal 名稱必須存在於 dir 自己的 palettes.tsv（hd 欄為空的列也檢查）；
++//   - hd 欄非空的列，PNG 必須存在且尺寸是 S×w 乘 S×h（只讀檔頭，不解碼；內容契約由發行前的驗收工具負責）。
++//     hd 欄為空的列（沒有 HD 圖）只略過這一項。
++//
++// 有任何一項不符就回錯誤（列出前 maxThemeProblems 項），整個 theme 被拒絕。比對以 hash 為鍵，不依列序，
++// 也不比 id、kind、pal 欄的內容（id 是以分號合併的清單，列序不同時會不同，docs/spec/004 第 3.3 節）。
++// base 為 nil 回明確錯誤，不 panic（基底 theme 本身不經 CheckTheme）。清冊或調色盤 TSV 讀不了也回錯誤。
++func CheckTheme(base *Assets, dir string, s int) (*Assets, error) {
++	if base == nil {
++		return nil, errors.New("CheckTheme：base 為 nil（衍生 theme 需要基底 theme 的清冊可比對；基底 theme 本身不經 CheckTheme）")
++	}
++	a, err := LoadAssets(dir, s)
++	if err != nil {
++		return nil, err
++	}
++	hashes := make([]string, 0, len(a.cat))
++	for h := range a.cat {
++		hashes = append(hashes, h)
++	}
++	sort.Strings(hashes) // 回報的問題順序決定性
++	var problems []string
++	add := func(format string, args ...any) {
++		if len(problems) < maxThemeProblems {
++			problems = append(problems, fmt.Sprintf(format, args...))
++		}
++	}
++	bad := 0
++	for _, h := range hashes {
++		e := a.cat[h]
++		short := h[:8]
++		be := base.Lookup(h)
++		if be == nil {
++			bad++
++			add("%s（%s）：雜湊不在基底清冊", short, e.ID)
++			continue
++		}
++		if be.W != e.W || be.H != e.H {
++			bad++
++			add("%s（%s）：尺寸 %dx%d，基底清冊是 %dx%d", short, e.ID, e.W, e.H, be.W, be.H)
++		}
++		if a.pals[e.Pal] == nil {
++			bad++
++			add("%s（%s）：調色盤 %q 不在 palettes.tsv", short, e.ID, e.Pal)
++		}
++		if e.HD == "" {
++			continue
++		}
++		p := filepath.Join(dir, "x"+strconv.Itoa(s), filepath.FromSlash(e.HD))
++		f, err := os.Open(p)
++		if err != nil {
++			bad++
++			add("%s（%s）：HD 圖缺檔：%v", short, e.ID, err)
++			continue
++		}
++		cfg, _, err := image.DecodeConfig(f)
++		f.Close()
++		if err != nil {
++			bad++
++			add("%s（%s）：不是可讀的 PNG：%v", short, e.ID, err)
++			continue
++		}
++		if cfg.Width != e.W*s || cfg.Height != e.H*s {
++			bad++
++			add("%s（%s）：PNG 是 %dx%d，應為 %dx%d", short, e.ID, cfg.Width, cfg.Height, e.W*s, e.H*s)
++		}
++	}
++	if bad > 0 {
++		more := ""
++		if bad > len(problems) {
++			more = fmt.Sprintf("（另有 %d 項）", bad-len(problems))
++		}
++		return nil, fmt.Errorf("theme %s 未通過檢查，共 %d 項不符%s：\n  %s", dir, bad, more, strings.Join(problems, "\n  "))
++	}
++	return a, nil
++}
+diff --git a/apps/hr/hd/theme_spec_test.go b/apps/hr/hd/theme_spec_test.go
+new file mode 100644
+index 0000000..46c91ca
+--- /dev/null
++++ b/apps/hr/hd/theme_spec_test.go
+@@ -0,0 +1,515 @@
++package hd
++
++import (
++	"bytes"
++	"context"
++	"fmt"
++	"math/rand"
++	"os"
++	"path/filepath"
++	"runtime"
++	"sort"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++)
++
++// docs/spec/006 第 4 節與第 10 節：CheckTheme、基底 theme 的逐圖降級、ErrorStats、Preload 的 ctx 取消與 progress。
++// 全部用 writeTheme 在暫存目錄組出的假 theme，不含原版素材。
++
++// ---------- CheckTheme ----------
++
++func TestCheckThemeNilBase(t *testing.T) {
++	dir := writeTheme(t, []fakeRow{{hash: hx('a'), id: "X", w: 4, h: 2, pal: "MAIN", hd: "x.png", pngW: 8, pngH: 4}}, "MAIN")
++	a, err := CheckTheme(nil, dir, 2)
++	if err == nil || a != nil {
++		t.Fatalf("base 為 nil 應回錯誤：a ＝ %v、err ＝ %v", a, err)
++	}
++	if !strings.Contains(err.Error(), "base 為 nil") {
++		t.Fatalf("錯誤訊息要點名 base 為 nil，而不是每個雜湊都「不在基底清冊」：%v", err)
++	}
++	// 對照：有基底時同一個目錄通過
++	if _, err := CheckTheme(baseAssets(t), dir, 2); err != nil {
++		t.Fatalf("對照組應通過：%v", err)
++	}
++}
++
++// 空 hd 欄的列：只略過 PNG 檢查，hash、尺寸、pal 仍檢查。
++func TestCheckThemeEmptyHDColumn(t *testing.T) {
++	base := baseAssets(t)
++	cases := []struct {
++		name string
++		row  fakeRow
++		pals []string
++		want string // 空 ＝ 應被接受
++	}{
++		{"pal 存在", fakeRow{hash: hx('c'), id: "C", w: 6, h: 3, pal: "MAIN"}, []string{"MAIN"}, ""},
++		{"pal 不存在", fakeRow{hash: hx('c'), id: "C", w: 6, h: 3, pal: "NOPE"}, []string{"MAIN"}, "不在 palettes.tsv"},
++		{"雜湊不在基底", fakeRow{hash: hx('d'), id: "D", w: 6, h: 3, pal: "MAIN"}, []string{"MAIN"}, "雜湊不在基底清冊"},
++		{"尺寸與基底不同", fakeRow{hash: hx('c'), id: "C", w: 7, h: 3, pal: "MAIN"}, []string{"MAIN"}, "基底清冊是 6x3"},
++	}
++	for _, c := range cases {
++		dir := writeTheme(t, []fakeRow{c.row}, c.pals...)
++		a, err := CheckTheme(base, dir, 2)
++		if c.want == "" {
++			if err != nil || a == nil {
++				t.Errorf("%s：應被接受：%v", c.name, err)
++			}
++			continue
++		}
++		if err == nil || a != nil || !strings.Contains(err.Error(), c.want) {
++			t.Errorf("%s：應以「%s」被拒絕：a ＝ %v、err ＝ %v", c.name, c.want, a, err)
++		}
++	}
++}
++
++// 成功時回傳載入好的 *Assets（不必再解析一次 TSV），可直接 Get。
++func TestCheckThemeReturnsLoadedAssets(t *testing.T) {
++	base := baseAssets(t)
++	dir := writeTheme(t, []fakeRow{
++		{hash: hx('a'), id: "A", w: 4, h: 2, pal: "MAIN", hd: "ai/a.png", pngW: 8, pngH: 4, fill: snapColA},
++		{hash: hx('c'), id: "C", w: 6, h: 3, pal: "MAIN"},
++	}, "MAIN")
++	a, err := CheckTheme(base, dir, 2)
++	if err != nil || a == nil {
++		t.Fatal(err)
++	}
++	if a.Dir != dir || a.S != 2 || a.Lookup(hx('a')) == nil || a.Palette("MAIN") == nil {
++		t.Fatalf("回傳的 Assets 不完整：%+v", a)
++	}
++	if as := a.Get(hx('a')); as == nil || as.Img.Pix[3] != 255 || as.Img.Pix[0] != snapColA[0] {
++		t.Fatalf("Get 應解出實心 PNG：%+v", as)
++	}
++	if a.Get(hx('c')) != nil {
++		t.Fatal("空 hd 欄的列沒有 HD 圖，Get 應回 nil")
++	}
++	if n, _ := a.ErrorStats(); n != 0 {
++		t.Fatalf("空 hd 欄不是錯誤，Errors ＝ %d", n)
++	}
++}
++
++// TSV 層錯誤（清冊或調色盤缺檔、格式錯誤）一律回錯誤。
++func TestCheckThemeTSVLevelErrors(t *testing.T) {
++	base := baseAssets(t)
++	good := func() string {
++		return writeTheme(t, []fakeRow{{hash: hx('a'), id: "A", w: 4, h: 2, pal: "MAIN", hd: "a.png", pngW: 8, pngH: 4}}, "MAIN")
++	}
++	cases := map[string]func(dir string){
++		"清冊缺檔":  func(dir string) { os.Remove(filepath.Join(dir, "catalog.tsv")) },
++		"調色盤缺檔": func(dir string) { os.Remove(filepath.Join(dir, "palettes.tsv")) },
++		"清冊缺欄位": func(dir string) {
++			os.WriteFile(filepath.Join(dir, "catalog.tsv"), []byte("hash\tid\n"+hx('a')+"\tA\n"), 0o644)
++		},
++		"清冊雜湊長度不對": func(dir string) {
++			os.WriteFile(filepath.Join(dir, "catalog.tsv"), []byte("hash\tid\tw\th\tkind\tpal\thd\nabc\tA\t4\t2\tsprite\tMAIN\t\n"), 0o644)
++		},
++		"調色盤不是 16 色": func(dir string) {
++			os.WriteFile(filepath.Join(dir, "palettes.tsv"), []byte("name\tpalette16\nMAIN\t000000 000001\n"), 0o644)
++		},
++	}
++	for name, mutate := range cases {
++		dir := good()
++		mutate(dir)
++		if a, err := CheckTheme(base, dir, 2); err == nil || a != nil {
++			t.Errorf("%s：應回錯誤（a ＝ %v）", name, a)
++		}
++		// 基底 theme 走 LoadAssets，同樣的 TSV 層錯誤也被拒絕
++		if a, err := LoadAssets(dir, 2); err == nil || a != nil {
++			t.Errorf("%s：LoadAssets 應回錯誤", name)
++		}
++	}
++}
++
++// 問題數超過上限時，錯誤訊息列出前 maxThemeProblems 項並註明另有幾項；順序決定性。
++func TestCheckThemeManyProblemsDeterministic(t *testing.T) {
++	base := baseAssets(t)
++	var rows []fakeRow
++	for i := 0; i < maxThemeProblems+5; i++ {
++		rows = append(rows, fakeRow{hash: fmt.Sprintf("%064x", i+1000), id: fmt.Sprintf("ID%02d", i), w: 4, h: 2, pal: "MAIN"})
++	}
++	dir := writeTheme(t, rows, "MAIN")
++	_, e1 := CheckTheme(base, dir, 2)
++	_, e2 := CheckTheme(base, dir, 2)
++	if e1 == nil || e2 == nil || e1.Error() != e2.Error() {
++		t.Fatalf("同一個目錄兩次檢查的訊息應相同：%v / %v", e1, e2)
++	}
++	if !strings.Contains(e1.Error(), "共 25 項") || !strings.Contains(e1.Error(), "另有 5 項") {
++		t.Fatalf("訊息應記總數與另有幾項：%v", e1)
++	}
++	if n := strings.Count(e1.Error(), "雜湊不在基底清冊"); n != maxThemeProblems {
++		t.Fatalf("列出 %d 項，應為上限 %d", n, maxThemeProblems)
++	}
++}
++
++// ---------- 基底 theme 的逐圖降級 ----------
++
++// 基底 theme 只在 TSV 層錯誤時拒絕；PNG 缺檔、尺寸不符、調色盤缺名維持逐圖退回基底層，其餘圖照常。
++func TestBaseThemePerImageDegradation(t *testing.T) {
++	const S = 2
++	rows := []fakeRow{
++		{hash: hx('1'), id: "MISSING", w: 4, h: 4, pal: "MAIN", hd: "m/missing.png"},                             // PNG 缺檔
++		{hash: hx('2'), id: "SIZE", w: 4, h: 4, pal: "MAIN", hd: "m/size.png", pngW: 7, pngH: 8, fill: snapColB}, // 尺寸不符
++		{hash: hx('3'), id: "PAL", w: 4, h: 4, pal: "NOPE", hd: "m/pal.png", pngW: 8, pngH: 8, fill: snapColB},   // 調色盤缺名
++		{hash: hx('4'), id: "GOOD", w: 4, h: 4, pal: "MAIN", hd: "m/good.png", pngW: 8, pngH: 8, fill: snapColA}, // 正常
++	}
++	dir := writeTheme(t, rows, "MAIN")
++	a, err := LoadAssets(dir, S) // 基底 theme 的載入：逐圖問題不拒絕
++	if err != nil {
++		t.Fatalf("逐圖問題不該讓基底 theme 整個被拒絕：%v", err)
++	}
++	// 四個戳記並排：x ＝ 0、4、8、12，各 4x4
++	const W, H = 16, 4
++	mp, dac := testPalDAC()
++	px := make([]uint8, W*H)
++	for i := range px {
++		px[i] = 1
++	}
++	var stamps []*Stamp
++	for i, r := range rows {
++		stamps = append(stamps, &Stamp{Kind: KindSprite, X: i * 4, Y: 0, W: 4, H: 4, Hash: r.hash, E: filled(16, 1), Seq: uint64(i + 1)})
++	}
++	compose := func(as *Assets) []byte {
++		out := make([]byte, W*S*H*S*4)
++		NewComposer(as, S).Compose(out, px, W, H, mp, &dac, stamps)
++		return out
++	}
++	out := compose(a)
++	base := compose(nil)
++	at := func(buf []byte, x, y int) [4]uint8 {
++		o := (y*W*S + x) * 4
++		return [4]uint8{buf[o], buf[o+1], buf[o+2], buf[o+3]}
++	}
++	for i := 0; i < 3; i++ { // 前三個：退回基底層（與沒有素材的輸出逐像素相同）
++		for _, p := range [][2]int{{i * 8, 0}, {i*8 + 7, 7}} {
++			if at(out, p[0], p[1]) != at(base, p[0], p[1]) {
++				t.Errorf("%s 應退回基底層：(%d,%d) ＝ %v，基底層 %v", rows[i].id, p[0], p[1], at(out, p[0], p[1]), at(base, p[0], p[1]))
++			}
++		}
++	}
++	if at(out, 24, 0) != snapColA || at(out, 31, 7) != snapColA {
++		t.Errorf("GOOD 應照常畫 HD：%v %v", at(out, 24, 0), at(out, 31, 7))
++	}
++	if at(base, 24, 0) == snapColA {
++		t.Fatal("夾具無效：基底層與 GOOD 的顏色相同")
++	}
++	n, first := a.ErrorStats()
++	if n != 3 || !strings.Contains(first, "MISSING") {
++		t.Fatalf("ErrorStats ＝ (%d, %q)，應為 3 筆、第一筆是 PNG 缺檔（戳記順序）", n, first)
++	}
++	compose(a) // 每個雜湊只記一次
++	if n2, _ := a.ErrorStats(); n2 != 3 {
++		t.Fatalf("同一雜湊的失敗只記一次：第二幀後 n ＝ %d", n2)
++	}
++}
++
++// ---------- ErrorStats ----------
++
++func TestErrorStatsBasics(t *testing.T) {
++	var nilAssets *Assets
++	if n, first := nilAssets.ErrorStats(); n != 0 || first != "" {
++		t.Fatalf("nil 的 ErrorStats ＝ (%d, %q)", n, first)
++	}
++	dir := writeTheme(t, []fakeRow{
++		{hash: hx('a'), id: "OK", w: 4, h: 2, pal: "MAIN", hd: "a.png", pngW: 8, pngH: 4},
++		{hash: hx('b'), id: "BAD1", w: 4, h: 2, pal: "MAIN", hd: "b.png"},
++		{hash: hx('c'), id: "BAD2", w: 4, h: 2, pal: "MAIN", hd: "c.png"},
++	}, "MAIN")
++	a, _ := LoadAssets(dir, 2)
++	if n, first := a.ErrorStats(); n != 0 || first != "" {
++		t.Fatalf("尚無錯誤：(%d, %q)", n, first)
++	}
++	a.Get(hx('a'))
++	a.Get(hx('b'))
++	n1, first1 := a.ErrorStats()
++	if n1 != 1 || !strings.Contains(first1, "BAD1") {
++		t.Fatalf("(%d, %q)", n1, first1)
++	}
++	a.Get(hx('c'))
++	n2, first2 := a.ErrorStats()
++	if n2 != 2 || first2 != first1 {
++		t.Fatalf("n 增加後 first 仍是整個 Assets 的第一筆（不是新增的第一筆）：(%d, %q)，先前 %q", n2, first2, first1)
++	}
++	a.Release()
++	if n, first := a.ErrorStats(); n != 0 || first != "" {
++		t.Fatalf("Release 後歸零：(%d, %q)", n, first)
++	}
++}
++
++// 並行的 Get（合成執行緒 append）與 ErrorStats 讀取在 -race 下無競爭；n 單調不減；n 大於 0 時 first 恆等於同一筆。
++func TestErrorStatsConcurrentMonotonic(t *testing.T) {
++	const M = 80
++	var rows []fakeRow
++	for i := 0; i < M; i++ {
++		rows = append(rows, fakeRow{hash: fmt.Sprintf("%064x", i+1), id: fmt.Sprintf("E%02d", i), w: 4, h: 2, pal: "MAIN", hd: fmt.Sprintf("e%02d.png", i)})
++	}
++	dir := writeTheme(t, rows, "MAIN")
++	a, err := LoadAssets(dir, 2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var wg sync.WaitGroup
++	var stop atomic.Bool
++	var readerFail atomic.Value
++	var reads atomic.Int64
++	for r := 0; r < 3; r++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			last, firstSeen := 0, ""
++			for !stop.Load() {
++				n, first := a.ErrorStats()
++				reads.Add(1)
++				switch {
++				case n < last:
++					readerFail.Store(fmt.Sprintf("n 倒退：%d → %d", last, n))
++					return
++				case n > 0 && first == "":
++					readerFail.Store("n > 0 但 first 為空")
++					return
++				case n == 0 && first != "":
++					readerFail.Store("n ＝ 0 但 first 不為空")
++					return
++				case firstSeen != "" && first != firstSeen:
++					readerFail.Store(fmt.Sprintf("first 變了：%q → %q", firstSeen, first))
++					return
++				}
++				last = n
++				if first != "" {
++					firstSeen = first
++				}
++				runtime.Gosched()
++			}
++		}()
++	}
++	var gw sync.WaitGroup
++	for g := 0; g < 4; g++ {
++		gw.Add(1)
++		go func(g int) {
++			defer gw.Done()
++			r := rand.New(rand.NewSource(int64(g)))
++			for _, i := range r.Perm(M) {
++				a.Get(fmt.Sprintf("%064x", i+1))
++				runtime.Gosched()
++			}
++		}(g)
++	}
++	gw.Wait()
++	stop.Store(true)
++	wg.Wait()
++	if v := readerFail.Load(); v != nil {
++		t.Fatal(v)
++	}
++	if n, first := a.ErrorStats(); n != M || first == "" {
++		t.Fatalf("最後 ErrorStats ＝ (%d, %q)，應為 (%d, 非空)", n, first, M)
++	}
++	if reads.Load() < 10 {
++		t.Fatalf("測試無效：讀取者只讀了 %d 次", reads.Load())
++	}
++}
++
++// ---------- Preload ----------
++
++func preloadFixture(t *testing.T, good, bad int) (*Assets, []string) {
++	t.Helper()
++	var rows []fakeRow
++	var hashes []string
++	for i := 0; i < good; i++ {
++		h := fmt.Sprintf("%064x", i+1)
++		rows = append(rows, fakeRow{hash: h, id: fmt.Sprintf("G%02d", i), w: 4, h: 2, pal: "MAIN", hd: fmt.Sprintf("g%02d.png", i), pngW: 8, pngH: 4, fill: snapColA})
++		hashes = append(hashes, h)
++	}
++	for i := 0; i < bad; i++ { // 最後排序的雜湊都是壞的（缺檔）
++		h := strings.Repeat("f", 60) + fmt.Sprintf("%04x", i)
++		rows = append(rows, fakeRow{hash: h, id: fmt.Sprintf("B%02d", i), w: 4, h: 2, pal: "MAIN", hd: fmt.Sprintf("b%02d.png", i)})
++		hashes = append(hashes, h)
++	}
++	a, err := LoadAssets(writeTheme(t, rows, "MAIN"), 2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	sort.Strings(hashes)
++	return a, hashes
++}
++
++// ctx 在迴圈開頭被取消：回 err != nil，ok 可以大於 0；已解碼的部分留在快取。
++func TestPreloadCancelAtLoopHead(t *testing.T) {
++	a, _ := preloadFixture(t, 5, 0)
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++	calls := 0
++	ok, failed, err := a.Preload(ctx, func(done, total int) {
++		calls++
++		if done == 2 {
++			cancel() // 第二筆之後取消，下一次迴圈開頭應停止
++		}
++	})
++	if err == nil {
++		t.Fatal("ctx 被取消，err 應不為 nil")
++	}
++	if ok != 2 || failed != 0 || calls != 2 {
++		t.Fatalf("(ok, failed, calls) ＝ (%d, %d, %d)，應為 (2, 0, 2)：取消後不該再解碼", ok, failed, calls)
++	}
++	if err != context.Canceled {
++		t.Fatalf("err ＝ %v，應為 ctx.Err()", err)
++	}
++}
++
++// 迴圈跑完回 err ＝ nil，即使 ctx 在跑完之後才被取消（最後一筆的 progress 內取消）。
++func TestPreloadCompletedThenCanceled(t *testing.T) {
++	a, _ := preloadFixture(t, 4, 1)
++	ctx, cancel := context.WithCancel(context.Background())
++	defer cancel()
++	ok, failed, err := a.Preload(ctx, func(done, total int) {
++		if done == total {
++			cancel()
++		}
++	})
++	if err != nil || ok != 4 || failed != 1 {
++		t.Fatalf("跑完後才取消：(%d, %d, %v)，應為 (4, 1, nil)", ok, failed, err)
++	}
++	if ctx.Err() == nil {
++		t.Fatal("測試無效：ctx 沒有被取消")
++	}
++}
++
++// 起點就已取消：不解碼、不呼叫 progress。
++func TestPreloadAlreadyCanceled(t *testing.T) {
++	a, _ := preloadFixture(t, 3, 0)
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel()
++	calls := 0
++	ok, failed, err := a.Preload(ctx, func(int, int) { calls++ })
++	if err == nil || ok != 0 || failed != 0 || calls != 0 {
++		t.Fatalf("(%d, %d, %v)，progress %d 次", ok, failed, err, calls)
++	}
++}
++
++// 清冊 hd 欄全空：(0, 0, nil)，不呼叫 progress，沒有 Errors。
++func TestPreloadEmptyHDColumn(t *testing.T) {
++	dir := writeTheme(t, []fakeRow{
++		{hash: hx('a'), id: "A", w: 4, h: 2, pal: "MAIN"},
++		{hash: hx('b'), id: "B", w: 4, h: 2, pal: "MAIN"},
++	}, "MAIN")
++	a, _ := LoadAssets(dir, 2)
++	calls := 0
++	ok, failed, err := a.Preload(context.Background(), func(int, int) { calls++ })
++	if ok != 0 || failed != 0 || err != nil || calls != 0 {
++		t.Fatalf("(%d, %d, %v)，progress %d 次，應為 (0, 0, nil) 且不呼叫", ok, failed, err, calls)
++	}
++	if n, _ := a.ErrorStats(); n != 0 {
++		t.Fatalf("Errors ＝ %d", n)
++	}
++	// 清冊完全空也一樣
++	empty, _ := LoadAssets(writeTheme(t, nil, "MAIN"), 2)
++	if ok, failed, err := empty.Preload(context.Background(), nil); ok != 0 || failed != 0 || err != nil {
++		t.Fatalf("空清冊：(%d, %d, %v)", ok, failed, err)
++	}
++}
++
++// progress 是阻塞點：阻塞期間，另一個 goroutine 對任意雜湊的 Get 與 ErrorStats() 不被擋、無競爭
++// （progress 在 a.mu 之外呼叫；防禦性測試：正常路徑不會有並行的 Get）。
++func TestPreloadProgressBlockingDoesNotBlockOthers(t *testing.T) {
++	a, hashes := preloadFixture(t, 4, 1) // 排序後最後一個是壞的
++	badHash := hashes[len(hashes)-1]
++	gate := make(chan struct{})
++	entered := make(chan struct{})
++	var once sync.Once
++	type result struct {
++		ok, failed int
++		err        error
++	}
++	res := make(chan result, 1)
++	go func() {
++		ok, failed, err := a.Preload(context.Background(), func(done, total int) {
++			if done == 1 {
++				once.Do(func() { close(entered) })
++				<-gate // 阻塞在 progress 內
++			}
++		})
++		res <- result{ok, failed, err}
++	}()
++	select {
++	case <-entered:
++	case <-time.After(10 * time.Second):
++		t.Fatal("Preload 沒有呼叫 progress")
++	}
++	// 此刻 Preload 停在第一筆的 progress 內；另一個 goroutine 做 Get 與 ErrorStats
++	other := make(chan string, 1)
++	go func() {
++		if as := a.Get(hashes[len(hashes)-2]); as == nil { // 尚未被 Preload 處理的好圖
++			other <- "好圖的 Get 回 nil"
++			return
++		}
++		if as := a.Get(badHash); as != nil { // 壞圖：Get 回 nil，並記錄一筆錯誤
++			other <- "壞圖的 Get 不為 nil"
++			return
++		}
++		if n, first := a.ErrorStats(); n != 1 || !strings.Contains(first, "B00") {
++			other <- fmt.Sprintf("ErrorStats ＝ (%d, %q)", n, first)
++			return
++		}
++		other <- ""
++	}()
++	select {
++	case msg := <-other:
++		if msg != "" {
++			t.Fatal(msg)
++		}
++	case <-time.After(5 * time.Second):
++		close(gate) // 讓 Preload 結束，免得測試殘留 goroutine
++		t.Fatal("progress 阻塞期間 Get 或 ErrorStats 被擋住")
++	}
++	close(gate)
++	select {
++	case r := <-res:
++		if r.err != nil || r.ok != 4 || r.failed != 1 {
++			t.Fatalf("Preload ＝ (%d, %d, %v)，應為 (4, 1, nil)", r.ok, r.failed, r.err)
++		}
++	case <-time.After(10 * time.Second):
++		t.Fatal("放行後 Preload 沒有結束")
++	}
++	if n, _ := a.ErrorStats(); n != 1 {
++		t.Fatalf("壞圖只記一次：n ＝ %d", n)
++	}
++}
++
++// Release：快取與錯誤清空，清冊與調色盤保留，之後 Get 重新延遲解碼；先前取得的 *Asset 不受影響。
++func TestReleaseSemantics(t *testing.T) {
++	a, hashes := preloadFixture(t, 2, 1)
++	if _, _, err := a.Preload(context.Background(), nil); err != nil {
++		t.Fatal(err)
++	}
++	held := a.Get(hashes[0])
++	if held == nil {
++		t.Fatal("好圖應已載入")
++	}
++	if n, first := a.ErrorStats(); n != 1 || first == "" {
++		t.Fatalf("預載後 ErrorStats ＝ (%d, %q)", n, first)
++	}
++	snapshot := append([]byte(nil), held.Img.Pix...)
++	a.Release()
++	if n, first := a.ErrorStats(); n != 0 || first != "" {
++		t.Fatalf("Release 後 ErrorStats ＝ (%d, %q)", n, first)
++	}
++	if a.Lookup(hashes[0]) == nil || a.Palette("MAIN") == nil {
++		t.Fatal("Release 後清冊與調色盤應保留")
++	}
++	if total, withHD := a.Entries(); total != 3 || withHD != 3 {
++		t.Fatalf("Entries ＝ %d、%d", total, withHD)
++	}
++	if !bytes.Equal(held.Img.Pix, snapshot) {
++		t.Fatal("Release 不該改動先前 Get 回傳的圖")
++	}
++	again := a.Get(hashes[0])
++	if again == nil || again == held {
++		t.Fatalf("Release 後 Get 應重新解碼出新的 *Asset（again ＝ %p、held ＝ %p）", again, held)
++	}
++	if a.Get(hashes[2]) != nil { // 壞圖重新記錄
++		t.Fatal("壞圖仍應回 nil")
++	}
++	if n, _ := a.ErrorStats(); n != 1 {
++		t.Fatalf("Release 後重新記錄壞圖：n ＝ %d", n)
++	}
++}
+diff --git a/apps/hr/hd/theme_test.go b/apps/hr/hd/theme_test.go
+new file mode 100644
+index 0000000..6d7e541
+--- /dev/null
++++ b/apps/hr/hd/theme_test.go
+@@ -0,0 +1,172 @@
++package hd
++
++import (
++	"context"
++	"image"
++	"image/png"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++// 測試用的假 theme：全部是測試內組出的檔案，不含任何原版素材。
++
++const testPal = "000000 000001 000002 000003 000004 000005 000006 000007 000008 000009 00000A 00000B 00000C 00000D 00000E FFFFFF"
++
++type fakeRow struct {
++	hash, id string
++	w, h     int
++	pal, hd  string
++	pngW     int // 0 ＝ 不寫檔；否則寫這個寬度、高度 2h 的 PNG
++	pngH     int
++	// fill 是 PNG 的實心顏色（NRGBA）；alpha 為 0（預設）時整張全透明，drawStamp 會略過每個像素，
++	// 這樣的素材無法分辨 A、B（docs/spec/006 第 10 節 hdView 列）。需要在 Compose 輸出上區分素材時，alpha 要設 255。
++	fill [4]uint8
++}
++
++func hx(c byte) string { return strings.Repeat(string(c), 64) }
++
++func writeTheme(t *testing.T, rows []fakeRow, pals ...string) string {
++	t.Helper()
++	dir := t.TempDir()
++	var cat strings.Builder
++	cat.WriteString("hash\tid\tw\th\tkind\tpal\thd\n")
++	for _, r := range rows {
++		cat.WriteString(r.hash + "\t" + r.id + "\t" + itoa(r.w) + "\t" + itoa(r.h) + "\tsprite\t" + r.pal + "\t" + r.hd + "\n")
++		if r.pngW > 0 {
++			p := filepath.Join(dir, "x2", filepath.FromSlash(r.hd))
++			os.MkdirAll(filepath.Dir(p), 0o755)
++			f, _ := os.Create(p)
++			im := image.NewNRGBA(image.Rect(0, 0, r.pngW, r.pngH))
++			if r.fill[3] != 0 {
++				for i := 0; i < len(im.Pix); i += 4 {
++					copy(im.Pix[i:i+4], r.fill[:])
++				}
++			}
++			png.Encode(f, im)
++			f.Close()
++		}
++	}
++	os.WriteFile(filepath.Join(dir, "catalog.tsv"), []byte(cat.String()), 0o644)
++	pt := "name\tpalette16\n"
++	for _, p := range pals {
++		pt += p + "\t" + testPal + "\n"
++	}
++	os.WriteFile(filepath.Join(dir, "palettes.tsv"), []byte(pt), 0o644)
++	return dir
++}
++
++func baseAssets(t *testing.T) *Assets {
++	t.Helper()
++	dir := writeTheme(t, []fakeRow{
++		{hash: hx('a'), id: "A:0", w: 4, h: 2, pal: "MAIN", hd: "m/a.png", pngW: 8, pngH: 4},
++		{hash: hx('b'), id: "A:1", w: 4, h: 2, pal: "MAIN", hd: "m/b.png", pngW: 8, pngH: 4},
++		{hash: hx('c'), id: "A:2", w: 6, h: 3, pal: "MAIN"}, // 沒有 HD 圖
++	}, "MAIN")
++	a, err := LoadAssets(dir, 2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return a
++}
++
++func TestCheckThemeAcceptsPartialAndReordered(t *testing.T) {
++	base := baseAssets(t)
++	// 只涵蓋部分雜湊（缺 c），列序與 id 內容都和基底不同，調色盤另有一個
++	dir := writeTheme(t, []fakeRow{
++		{hash: hx('b'), id: "Z:9;Z:8", w: 4, h: 2, pal: "MAIN", hd: "ai/b.png", pngW: 8, pngH: 4},
++		{hash: hx('a'), id: "other", w: 4, h: 2, pal: "ALT", hd: "ai/a.png", pngW: 8, pngH: 4},
++	}, "MAIN", "ALT")
++	a, err := CheckTheme(base, dir, 2)
++	if err != nil {
++		t.Fatalf("部分涵蓋、列序不同的 theme 應被接受：%v", err)
++	}
++	if total, withHD := a.Entries(); total != 2 || withHD != 2 {
++		t.Fatalf("Entries ＝ %d、%d", total, withHD)
++	}
++}
++
++// 負對照：每一種不符都要被拒絕，且訊息點名原因。
++func TestCheckThemeRejects(t *testing.T) {
++	base := baseAssets(t)
++	cases := []struct {
++		name string
++		rows []fakeRow
++		pals []string
++		want string
++	}{
++		{"雜湊不在基底", []fakeRow{{hash: hx('d'), id: "X", w: 4, h: 2, pal: "MAIN", hd: "x.png", pngW: 8, pngH: 4}}, []string{"MAIN"}, "雜湊不在基底清冊"},
++		{"尺寸與基底不同", []fakeRow{{hash: hx('a'), id: "X", w: 5, h: 2, pal: "MAIN", hd: "x.png", pngW: 10, pngH: 4}}, []string{"MAIN"}, "基底清冊是 4x2"},
++		{"調色盤缺名", []fakeRow{{hash: hx('a'), id: "X", w: 4, h: 2, pal: "NOPE", hd: "x.png", pngW: 8, pngH: 4}}, []string{"MAIN"}, "不在 palettes.tsv"},
++		{"PNG 缺檔", []fakeRow{{hash: hx('a'), id: "X", w: 4, h: 2, pal: "MAIN", hd: "missing.png"}}, []string{"MAIN"}, "HD 圖缺檔"},
++		{"PNG 尺寸不符", []fakeRow{{hash: hx('a'), id: "X", w: 4, h: 2, pal: "MAIN", hd: "x.png", pngW: 7, pngH: 4}}, []string{"MAIN"}, "PNG 是 7x4，應為 8x4"},
++	}
++	for _, c := range cases {
++		dir := writeTheme(t, c.rows, c.pals...)
++		a, err := CheckTheme(base, dir, 2)
++		if err == nil || a != nil {
++			t.Errorf("%s：應被拒絕", c.name)
++			continue
++		}
++		if !strings.Contains(err.Error(), c.want) {
++			t.Errorf("%s：錯誤訊息 %q 應含 %q", c.name, err, c.want)
++		}
++	}
++	// 清冊缺檔
++	if _, err := CheckTheme(base, filepath.Join(t.TempDir(), "nope"), 2); err == nil {
++		t.Error("缺清冊應回錯誤")
++	}
++}
++
++func TestPreloadReleaseAndFailures(t *testing.T) {
++	// b 的 PNG 尺寸不符：預載時算失敗，之後 Get 回 nil（退回基底層）
++	dir := writeTheme(t, []fakeRow{
++		{hash: hx('a'), id: "A:0", w: 4, h: 2, pal: "MAIN", hd: "m/a.png", pngW: 8, pngH: 4},
++		{hash: hx('b'), id: "A:1", w: 4, h: 2, pal: "MAIN", hd: "m/b.png", pngW: 7, pngH: 4},
++		{hash: hx('c'), id: "A:2", w: 6, h: 3, pal: "MAIN"},
++	}, "MAIN")
++	a, err := LoadAssets(dir, 2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var seen []int
++	ok, failed, err := a.Preload(context.Background(), func(done, total int) { seen = append(seen, done*10+total) })
++	if err != nil || ok != 1 || failed != 1 {
++		t.Fatalf("Preload ＝ ok %d、failed %d、err %v，應為 1、1、nil", ok, failed, err)
++	}
++	if len(seen) != 2 || seen[1]%10 != 2 {
++		t.Fatalf("進度回報 %v，應為 2 次、total ＝ 2（沒有 HD 圖的列不算）", seen)
++	}
++	if a.Get(hx('a')) == nil || a.Get(hx('b')) != nil {
++		t.Fatal("預載後 Get 的結果不對")
++	}
++	if len(a.Errors) != 1 {
++		t.Fatalf("Errors ＝ %v", a.Errors)
++	}
++	// Release：快取與錯誤清空，清冊與調色盤保留，之後可重新解碼
++	a.Release()
++	if len(a.Errors) != 0 || a.Lookup(hx('a')) == nil || a.Palette("MAIN") == nil {
++		t.Fatal("Release 後清冊與調色盤應保留、錯誤清空")
++	}
++	if a.Get(hx('a')) == nil {
++		t.Fatal("Release 後 Get 應重新解碼")
++	}
++}
++
++func TestPreloadCancel(t *testing.T) {
++	dir := writeTheme(t, []fakeRow{
++		{hash: hx('a'), id: "A:0", w: 4, h: 2, pal: "MAIN", hd: "m/a.png", pngW: 8, pngH: 4},
++		{hash: hx('b'), id: "A:1", w: 4, h: 2, pal: "MAIN", hd: "m/b.png", pngW: 8, pngH: 4},
++	}, "MAIN")
++	a, _ := LoadAssets(dir, 2)
++	ctx, cancel := context.WithCancel(context.Background())
++	n := 0
++	ok, failed, err := a.Preload(ctx, func(done, total int) {
++		n++
++		cancel() // 第一筆之後取消
++	})
++	if err == nil || n != 1 || ok+failed != 1 {
++		t.Fatalf("取消後應停止：n ＝ %d、ok ＝ %d、failed ＝ %d、err ＝ %v", n, ok, failed, err)
++	}
++}
+diff --git a/apps/hr/runtime/holdgate.go b/apps/hr/runtime/holdgate.go
+new file mode 100644
+index 0000000..aa64a0f
+--- /dev/null
++++ b/apps/hr/runtime/holdgate.go
+@@ -0,0 +1,91 @@
++package runtime
++
++import (
++	"sync"
++	"time"
++)
++
++// 預載與模擬降頻（docs/spec/006 第 4 節「預載與模擬降頻」）。
++//
++// Run 每 2 秒做一次降頻檢查，判斷整個視窗內的 tick 數是否落後 5% 以上。前端切換 HD theme 時的預載是單核解碼，
++// 與模擬、合成、UI 同時進行，雙核機器上可能讓視窗落後而永久降頻。所以前端在切換交易期間持有 holdGate；
++// 與持有時間相交的視窗（含放開當下所在的視窗）只重設基準、不評估。
++
++// holdGate 記錄目前的持有數 held，與「自上次 take 以來有過放開」的 dirty。
++// 放開在同一個臨界區內同時減計數並設 dirty，所以放開之後的第一次 take 一定看到 held 大於 0 或 dirty。
++type holdGate struct {
++	mu    sync.Mutex
++	held  int
++	dirty bool
++}
++
++// hold 取得一次持有，回傳放開函式。放開函式冪等：第二次以後的呼叫什麼都不做（計數不會變負，
++// 也不會吃掉另一個持有者的保護）。
++func (g *holdGate) hold() (release func()) {
++	g.mu.Lock()
++	g.held++
++	g.mu.Unlock()
++	done := false // 受 g.mu 保護
++	return func() {
++		g.mu.Lock()
++		defer g.mu.Unlock()
++		if done {
++			return
++		}
++		done = true
++		g.held--
++		g.dirty = true
++	}
++}
++
++// take 回傳目前的持有數與 dirty，並清除 dirty。Run 只在視窗已滿 2 秒的檢查點呼叫（否則會提早清掉 dirty，
++// 讓下一個檢查點漏掉「放開所在的視窗」）。
++func (g *holdGate) take() (held int, dirty bool) {
++	g.mu.Lock()
++	defer g.mu.Unlock()
++	held, dirty = g.held, g.dirty
++	g.dirty = false
++	return
++}
++
++// adaptVerdict 是一次降頻檢查的裁決。
++type adaptVerdict int
++
++const (
++	// verdictSkip：視窗與持有時間相交（held 大於 0 或 dirty），不評估，只重設基準。
++	verdictSkip adaptVerdict = iota
++	// verdictOK：視窗內的 tick 數沒有落後 5% 以上。
++	verdictOK
++	// verdictLower：視窗內的 tick 數落後 5% 以上。只表示落後；是否真的降頻（interval 的下限等）由 Session 決定。
++	verdictLower
++)
++
++func (v adaptVerdict) String() string {
++	switch v {
++	case verdictSkip:
++		return "skip"
++	case verdictOK:
++		return "ok"
++	case verdictLower:
++		return "lower"
++	}
++	return "?"
++}
++
++// windowVerdict 是降頻決策的純函式（可注入時鐘）：視窗從 lastCheck 到 now，期間模擬走了 ticks 個 tick。
++// held 大於 0 或 dirty 時回 skip（優先於 tick 數的判斷）；否則 tick 數落後應有數（視窗秒數 × TickHz）的 5% 以上回 lower；
++// 其餘（含視窗長度不為正）回 ok。
++func windowVerdict(now, lastCheck time.Time, ticks uint64, held int, dirty bool) adaptVerdict {
++	if held > 0 || dirty {
++		return verdictSkip
++	}
++	want := now.Sub(lastCheck).Seconds() * TickHz
++	if want <= 0 || float64(ticks) >= want*0.95 {
++		return verdictOK
++	}
++	return verdictLower
++}
++
++// HoldAdapt 取得一次降頻檢查的持有，回傳放開函式（冪等）。持有期間，以及放開當下所在的視窗，
++// Run 的降頻檢查只重設視窗基準、不評估。前端在 HD theme 切換交易（受理 F2 到完成、被拒或丟棄）期間持有。
++func (s *Session) HoldAdapt() (release func()) { return s.hg.hold() }
+diff --git a/apps/hr/runtime/holdgate_test.go b/apps/hr/runtime/holdgate_test.go
+new file mode 100644
+index 0000000..afe6fd6
+--- /dev/null
++++ b/apps/hr/runtime/holdgate_test.go
+@@ -0,0 +1,663 @@
++package runtime
++
++import (
++	"context"
++	"fmt"
++	"math"
++	"math/rand"
++	"os"
++	"runtime"
++	"sort"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++// docs/spec/006 第 4 節「預載與模擬降頻」與第 10 節 HoldAdapt 列：holdGate、windowVerdict、Session 的薄包裝。
++// 純邏輯的測試不需要原版；只有 TestHoldGateRunIntegration 需要（缺檔 skip）。
++// 指令：HR_RACE=1 HR_TEST_RUN='HoldGate|WindowVerdict' tools/play.sh test-diag
++
++var simT0 = time.Unix(1_700_000_000, 0)
++
++func simAt(sec float64) time.Time { return simT0.Add(time.Duration(sec * float64(time.Second))) }
++
++// behindTicks 是 5% 以上落後的 tick 數（應有數的 90%），healthyTicks 是不落後的（應有數）。
++func behindTicks(window float64) uint64  { return uint64(math.Floor(window * TickHz * 0.90)) }
++func healthyTicks(window float64) uint64 { return uint64(math.Ceil(window * TickHz)) }
++
++type simEvent struct {
++	at  float64
++	op  string // "hold" 或 "release"
++	who string
++}
++
++type simResult struct {
++	held    int
++	dirty   bool
++	verdict adaptVerdict
++}
++
++// simulate 以注入時鐘重現 Run 的檢查點：依時間順序套用事件，在每個檢查點 take()、裁決、重設視窗基準。
++// 每個視窗的 tick 數都落後 5% 以上（behind ＝ true），或都不落後。
++func simulate(t *testing.T, events []simEvent, checks []float64, behind bool) []simResult {
++	t.Helper()
++	var g holdGate
++	rel := map[string]func(){}
++	last := 0.0
++	var out []simResult
++	ev := 0
++	for _, c := range checks {
++		for ev < len(events) && events[ev].at <= c {
++			e := events[ev]
++			switch e.op {
++			case "hold":
++				rel[e.who] = g.hold()
++			case "release":
++				rel[e.who]()
++			default:
++				t.Fatalf("未知的事件 %q", e.op)
++			}
++			ev++
++		}
++		held, dirty := g.take()
++		ticks := healthyTicks(c - last)
++		if behind {
++			ticks = behindTicks(c - last)
++		}
++		out = append(out, simResult{held, dirty, windowVerdict(simAt(c), simAt(last), ticks, held, dirty)})
++		last = c
++	}
++	if ev != len(events) {
++		t.Fatalf("還有 %d 個事件在最後一個檢查點之後", len(events)-ev)
++	}
++	return out
++}
++
++func wantVerdicts(t *testing.T, name string, got []simResult, want ...adaptVerdict) {
++	t.Helper()
++	var gv []adaptVerdict
++	for _, r := range got {
++		gv = append(gv, r.verdict)
++	}
++	if fmt.Sprint(gv) != fmt.Sprint(want) {
++		t.Errorf("%s：裁決 %v，應為 %v（細節 %+v）", name, gv, want, got)
++	}
++}
++
++func TestHoldGateBasics(t *testing.T) {
++	var g holdGate
++	if h, d := g.take(); h != 0 || d {
++		t.Fatalf("初始 take ＝ (%d, %v)", h, d)
++	}
++	r1 := g.hold()
++	r2 := g.hold()
++	if h, d := g.take(); h != 2 || d {
++		t.Fatalf("兩個持有：(%d, %v)", h, d)
++	}
++	r1()
++	if h, d := g.take(); h != 1 || !d {
++		t.Fatalf("放開一個：(%d, %v)，應為 (1, true)", h, d)
++	}
++	if h, d := g.take(); h != 1 || d {
++		t.Fatalf("take 讀取後清 dirty：(%d, %v)，應為 (1, false)", h, d)
++	}
++	r2()
++	if h, d := g.take(); h != 0 || !d {
++		t.Fatalf("全部放開：(%d, %v)，應為 (0, true)", h, d)
++	}
++	if h, d := g.take(); h != 0 || d {
++		t.Fatalf("(%d, %v)，應為 (0, false)", h, d)
++	}
++}
++
++// 案例 (1)：持有 [0.5, 2.15]，放開落在第二個視窗；放開所在的視窗也不評估，第三個視窗才恢復（正對照）。
++func TestHoldGateWindowCase1(t *testing.T) {
++	ev := []simEvent{{0.5, "hold", "a"}, {2.15, "release", "a"}}
++	got := simulate(t, ev, []float64{2, 4, 6}, true)
++	wantVerdicts(t, "案例 1", got, verdictSkip, verdictSkip, verdictLower)
++	if got[0].held != 1 || got[1].held != 0 || !got[1].dirty || got[2].dirty {
++		t.Errorf("案例 1 的 take 細節不對：%+v", got)
++	}
++}
++
++// 案例 (2)：持有完全落在第一個視窗內 [0.5, 1.5]，只走 dirty 路徑。
++func TestHoldGateWindowCase2(t *testing.T) {
++	ev := []simEvent{{0.5, "hold", "a"}, {1.5, "release", "a"}}
++	got := simulate(t, ev, []float64{2, 4}, true)
++	wantVerdicts(t, "案例 2", got, verdictSkip, verdictLower)
++	if got[0].held != 0 || !got[0].dirty {
++		t.Errorf("案例 2 第一個檢查點應是 (0, dirty)：%+v", got[0])
++	}
++}
++
++// 案例 (3)：持有跨三個檢查點 [0.5, 4.5]。
++func TestHoldGateWindowCase3(t *testing.T) {
++	ev := []simEvent{{0.5, "hold", "a"}, {4.5, "release", "a"}}
++	got := simulate(t, ev, []float64{2, 4, 6, 8}, true)
++	wantVerdicts(t, "案例 3", got, verdictSkip, verdictSkip, verdictSkip, verdictLower)
++}
++
++// 案例 (4)：兩個持有重疊（A [0.5, 1.0]、B [0.8, 2.15]）。
++func TestHoldGateWindowCase4(t *testing.T) {
++	ev := []simEvent{{0.5, "hold", "A"}, {0.8, "hold", "B"}, {1.0, "release", "A"}, {2.15, "release", "B"}}
++	got := simulate(t, ev, []float64{2, 4, 6}, true)
++	wantVerdicts(t, "案例 4", got, verdictSkip, verdictSkip, verdictLower)
++	if got[0].held != 1 || !got[0].dirty { // B 仍持有，A 設過 dirty
++		t.Errorf("案例 4 第一個檢查點應是 (1, dirty)：%+v", got[0])
++	}
++}
++
++// 對照：沒有持有時每個落後的視窗都是 lower；不落後的視窗是 ok；持有時不落後的視窗也是 skip（skip 優先）。
++func TestHoldGateWindowControls(t *testing.T) {
++	wantVerdicts(t, "無持有、落後", simulate(t, nil, []float64{2, 4, 6}, true), verdictLower, verdictLower, verdictLower)
++	wantVerdicts(t, "無持有、不落後", simulate(t, nil, []float64{2, 4, 6}, false), verdictOK, verdictOK, verdictOK)
++	ev := []simEvent{{0.5, "hold", "a"}, {2.15, "release", "a"}}
++	wantVerdicts(t, "持有、不落後", simulate(t, ev, []float64{2, 4, 6}, false), verdictSkip, verdictSkip, verdictOK)
++}
++
++// 案例 (5)：release 呼叫多次，計數不得變負，也不吃掉另一個持有者的保護。
++func TestHoldGateReleaseIdempotent(t *testing.T) {
++	var g holdGate
++	a := g.hold()
++	b := g.hold()
++	a()
++	a()
++	a()
++	if h, d := g.take(); h != 1 || !d {
++		t.Fatalf("A 放開三次後 take ＝ (%d, %v)，應為 (1, true)：B 的保護不得被吃掉", h, d)
++	}
++	b()
++	b()
++	if h, d := g.take(); h != 0 || !d {
++		t.Fatalf("B 放開兩次後 take ＝ (%d, %v)，應為 (0, true)", h, d)
++	}
++	if h, d := g.take(); h != 0 || d {
++		t.Fatalf("重複的 release 不該再設 dirty：(%d, %v)", h, d)
++	}
++	// 計數不得變負：之後再持有一次應是 1
++	c := g.hold()
++	if h, _ := g.take(); h != 1 {
++		t.Fatalf("重複放開後再持有，held ＝ %d，應為 1（計數變負了）", h)
++	}
++	c()
++	// 並行的重複放開
++	r := g.hold()
++	var wg sync.WaitGroup
++	for i := 0; i < 8; i++ {
++		wg.Add(1)
++		go func() { defer wg.Done(); r() }()
++	}
++	wg.Wait()
++	g.take()
++	if h, d := g.take(); h != 0 || d {
++		t.Fatalf("並行重複放開後：(%d, %v)", h, d)
++	}
++	if h, _ := func() (int, bool) { x := g.hold(); defer x(); return g.take() }(); h != 1 {
++		t.Fatalf("並行重複放開後再持有，held ＝ %d，應為 1", h)
++	}
++}
++
++// 案例 (6a)：release 之後緊接的第一次 take（其間沒有別的 take）必回 held > 0 或 dirty。
++// 每個 release() 與緊接的 take() 包在測試層的互斥鎖內（保證兩者之間沒有別的 take），hold() 在鎖外並行。-race。
++func TestHoldGateConcurrentReleaseThenTake(t *testing.T) {
++	var g holdGate
++	var pair sync.Mutex
++	const G, N = 8, 1500
++	var pairs, viol atomic.Int64
++	var wg sync.WaitGroup
++	for i := 0; i < G; i++ {
++		wg.Add(1)
++		go func(i int) {
++			defer wg.Done()
++			r := rand.New(rand.NewSource(int64(i)))
++			for k := 0; k < N; k++ {
++				rel := g.hold() // 鎖外並行
++				for s := r.Intn(50); s > 0; s-- {
++					_ = s * s
++				}
++				pair.Lock()
++				rel()
++				h, d := g.take()
++				pair.Unlock()
++				pairs.Add(1)
++				if h <= 0 && !d {
++					viol.Add(1)
++				}
++			}
++		}(i)
++	}
++	wg.Wait()
++	if viol.Load() != 0 {
++		t.Fatalf("%d / %d 次 release 之後緊接的 take 回 (0, false)", viol.Load(), pairs.Load())
++	}
++	if pairs.Load() != G*N {
++		t.Fatalf("pairs ＝ %d", pairs.Load())
++	}
++	if h, _ := g.take(); h != 0 {
++		t.Fatalf("全部放開後 held ＝ %d", h)
++	}
++}
++
++// 案例 (6b)：自由並行（無互斥）。一個 taker 持續 take，多個持有者持續 hold／release；以全域原子時戳記錄每個動作前後。
++// 對每次 take T_i（前一次是 T_{i-1}）與每個持有週期 c，若 c 的 hold() 在 T_i 開始前已回傳，且 c 的 release() 在 T_{i-1} 回傳之後才開始，
++// 則視窗 (T_{i-1}, T_i) 與持有相交，T_i 必回 held > 0 或 dirty。這涵蓋規格的不變式（release 之後緊接的第一次 take，
++// 其間沒有別的 take 回傳），也涵蓋持有橫跨 take 的情形。
++// 時戳的判準都是保守的充分條件：時戳大小只在「確定先後」時才讓不變式成為前提，不會誤判。
++// 代價：release() 與 take() 時間上重疊的情形不在前提內，所以這個檢查抓不到「放開不是原子」的實作
++// （先設 dirty、放開鎖、之後才減計數）；那一類由 TestHoldGateConcurrentNeverHeldAndDirty 負責。
++// 持有者之間留有空檔（held 常為 0），所以 dirty 路徑與 held > 0 路徑都會被走到。
++func TestHoldGateConcurrentFreeRunInvariant(t *testing.T) {
++	var g holdGate
++	var clock atomic.Int64
++	type cycle struct{ hr, rs, rr int64 } // hold 回傳後、release 開始前、release 回傳後的時戳
++	type takeRec struct {
++		ts, te int64
++		held   int
++		dirty  bool
++	}
++	const G, N = 3, 4000
++	cycles := make([][]cycle, G)
++	var wg sync.WaitGroup
++	var holdersDone atomic.Bool
++	for i := 0; i < G; i++ {
++		wg.Add(1)
++		go func(i int) {
++			defer wg.Done()
++			r := rand.New(rand.NewSource(int64(100 + i)))
++			cs := make([]cycle, 0, N)
++			for k := 0; k < N; k++ {
++				rel := g.hold()
++				hr := clock.Add(1)
++				for s := r.Intn(6); s > 0; s-- {
++					runtime.Gosched()
++				}
++				if r.Intn(16) == 0 {
++					time.Sleep(time.Duration(r.Intn(100)) * time.Microsecond) // 偶爾橫跨 take
++				}
++				rs := clock.Add(1)
++				rel()
++				rr := clock.Add(1)
++				cs = append(cs, cycle{hr, rs, rr})
++				if r.Intn(8) == 0 { // 空檔：held 為 0
++					time.Sleep(time.Duration(r.Intn(100)) * time.Microsecond)
++				} else {
++					runtime.Gosched()
++				}
++			}
++			cycles[i] = cs
++		}(i)
++	}
++	var takes []takeRec
++	taker := make(chan struct{})
++	go func() {
++		defer close(taker)
++		for {
++			done := holdersDone.Load()
++			ts := clock.Add(1)
++			h, d := g.take()
++			te := clock.Add(1)
++			takes = append(takes, takeRec{ts, te, h, d})
++			if done { // holders 全部結束之後還做了一次 take
++				return
++			}
++			time.Sleep(30 * time.Microsecond)
++		}
++	}()
++	wg.Wait()
++	holdersDone.Store(true)
++	<-taker
++
++	var covered, literal, heldSeen, dirtySeen int
++	var firstBad string
++	for i, tk := range takes {
++		prevEnd := int64(0)
++		if i > 0 {
++			prevEnd = takes[i-1].te
++		}
++		if tk.held > 0 {
++			heldSeen++
++		} else if tk.dirty {
++			dirtySeen++
++		}
++		for _, cs := range cycles {
++			for _, c := range cs {
++				if c.hr < tk.ts && c.rs > prevEnd { // 視窗與這個持有週期確定相交
++					covered++
++					if tk.held <= 0 && !tk.dirty && firstBad == "" {
++						firstBad = fmt.Sprintf("take #%d（ts %d、te %d）回 (0, false)，但持有週期 hold 回傳於 %d、release 開始於 %d（前一次 take 結束於 %d）", i, tk.ts, tk.te, c.hr, c.rs, prevEnd)
++					}
++				}
++			}
++		}
++	}
++	// 規格的字面不變式：對每次 release() 回傳，緊接其後開始的第一次 take()（其間沒有別的 take() 回傳）必回 held > 0 或 dirty。
++	// 前提的充分條件：T 是第一個 ts 大於 rr 的 take，前一次 take 在 release 開始之前就已回傳（te 小於 rs）。
++	for _, cs := range cycles {
++		for _, c := range cs {
++			j := sort.Search(len(takes), func(i int) bool { return takes[i].ts > c.rr })
++			if j == len(takes) {
++				continue
++			}
++			prevEnd := int64(0)
++			if j > 0 {
++				prevEnd = takes[j-1].te
++			}
++			if prevEnd < c.rs {
++				literal++
++				if takes[j].held <= 0 && !takes[j].dirty && firstBad == "" {
++					firstBad = fmt.Sprintf("release 回傳於 %d，緊接的 take #%d 回 (0, false)", c.rr, j)
++				}
++			}
++		}
++	}
++	t.Logf("takes ＝ %d；視窗與持有相交的檢查 %d 次；字面不變式檢查 %d 次；held>0 的 take %d、只有 dirty 的 take %d", len(takes), covered, literal, heldSeen, dirtySeen)
++	if firstBad != "" {
++		t.Fatal(firstBad)
++	}
++	if covered < 200 || literal < 100 || heldSeen == 0 || dirtySeen == 0 {
++		t.Fatalf("測試無效：檢查次數太少或沒有觀察到兩種情形（相交 %d、字面 %d、held>0 %d、dirty %d）", covered, literal, heldSeen, dirtySeen)
++	}
++	if h, _ := g.take(); h != 0 {
++		t.Fatalf("全部放開後 held ＝ %d", h)
++	}
++}
++
++// 放開是原子的：單一持有者，每次 release() 之後等到「在 release 回傳之後才開始」的一次 take 完成，才進行下一次 hold()。
++// 這個協定下 take 不可能看到 (held ＝ 1, dirty ＝ true)：dirty 只由 release 設起，而下一次 hold 發生時 dirty 已被一次 take 清掉。
++// 放開若不是原子的（先設 dirty、放開鎖、之後才減計數），並行的 take 會在中間看到這個組合。
++// 另有有效性閘門：必須看過 (1, false)（take 落在持有期間）與 (0, true)（放開之後的 take）。
++func TestHoldGateConcurrentNeverHeldAndDirty(t *testing.T) {
++	var g holdGate
++	var started, finished atomic.Int64 // taker 的第 n 次 take：started 在呼叫前遞增，finished 在回傳後記錄 n
++	var stop atomic.Bool
++	var both, heldOnly, dirtyOnly, takes atomic.Int64
++	taker := make(chan struct{})
++	go func() {
++		defer close(taker)
++		for !stop.Load() {
++			n := started.Add(1)
++			h, d := g.take()
++			finished.Store(n)
++			takes.Add(1)
++			switch {
++			case h > 0 && d:
++				both.Add(1)
++			case h > 0:
++				heldOnly.Add(1)
++			case d:
++				dirtyOnly.Add(1)
++			}
++			runtime.Gosched()
++		}
++	}()
++	const N = 1500
++	for k := 0; k < N; k++ {
++		rel := g.hold()
++		for s := 0; s < 4; s++ {
++			runtime.Gosched()
++		}
++		rel()
++		s0 := started.Load() // release 已回傳；第 s0+1 次以後的 take 才在 release 之後開始
++		deadline := time.Now().Add(10 * time.Second)
++		for finished.Load() <= s0 {
++			if time.Now().After(deadline) {
++				stop.Store(true)
++				t.Fatal("等不到 release 之後開始的 take")
++			}
++			runtime.Gosched()
++		}
++	}
++	stop.Store(true)
++	<-taker
++	t.Logf("takes ＝ %d；(held>0, dirty) %d 次；只有 held>0 %d 次；只有 dirty %d 次", takes.Load(), both.Load(), heldOnly.Load(), dirtyOnly.Load())
++	if both.Load() != 0 {
++		t.Fatalf("take 看到 (held>0, dirty) %d 次：放開不是原子的", both.Load())
++	}
++	if heldOnly.Load() == 0 || dirtyOnly.Load() == 0 {
++		t.Fatalf("測試無效：沒有觀察到持有期間的 take（%d）或放開之後的 take（%d）", heldOnly.Load(), dirtyOnly.Load())
++	}
++}
++
++// windowVerdict 的算術：5% 邊界、skip 優先、視窗長度不為正。
++func TestWindowVerdictArithmetic(t *testing.T) {
++	const window = 2.0
++	want := window * TickHz // 應有的 tick 數（約 36.4）
++	edge := want * 0.95     // 邊界（約 34.6）
++	lo := uint64(math.Floor(edge))
++	hi := uint64(math.Ceil(edge))
++	if float64(lo) >= edge || float64(hi) < edge || hi != lo+1 {
++		t.Fatalf("夾具假設不成立：edge ＝ %v、lo ＝ %d、hi ＝ %d", edge, lo, hi)
++	}
++	now, last := simAt(window), simAt(0)
++	cases := []struct {
++		name  string
++		now   time.Time
++		last  time.Time
++		ticks uint64
++		held  int
++		dirty bool
++		want  adaptVerdict
++	}{
++		{"落後 5% 以上（邊界下一個整數）", now, last, lo, 0, false, verdictLower},
++		{"剛好不落後 5%（邊界上一個整數）", now, last, hi, 0, false, verdictOK},
++		{"完全不落後", now, last, uint64(math.Ceil(want)), 0, false, verdictOK},
++		{"tick 為 0", now, last, 0, 0, false, verdictLower},
++		{"超前", now, last, 1000, 0, false, verdictOK},
++		{"held 大於 0 優先於落後", now, last, 0, 1, false, verdictSkip},
++		{"dirty 優先於落後", now, last, 0, 0, true, verdictSkip},
++		{"held 與 dirty 都有", now, last, 0, 3, true, verdictSkip},
++		{"held 大於 0、不落後", now, last, 100, 1, false, verdictSkip},
++		{"視窗長度為 0：不評估為落後", last, last, 0, 0, false, verdictOK},
++		{"視窗長度為負：不評估為落後", last, now, 0, 0, false, verdictOK},
++		{"視窗長度不為正，held 大於 0", last, last, 0, 1, false, verdictSkip},
++	}
++	for _, c := range cases {
++		if got := windowVerdict(c.now, c.last, c.ticks, c.held, c.dirty); got != c.want {
++			t.Errorf("%s：windowVerdict ＝ %v，應為 %v", c.name, got, c.want)
++		}
++	}
++	// 視窗長度隨 now 與 lastCheck 的差變動（不是固定 2 秒）：4 秒的視窗應有 72.8 個 tick
++	if got := windowVerdict(simAt(4), simAt(0), uint64(math.Floor(4*TickHz*0.94)), 0, false); got != verdictLower {
++		t.Errorf("4 秒視窗落後 6%%：%v", got)
++	}
++	if got := windowVerdict(simAt(4), simAt(0), uint64(math.Ceil(4*TickHz*0.96)), 0, false); got != verdictOK {
++		t.Errorf("4 秒視窗落後 4%%：%v", got)
++	}
++	if verdictSkip == verdictOK || verdictOK == verdictLower || verdictSkip == verdictLower {
++		t.Fatal("三種裁決必須互異")
++	}
++}
++
++// Session 薄包裝：machine.New() 加 Session 字面值（interval 大於 MinInterval，logf 非 nil，因為降頻會呼叫 setInterval 改 IRQ0Base）。
++func newAdaptSession(interval uint64) (*Session, *[]string) {
++	var logs []string
++	s := &Session{m: machine.New(), interval: interval, logf: func(f string, a ...any) { logs = append(logs, fmt.Sprintf(f, a...)) }}
++	s.lastCheck, s.checkTicks = simT0, 0
++	return s, &logs
++}
++
++func TestHoldGateSessionAdaptWrapper(t *testing.T) {
++	// 落後、無持有：降頻為 90%，記一行，視窗基準重設
++	s, logs := newAdaptSession(300_000)
++	s.m.Ticks = 10 // 2 秒應有約 36 個
++	s.adapt(simAt(2))
++	if !s.lowered || s.interval != 270_000 || len(*logs) != 1 {
++		t.Fatalf("落後應降頻：lowered ＝ %v、interval ＝ %d、日誌 %v", s.lowered, s.interval, *logs)
++	}
++	if s.m.IRQ0Base != 270_000*17000/65536 {
++		t.Fatalf("setInterval 應改 IRQ0Base：%d", s.m.IRQ0Base)
++	}
++	if !s.lastCheck.Equal(simAt(2)) || s.checkTicks != 10 {
++		t.Fatalf("視窗基準應重設為現在：lastCheck ＝ %v、checkTicks ＝ %d", s.lastCheck, s.checkTicks)
++	}
++	// 不落後：不動
++	s, logs = newAdaptSession(300_000)
++	s.m.Ticks = 40
++	s.adapt(simAt(2))
++	if s.lowered || s.interval != 300_000 || len(*logs) != 0 || s.checkTicks != 40 {
++		t.Fatalf("不落後不該降頻：%v %d %v", s.lowered, s.interval, *logs)
++	}
++	// 持有中：不降頻、不記日誌，基準仍重設；放開後下一個視窗（dirty）不評估，再下一個才恢復
++	s, logs = newAdaptSession(300_000)
++	rel := s.HoldAdapt()
++	s.m.Ticks = 10
++	s.adapt(simAt(2))
++	if s.lowered || s.interval != 300_000 || len(*logs) != 0 || !s.lastCheck.Equal(simAt(2)) || s.checkTicks != 10 {
++		t.Fatalf("持有中：lowered ＝ %v、interval ＝ %d、日誌 %v、lastCheck ＝ %v", s.lowered, s.interval, *logs, s.lastCheck)
++	}
++	rel()
++	rel() // 冪等
++	s.m.Ticks = 20
++	s.adapt(simAt(4)) // 放開所在的視窗（dirty）
++	if s.lowered || s.interval != 300_000 || len(*logs) != 0 || s.checkTicks != 20 {
++		t.Fatalf("放開後第一個檢查點應不評估：lowered ＝ %v、日誌 %v", s.lowered, *logs)
++	}
++	s.m.Ticks = 30
++	s.adapt(simAt(6)) // 下一個完整視窗：恢復原判斷（正對照）
++	if !s.lowered || s.interval != 270_000 || len(*logs) != 1 {
++		t.Fatalf("下一個完整視窗應恢復降頻：lowered ＝ %v、interval ＝ %d、日誌 %v", s.lowered, s.interval, *logs)
++	}
++	// 下限判斷留在薄包裝：interval 為 0 或不大於 MinInterval 時直接返回，不改 lowered、不記日誌（但基準仍重設）
++	for _, iv := range []uint64{0, MinInterval, MinInterval - 1} {
++		s, logs = newAdaptSession(iv)
++		s.m.Ticks = 10
++		s.adapt(simAt(2))
++		if s.lowered || s.interval != iv || len(*logs) != 0 || !s.lastCheck.Equal(simAt(2)) {
++			t.Errorf("interval ＝ %d：lowered ＝ %v、interval ＝ %d、日誌 %v", iv, s.lowered, s.interval, *logs)
++		}
++	}
++	// 降到下限：MinInterval 加一點，一次降頻被截在 MinInterval
++	s, _ = newAdaptSession(MinInterval + 1000)
++	s.m.Ticks = 10
++	s.adapt(simAt(2))
++	if !s.lowered || s.interval != MinInterval {
++		t.Fatalf("應截在下限：interval ＝ %d", s.interval)
++	}
++	// 視窗長度為 0：什麼都不做
++	s, logs = newAdaptSession(300_000)
++	s.adapt(simT0)
++	if s.lowered || len(*logs) != 0 {
++		t.Fatalf("視窗長度為 0：lowered ＝ %v、日誌 %v", s.lowered, *logs)
++	}
++}
++
++// -race：前端執行緒並行 HoldAdapt／放開，同時模擬執行緒反覆呼叫 adapt（Run 的檢查點）。
++func TestHoldGateSessionConcurrent(t *testing.T) {
++	s, _ := newAdaptSession(300_000)
++	var stop atomic.Bool
++	var wg sync.WaitGroup
++	for i := 0; i < 4; i++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			for !stop.Load() {
++				rel := s.HoldAdapt()
++				rel()
++				rel()
++			}
++		}()
++	}
++	for i := 1; i <= 2000; i++ {
++		s.m.Ticks++ // 永遠落後
++		s.adapt(simAt(float64(2 * i)))
++	}
++	stop.Store(true)
++	wg.Wait()
++	if h, _ := s.hg.take(); h != 0 {
++		t.Fatalf("全部放開後 held ＝ %d", h)
++	}
++}
++
++// 靜態檢查：session.go 非註解行中 adapt( 只出現兩處（定義與 Run 的一次呼叫）；take() 只在 adapt 內呼叫一次；
++// lastCheck、checkTicks 不再是 Run 的區域變數。
++func TestHoldGateStaticChecks(t *testing.T) {
++	b, err := os.ReadFile("session.go")
++	if err != nil {
++		t.Fatal(err)
++	}
++	var adaptLines, takeLines []string
++	for i, line := range strings.Split(string(b), "\n") {
++		code := line
++		if j := strings.Index(code, "//"); j >= 0 {
++			code = code[:j]
++		}
++		if strings.Contains(code, "adapt(") {
++			adaptLines = append(adaptLines, fmt.Sprintf("%d: %s", i+1, strings.TrimSpace(line)))
++		}
++		if strings.Contains(code, ".take()") {
++			takeLines = append(takeLines, fmt.Sprintf("%d: %s", i+1, strings.TrimSpace(line)))
++		}
++		if strings.Contains(code, "lastCheck :=") || strings.Contains(code, "checkTicks :=") || strings.Contains(code, "var checkTicks") {
++			t.Errorf("session.go:%d lastCheck、checkTicks 應是 Session 欄位，不是區域變數", i+1)
++		}
++	}
++	if len(adaptLines) != 2 || !strings.Contains(adaptLines[0], "s.adapt(now)") || !strings.Contains(adaptLines[1], "func (s *Session) adapt(") {
++		t.Errorf("session.go 非註解行的 adapt( 應只有 Run 的一次呼叫與定義：%v", adaptLines)
++	}
++	if len(takeLines) != 1 || !strings.Contains(takeLines[0], "s.hg.take()") {
++		t.Errorf("session.go 的 take() 應只在 adapt 內呼叫一次：%v", takeLines)
++	}
++}
++
++// Run 的檢查點接線（需要原版，缺檔 skip）：間隔設成永遠跑不到（每個 tick 一億道指令），第一個 2 秒檢查點必判落後。
++// 對照組（無持有）會降頻；持有到結束的、以及在視窗中途放開的（dirty 路徑）都不降頻，視窗基準仍前進。
++func TestHoldGateRunIntegration(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	root := origRoot(t)
++	run := func(releaseAt time.Duration, hold bool) (s *Session, started time.Time) {
++		s, err := Open(root, Options{Interval: 100_000_000, NoDiag: true})
++		if err != nil {
++			t.Fatal(err)
++		}
++		if hold {
++			rel := s.HoldAdapt()
++			if releaseAt > 0 {
++				tm := time.AfterFunc(releaseAt, rel)
++				defer tm.Stop()
++			}
++		}
++		ctx, cancel := context.WithTimeout(context.Background(), 2700*time.Millisecond)
++		defer cancel()
++		started = time.Now()
++		if st := s.Run(ctx); st != nil {
++			t.Fatalf("Run 提早停機：%s", st.Msg)
++		}
++		return s, started
++	}
++	// 對照：無持有，第一個檢查點降頻
++	s, started := run(0, false)
++	if !s.lowered || s.interval != 90_000_000 {
++		t.Fatalf("對照組（無持有）應降頻：lowered ＝ %v、interval ＝ %d", s.lowered, s.interval)
++	}
++	if !s.lastCheck.After(started.Add(1900 * time.Millisecond)) {
++		t.Fatalf("對照組的視窗基準沒有前進（lastCheck 距開始 %v）：檢查點沒有執行", s.lastCheck.Sub(started))
++	}
++	// 持有到結束
++	s, started = run(0, true)
++	if s.lowered || s.interval != 100_000_000 {
++		t.Fatalf("持有期間不該降頻：lowered ＝ %v、interval ＝ %d", s.lowered, s.interval)
++	}
++	if !s.lastCheck.After(started.Add(1900 * time.Millisecond)) {
++		t.Fatalf("持有時視窗基準仍要前進（lastCheck 距開始 %v）", s.lastCheck.Sub(started))
++	}
++	if h, _ := s.hg.take(); h != 1 {
++		t.Fatalf("Run 結束時持有數 ＝ %d，應為 1", h)
++	}
++	// 在視窗中途放開（1 秒時）：第一個檢查點走 dirty 路徑，不降頻
++	s, started = run(time.Second, true)
++	if s.lowered || s.interval != 100_000_000 {
++		t.Fatalf("視窗中途放開，放開所在的視窗不該降頻：lowered ＝ %v、interval ＝ %d", s.lowered, s.interval)
++	}
++	if !s.lastCheck.After(started.Add(1900 * time.Millisecond)) {
++		t.Fatalf("視窗基準沒有前進（lastCheck 距開始 %v）：檢查點沒有執行，測試無效", s.lastCheck.Sub(started))
++	}
++	if h, d := s.hg.take(); h != 0 || d {
++		t.Fatalf("檢查點應已消費 dirty：(%d, %v)", h, d)
++	}
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 250a695..13f9713 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -76,6 +76,11 @@ type Options struct {
+ 	HDCheck int
+ 	// HDRecord 收集未識別的雜湊（hd.Overlay.UnknownList）。
+ 	HDRecord bool
++	// Sound 非 nil 時開啟 docs/spec/007 的聲音掛鉤：在 192B:0010、0061、00A0、011F 的進入點觀察遊戲對聲音常式的
++	// 呼叫並交給 Sink，並在 192B:02C9（讀狀態字）執行完後把 AX 的 bit 0 換成 Sink.Playing()；不寫 3E24:01BA，
++	// 遊戲旗標 3E24:01B8 維持 0。nil（預設）時每步只多一次與 nil 的比較，遊戲行為與沒有這個功能時完全相同。
++	// 進入點位元組不符時 Open 回傳錯誤。
++	Sound SoundSink
+ }
+ 
+ // StopKind 是停機種類。
+@@ -179,6 +184,7 @@ type Session struct {
+ 	stats  Stats
+ 	frame  atomic.Pointer[Frame]
+ 	ov     *hd.Overlay
++	snd    *soundHooks // docs/spec/007；nil ＝ 關閉
+ 	want   atomic.Bool
+ 	frmSeq uint64
+ 
+@@ -195,6 +201,10 @@ type Session struct {
+ 	interval       uint64
+ 	lowered        bool
+ 	lastDiv        int
++	// 降頻檢查的視窗基準（Run 的檢查點讀寫）與持有狀態（docs/spec/006 第 4 節；HoldAdapt 可由任何執行緒呼叫）。
++	lastCheck  time.Time
++	checkTicks uint64
++	hg         holdGate
+ 
+ 	// RunToPoll 用：stepBatch 在滑鼠輪詢指令剛執行完時是否要中途返回。
+ 	pollStop bool
+@@ -273,6 +283,13 @@ func Open(root string, opt Options) (*Session, error) {
+ 		s.ov = hd.NewOverlay(opt.HDAssets)
+ 		s.ov.Check, s.ov.Record, s.ov.Logf = opt.HDCheck, opt.HDRecord, s.logf
+ 	}
++	if opt.Sound != nil {
++		h, err := newSoundHooks(s.m, opt.Sound, s.logf)
++		if err != nil {
++			return nil, err
++		}
++		s.snd = h
++	}
+ 	return s, nil
+ }
+ 
+@@ -366,7 +383,7 @@ func (s *Session) idleForTrim() bool {
+ 
+ // stepBatch 執行至多 n 道指令，回傳停機原因（nil ＝ 還沒停）。
+ func (s *Session) stepBatch(n int) *Stop {
+-	m, d, ov := s.m, s.d, s.ov
++	m, d, ov, snd := s.m, s.d, s.ov, s.snd
+ 	for i := 0; i < n; i++ {
+ 		c := m.CPU
+ 		if s.stackTop == 0 && m.Steps > 200 {
+@@ -394,6 +411,11 @@ func (s *Session) stepBatch(n int) *Stop {
+ 		if err := m.Step(); err != nil {
+ 			return &Stop{Kind: StopCPUError, Msg: "CPU 錯誤：" + err.Error()}
+ 		}
++		if snd != nil {
++			if cs, ip := m.Insn(); cs == soundSeg {
++				snd.post(m, ip)
++			}
++		}
+ 		if k := s.cls[b0]; k == clsCall || k == clsAll || (k == clsPrefix && s.cls[m.Mem[(a+1)&(machine.MemSize-1)]] == clsCall) {
+ 			s.noteCall()
+ 		}
+@@ -504,8 +526,7 @@ func (s *Session) RunSteps(total uint64) *Stop {
+ func (s *Session) Run(ctx context.Context) *Stop {
+ 	start := time.Now()
+ 	baseTicks := s.m.Ticks
+-	lastCheck := start
+-	var checkTicks uint64 = baseTicks
++	s.lastCheck, s.checkTicks = start, baseTicks
+ 	for {
+ 		if ctx.Err() != nil {
+ 			return nil
+@@ -530,17 +551,27 @@ func (s *Session) Run(ctx context.Context) *Stop {
+ 			return st
+ 		}
+ 		s.afterBatch(false)
+-		if !s.opt.NoPacing && time.Since(lastCheck) >= 2*time.Second {
+-			s.adapt(time.Since(lastCheck), s.m.Ticks-checkTicks)
+-			lastCheck, checkTicks = time.Now(), s.m.Ticks
++		if !s.opt.NoPacing {
++			if now := time.Now(); now.Sub(s.lastCheck) >= 2*time.Second {
++				s.adapt(now) // 視窗已滿 2 秒的檢查點；唯一的呼叫點
++			}
+ 		}
+ 	}
+ }
+ 
+-// adapt 每 2 秒檢查：實際 tick 數落後 5% 以上就把間隔降為 90%（下限 MinInterval），不再調回。
+-func (s *Session) adapt(elapsed time.Duration, ticks uint64) {
++// adapt 是降頻檢查的薄包裝，只在 Run 視窗已滿 2 秒的檢查點呼叫：取出 holdGate 的狀態，交給純函式 windowVerdict
++// 裁決（docs/spec/006 第 4 節）。與持有時間相交的視窗（held 大於 0，或自上次檢查以來有過放開的 dirty）只重設基準、不評估；
++// 無論裁決為何，視窗基準一律重設為現在。實際 tick 數落後 5% 以上才降頻：間隔降為 90%（下限 MinInterval），不再調回。
++func (s *Session) adapt(now time.Time) {
++	held, dirty := s.hg.take()
++	elapsed, ticks := now.Sub(s.lastCheck), s.m.Ticks-s.checkTicks
++	v := windowVerdict(now, s.lastCheck, ticks, held, dirty)
++	s.lastCheck, s.checkTicks = now, s.m.Ticks
++	if v != verdictLower {
++		return
++	}
+ 	want := elapsed.Seconds() * TickHz
+-	if want <= 0 || float64(ticks) >= want*0.95 {
++	if want <= 0 {
+ 		return
+ 	}
+ 	if s.interval == 0 || s.interval <= MinInterval {
+-- 
+2.43.0
+

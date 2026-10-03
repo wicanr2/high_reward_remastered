@@ -1,0 +1,5074 @@
+From adeb3e4f5f3eb89db68c117c0fdbae80e0d33be9 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sun, 4 Oct 2026 03:03:05 +0800
+Subject: [PATCH 27/28] =?UTF-8?q?apps/hr=EF=BC=9A=E5=8E=9F=E7=89=88?=
+ =?UTF-8?q?=E9=9F=B3=E6=A8=82=E8=88=87=E9=9F=B3=E6=95=88=E6=92=AD=E6=94=BE?=
+ =?UTF-8?q?=EF=BC=88docs/spec/007=20=E7=AC=AC=E4=BA=94=E7=89=88=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- sound：SMF 解析、FM 合成器、引擎（無鎖命令佇列、世代狀態字）、NullSink
+- runtime：聲音常式攔截（192B:0010、0061、00A0、011F、02C9），MusicStart 複製 MID
+  緩衝（與 VGA 視窗相交時略過），診斷計數
+- play：音訊後端（Linux ALSA 經 purego，Windows 與 macOS 經 oto）、靜音選項與啟動
+- cmd/hrmusic：離線轉檔與驗收；hrbot 的 -sound
+- 效能閘門與突變驗證的收據在 docs/re/019
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrbot/main.go          |  60 ++-
+ apps/hr/cmd/hrmusic/main.go        | 415 +++++++++++++++++++++
+ apps/hr/cmd/hrmusic/pitch.go       | 197 ++++++++++
+ apps/hr/play/audio.go              | 227 ++++++++++++
+ apps/hr/play/audio_linux.go        | 124 +++++++
+ apps/hr/play/audio_other.go        |  76 ++++
+ apps/hr/play/audio_test.go         | 277 ++++++++++++++
+ apps/hr/play/sound_startup.go      |  25 ++
+ apps/hr/play/sound_startup_test.go |  36 ++
+ apps/hr/runtime/overhead_test.go   |  38 +-
+ apps/hr/runtime/sound.go           | 214 +++++++++++
+ apps/hr/runtime/sound_save_test.go | 121 ++++++
+ apps/hr/runtime/sound_test.go      | 572 +++++++++++++++++++++++++++++
+ apps/hr/sound/engine.go            | 313 ++++++++++++++++
+ apps/hr/sound/engine_test.go       | 506 +++++++++++++++++++++++++
+ apps/hr/sound/nullsink.go          |  36 ++
+ apps/hr/sound/patches.go           | 108 ++++++
+ apps/hr/sound/smf.go               | 273 ++++++++++++++
+ apps/hr/sound/sound_test.go        | 301 +++++++++++++++
+ apps/hr/sound/synth.go             | 555 ++++++++++++++++++++++++++++
+ apps/hr/sound/verify_test.go       | 342 +++++++++++++++++
+ 21 files changed, 4806 insertions(+), 10 deletions(-)
+ create mode 100644 apps/hr/cmd/hrmusic/main.go
+ create mode 100644 apps/hr/cmd/hrmusic/pitch.go
+ create mode 100644 apps/hr/play/audio.go
+ create mode 100644 apps/hr/play/audio_linux.go
+ create mode 100644 apps/hr/play/audio_other.go
+ create mode 100644 apps/hr/play/audio_test.go
+ create mode 100644 apps/hr/play/sound_startup.go
+ create mode 100644 apps/hr/play/sound_startup_test.go
+ create mode 100644 apps/hr/runtime/sound.go
+ create mode 100644 apps/hr/runtime/sound_save_test.go
+ create mode 100644 apps/hr/runtime/sound_test.go
+ create mode 100644 apps/hr/sound/engine.go
+ create mode 100644 apps/hr/sound/engine_test.go
+ create mode 100644 apps/hr/sound/nullsink.go
+ create mode 100644 apps/hr/sound/patches.go
+ create mode 100644 apps/hr/sound/smf.go
+ create mode 100644 apps/hr/sound/sound_test.go
+ create mode 100644 apps/hr/sound/synth.go
+ create mode 100644 apps/hr/sound/verify_test.go
+
+diff --git a/apps/hr/cmd/hrbot/main.go b/apps/hr/cmd/hrbot/main.go
+index f0af34a..2c39c7e 100644
+--- a/apps/hr/cmd/hrbot/main.go
++++ b/apps/hr/cmd/hrbot/main.go
+@@ -22,6 +22,7 @@ import (
+ 	"time"
+ 
+ 	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
+ 	"github.com/wicanr2/dosgolem/internal/cpu"
+ 	"github.com/wicanr2/dosgolem/internal/dos"
+ 	"github.com/wicanr2/dosgolem/internal/state"
+@@ -66,6 +67,7 @@ type options struct {
+ 	freezeSeconds      float64
+ 	maxActions         int
+ 	heapProfile        string
++	sound              bool
+ }
+ 
+ type knowledge struct {
+@@ -82,13 +84,14 @@ type pendingAct struct {
+ }
+ 
+ type bot struct {
+-	opt  options
+-	rnd  *rand.Rand
+-	s    *hrrt.Session
+-	k    knowledge
+-	out  string
+-	log  *os.File
+-	last *pendingAct
++	opt       options
++	rnd       *rand.Rand
++	s         *hrrt.Session
++	soundPrev hrrt.SoundStats // 已結束的 Session 的聲音掛鉤計數（-sound）
++	k         knowledge
++	out       string
++	log       *os.File
++	last      *pendingAct
+ 
+ 	opens map[string]int // 檔案名稱 -> open 次數（畫面種類的代理：BSTAGE.MRG 表示進了戰鬥）
+ 
+@@ -135,6 +138,7 @@ func main() {
+ 	flag.Float64Var(&o.freezeSeconds, "freeze-seconds", 60, "遊戲超過幾秒沒輪詢滑鼠就記為疑似凍結")
+ 	flag.IntVar(&o.maxActions, "max-actions", 0, "動作數上限（0 ＝ 不限，測試用）")
+ 	flag.StringVar(&o.heapProfile, "heap-profile", "", "結束時寫出 heap profile（診斷記憶體成長用）")
++	flag.BoolVar(&o.sound, "sound", false, "開聲音掛鉤並用 NullSink（不出聲，時鐘是遊戲 tick）：走和玩家相同的音樂路徑，不重複讀 MID（docs/spec/007 第 5.1 節）")
+ 	flag.Parse()
+ 	if err := run(o); err != nil {
+ 		fmt.Fprintln(os.Stderr, "hrbot:", err)
+@@ -264,7 +268,24 @@ func stopName(k hrrt.StopKind) string {
+ 
+ // startGame 開一個新的 Session（等於玩家重新啟動程式），走到標題選單，讀檔或開新遊戲。
+ func (b *bot) startGame() (*hrrt.Stop, error) {
++	if b.s != nil {
++		b.soundPrev = addSound(b.soundPrev, b.s.Sound())
++	}
++	var snd hrrt.SoundSink
++	var sess *hrrt.Session
++	if b.opt.sound {
++		snd = &sound.NullSink{
++			Now: func() uint64 {
++				if sess == nil {
++					return 0
++				}
++				return sess.Machine().Ticks
++			},
++			Log: func(f string, a ...any) { b.logEvent("sound", fmt.Sprintf(f, a...)) },
++		}
++	}
+ 	s, err := hrrt.Open(b.opt.orig, hrrt.Options{
++		Sound:   snd,
+ 		SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch, Stklen: uint16(b.opt.stklen),
+ 		DiagDir: filepath.Join(b.out, "diag"), HangSeconds: b.opt.hangSeconds,
+ 		OnDiag: func(dir, reason string) {
+@@ -277,6 +298,7 @@ func (b *bot) startGame() (*hrrt.Stop, error) {
+ 		return nil, err
+ 	}
+ 	b.s = s
++	sess = s
+ 	b.restarts++
+ 	b.last = nil
+ 	polled, st := b.toPoll(240)
+@@ -701,8 +723,30 @@ func (b *bot) summary(status string, wall time.Duration) {
+ 	j, _ := json.MarshalIndent(map[string]any{
+ 		"status": status, "game_hours": float64(b.gameTicks) / tickHz / 3600, "actions": b.actionsN, "restarts": b.restarts, "quits": b.quits,
+ 		"unique_screens": len(b.sigsEver), "min_sp": fmt.Sprintf("%04X", b.minSP), "max_same_sig_streak": b.maxSame, "suspect_freezes": b.freezes,
+-		"t2": map[string]any{"enabled": b.opt.hangSeconds > 0, "hang_seconds": b.opt.hangSeconds, "evals": b.t2EvalsDone + b.t2EvalsCur, "max_silent_sec": b.t2Max, "dumps": b.diags},
++		"t2":    map[string]any{"enabled": b.opt.hangSeconds > 0, "hang_seconds": b.opt.hangSeconds, "evals": b.t2EvalsDone + b.t2EvalsCur, "max_silent_sec": b.t2Max, "dumps": b.diags},
++		"sound": soundSummary(b.opt.sound, b.soundPrev, b.s),
+ 		"crash": b.crashInfo, "no_stack_patch": b.opt.noPatch, "stklen": b.opt.stklen, "seed": b.opt.seed, "interval": b.opt.interval, "wall_seconds": wall.Seconds(), "file_opens": opens,
+ 	}, "", "  ")
+ 	_ = os.WriteFile(filepath.Join(b.out, "summary.json"), j, 0o644)
+ }
++
++func addSound(a, c hrrt.SoundStats) hrrt.SoundStats {
++	a.Starts += c.Starts
++	a.Stops += c.Stops
++	a.Fades += c.Fades
++	a.SFX += c.SFX
++	a.Queries += c.Queries
++	a.BadSFX += c.BadSFX
++	if a.Disabled == "" {
++		a.Disabled = c.Disabled
++	}
++	return a
++}
++
++func soundSummary(on bool, prev hrrt.SoundStats, cur *hrrt.Session) map[string]any {
++	st := prev
++	if cur != nil {
++		st = addSound(st, cur.Sound())
++	}
++	return map[string]any{"enabled": on, "starts": st.Starts, "stops": st.Stops, "fades": st.Fades, "sfx": st.SFX, "queries": st.Queries, "bad_sfx": st.BadSFX, "disabled": st.Disabled}
++}
+diff --git a/apps/hr/cmd/hrmusic/main.go b/apps/hr/cmd/hrmusic/main.go
+new file mode 100644
+index 0000000..7be2cb8
+--- /dev/null
++++ b/apps/hr/cmd/hrmusic/main.go
+@@ -0,0 +1,415 @@
++// hrmusic 把原版的 MID 離線轉成 WAV 並做獨立驗收（docs/spec/007 第 8 節）。
++//
++//	hrmusic -dir <原版目錄> -out <WAV 輸出目錄> [-expect midisum.tsv] [-check]
++//
++// -expect 是 tools/music/midisum.go 的輸出（獨立於本套件解析器的第二份實作）：
++// 逐檔核對音符數與曲長。其餘判準都來自 SMF 本身（哪個時間窗內有音符在響），不依賴合成器的內部參數。
++// -check 時任何一項不合就以非零結束。
++// 輸出的 WAV 是原版音樂的衍生物，只能放在 gitignore 的位置，不得提交或進發行包。
++package main
++
++import (
++	"bufio"
++	"crypto/sha256"
++	"encoding/binary"
++	"encoding/hex"
++	"flag"
++	"fmt"
++	"math"
++	"os"
++	"path/filepath"
++	"sort"
++	"strconv"
++	"strings"
++
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
++)
++
++type expect struct {
++	notes int
++	secs  float64
++}
++
++func readExpect(path string) (map[string]expect, error) {
++	f, err := os.Open(path)
++	if err != nil {
++		return nil, err
++	}
++	defer f.Close()
++	m := map[string]expect{}
++	sc := bufio.NewScanner(f)
++	sc.Scan() // 標題列
++	for sc.Scan() {
++		c := strings.Split(sc.Text(), "\t")
++		if len(c) < 6 {
++			continue
++		}
++		n, err1 := strconv.Atoi(c[3])
++		s, err2 := strconv.ParseFloat(c[5], 64)
++		if err1 != nil || err2 != nil {
++			continue // 0 byte 的檔
++		}
++		m[c[0]] = expect{n, s}
++	}
++	return m, sc.Err()
++}
++
++func writeWAV(path string, pcm []int16, rate int) error {
++	f, err := os.Create(path)
++	if err != nil {
++		return err
++	}
++	defer f.Close()
++	w := bufio.NewWriter(f)
++	n := uint32(len(pcm) * 2)
++	w.WriteString("RIFF")
++	binary.Write(w, binary.LittleEndian, 36+n)
++	w.WriteString("WAVEfmt ")
++	binary.Write(w, binary.LittleEndian, uint32(16))
++	binary.Write(w, binary.LittleEndian, uint16(1))
++	binary.Write(w, binary.LittleEndian, uint16(1))
++	binary.Write(w, binary.LittleEndian, uint32(rate))
++	binary.Write(w, binary.LittleEndian, uint32(rate*2))
++	binary.Write(w, binary.LittleEndian, uint16(2))
++	binary.Write(w, binary.LittleEndian, uint16(16))
++	w.WriteString("data")
++	binary.Write(w, binary.LittleEndian, n)
++	binary.Write(w, binary.LittleEndian, pcm)
++	return w.Flush()
++}
++
++const winSamples = sound.SampleRate / 20 // 50 ms
++
++// audibleHead：每個音符起音後這麼久之內必須聽得到。打擊類音色（木琴、鈴）本來就會在音符結束前衰減完，
++// 所以不要求整個音長都有聲音；持續音是否持續由 sound 套件的單元測試（休止與音符時段）負責。
++const audibleHead = sound.SampleRate * 300 / 1000
++
++func minU(a, b uint64) uint64 {
++	if a < b {
++		return a
++	}
++	return b
++}
++
++// activity 由事件算出每個 50 ms 窗內的音符數，與合成器無關：
++//   - head：只算每個音符起音後 audibleHead 以內（打擊樂以起音後 150 ms 計）。該窗必須聽得到。
++//   - held：算音符的整個音長（note-on 到 note-off）。用來和能量做相關。
++//
++// 另回傳最後一個音符結束的取樣位置。
++func activity(s *sound.Song, n int) (head, held []int, lastEnd uint64) {
++	type key struct{ ch, note uint8 }
++	started := map[key][]uint64{}
++	dh := make([]int, n/winSamples+3)
++	dl := make([]int, n/winSamples+3)
++	addTo := func(diff []int, a, b uint64) {
++		if b <= a {
++			b = a + 1
++		}
++		i, j := int(a/winSamples), int((b-1)/winSamples)
++		if i >= len(diff)-1 {
++			return
++		}
++		if j >= len(diff)-1 {
++			j = len(diff) - 2
++		}
++		diff[i]++
++		diff[j+1]--
++	}
++	note := func(a, b uint64) {
++		addTo(dh, a, minU(b, a+audibleHead))
++		addTo(dl, a, b)
++		if b > lastEnd {
++			lastEnd = b
++		}
++	}
++	_, _ = sound.RenderSongRaw(s, func(e *sound.Event, at uint64) {
++		k := key{e.Ch, e.A}
++		switch e.Kind {
++		case sound.NoteOn:
++			if e.Ch == 9 {
++				note(at, at+sound.SampleRate*150/1000)
++				return
++			}
++			started[k] = append(started[k], at)
++		case sound.NoteOff:
++			if e.Ch == 9 {
++				return
++			}
++			if st := started[k]; len(st) > 0 {
++				note(st[0], at)
++				started[k] = st[1:]
++			}
++		}
++	})
++	for _, st := range started { // 沒有 note-off 的音符：到曲末
++		for _, a := range st {
++			note(a, uint64(n))
++		}
++	}
++	cum := func(d []int) []int {
++		out := make([]int, n/winSamples+1)
++		c := 0
++		for i := range out {
++			c += d[i]
++			out[i] = c
++		}
++		return out
++	}
++	return cum(dh), cum(dl), lastEnd
++}
++
++func main() {
++	dir := flag.String("dir", "", "原版目錄（唯讀）")
++	out := flag.String("out", "", "WAV 輸出目錄（空表示不寫）")
++	exp := flag.String("expect", "", "midisum.tsv")
++	check := flag.Bool("check", false, "有任何一項不合就非零結束")
++	only := flag.String("only", "", "只處理這些檔（逗號分隔，不含副檔名，例如 BATTLE1,SCOUT）")
++	flag.BoolVar(&pitchDebug, "pitch-debug", false, "印出基頻抽查不符的音符")
++	flag.Parse()
++	if *dir == "" {
++		fmt.Fprintln(os.Stderr, "需要 -dir")
++		os.Exit(2)
++	}
++	var want map[string]expect
++	if *exp != "" {
++		var err error
++		if want, err = readExpect(*exp); err != nil {
++			fmt.Fprintln(os.Stderr, "讀 -expect 失敗：", err)
++			os.Exit(2)
++		}
++	}
++	ents, err := os.ReadDir(*dir)
++	if err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(2)
++	}
++	var names []string
++	for _, e := range ents {
++		if strings.EqualFold(filepath.Ext(e.Name()), ".mid") {
++			names = append(names, e.Name())
++		}
++	}
++	sort.Strings(names)
++	if *only != "" {
++		keep := map[string]bool{}
++		for _, n := range strings.Split(*only, ",") {
++			keep[strings.ToUpper(strings.TrimSpace(n))] = true
++		}
++		var sel []string
++		for _, n := range names {
++			if keep[strings.ToUpper(strings.TrimSuffix(n, filepath.Ext(n)))] {
++				sel = append(sel, n)
++			}
++		}
++		names = sel
++	}
++	if *out != "" {
++		os.MkdirAll(*out, 0o755)
++	}
++	fmt.Println("name\tparsed_s\texpect_s\trendered_s\tnoteon\texpect_noteon\tpeak\trms\tnear_clip\tsteals\tcorr\tactive_ok%\tpitch_ok\tpitch_bad_ok\tengine_eq\twav_sha256_16")
++	bad := 0
++	for _, n := range names {
++		base := strings.ToUpper(strings.TrimSuffix(n, filepath.Ext(n)))
++		b, err := os.ReadFile(filepath.Join(*dir, n))
++		if err != nil {
++			fmt.Printf("%s\tERR\t%v\n", base, err)
++			bad++
++			continue
++		}
++		if len(b) == 0 {
++			fmt.Printf("%s\t0 byte，略過（遊戲讀 0 byte 後沿用上一首的緩衝）\n", base)
++			continue
++		}
++		s, err := sound.ParseSMF(b)
++		if err != nil {
++			fmt.Printf("%s\t解析失敗\t%v\n", base, err)
++			bad++
++			continue
++		}
++		var notes int
++		for _, e := range s.Events {
++			if e.Kind == sound.NoteOn {
++				notes++
++			}
++		}
++		parsed := float64(s.Duration(sound.SampleRate)) / sound.SampleRate
++		endSample := s.Duration(sound.SampleRate)
++		raw, rend := sound.RenderSongRaw(s, nil)
++		f := sound.RenderSong(s)
++		f2 := sound.RenderSong(s)
++		same := len(f) == len(f2)
++		for i := 0; same && i < len(f); i++ {
++			same = f[i] == f2[i]
++		}
++		hh := sha256.New()
++		pcm := make([]int16, len(f))
++		var peak, sum float64
++		nearClip := 0
++		for i, v := range f {
++			a := math.Abs(float64(v))
++			if a > peak {
++				peak = a
++			}
++			if a > 0.99 {
++				nearClip++
++			}
++			sum += float64(v) * float64(v)
++			pcm[i] = int16(v * 32000)
++		}
++		binary.Write(hh, binary.LittleEndian, pcm)
++		rms := math.Sqrt(sum / float64(len(f)))
++		// 50 ms 窗：RMS 與 SMF 算出的活動音符數
++		act, held, lastEnd := activity(s, len(raw))
++		nw := len(act)
++		wr := make([]float64, nw)
++		for w := 0; w < nw; w++ {
++			lo, hi := w*winSamples, (w+1)*winSamples
++			if hi > len(raw) {
++				hi = len(raw)
++			}
++			if lo >= hi {
++				continue
++			}
++			var e2 float64
++			for _, v := range raw[lo:hi] {
++				e2 += float64(v) * float64(v)
++			}
++			wr[w] = math.Sqrt(e2 / float64(hi-lo))
++		}
++		// 有音符在響的窗：RMS 要高於 0.001
++		var withNote, audible int
++		for w := 0; w < nw; w++ {
++			if act[w] > 0 && (w+1)*winSamples <= int(endSample) {
++				withNote++
++				if wr[w] > 0.001 {
++					audible++
++				}
++			}
++		}
++		activeOK := 100.0
++		if withNote > 0 {
++			activeOK = 100 * float64(audible) / float64(withNote)
++		}
++		// 皮爾森相關：活動音符數對窗 RMS（常數音的相關是 0 或未定義）
++		var ma, mr float64
++		for w := 0; w < nw; w++ {
++			ma += float64(held[w])
++			mr += wr[w]
++		}
++		ma /= float64(nw)
++		mr /= float64(nw)
++		var sxy, sxx, syy float64
++		for w := 0; w < nw; w++ {
++			dx, dy := float64(held[w])-ma, wr[w]-mr
++			sxy += dx * dy
++			sxx += dx * dx
++			syy += dy * dy
++		}
++		corr := 0.0
++		if sxx > 0 && syy > 0 {
++			corr = sxy / math.Sqrt(sxx*syy)
++		}
++		// 最後一個音符結束之後 2.5 秒的窗：必須靜音（卡音偵測）
++		var stuck int
++		for w := int(lastEnd)/winSamples + 1 + int(2.5*20); w < nw; w++ {
++			if wr[w] > 0.001 {
++				stuck++
++			}
++		}
++		// 真正會被前端使用的路徑（Engine.Read）必須與離線轉檔逐取樣一致
++		eng := sound.NewEngine()
++		eng.MusicStart(b)
++		nf := 3 * sound.SampleRate
++		if nf > len(pcm) {
++			nf = len(pcm)
++		}
++		buf := make([]byte, 4*nf)
++		eng.Read(buf)
++		eq := true
++		for i := 0; i < nf; i++ {
++			l := int16(binary.LittleEndian.Uint16(buf[4*i:]))
++			r := int16(binary.LittleEndian.Uint16(buf[4*i+2:]))
++			if l != pcm[i] || r != pcm[i] {
++				eq = false
++				break
++			}
++		}
++		e, haveExp := want[base]
++		expS, expN := "-", "-"
++		var problems []string
++		if haveExp {
++			expS, expN = fmt.Sprintf("%.3f", e.secs), strconv.Itoa(e.notes)
++			if math.Abs(parsed-e.secs) > 0.002+e.secs*0.001 {
++				problems = append(problems, fmt.Sprintf("曲長 %.3f 與獨立工具 %.3f 不符", parsed, e.secs))
++			}
++			if notes != e.notes {
++				problems = append(problems, fmt.Sprintf("音符數 %d 與獨立工具 %d 不符", notes, e.notes))
++			}
++		} else if *exp != "" {
++			problems = append(problems, "獨立工具沒有這個檔")
++		}
++		rendered := float64(len(f)) / sound.SampleRate
++		if uint64(len(f)) < endSample || rendered > parsed+2.5+0.03 {
++			problems = append(problems, fmt.Sprintf("轉檔長度 %.3f 不在 [曲長 %.3f, 曲長+2.5 秒]", rendered, parsed))
++		}
++		if rend.Steals != 0 {
++			problems = append(problems, fmt.Sprintf("有 %d 次聲部被取代", rend.Steals))
++		}
++		if nearClip != 0 {
++			problems = append(problems, fmt.Sprintf("%d 個取樣的絕對值超過 0.99", nearClip))
++		}
++		if peak < 0.05 || peak > 0.99 {
++			problems = append(problems, fmt.Sprintf("峰值 %.3f 不在 0.05 到 0.99", peak))
++		}
++		if rms < 0.005 {
++			problems = append(problems, fmt.Sprintf("RMS %.5f 近乎靜音", rms))
++		}
++		if activeOK < 95 {
++			problems = append(problems, fmt.Sprintf("有音符的時間窗只有 %.0f%% 聽得到", activeOK))
++		}
++		if corr < 0.2 {
++			problems = append(problems, fmt.Sprintf("活動音符數與能量的相關只有 %.2f", corr))
++		}
++		if stuck != 0 {
++			problems = append(problems, fmt.Sprintf("最後一個音符結束 2.5 秒後仍有 %d 個窗有聲音（卡音）", stuck))
++		}
++		if !same {
++			problems = append(problems, "兩次轉檔不相同")
++		}
++		if !eq {
++			problems = append(problems, "Engine.Read 與離線轉檔不一致")
++		}
++		// 基頻抽查：被驗收的渲染器要過，壞渲染器（固定 440 Hz、起訖準時）必須被擋下（偵測器的正對照）
++		pc, pok := pitchCheck(s, realRender, true)
++		_, pbad := pitchCheck(s, badRender, false)
++		pitchCol := "-"
++		if pc > 0 {
++			pitchCol = fmt.Sprintf("%d/%d", pok, pc)
++			if pok*10 < pc*9 {
++				problems = append(problems, fmt.Sprintf("基頻抽查只有 %d/%d 個音符的 MIDI 音高在 ±12 個半音內的調和累加最大值的 70%% 以上（要求至少 90%%）", pok, pc))
++			}
++			if pc >= 10 && pbad*10 > pc*6 {
++				problems = append(problems, fmt.Sprintf("偵測器自測失敗：壞渲染器（固定 440 Hz）有 %d/%d 通過基頻抽查", pbad, pc))
++			}
++		}
++		fmt.Printf("%s\t%.3f\t%s\t%.3f\t%d\t%s\t%.3f\t%.4f\t%d\t%d\t%.2f\t%.0f\t%s\t%d\t%v\t%s\n", base, parsed, expS, rendered, notes, expN, peak, rms, nearClip, rend.Steals, corr, activeOK, pitchCol, pbad, eq, hex.EncodeToString(hh.Sum(nil))[:16])
++		for _, p := range problems {
++			fmt.Printf("  問題：%s\n", p)
++			bad++
++		}
++		if *out != "" {
++			if err := writeWAV(filepath.Join(*out, base+".wav"), pcm, sound.SampleRate); err != nil {
++				fmt.Fprintln(os.Stderr, err)
++				bad++
++			}
++		}
++	}
++	if bad > 0 {
++		fmt.Printf("共 %d 項問題\n", bad)
++		if *check {
++			os.Exit(1)
++		}
++	} else {
++		fmt.Println("全部通過")
++	}
++}
+diff --git a/apps/hr/cmd/hrmusic/pitch.go b/apps/hr/cmd/hrmusic/pitch.go
+new file mode 100644
+index 0000000..666e103
+--- /dev/null
++++ b/apps/hr/cmd/hrmusic/pitch.go
+@@ -0,0 +1,197 @@
++package main
++
++import (
++	"fmt"
++	"math"
++
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
++)
++
++// 真檔的基頻抽查（docs/spec/007 第 8 節，審查 S5）：把每個旋律通道單獨渲染（各通道幾乎單音），
++// 對其中夠長、沒有重疊的音符，取起音後穩定的一段做自相關，估計基頻，對 MIDI 音高。
++// 判準只來自 SMF 的音高與時間，不依賴合成器參數；「每個音符播固定 440 Hz 正弦、起訖準時」的壞合成器
++// 通過其他所有門檻，但過不了這一項（-selftest 證明）。
++
++// pitchDebug 為真時，基頻抽查把不符的音符印出來（-pitch-debug）。
++var pitchDebug bool
++
++type noteSpan struct {
++	note       uint8
++	on, off    uint64 // 取樣位置
++	overlapped bool
++}
++
++// channelSong 回傳只含通道 ch（0 起算）事件與速度事件的曲子。
++func channelSong(s *sound.Song, ch uint8) *sound.Song {
++	c := *s
++	c.Events = nil
++	for _, e := range s.Events {
++		switch e.Kind {
++		case sound.Tempo, sound.End:
++			c.Events = append(c.Events, e)
++		default:
++			if e.Ch == ch {
++				c.Events = append(c.Events, e)
++			}
++		}
++	}
++	return &c
++}
++
++// spans 回傳通道內每個音符的起訖取樣位置（以渲染時送出事件的取樣位置為準）。
++func spans(cs *sound.Song) ([]noteSpan, []float32) {
++	var out []noteSpan
++	open := map[uint8][]int{}
++	raw, _ := sound.RenderSongRaw(cs, func(e *sound.Event, at uint64) {
++		switch e.Kind {
++		case sound.NoteOn:
++			open[e.A] = append(open[e.A], len(out))
++			out = append(out, noteSpan{note: e.A, on: at, off: math.MaxUint64})
++		case sound.NoteOff:
++			if q := open[e.A]; len(q) > 0 {
++				out[q[0]].off = at
++				open[e.A] = q[1:]
++			}
++		}
++	})
++	// 重疊：同一通道另一個音符在這個音符的時段內開始
++	for i := range out {
++		for j := range out {
++			if i != j && out[j].on > out[i].on && out[j].on < out[i].off {
++				out[i].overlapped = true
++			}
++		}
++	}
++	return out, raw
++}
++
++// salience 以調和累加估計「這個音高有多像基頻」：對 MIDI 音符 m 的頻率 f，
++// S(m) ＝ Σ_{h＝1..5} |X(h·f)| ÷ h，X 是漢寧窗後的 DFT 在該頻率的值（Goertzel）。
++// 倍頻與子倍頻的偏差靠 1/h 加權壓低：固定 440 Hz 的正弦在音高 57 或 81 的 S 只有音高 69 的一半。
++func salience(f []float32, note int) float64 {
++	freq := 440 * math.Pow(2, (float64(note)-69)/12)
++	var s float64
++	for h := 1; h <= 5; h++ {
++		hf := freq * float64(h)
++		if hf > sound.SampleRate/2.2 {
++			break
++		}
++		s += goertzel(f, hf) / float64(h)
++	}
++	return s
++}
++
++func goertzel(f []float32, freq float64) float64 {
++	n := len(f)
++	w := 2 * math.Pi * freq / sound.SampleRate
++	cw := 2 * math.Cos(w)
++	var s1, s2 float64
++	for i, v := range f {
++		hann := 0.5 - 0.5*math.Cos(2*math.Pi*float64(i)/float64(n-1))
++		s0 := float64(v)*hann + cw*s1 - s2
++		s2, s1 = s1, s0
++	}
++	re := s1 - s2*math.Cos(w)
++	im := s2 * math.Sin(w)
++	return math.Hypot(re, im)
++}
++
++// pitchRatio 回傳期望音高的調和累加相對於 ±12 個半音內最大值的比例（1 ＝ 期望音高就是最像基頻的音高）。
++func pitchRatio(f []float32, note uint8) float64 {
++	var best, exp float64
++	for m := int(note) - 12; m <= int(note)+12; m++ {
++		if m < 21 || m > 108 {
++			continue
++		}
++		v := salience(f, m)
++		if v > best {
++			best = v
++		}
++		if m == int(note) {
++			exp = v
++		}
++	}
++	if best == 0 {
++		return 0
++	}
++	return exp / best
++}
++
++const (
++	pitchMinNote  = sound.SampleRate * 200 / 1000 // 音符至少 200 毫秒才抽查
++	pitchSkip     = sound.SampleRate * 60 / 1000  // 跳過起音的 60 毫秒
++	pitchWin      = 4096
++	pitchPerTrack = 12  // 每個通道最多抽 12 個音符（均勻挑），自相關很貴
++	pitchMinRatio = 0.7 // 期望音高的調和累加至少是 ±12 個半音內最大值的 70%
++)
++
++// pitchCheck 對曲子的每個旋律通道（排除第 10 通道）抽查基頻。render 是被驗收的渲染器
++// （正式的是 sound.RenderSongRaw；自測用壞渲染器）。回傳抽查數與通過數。
++func pitchCheck(s *sound.Song, render func(*sound.Song, []noteSpan) []float32, debug bool) (checked, ok int) {
++	for ch := uint8(0); ch < 16; ch++ {
++		if ch == 9 {
++			continue
++		}
++		cs := channelSong(s, ch)
++		sp, _ := spans(cs)
++		var cands []noteSpan
++		for _, n := range sp {
++			if n.off != math.MaxUint64 && !n.overlapped && n.off-n.on >= pitchMinNote+pitchSkip+pitchWin/4 {
++				cands = append(cands, n)
++			}
++		}
++		if len(cands) == 0 {
++			continue
++		}
++		step := 1
++		if len(cands) > pitchPerTrack {
++			step = len(cands) / pitchPerTrack
++		}
++		out := render(cs, sp)
++		for i := 0; i < len(cands); i += step {
++			n := cands[i]
++			// 窗放在音符中段（慢起音的墊音要到中段才有足夠的能量），但不早於起音後 pitchSkip
++			a := int(n.on) + pitchSkip
++			if mid := int(n.on+n.off)/2 - pitchWin/2; mid > a {
++				a = mid
++			}
++			end := int(n.off)
++			if a+pitchWin > end {
++				continue // 穩定段不夠長
++			}
++			if a+pitchWin > len(out) {
++				continue
++			}
++			ratio := pitchRatio(out[a:a+pitchWin], n.note)
++			checked++
++			if ratio >= pitchMinRatio {
++				ok++
++			} else if debug && pitchDebug {
++				fmt.Printf("  音高不符 通道%d 音符%d 期望音高的調和累加只有最大值的 %.2f\n", ch+1, n.note, ratio)
++			}
++		}
++	}
++	return
++}
++
++// realRender 是被驗收的渲染器：把單一通道的曲子渲染。
++func realRender(cs *sound.Song, _ []noteSpan) []float32 {
++	out, _ := sound.RenderSongRaw(cs, nil)
++	return out
++}
++
++// badRender 是自測用的壞渲染器：每個音符在起訖之間播固定 440 Hz 的正弦（起訖準時、有休止、有音量）。
++func badRender(cs *sound.Song, sp []noteSpan) []float32 {
++	total := int(cs.Duration(sound.SampleRate)) + sound.SampleRate
++	out := make([]float32, total)
++	for _, n := range sp {
++		end := n.off
++		if end == math.MaxUint64 || end > uint64(total) {
++			end = uint64(total)
++		}
++		for i := n.on; i < end; i++ {
++			out[i] += 0.3 * float32(math.Sin(2*math.Pi*440*float64(i)/sound.SampleRate))
++		}
++	}
++	return out
++}
+diff --git a/apps/hr/play/audio.go b/apps/hr/play/audio.go
+new file mode 100644
+index 0000000..90bacce
+--- /dev/null
++++ b/apps/hr/play/audio.go
+@@ -0,0 +1,227 @@
++package main
++
++import (
++	"fmt"
++	"io"
++	"sync"
++	"sync/atomic"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
++)
++
++// 音訊輸出（docs/spec/007 第 5.2、5.3 節）。
++//
++// 引擎的「正在播放」時鐘是拉取者的取樣時鐘，所以必須有一個以牆鐘速度持續呼叫 Engine.Read 的拉取者：
++// 裝置可用時是裝置的回呼，裝置不可用或中途失敗或停滯時是這裡的牆鐘拉取執行緒（讀了就丟）。
++// 靜音只讓 Engine 輸出填 0，拉取者照常拉。
++//
++// Engine.Read 不是並行安全的，所以所有拉取都經過 pullSource：它用互斥鎖串行化，並用「世代」讓被接手的舊拉取者
++// （例如阻塞在 snd_pcm_writei 之後才醒來的裝置執行緒）之後只拿到靜音，不再推進引擎。
++//
++// 不使用 ebiten/v2/audio：它的更新前掛鉤在裝置失敗時把錯誤當 Update 失敗回傳，RunGame 會結束，
++// 而 Docker、Xvfb、Wine 的驗收環境都沒有音訊裝置。
++
++const (
++	pumpPeriod = 20 * time.Millisecond
++	pumpFrames = sound.SampleRate * 20 / 1000 // 882
++)
++
++// stallAfter 是拉取者多久沒有成功拉取就視為停滯（裝置執行緒卡在阻塞的寫入、驅動被拔掉等）。測試可以調小。
++var stallAfter = 2 * time.Second
++
++// pullSource 把 Engine 包成可被多個拉取者競爭、但同一時間只有一個生效的來源。
++type pullSource struct {
++	mu   sync.Mutex
++	e    *sound.Engine
++	gen  int
++	t0   time.Time    // 單調時鐘的起點（time.Now() 帶單調讀數；Linux 的 CLOCK_MONOTONIC 在休眠期間不前進，喚醒後不會誤判停滯；Windows 與 macOS 的行為未驗）
++	last atomic.Int64 // 最近一次有效拉取，距 t0 的奈秒
++}
++
++func newPullSource(e *sound.Engine) *pullSource {
++	s := &pullSource{e: e, gen: 1, t0: time.Now()}
++	s.last.Store(int64(time.Since(s.t0)))
++	return s
++}
++
++// reader 回傳世代 gen 的拉取者。
++func (s *pullSource) reader(gen int) io.Reader { return pullReader{s, gen} }
++
++// takeover 讓之前所有世代的拉取者失效，回傳新世代。
++func (s *pullSource) takeover() int {
++	s.mu.Lock()
++	defer s.mu.Unlock()
++	s.gen++
++	s.last.Store(int64(time.Since(s.t0)))
++	return s.gen
++}
++
++func (s *pullSource) idle() time.Duration { return time.Since(s.t0) - time.Duration(s.last.Load()) }
++
++type pullReader struct {
++	s   *pullSource
++	gen int
++}
++
++func (r pullReader) Read(p []byte) (int, error) {
++	r.s.mu.Lock()
++	defer r.s.mu.Unlock()
++	if r.gen != r.s.gen {
++		// 已被接手：回靜音，不推進引擎
++		n := len(p) &^ 3
++		for i := range p[:n] {
++			p[i] = 0
++		}
++		return n, nil
++	}
++	n, err := r.s.e.Read(p)
++	r.s.last.Store(int64(time.Since(r.s.t0)))
++	return n, err
++}
++
++// backend 是平台的音訊裝置後端。stop 關閉裝置（可能阻塞，所以接手時在背景呼叫）；
++// died 在裝置執行中失敗時被關閉（之後由牆鐘拉取執行緒接手）。
++type backend struct {
++	stop func()
++	died <-chan struct{}
++	name string
++}
++
++type audioOut struct {
++	src  *pullSource
++	logf func(string, ...any)
++
++	be       *backend
++	stopOnce sync.Once
++	quit     chan struct{}
++	wg       sync.WaitGroup
++
++	mu      sync.Mutex
++	pumping bool
++	closed  bool
++}
++
++// openBackendFn 是測試可以替換的後端工廠。
++var openBackendFn = openBackend
++
++// openTimeout 是開啟裝置的逾時（ALSA 的 snd_pcm_open 本身沒有逾時，音效伺服器卡住時會一直阻塞，
++// 而 startAudio 在 RunGame 之前被呼叫）。逾時就改用牆鐘拉取執行緒；之後才開成功的裝置立刻關掉。測試可以調小。
++var openTimeout = 3 * time.Second
++
++type openResult struct {
++	be  *backend
++	err error
++}
++
++// startAudio 嘗試開啟裝置；開不了或逾時就立刻改用牆鐘拉取執行緒。回傳的物件永遠有效，close 關閉所有東西。
++func startAudio(e *sound.Engine, logf func(string, ...any)) *audioOut {
++	a := &audioOut{src: newPullSource(e), logf: logf, quit: make(chan struct{})}
++	ch := make(chan openResult, 1)
++	go func() {
++		be, err := openBackendFn(a.src.reader(1), logf)
++		ch <- openResult{be, err}
++	}()
++	var be *backend
++	var err error
++	select {
++	case r := <-ch:
++		be, err = r.be, r.err
++	case <-time.After(openTimeout):
++		err = fmt.Errorf("開啟音訊裝置逾時（%v）", openTimeout)
++		// 晚到的結果：世代 1 的拉取者之後只會拿到靜音（下面 takeover），裝置若終於開成功就關掉
++		go func() {
++			if r := <-ch; r.be != nil {
++				r.be.stop()
++			}
++		}()
++	}
++	if err != nil {
++		logf("音訊裝置不可用，靜音運行（遊戲照常；音樂的曲末與重播仍依牆鐘推進）：%v", err)
++		a.startPump(a.src.takeover())
++		return a
++	}
++	a.be = be
++	logf("音訊裝置：%s", be.name)
++	a.wg.Add(1)
++	go a.watch()
++	return a
++}
++
++// watch 監看裝置：中途失敗或拉取停滯就接手。接手順序固定：先讓舊世代失效（舊拉取者之後只拿到靜音，
++// 不會與新的並行推進引擎），再在背景關閉裝置（可能阻塞），最後啟動牆鐘拉取執行緒。
++func (a *audioOut) watch() {
++	defer a.wg.Done()
++	tk := time.NewTicker(stallAfter / 4)
++	defer tk.Stop()
++	for {
++		select {
++		case <-a.quit:
++			return
++		case <-a.be.died:
++			a.logf("音訊裝置中途失敗，改用牆鐘拉取（靜音）")
++			a.handover()
++			return
++		case <-tk.C:
++			if a.src.idle() > stallAfter {
++				a.logf("音訊裝置停滯超過 %v，改用牆鐘拉取（靜音）", stallAfter)
++				a.handover()
++				return
++			}
++		}
++	}
++}
++
++func (a *audioOut) handover() {
++	gen := a.src.takeover()
++	go a.stopBackend() // 關閉可能阻塞（停滯的裝置），不能等
++	a.startPump(gen)
++}
++
++func (a *audioOut) stopBackend() {
++	if a.be == nil {
++		return
++	}
++	a.stopOnce.Do(a.be.stop)
++}
++
++func (a *audioOut) startPump(gen int) {
++	a.mu.Lock()
++	defer a.mu.Unlock()
++	if a.pumping || a.closed {
++		return
++	}
++	a.pumping = true
++	r := a.src.reader(gen)
++	a.wg.Add(1)
++	go func() {
++		defer a.wg.Done()
++		buf := make([]byte, 4*pumpFrames)
++		tk := time.NewTicker(pumpPeriod)
++		defer tk.Stop()
++		for {
++			select {
++			case <-a.quit:
++				return
++			case <-tk.C:
++				r.Read(buf)
++			}
++		}
++	}()
++}
++
++func (a *audioOut) close() {
++	a.mu.Lock()
++	a.closed = true // 之後不再啟動拉取執行緒（避免與 wg.Wait 競爭）
++	a.mu.Unlock()
++	close(a.quit)
++	// 裝置可能已被接手（stopOnce 保證只關一次）；關閉可能阻塞（停滯的裝置），最多等 1 秒，程式要結束了
++	done := make(chan struct{})
++	go func() { a.stopBackend(); close(done) }()
++	select {
++	case <-done:
++	case <-time.After(time.Second):
++		a.logf("關閉音訊裝置逾時，略過")
++	}
++	a.wg.Wait()
++}
+diff --git a/apps/hr/play/audio_linux.go b/apps/hr/play/audio_linux.go
+new file mode 100644
+index 0000000..834cdc3
+--- /dev/null
++++ b/apps/hr/play/audio_linux.go
+@@ -0,0 +1,124 @@
++//go:build linux
++
++package main
++
++import (
++	"fmt"
++	"io"
++	"sync"
++	"unsafe"
++
++	"github.com/ebitengine/purego"
++
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
++)
++
++// Linux 後端：在執行期 dlopen("libasound.so.2")，不在連結期依賴 ALSA（docs/spec/007 第 5.3 節）。
++// 沒有 libasound、沒有裝置、寫入持續失敗，都回報給 startAudio，由它改用牆鐘拉取執行緒。
++
++const (
++	sndPcmStreamPlayback = 0
++	sndPcmFormatS16LE    = 2
++	sndPcmAccessRWInter  = 3
++	alsaLatencyUS        = 100_000
++	alsaChunkFrames      = 1024
++	maxWriteFailures     = 5
++)
++
++type alsa struct {
++	open       func(handle *uintptr, name string, stream int32, mode int32) int32
++	setParams  func(handle uintptr, format int32, access int32, channels uint32, rate uint32, softResample int32, latency uint32) int32
++	writei     func(handle uintptr, buf unsafe.Pointer, frames uint) int
++	recoverPCM func(handle uintptr, err int32, silent int32) int32
++	drop       func(handle uintptr) int32
++	closePCM   func(handle uintptr) int32
++	strerror   func(err int32) string
++}
++
++func loadALSA() (*alsa, error) {
++	lib, err := purego.Dlopen("libasound.so.2", purego.RTLD_NOW|purego.RTLD_GLOBAL)
++	if err != nil {
++		return nil, fmt.Errorf("載入 libasound.so.2 失敗：%w", err)
++	}
++	a := &alsa{}
++	purego.RegisterLibFunc(&a.open, lib, "snd_pcm_open")
++	purego.RegisterLibFunc(&a.setParams, lib, "snd_pcm_set_params")
++	purego.RegisterLibFunc(&a.writei, lib, "snd_pcm_writei")
++	purego.RegisterLibFunc(&a.recoverPCM, lib, "snd_pcm_recover")
++	purego.RegisterLibFunc(&a.drop, lib, "snd_pcm_drop")
++	purego.RegisterLibFunc(&a.closePCM, lib, "snd_pcm_close")
++	purego.RegisterLibFunc(&a.strerror, lib, "snd_strerror")
++	return a, nil
++}
++
++func openBackend(src io.Reader, logf func(string, ...any)) (be *backend, err error) {
++	// purego 在找不到符號時會 panic，這裡統一轉成錯誤
++	defer func() {
++		if r := recover(); r != nil {
++			be, err = nil, fmt.Errorf("ALSA 初始化失敗：%v", r)
++		}
++	}()
++	a, err := loadALSA()
++	if err != nil {
++		return nil, err
++	}
++	var h uintptr
++	if rc := a.open(&h, "default", sndPcmStreamPlayback, 0); rc < 0 {
++		return nil, fmt.Errorf("snd_pcm_open(default)：%s", a.strerror(rc))
++	}
++	if rc := a.setParams(h, sndPcmFormatS16LE, sndPcmAccessRWInter, 2, sound.SampleRate, 1, alsaLatencyUS); rc < 0 {
++		a.closePCM(h)
++		return nil, fmt.Errorf("snd_pcm_set_params：%s", a.strerror(rc))
++	}
++	quit := make(chan struct{})
++	died := make(chan struct{})
++	var wg sync.WaitGroup
++	wg.Add(1)
++	go func() {
++		defer wg.Done()
++		defer close(died)
++		buf := make([]byte, 4*alsaChunkFrames)
++		fails := 0
++		for {
++			select {
++			case <-quit:
++				return
++			default:
++			}
++			src.Read(buf)
++			off := 0
++			for off < len(buf) {
++				select {
++				case <-quit:
++					return
++				default:
++				}
++				n := a.writei(h, unsafe.Pointer(&buf[off]), uint((len(buf)-off)/4))
++				if n < 0 {
++					// 欠載（EPIPE）或暫停：嘗試恢復；恢復不了就累計失敗
++					if rc := a.recoverPCM(h, int32(n), 1); rc < 0 {
++						fails++
++						if fails >= maxWriteFailures {
++							logf("ALSA 寫入持續失敗：%s", a.strerror(int32(n)))
++							return
++						}
++					}
++					continue
++				}
++				fails = 0
++				off += n * 4
++			}
++		}
++	}()
++	stop := func() {
++		select {
++		case <-quit:
++		default:
++			close(quit)
++		}
++		a.drop(h)
++		wg.Wait()
++		a.closePCM(h)
++	}
++	return &backend{stop: stop, died: died, name: "ALSA default（44100 Hz，立體聲，延遲 100 毫秒）"}, nil
++}
+diff --git a/apps/hr/play/audio_other.go b/apps/hr/play/audio_other.go
+new file mode 100644
+index 0000000..99bdfc1
+--- /dev/null
++++ b/apps/hr/play/audio_other.go
+@@ -0,0 +1,76 @@
++//go:build !linux
++
++package main
++
++import (
++	"fmt"
++	"io"
++	"sync"
++	"time"
++
++	"github.com/ebitengine/oto/v3"
++
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
++)
++
++// Windows 與 macOS 後端：oto v3（docs/spec/007 第 5.3 節）。NewContext 沒有同步回報裝置錯誤，
++// 要等 ready 通道再讀 Err()；執行中另有監看 goroutine，出錯就通知 startAudio 改用牆鐘拉取。
++
++const (
++	otoReadyTimeout = 3 * time.Second
++	otoWatchPeriod  = time.Second
++	otoBufferBytes  = sound.SampleRate * 4 / 10 // 100 毫秒：44100 × 2 聲道 × 2 位元組 ÷ 10
++)
++
++func openBackend(src io.Reader, logf func(string, ...any)) (*backend, error) {
++	ctx, ready, err := oto.NewContext(&oto.NewContextOptions{
++		SampleRate:   sound.SampleRate,
++		ChannelCount: 2,
++		Format:       oto.FormatSignedInt16LE,
++		BufferSize:   100 * time.Millisecond,
++	})
++	if err != nil {
++		return nil, fmt.Errorf("oto.NewContext：%w", err)
++	}
++	select {
++	case <-ready:
++	case <-time.After(otoReadyTimeout):
++		return nil, fmt.Errorf("oto 在 %v 內沒有就緒", otoReadyTimeout)
++	}
++	if err := ctx.Err(); err != nil {
++		return nil, fmt.Errorf("oto 裝置錯誤：%w", err)
++	}
++	p := ctx.NewPlayer(src)
++	p.SetBufferSize(otoBufferBytes) // 預設 0.5 秒預讀，音效會晚半秒；固定 100 毫秒（docs/spec/007 第 5.3 節）
++	p.Play()
++	quit := make(chan struct{})
++	died := make(chan struct{})
++	var once sync.Once
++	go func() {
++		tk := time.NewTicker(otoWatchPeriod)
++		defer tk.Stop()
++		for {
++			select {
++			case <-quit:
++				return
++			case <-tk.C:
++				if err := ctx.Err(); err != nil {
++					logf("oto 裝置錯誤：%v", err)
++					once.Do(func() { close(died) })
++					return
++				}
++			}
++		}
++	}()
++	stop := func() {
++		select {
++		case <-quit:
++		default:
++			close(quit)
++		}
++		// Close 在 oto v3.4.0 是空操作；先 Pause，接手後的 Player 不再消耗緩衝（否則會對世代 1 的 reader 拉靜音到行程結束）。
++		p.Pause()
++		p.Close()
++	}
++	return &backend{stop: stop, died: died, name: "oto（44100 Hz，立體聲，緩衝 100 毫秒）"}, nil
++}
+diff --git a/apps/hr/play/audio_test.go b/apps/hr/play/audio_test.go
+new file mode 100644
+index 0000000..a25177d
+--- /dev/null
++++ b/apps/hr/play/audio_test.go
+@@ -0,0 +1,277 @@
++package main
++
++import (
++	"io"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
++)
++
++// 約 0.1 秒的 SMF（division 48、速度 500000、一個音符、結尾在 tick 10）。測試內組出，不是原曲。
++var tinySMF = []byte{
++	'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, 0, 1, 0, 0x30,
++	'M', 'T', 'r', 'k', 0, 0, 0, 19,
++	0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
++	0x00, 0x90, 0x3C, 0x64,
++	0x0A, 0x80, 0x3C, 0x00,
++	0x00, 0xFF, 0x2F, 0x00,
++}
++
++// docs/spec/007 第 5.2 節：不論音訊裝置是否可用（測試環境通常沒有），一定有拉取者以牆鐘速度拉引擎，
++// 曲子才會自然結束，遊戲才會重播。裝置可用時由裝置拉，不可用時由牆鐘拉取執行緒拉。
++func TestAudioAlwaysHasAPuller(t *testing.T) {
++	e := sound.NewEngine()
++	var mu sync.Mutex
++	var logs []string
++	logf := func(f string, a ...any) { mu.Lock(); logs = append(logs, f); mu.Unlock() }
++	a := startAudio(e, logf)
++	defer a.close()
++	e.SetMute(true) // 測試時不出聲
++	e.MusicStart(tinySMF)
++	if !e.Playing() {
++		t.Fatal("MusicStart 後應在播放")
++	}
++	deadline := time.Now().Add(3 * time.Second)
++	for e.Playing() && time.Now().Before(deadline) {
++		time.Sleep(10 * time.Millisecond)
++	}
++	if e.Playing() {
++		t.Fatalf("3 秒內曲子（約 0.1 秒）沒有自然結束：沒有拉取者在拉引擎。日誌 %v", logs)
++	}
++	mu.Lock()
++	defer mu.Unlock()
++	if len(logs) == 0 {
++		t.Fatal("startAudio 應該至少記一行（用了哪個後端，或為何靜音）")
++	}
++	t.Logf("後端日誌：%v", logs)
++}
++
++// 5 秒的 SMF（同上，結尾在 tick 480）。音符在 tick 0 開始、tick 440 才結束（持續約 4.6 秒），
++// 所以 5 秒內任何一段都有聲音，讀取的先後不影響「有沒有聲音」的判斷。
++var longSMF = []byte{
++	'M', 'T', 'h', 'd', 0, 0, 0, 6, 0, 1, 0, 1, 0, 0x30,
++	'M', 'T', 'r', 'k', 0, 0, 0, 20,
++	0x00, 0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20,
++	0x00, 0x90, 0x3C, 0x64,
++	0x83, 0x38, 0x80, 0x3C, 0x00,
++	0x28, 0xFF, 0x2F, 0x00,
++}
++
++func nonZero(b []byte) bool {
++	for _, v := range b {
++		if v != 0 {
++			return true
++		}
++	}
++	return false
++}
++
++// pullSource 的世代（docs/spec/007 第 5.2 節）：被接手的舊世代拉取者只拿到靜音，且不推進引擎。
++// 不靜音、曲子（5 秒）短於舊拉取者要讀的長度（6 秒）：世代檢查被拿掉時，舊拉取者會讀到非零取樣，
++// 並把曲子推進到結束（Playing 變假），兩項斷言都會失敗。
++func TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance(t *testing.T) {
++	e := sound.NewEngine()
++	src := newPullSource(e)
++	old := src.reader(1)
++	cur := src.reader(src.takeover())
++	e.MusicStart(longSMF)
++	// 對照：目前世代的拉取者讀得到聲音
++	probe := make([]byte, 4*sound.SampleRate/10) // 0.1 秒
++	if n, err := cur.Read(probe); err != nil || n != len(probe) || !nonZero(probe) {
++		t.Fatalf("目前世代的拉取者應讀到聲音：n=%d err=%v nonzero=%v", n, err, nonZero(probe))
++	}
++	buf := make([]byte, 4*sound.SampleRate*6) // 6 秒，長於曲長
++	if n, err := old.Read(buf); err != nil || n != len(buf) {
++		t.Fatalf("舊世代 Read ＝ %d、%v", n, err)
++	}
++	if nonZero(buf) {
++		t.Fatal("被接手的舊世代拉取者應只拿到靜音")
++	}
++	if !e.Playing() {
++		t.Fatal("舊世代拉取者不該把曲子推進到結束")
++	}
++}
++
++type fakeDevice struct {
++	stops atomic.Int32
++	died  chan struct{}
++	hold  chan struct{} // 關閉時，卡住的裝置執行緒才會醒來
++}
++
++func newFakeDevice() *fakeDevice {
++	return &fakeDevice{died: make(chan struct{}), hold: make(chan struct{})}
++}
++
++func (d *fakeDevice) factory(run func(src io.Reader, d *fakeDevice)) func(io.Reader, func(string, ...any)) (*backend, error) {
++	return func(src io.Reader, logf func(string, ...any)) (*backend, error) {
++		go run(src, d)
++		return &backend{stop: func() { d.stops.Add(1) }, died: d.died, name: "fake"}, nil
++	}
++}
++
++func waitNotPlaying(e *sound.Engine, d time.Duration) bool {
++	deadline := time.Now().Add(d)
++	for e.Playing() && time.Now().Before(deadline) {
++		time.Sleep(10 * time.Millisecond)
++	}
++	return !e.Playing()
++}
++
++// 拉取者停滯（裝置執行緒卡住，不再呼叫 Read）：看門狗接手，曲子照樣自然結束；
++// 卡住的執行緒之後醒來，只拿到靜音，不會與牆鐘拉取者並行推進引擎。
++func TestAudioStalledBackendIsTakenOver(t *testing.T) {
++	old := stallAfter
++	stallAfter = 300 * time.Millisecond
++	defer func() { stallAfter = old }()
++	oldOpen := openBackendFn
++	defer func() { openBackendFn = oldOpen }()
++	dev := newFakeDevice()
++	readerCh := make(chan io.Reader, 1)
++	openBackendFn = dev.factory(func(src io.Reader, d *fakeDevice) {
++		readerCh <- src
++		buf := make([]byte, 4*pumpFrames)
++		for i := 0; i < 3; i++ { // 先正常拉幾次，然後卡住
++			src.Read(buf)
++			time.Sleep(10 * time.Millisecond)
++		}
++		<-d.hold
++	})
++	e := sound.NewEngine()
++	var mu sync.Mutex
++	var logs []string
++	a := startAudio(e, func(f string, args ...any) { mu.Lock(); logs = append(logs, f); mu.Unlock() })
++	e.MusicStart(tinySMF)
++	if !waitNotPlaying(e, 5*time.Second) {
++		t.Fatalf("裝置停滯後曲子應由牆鐘拉取者推進到自然結束")
++	}
++	// 卡住的舊拉取者醒來：只拿到靜音，且不推進引擎（不靜音，曲子 5 秒、舊拉取者讀 6 秒，
++	// 世代檢查被拿掉時這兩項斷言會失敗；決定性的單元測試見 TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance）
++	e.MusicStart(longSMF)
++	close(dev.hold)
++	time.Sleep(5 * time.Millisecond)
++	buf := make([]byte, 4*44100*6) // 6 秒的取樣框
++	oldReader := <-readerCh
++	n, err := oldReader.Read(buf)
++	if err != nil || n != len(buf) {
++		t.Fatalf("舊拉取者 Read ＝ %d、%v", n, err)
++	}
++	if nonZero(buf) {
++		t.Fatal("被接手的舊拉取者應只拿到靜音")
++	}
++	if !e.Playing() {
++		t.Fatal("舊拉取者不該把新曲（5 秒）推進到結束")
++	}
++	a.close()
++	if got := dev.stops.Load(); got != 1 {
++		t.Fatalf("裝置的 stop 應剛好被呼叫 1 次，實際 %d", got)
++	}
++	mu.Lock()
++	defer mu.Unlock()
++	found := false
++	for _, l := range logs {
++		if strings.Contains(l, "停滯") {
++			found = true
++		}
++	}
++	if !found {
++		t.Fatalf("應記一行停滯接手的日誌：%v", logs)
++	}
++}
++
++// 裝置中途失敗（died 被關閉）：先讓舊世代失效、背景關閉裝置，再由牆鐘拉取者接手；stop 剛好一次。
++func TestAudioDiedBackendHandover(t *testing.T) {
++	oldOpen := openBackendFn
++	defer func() { openBackendFn = oldOpen }()
++	dev := newFakeDevice()
++	openBackendFn = dev.factory(func(src io.Reader, d *fakeDevice) {
++		buf := make([]byte, 4*pumpFrames)
++		for i := 0; i < 2; i++ {
++			src.Read(buf)
++		}
++		close(d.died)
++		// 之後這個執行緒若還在拉，只會拿到靜音（世代已換）
++		for i := 0; i < 5; i++ {
++			src.Read(buf)
++			time.Sleep(5 * time.Millisecond)
++		}
++	})
++	e := sound.NewEngine()
++	a := startAudio(e, func(string, ...any) {})
++	e.SetMute(true)
++	e.MusicStart(tinySMF)
++	if !waitNotPlaying(e, 5*time.Second) {
++		t.Fatal("裝置失敗後曲子應由牆鐘拉取者推進到自然結束")
++	}
++	a.close()
++
++	if got := dev.stops.Load(); got != 1 {
++		t.Fatalf("stop 應剛好 1 次，實際 %d", got)
++	}
++}
++
++// 開啟裝置卡住（snd_pcm_open 無逾時）：startAudio 在 openTimeout 內返回，改用牆鐘拉取執行緒，曲子照樣自然結束；
++// 晚到才開成功的裝置會被關掉（stop 剛好一次）。
++func TestAudioOpenTimeoutFallsBackToPump(t *testing.T) {
++	oldT := openTimeout
++	openTimeout = 200 * time.Millisecond
++	defer func() { openTimeout = oldT }()
++	oldOpen := openBackendFn
++	defer func() { openBackendFn = oldOpen }()
++	dev := newFakeDevice()
++	release := make(chan struct{})
++	openBackendFn = func(src io.Reader, logf func(string, ...any)) (*backend, error) {
++		<-release // 卡住，直到測試放行
++		return &backend{stop: func() { dev.stops.Add(1) }, died: dev.died, name: "fake-late"}, nil
++	}
++	e := sound.NewEngine()
++	start := time.Now()
++	var mu sync.Mutex
++	var logs []string
++	a := startAudio(e, func(f string, args ...any) { mu.Lock(); logs = append(logs, f); mu.Unlock() })
++	if d := time.Since(start); d > 2*time.Second {
++		t.Fatalf("startAudio 應在逾時後返回，卻花了 %v", d)
++	}
++	e.MusicStart(tinySMF)
++	if !waitNotPlaying(e, 5*time.Second) {
++		t.Fatal("開啟逾時後曲子應由牆鐘拉取者推進到自然結束")
++	}
++	close(release) // 晚到的裝置開成功
++	deadline := time.Now().Add(2 * time.Second)
++	for dev.stops.Load() == 0 && time.Now().Before(deadline) {
++		time.Sleep(10 * time.Millisecond)
++	}
++	a.close()
++	if got := dev.stops.Load(); got != 1 {
++		t.Fatalf("晚到的裝置應被關閉剛好 1 次，實際 %d", got)
++	}
++	mu.Lock()
++	defer mu.Unlock()
++	found := false
++	for _, l := range logs {
++		if strings.Contains(l, "靜音運行") {
++			found = true
++		}
++	}
++	if !found {
++		t.Fatalf("應記一行靜音運行的日誌：%v", logs)
++	}
++}
++
++// 看門狗用單調時鐘：idle() 不受牆鐘跳變影響。pullSource 只存單調偏移，這裡確認它隨拉取重設、隨時間增加。
++func TestPullSourceIdleUsesMonotonicOffset(t *testing.T) {
++	e := sound.NewEngine()
++	s := newPullSource(e)
++	time.Sleep(60 * time.Millisecond)
++	if d := s.idle(); d < 50*time.Millisecond || d > 2*time.Second {
++		t.Fatalf("idle ＝ %v，應約 60 毫秒", d)
++	}
++	buf := make([]byte, 4*pumpFrames)
++	s.reader(1).Read(buf)
++	if d := s.idle(); d > 30*time.Millisecond {
++		t.Fatalf("拉取後 idle 應重設，得到 %v", d)
++	}
++}
+diff --git a/apps/hr/play/sound_startup.go b/apps/hr/play/sound_startup.go
+new file mode 100644
+index 0000000..ff9ecbe
+--- /dev/null
++++ b/apps/hr/play/sound_startup.go
+@@ -0,0 +1,25 @@
++package main
++
++import "strings"
++
++// resolveMute 決定啟動時是否靜音（docs/spec/007 第 5.4 節）。優先序：命令列旗標、環境變數 HR_MUTE、
++// 偏好設定的 sound 欄位、預設（不靜音）。
++//   - flagGiven：命令列有明確給 -mute（含 -mute=false，由 flag.Visit 判斷），此時 flagVal 決定一切；
++//   - env：HR_MUTE 的值，"1"、"true" 靜音，"0"、"false" 明確不靜音（能壓過偏好設定的 sound:false），
++//     其他值（含空字串）視為沒設；
++//   - sound：偏好設定的 sound 欄位，nil ＝ 沒有這個欄位。
++func resolveMute(flagGiven, flagVal bool, env string, sound *bool) bool {
++	if flagGiven {
++		return flagVal
++	}
++	switch strings.ToLower(strings.TrimSpace(env)) {
++	case "1", "true":
++		return true
++	case "0", "false":
++		return false
++	}
++	if sound != nil {
++		return !*sound
++	}
++	return false
++}
+diff --git a/apps/hr/play/sound_startup_test.go b/apps/hr/play/sound_startup_test.go
+new file mode 100644
+index 0000000..bf5a024
+--- /dev/null
++++ b/apps/hr/play/sound_startup_test.go
+@@ -0,0 +1,36 @@
++package main
++
++import "testing"
++
++func bp(v bool) *bool { return &v }
++
++// 優先序：旗標、環境變數、偏好設定、預設。-mute=false 能壓過環境變數與偏好設定；HR_MUTE=0 能壓過偏好設定的 sound:false。
++func TestResolveMute(t *testing.T) {
++	cases := []struct {
++		name      string
++		given     bool
++		flagVal   bool
++		env       string
++		pref      *bool
++		wantMuted bool
++	}{
++		{"全部沒給", false, false, "", nil, false},
++		{"偏好 sound:false", false, false, "", bp(false), true},
++		{"偏好 sound:true", false, false, "", bp(true), false},
++		{"環境 1", false, false, "1", nil, true},
++		{"環境 true（大小寫與空白）", false, false, " TRUE ", nil, true},
++		{"環境 0 壓過偏好 sound:false", false, false, "0", bp(false), false},
++		{"環境 false 壓過偏好 sound:false", false, false, "false", bp(false), false},
++		{"環境 1 壓過偏好 sound:true", false, false, "1", bp(true), true},
++		{"環境是亂值，回到偏好", false, false, "yes", bp(false), true},
++		{"旗標 -mute", true, true, "", bp(true), true},
++		{"旗標 -mute=false 壓過環境 1", true, false, "1", nil, false},
++		{"旗標 -mute=false 壓過偏好 sound:false", true, false, "", bp(false), false},
++		{"旗標 -mute 壓過環境 0", true, true, "0", nil, true},
++	}
++	for _, c := range cases {
++		if got := resolveMute(c.given, c.flagVal, c.env, c.pref); got != c.wantMuted {
++			t.Errorf("%s：resolveMute ＝ %v，應為 %v", c.name, got, c.wantMuted)
++		}
++	}
++}
+diff --git a/apps/hr/runtime/overhead_test.go b/apps/hr/runtime/overhead_test.go
+index 07d4062..969aee0 100644
+--- a/apps/hr/runtime/overhead_test.go
++++ b/apps/hr/runtime/overhead_test.go
+@@ -18,6 +18,37 @@ type overheadScenario struct {
+ 	hd    bool
+ 	state string
+ 	click bool
++	sound bool // 比較對象是「前端預設組合加聲音掛鉤」對「同組合不加聲音掛鉤」（docs/spec/007 第 8 節）
++	// soundFalse：Sink 的 Playing() 恆假且不保留資料（discard）。遊戲走和無 Sink 相同的路徑（照舊重複讀 MID），
++	// 沒有省下的 I/O 來抵銷，所以比值是不被抵銷的掛鉤成本（含 MusicStart 的區塊複製）。
++	soundFalse bool
++}
++
++// startSessionSound 開前端預設組合（診斷、可選的 HD 掛鉤）；withSound 時加聲音掛鉤，Sink 像真的引擎（跟隨型，不保留資料），
++// 量的是玩家實際會遇到的組合：有 Sink 時遊戲不再重複讀 MID，每步的指令組成與沒有 Sink 不同，所以比值反映「掛鉤成本減去省下的重複讀檔」的淨值。
++func startSessionSound(t *testing.T, sc overheadScenario, withSound bool) *Session {
++	t.Helper()
++	opt := Options{Interval: NativeInterval, HDHooks: sc.hd, HangSeconds: 30, DiagDir: t.TempDir()}
++	if withSound {
++		opt.Sound = &fakeSink{follow: true, discard: true}
++		if sc.soundFalse {
++			opt.Sound = &fakeSink{discard: true}
++		}
++	}
++	s := openDiag(t, opt)
++	if sc.state != "" {
++		if err := state.Load(sc.state, s.m, s.d); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if sc.click {
++		s.Input(MouseMoveEvent(16, 56))
++		s.RunSteps(s.m.Steps + 1_000_000)
++		s.Input(MouseButtonEvent(16, 56, 0, true))
++		s.RunSteps(s.m.Steps + 17_000_000)
++		s.Input(MouseButtonEvent(16, 56, 0, false))
++	}
++	return s
+ }
+ 
+ func startSession(t *testing.T, sc overheadScenario, noDiag bool) *Session {
+@@ -46,15 +77,18 @@ func TestDiagOverheadPaired(t *testing.T) {
+ 	if os.Getenv("HR_BENCH_OVERHEAD") == "" {
+ 		t.Skip("沒有設 HR_BENCH_OVERHEAD")
+ 	}
+-	scs := []overheadScenario{{name: "cold"}, {name: "cold-hdhooks", hd: true}}
++	scs := []overheadScenario{{name: "cold"}, {name: "cold-hdhooks", hd: true}, {name: "cold-hd-sound", hd: true, sound: true}, {name: "cold-hd-sound-false", hd: true, sound: true, soundFalse: true}}
+ 	if p := os.Getenv("HR_BENCH_STATE"); p != "" {
+ 		if _, err := os.Stat(p); err == nil {
+-			scs = append(scs, overheadScenario{name: "battle", state: p, click: true}, overheadScenario{name: "battle-hdhooks", hd: true, state: p, click: true})
++			scs = append(scs, overheadScenario{name: "battle", state: p, click: true}, overheadScenario{name: "battle-hdhooks", hd: true, state: p, click: true}, overheadScenario{name: "battle-hd-sound", hd: true, state: p, click: true, sound: true}, overheadScenario{name: "battle-hd-sound-false", hd: true, state: p, click: true, sound: true, soundFalse: true})
+ 		}
+ 	}
+ 	const pairs, chunk = 150, 1_000_000
+ 	for _, sc := range scs {
+ 		on, off := startSession(t, sc, false), startSession(t, sc, true)
++		if sc.sound {
++			on, off = startSessionSound(t, sc, true), startSessionSound(t, sc, false)
++		}
+ 		var ratios []float64
+ 		for i := 0; i < pairs; i++ {
+ 			a, b := on, off
+diff --git a/apps/hr/runtime/sound.go b/apps/hr/runtime/sound.go
+new file mode 100644
+index 0000000..8c9524d
+--- /dev/null
++++ b/apps/hr/runtime/sound.go
+@@ -0,0 +1,214 @@
++package runtime
++
++import (
++	"fmt"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++// 聲音掛鉤（docs/spec/007、docs/re/018）。遊戲的聲音旗標 3E24:01B8 維持 0（環境不注入 SOUND、
++// 不載入驅動），所以聲音常式進入後都是直接返回。本檔只在指令「剛執行完」時觀察：
++//   - 四個進入點（開始、停止、淡出、音效）的第一道指令 push bp 剛執行完：讀引數，交給 Sink；
++//   - 狀態讀取 192B:02C9（mov ax,[3E24:01BA]）剛執行完：把 AX 的 bit 0 改成 Sink.Playing()。
++//
++// 不取代函式本體，不寫入遊戲的狀態字：3E24:01BA 在遊戲記憶體裡永遠是 0，所以任何存下來的
++// 狀態檔都不帶聲音狀態，無 Sink 的工具重播這些狀態檔不會卡在 PlayMusic 的等待迴圈。
++
++// SoundSink 接收遊戲對聲音常式的呼叫（docs/spec/007 第 2 節）。實作要能被模擬執行緒呼叫，
++// 不得阻塞。apps/hr/sound 的 Engine 與 NullSink 實作這個介面。
++type SoundSink interface {
++	// MusicStart 收到遊戲 MID 緩衝的複本（固定 MidWindow bytes：檔案內容之後可能帶有前一首的殘餘，
++	// 接收端依 SMF 結構決定有效長度）。
++	MusicStart(mid []byte)
++	MusicStop()
++	MusicFade(n int)
++	SFX(id, start, end int)
++	Playing() bool
++}
++
++// MidWindow 是 MusicStart 交出的資料長度，等於遊戲 fread 讀 MID 的上限。
++const MidWindow = 0x4E20
++
++// VGA 視窗（internal/machine 的 vgaLo、vgaHi）：平面模式下讀它有 latch 副作用，不在線性記憶體裡。
++// MID 緩衝實測在 0xD5000（EMS 頁框區，EMS 映射是把頁資料複製進該位址，所以內容就是 Mem 本身），
++// 不與 VGA 視窗相交，區塊複製與 Read8 的值相同；與視窗相交時略過這次 MusicStart 並計數（SkippedStarts）。
++const (
++	vgaWindowLo = 0xA0000
++	vgaWindowHi = 0xB0000
++)
++
++const (
++	soundSeg  = 0x192B // IDA 281B
++	soundData = 0x3E24 // IDA 4D14
++	musicSeg  = 0x1043 // IDA 1F33（PlayMusic 與重播節拍）
++	stateSeg  = 0x2BCC // IDA 3ABC（目前曲號）
++
++	sndStart  = 0x0010
++	sndStop   = 0x0061
++	sndFade   = 0x00A0
++	sndSFX    = 0x011F
++	sndTick   = 0x0274 // 不掛，只做位元組檢查
++	sndStatus = 0x02C9 // mov ax,[3E24:01BA]：唯一讀狀態字的指令
++	sndLoad   = 0x059B // 不掛，只做位元組檢查
++	sndShort  = 0x0511 // 不掛，只做位元組檢查
++	musPlay   = 0x21F8 // PlayMusic，只做位元組檢查
++	musReplay = 0x223C // 重播節拍，只做位元組檢查
++
++	dataFlag   = 0x01B8 // 聲音旗標，維持 0
++	dataMidOff = 0x01CC // MID 緩衝遠指標（偏移）
++	dataMidSeg = 0x01CE // MID 緩衝遠指標（段）
++	dataSFXTab = 0x0008 // 11 個 word 的切片表
++	curTrack   = 0x0223 // 2BCC:0223 目前曲號，0FFh ＝ 無
++	noTrack    = 0xFF
++	sfxFirstID = 0x32
++	sfxLastID  = 0x3B
++)
++
++type soundSite struct {
++	seg, off uint16
++	name     string
++	pro      []byte
++}
++
++// soundSites 的位元組取自 dosgolem 冷啟動後的記憶體，與反組譯一致（docs/re/018 第 4 節）。
++// 開啟時逐點比對，任何一處不符就失敗：設計依賴的不只是被掛鉤的點，還有 PlayMusic、重播節拍與載入常式。
++var soundSites = []soundSite{
++	{soundSeg, sndStart, "start", []byte{0x55, 0x8B, 0xEC, 0x1E, 0xB8, 0x24, 0x3E, 0x8E, 0xD8, 0x83, 0x3E, 0xB8, 0x01, 0x00, 0x75, 0x05}},
++	{soundSeg, sndStop, "stop", []byte{0x55, 0x8B, 0xEC, 0x1E, 0xB8, 0x24, 0x3E, 0x8E, 0xD8, 0x83, 0x3E, 0xB8, 0x01, 0x00, 0x74, 0x2C}},
++	{soundSeg, sndFade, "fade", []byte{0x55, 0x8B, 0xEC, 0x1E, 0xB8, 0x24, 0x3E, 0x8E, 0xD8, 0x83, 0x3E, 0xB8, 0x01, 0x00, 0x75, 0x05}},
++	{soundSeg, sndSFX, "sfx", []byte{0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x04, 0x1E, 0xB8, 0x24, 0x3E, 0x8E, 0xD8, 0x83, 0x3E, 0xB8, 0x01}},
++	{soundSeg, sndTick, "tick", []byte{0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x02, 0x1E, 0xB8, 0x24, 0x3E, 0x8E, 0xD8, 0x83, 0x3E, 0xBC, 0x01}},
++	{soundSeg, sndStatus, "status", []byte{0xA1, 0xBA, 0x01, 0x25, 0x01, 0x00, 0x1F, 0xC9, 0xCB}},
++	{soundSeg, sndLoad, "load", []byte{0x55, 0x8B, 0xEC, 0x81, 0xEC, 0x22, 0x01, 0x1E, 0xB8, 0x24, 0x3E, 0x8E, 0xD8, 0x8D, 0x86, 0xDE}},
++	{soundSeg, sndShort, "short", []byte{0x55, 0x8B, 0xEC, 0x83, 0xEC, 0x7E, 0x56, 0x57, 0x1E, 0xB8, 0x24, 0x3E, 0x8E, 0xD8, 0xBE, 0x1E}},
++	{musicSeg, musPlay, "playmusic", []byte{0x55, 0x8B, 0xEC, 0x1E, 0xB8, 0xCC, 0x2B, 0x8E, 0xD8, 0x6A, 0x01, 0x6A, 0x01, 0x9A, 0xA0, 0x00}},
++	{musicSeg, musReplay, "replay", []byte{0x55, 0x8B, 0xEC, 0x1E, 0xB8, 0xCC, 0x2B, 0x8E, 0xD8, 0x9A, 0x74, 0x02, 0x2B, 0x19, 0x0B, 0xC0}},
++}
++
++// SoundStats 是掛鉤的計數，只在迴圈停下之後讀。
++type SoundStats struct {
++	Starts, Stops, Fades, SFX, Queries uint64
++	BadSFX                             uint64 // 編號不在 0x32 到 0x3B，或切片表不合
++	MidAddr                            uint32 // 最近一次 MusicStart 複製的 MID 緩衝線性位址（診斷用）
++	SkippedStarts                      uint64 // MID 緩衝與 VGA 視窗相交而略過的 MusicStart 次數（診斷用；實測為 0）
++	Disabled                           string // 非空 ＝ 掛鉤因為這個原因停用
++}
++
++type soundHooks struct {
++	sink  SoundSink
++	logf  func(string, ...any)
++	Stats SoundStats
++	off   bool
++}
++
++func lin(seg, off uint16) uint32 { return uint32(seg)<<4 + uint32(off) }
++
++// newSoundHooks 逐點比對位元組，任何一處不符就回錯誤（失敗即關閉）。
++func newSoundHooks(m *machine.Machine, sink SoundSink, logf func(string, ...any)) (*soundHooks, error) {
++	for _, e := range soundSites {
++		for i, b := range e.pro {
++			if got := m.Peek8(lin(e.seg, e.off) + uint32(i)); got != b {
++				return nil, fmt.Errorf("聲音掛鉤 %s（%04X:%04X）的位元組不符：偏移 %d 是 %02X，應為 %02X（只支援 MAIN.EXE 的特定映像，docs/spec/007）",
++					e.name, e.seg, e.off, i, got, b)
++			}
++		}
++	}
++	return &soundHooks{sink: sink, logf: logf}, nil
++}
++
++func (h *soundHooks) disable(why string) {
++	h.off = true
++	h.Stats.Disabled = why
++	if h.logf != nil {
++		h.logf("聲音掛鉤停用：%s", why)
++	}
++}
++
++// post 在每道指令執行之後、且該指令的起點在 soundSeg 時呼叫（ip 是該指令的起點，用 Machine.Insn 取得）。
++// 用「剛執行完」而不是「即將執行」是因為 Step 開頭的 tick 可能先插入中斷處理，同一個位址會被看到兩次；
++// Insn 是 tick 之後才記下的起點，每次呼叫恰好看到一次。四個進入點的第一道指令都是 push bp（0x55，
++// 位元組檢查已保證），所以此刻 SP 比進入當下少 2：第一個引數在 SS:SP+6。
++func (h *soundHooks) post(m *machine.Machine, ip uint16) {
++	c := m.CPU
++	switch ip {
++	case sndStart, sndStop, sndFade, sndSFX, sndStatus:
++	default:
++		return
++	}
++	if h.off {
++		return
++	}
++	// 旗標不為 0 代表有人注入了驅動環境：函式本體會碰硬體，本掛鉤的前提不成立。
++	if m.Peek16(lin(soundData, dataFlag)) != 0 {
++		h.disable("聲音旗標 3E24:01B8 不為 0")
++		return
++	}
++	switch ip {
++	case sndStatus:
++		// 剛執行完 mov ax,[01BA]；接著是 and ax,1 與返回。把 bit 0 換成 Sink 的回答。
++		h.Stats.Queries++
++		ax := c.R[cpu.AX] &^ 1
++		if h.sink.Playing() {
++			ax |= 1
++		}
++		c.R[cpu.AX] = ax
++	case sndStart:
++		h.Stats.Starts++
++		off := m.Peek16(lin(soundData, dataMidOff))
++		seg := m.Peek16(lin(soundData, dataMidSeg))
++		a := lin(seg, off)
++		h.Stats.MidAddr = a
++		n := uint32(MidWindow)
++		if a >= machine.MemSize {
++			return
++		}
++		if a+n > machine.MemSize {
++			n = machine.MemSize - a
++		}
++		// 範圍與 VGA 視窗（A0000–AFFFF）相交時略過這次複製並計數：平面模式下讀視窗有 latch 副作用，
++		// 掛鉤的觀察不得改變客體狀態，Peek 對視窗只回 0（資料不對）。MID 緩衝實測在 0xD5000，不會走到這裡。
++		if !(a+n <= vgaWindowLo || a >= vgaWindowHi) {
++			h.Stats.SkippedStarts++
++			return
++		}
++		// 區塊複製。EMS 映射是把頁資料複製進頁框位址（internal/dos/ems.go），所以 Mem 就是客體看到的內容；
++		// 也不觸發讀取監看（成本差異見 docs/re/019 第 2 節的量測）。
++		buf := make([]byte, n)
++		copy(buf, m.Mem[a:a+n])
++		h.sink.MusicStart(buf)
++	case sndStop:
++		// 驅動存在（旗標不為 0）時，原版的停止常式會把目前曲號清為 0FFh（docs/re/010 第 2.1 節）；
++		// 旗標為 0 時那一行被跳過，這裡補上，讓節拍與 sub_286C1 的行為與有驅動時一致。
++		h.Stats.Stops++
++		m.Write8(lin(stateSeg, curTrack), noTrack)
++		h.sink.MusicStop()
++	case sndFade:
++		h.Stats.Fades++
++		arg := m.Peek16(lin(c.Seg[cpu.SS], c.R[cpu.SP]+6))
++		h.sink.MusicFade(int(arg & 0xFF))
++	case sndSFX:
++		h.Stats.SFX++
++		id := int(m.Peek16(lin(c.Seg[cpu.SS], c.R[cpu.SP]+6)))
++		if id < sfxFirstID || id > sfxLastID {
++			h.Stats.BadSFX++
++			return
++		}
++		i := uint16(id-sfxFirstID) * 2
++		start := int(m.Peek16(lin(soundData, dataSFXTab+i)))
++		end := int(m.Peek16(lin(soundData, dataSFXTab+i+2)))
++		if end <= start {
++			h.Stats.BadSFX++
++			return
++		}
++		h.sink.SFX(id, start, end)
++	}
++}
++
++// Sound 回傳聲音掛鉤的計數（沒開時為零值）。只在迴圈停下之後讀。
++func (s *Session) Sound() SoundStats {
++	if s.snd == nil {
++		return SoundStats{}
++	}
++	return s.snd.Stats
++}
+diff --git a/apps/hr/runtime/sound_save_test.go b/apps/hr/runtime/sound_save_test.go
+new file mode 100644
+index 0000000..d965c33
+--- /dev/null
++++ b/apps/hr/runtime/sound_save_test.go
+@@ -0,0 +1,121 @@
++package runtime
++
++import (
++	"bytes"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++// 存檔 A/B（docs/re/019 第 7 節、docs/spec/007 第 8 節）：
++// 聲音掛鉤不得改變遊戲寫出的存檔。腳本與 TestSaveGoesToScratchAndLeavesOriginalAlone 相同
++// （讀取槽 0、開系統選單、存入槽 2），分別在「沒有 Sink」與「Playing() 恆假的 Sink」下跑一次。
++// 恆假的 Sink 讓遊戲走和無 Sink 相同的路徑（重複讀 MID），所以兩次的指令軌跡一致，存檔應逐位元相同。
++// 跟隨型 Sink 會讓遊戲少讀檔而改變 tick 數，那是合理的差異，不在這個測試比較。
++
++func saveScenario(t *testing.T, sink SoundSink) (g2, fname []byte, st SoundStats) {
++	t.Helper()
++	root := origRoot(t)
++	saves := t.TempDir()
++	opt := Options{Interval: NativeInterval, SaveDir: saves}
++	if sink != nil {
++		opt.Sound = sink
++	}
++	s, err := Open(root, opt)
++	if err != nil {
++		t.Fatal(err)
++	}
++	click := func(at uint64, x, y int) { // x、y 是 640x480 畫面座標
++		if r := s.RunSteps(at); r.Kind != StopSteps {
++			t.Fatalf("提前停機：%v", r)
++		}
++		s.Input(Event{Kind: EvMouseButton, X: x, Y: y - 40, Btn: 0, Down: true})
++		s.Input(Event{Kind: EvMouseButton, X: x, Y: y - 40, Btn: 0, Down: false})
++	}
++	click(35_000_000, 312, 228)  // 標題：讀取遊戲檔案
++	click(90_000_000, 312, 307)  // 槽 0
++	click(205_000_000, 615, 64)  // 地圖：筆圖示，系統選單
++	click(215_000_000, 560, 130) // 檔案存入
++	click(225_000_000, 312, 341) // 槽 2
++	if r := s.RunSteps(246_000_000); r.Kind != StopSteps {
++		t.Fatalf("提前停機：%v", r)
++	}
++	read := func(name string) []byte {
++		ents, _ := os.ReadDir(saves)
++		for _, e := range ents {
++			if strings.EqualFold(e.Name(), name) {
++				b, err := os.ReadFile(filepath.Join(saves, e.Name()))
++				if err != nil {
++					t.Fatal(err)
++				}
++				return b
++			}
++		}
++		t.Fatalf("暫存層沒有 %s", name)
++		return nil
++	}
++	g2, fname = read("GAMEFILE.002"), read("FNAME.DAT")
++	if sink != nil {
++		st = s.Sound()
++	}
++	return
++}
++
++// diffBytes 回傳兩份資料不同的位移（最多 maxN 個）與長度是否相同。比較器本身由下面的自測驗證。
++func diffBytes(a, b []byte, maxN int) (offs []int, sameLen bool) {
++	sameLen = len(a) == len(b)
++	n := len(a)
++	if len(b) < n {
++		n = len(b)
++	}
++	for i := 0; i < n && len(offs) < maxN; i++ {
++		if a[i] != b[i] {
++			offs = append(offs, i)
++		}
++	}
++	return
++}
++
++// 比較器自測（偵測器要先證明會報警）：翻轉一個位元組必須被找到，長度不同必須被報告。
++func TestSaveDiffDetectorSelfTest(t *testing.T) {
++	a := bytes.Repeat([]byte{0x5A}, 1000)
++	b := append([]byte(nil), a...)
++	if offs, same := diffBytes(a, b, 8); len(offs) != 0 || !same {
++		t.Fatalf("相同資料不該報差異：%v %v", offs, same)
++	}
++	b[617] ^= 0x01
++	if offs, _ := diffBytes(a, b, 8); len(offs) != 1 || offs[0] != 617 {
++		t.Fatalf("翻轉一個位元組必須被找到：%v", offs)
++	}
++	if _, same := diffBytes(a, a[:999], 8); same {
++		t.Fatal("長度不同必須被報告")
++	}
++}
++
++func TestSoundDoesNotChangeSaves(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	gA, fA, _ := saveScenario(t, nil)
++	sink := &fakeSink{}
++	gB, fB, st := saveScenario(t, sink)
++	if st.Starts == 0 || st.Queries == 0 {
++		t.Fatalf("掛鉤開著卻沒有觀察到呼叫，測試沒有鑑別力：%+v", st)
++	}
++	if len(gA) == 0 || len(fA) == 0 {
++		t.Fatal("存檔是空的")
++	}
++	for _, c := range []struct {
++		name string
++		a, b []byte
++	}{{"GAMEFILE.002", gA, gB}, {"FNAME.DAT", fA, fB}} {
++		offs, same := diffBytes(c.a, c.b, 16)
++		if !same || len(offs) != 0 {
++			t.Errorf("%s 不同：長度 %d 對 %d，前幾個不同位移 %s", c.name, len(c.a), len(c.b), fmt.Sprint(offs))
++		}
++	}
++	t.Logf("存檔 A/B：GAMEFILE.002 %d bytes、FNAME.DAT %d bytes 逐位元相同；B 的 Starts=%d Stops=%d Fades=%d SFX=%d Queries=%d",
++		len(gA), len(fA), st.Starts, st.Stops, st.Fades, st.SFX, st.Queries)
++}
+diff --git a/apps/hr/runtime/sound_test.go b/apps/hr/runtime/sound_test.go
+new file mode 100644
+index 0000000..460088a
+--- /dev/null
++++ b/apps/hr/runtime/sound_test.go
+@@ -0,0 +1,572 @@
++package runtime
++
++import (
++	"bytes"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/apps/hr/sound"
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// fakeSink 記錄遊戲對聲音常式的呼叫。
++//   - follow ＝ false：Playing() 恆回答 fixed（正對照用：恆假等於原版旗標 0 的行為；恆真等於卡住的驅動）。
++//   - follow ＝ true：像真的引擎，Start 後為真，Stop 或 Fade 後為假，外部可用 setPlaying 模擬曲子自然結束。
++type fakeSink struct {
++	mu      sync.Mutex
++	follow  bool
++	fixed   bool
++	playing bool
++	starts  [][]byte
++	stops   int
++	fades   []int
++	sfx     [][3]int
++	log     []string // 事件順序：start、stop、fade、sfx
++	discard bool     // 不保留資料與日誌（效能量測用，免得保留 20 KB 複本拖累 GC）
++	queries int
++}
++
++func (f *fakeSink) MusicStart(mid []byte) {
++	f.mu.Lock()
++	if !f.discard {
++		f.starts = append(f.starts, mid)
++		f.log = append(f.log, "start")
++	}
++	f.playing = true
++	f.mu.Unlock()
++}
++func (f *fakeSink) MusicStop() {
++	f.mu.Lock()
++	f.stops++
++	f.playing = false
++	f.log = append(f.log, "stop")
++	f.mu.Unlock()
++}
++func (f *fakeSink) MusicFade(n int) {
++	f.mu.Lock()
++	f.fades = append(f.fades, n)
++	f.log = append(f.log, "fade")
++	f.playing = false
++	f.mu.Unlock()
++}
++func (f *fakeSink) SFX(id, start, end int) {
++	f.mu.Lock()
++	f.sfx = append(f.sfx, [3]int{id, start, end})
++	f.log = append(f.log, "sfx")
++	f.mu.Unlock()
++}
++func (f *fakeSink) Playing() bool {
++	f.mu.Lock()
++	defer f.mu.Unlock()
++	f.queries++
++	if f.follow {
++		return f.playing
++	}
++	return f.fixed
++}
++func (f *fakeSink) setPlaying(v bool) { f.mu.Lock(); f.playing = v; f.mu.Unlock() }
++func (f *fakeSink) nStarts() int      { f.mu.Lock(); defer f.mu.Unlock(); return len(f.starts) }
++
++// 不需要原版：直接對一台空機器呼叫 post，驗證引數解碼。
++func TestSoundPostDecodesArguments(t *testing.T) {
++	m := machine.New()
++	sink := &fakeSink{}
++	h := &soundHooks{sink: sink}
++	const ss, sp = 0x5000, 0x1000
++	m.CPU.Seg[cpu.SS], m.CPU.R[cpu.SP] = ss, sp
++	// 進入點第一道指令 push bp 已執行：第一個引數在 SS:SP+6
++	arg := lin(ss, sp+6)
++
++	// 淡出：只取低位元組
++	m.Write16(arg, 0x0301)
++	h.post(m, sndFade)
++	if len(sink.fades) != 1 || sink.fades[0] != 1 {
++		t.Fatalf("fades=%v，應為 [1]（只取低位元組）", sink.fades)
++	}
++
++	// 停止：交給 Sink，並把目前曲號 2BCC:0223 清為 0FFh（有驅動時原版的行為）
++	m.Write8(lin(stateSeg, curTrack), 14)
++	h.post(m, sndStop)
++	if sink.stops != 1 {
++		t.Fatalf("stops=%d", sink.stops)
++	}
++	if got := m.Read8(lin(stateSeg, curTrack)); got != noTrack {
++		t.Fatalf("停止後目前曲號是 %#x，應為 0xFF", got)
++	}
++
++	// 音效：切片表在 3E24:0008
++	for i, v := range []uint16{0, 500, 1800, 2900, 5700, 7800, 8700, 11000, 14100, 16600, 18300} {
++		m.Write16(lin(soundData, dataSFXTab+uint16(2*i)), v)
++	}
++	for id, want := range map[uint16][2]int{0x32: {0, 500}, 0x33: {500, 1800}, 0x3B: {16600, 18300}} {
++		m.Write16(arg, id)
++		h.post(m, sndSFX)
++		got := sink.sfx[len(sink.sfx)-1]
++		if got != [3]int{int(id), want[0], want[1]} {
++			t.Fatalf("id %#x：得到 %v，應為 %v", id, got, want)
++		}
++	}
++	n := len(sink.sfx)
++	for _, bad := range []uint16{0, 0x31, 0x3C, 0xFFFF} { // 負對照：範圍外的編號
++		m.Write16(arg, bad)
++		h.post(m, sndSFX)
++	}
++	if len(sink.sfx) != n || h.Stats.BadSFX != 4 {
++		t.Fatalf("範圍外的編號不該送出：sfx=%d bad=%d", len(sink.sfx), h.Stats.BadSFX)
++	}
++	m.Write16(lin(soundData, dataSFXTab+2), 0) // 切片表壞掉（終點不大於起點）
++	m.Write16(arg, 0x32)
++	h.post(m, sndSFX)
++	if len(sink.sfx) != n || h.Stats.BadSFX != 5 {
++		t.Fatalf("終點不大於起點的切片不該送出：sfx=%d bad=%d", len(sink.sfx), h.Stats.BadSFX)
++	}
++
++	// 開始：從 3E24:01CE:01CC 讀 MidWindow bytes
++	mid := []byte("MThd\x00\x00\x00\x06\x00\x01\x00\x01\x00\x30MTrk\x00\x00\x00\x04\x00\xff\x2f\x00")
++	const mseg, moff = 0xD000, 0x5000
++	m.Write16(lin(soundData, dataMidSeg), mseg)
++	m.Write16(lin(soundData, dataMidOff), moff)
++	for i, b := range mid {
++		m.Write8(lin(mseg, moff)+uint32(i), b)
++	}
++	h.post(m, sndStart)
++	if len(sink.starts) != 1 || len(sink.starts[0]) != MidWindow || !bytes.HasPrefix(sink.starts[0], mid) {
++		t.Fatalf("MusicStart 的資料不對：%d 筆，長度 %d", len(sink.starts), len(sink.starts[0]))
++	}
++	// 交出的是複本：之後緩衝被覆寫不影響已交出的資料
++	m.Write8(lin(mseg, moff), 'X')
++	if sink.starts[0][0] != 'M' {
++		t.Fatal("MusicStart 交出的不是複本")
++	}
++	// 緩衝緊貼記憶體尾端時截短，不越界
++	m.Write16(lin(soundData, dataMidSeg), 0xFFF0)
++	m.Write16(lin(soundData, dataMidOff), 0x000F)
++	h.post(m, sndStart)
++	if got := len(sink.starts[1]); got != machine.MemSize-int(lin(0xFFF0, 0x000F)) {
++		t.Fatalf("尾端緩衝長度 %d", got)
++	}
++	if h.Stats.SkippedStarts != 0 {
++		t.Fatalf("D000:5000 與 FFF0:000F 都不與 VGA 視窗相交，SkippedStarts 應為 0，得到 %d", h.Stats.SkippedStarts)
++	}
++
++	// 與 VGA 視窗（A0000–AFFFF）相交的緩衝：略過這次 MusicStart 並計數，不用有 latch 副作用的讀取。
++	// 控制組：同一位址範圍若用 Peek8 讀會得到 0（視窗不在線性記憶體），所以不略過就會交出錯的資料。
++	for _, c := range []struct{ seg, off uint16 }{{0xA000, 0xF000}, {0xA000, 0x0000}, {0x9FFF, 0xFFF0}} {
++		before := len(sink.starts)
++		m.Write16(lin(soundData, dataMidSeg), c.seg)
++		m.Write16(lin(soundData, dataMidOff), c.off)
++		skipped := h.Stats.SkippedStarts
++		h.post(m, sndStart)
++		if len(sink.starts) != before || h.Stats.SkippedStarts != skipped+1 {
++			t.Fatalf("%04X:%04X 與 VGA 視窗相交：應略過並計數，starts %d→%d，SkippedStarts %d→%d",
++				c.seg, c.off, before, len(sink.starts), skipped, h.Stats.SkippedStarts)
++		}
++	}
++	// 緊貼視窗但不相交的緩衝仍然複製：9B1E:0000 起 0x4E20 bytes 剛好結束在 A0000（視窗之下），
++	// B000:0000 起從視窗上緣開始（視窗之上）。
++	for _, c := range []struct{ seg, off uint16 }{{0x9B1E, 0x0000}, {0xB000, 0x0000}} {
++		before := len(sink.starts)
++		m.Write16(lin(soundData, dataMidSeg), c.seg)
++		m.Write16(lin(soundData, dataMidOff), c.off)
++		h.post(m, sndStart)
++		if len(sink.starts) != before+1 || len(sink.starts[before]) != MidWindow {
++			t.Fatalf("%04X:%04X 與視窗不相交，應複製 %#x bytes", c.seg, c.off, MidWindow)
++		}
++	}
++}
++
++// 狀態讀取：只改 AX 的 bit 0，不寫遊戲記憶體（3E24:01BA 永遠是 0，狀態檔不帶聲音狀態）。
++func TestSoundStatusPatchesAXOnly(t *testing.T) {
++	m := machine.New()
++	sink := &fakeSink{fixed: true}
++	h := &soundHooks{sink: sink}
++	a := lin(soundData, 0x01BA)
++	m.Write16(a, 0)
++	for _, tc := range []struct {
++		playing    bool
++		before, ax uint16
++	}{
++		{true, 0x0000, 0x0001}, {false, 0x0001, 0x0000}, {true, 0xFFFE, 0xFFFF}, {false, 0xFFFF, 0xFFFE}, {false, 0, 0},
++	} {
++		sink.fixed = tc.playing
++		m.CPU.R[cpu.AX] = tc.before
++		h.post(m, sndStatus)
++		if got := m.CPU.R[cpu.AX]; got != tc.ax {
++			t.Fatalf("playing=%v AX %04X → %04X，應為 %04X", tc.playing, tc.before, got, tc.ax)
++		}
++	}
++	if m.Read16(a) != 0 {
++		t.Fatal("掛鉤不得寫遊戲的狀態字 3E24:01BA")
++	}
++}
++
++func TestSoundHooksIgnoreNonEntries(t *testing.T) {
++	m := machine.New()
++	sink := &fakeSink{}
++	h := &soundHooks{sink: sink}
++	for _, ip := range []uint16{0x0000, 0x0011, 0x0062, 0x00A1, 0x0120, 0x0274, 0x0275, 0x02C8, 0x02CA, 0x059B, 0x0FFF} {
++		h.post(m, ip)
++	}
++	if sink.queries+sink.stops+len(sink.fades)+len(sink.sfx)+len(sink.starts) != 0 || h.Stats.Queries != 0 {
++		t.Fatal("非掛鉤位址不該觸發任何動作")
++	}
++}
++
++func TestSoundDisabledWhenFlagNonzero(t *testing.T) {
++	m := machine.New()
++	sink := &fakeSink{}
++	h := &soundHooks{sink: sink}
++	m.Write16(lin(soundData, dataFlag), 1) // 有人注入了驅動環境
++	h.post(m, sndStop)
++	h.post(m, sndStatus)
++	if h.Stats.Disabled == "" || sink.stops != 0 || sink.queries != 0 {
++		t.Fatalf("旗標不為 0 時應停用：Disabled=%q stops=%d queries=%d", h.Stats.Disabled, sink.stops, sink.queries)
++	}
++	m.Write16(lin(soundData, dataFlag), 0)
++	h.post(m, sndStop)
++	if sink.stops != 0 {
++		t.Fatal("停用後即使旗標回到 0 也不再動作（避免半套行為）")
++	}
++}
++
++// 位元組不符時要失敗（失敗即關閉）：只對原版映像成立。每個檢查點都要能單獨觸發失敗。
++func TestSoundHooksFailClosedOnBytes(t *testing.T) {
++	s, err := Open(origRoot(t), Options{Interval: NativeInterval})
++	if err != nil {
++		t.Fatal(err)
++	}
++	m := s.Machine()
++	if _, err := newSoundHooks(m, &fakeSink{}, nil); err != nil {
++		t.Fatalf("原版映像應通過比對：%v", err)
++	}
++	for _, e := range soundSites {
++		a := lin(e.seg, e.off) + uint32(len(e.pro)-1) // 改最後一個被比對的位元組
++		old := m.Read8(a)
++		m.Write8(a, old^0xFF)
++		_, err := newSoundHooks(m, &fakeSink{}, nil)
++		m.Write8(a, old)
++		if err == nil || !strings.Contains(err.Error(), e.name) {
++			t.Fatalf("%s 的位元組被改後應失敗並點名，得到 %v", e.name, err)
++		}
++	}
++	// 正常映像加 Sound 要能開啟（Open 路徑確實呼叫 newSoundHooks 並通過比對）
++	if _, err := Open(origRoot(t), Options{Interval: NativeInterval, Sound: &fakeSink{}}); err != nil {
++		t.Fatalf("正常映像加 Sound 應能開啟：%v", err)
++	}
++}
++
++func scoutMID(t *testing.T) []byte {
++	t.Helper()
++	b, err := os.ReadFile(filepath.Join(origRoot(t), "SCOUT.MID"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	return b
++}
++
++// 同狀態 A/B：Sink 存在但 Playing() 恆為假時，機器狀態必須與沒有 Sink 逐位元相同
++// （掛鉤只觀察；狀態讀取把 AX bit 0 改成 0 與遊戲原本的 0 相同；本路徑沒有呼叫停止常式）。
++func TestSoundHooksDoNotChangeTheGame(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	off := coldNewGame(t, Options{})
++	sink := &fakeSink{}
++	on := coldNewGame(t, Options{Sound: sink})
++	if a, b := pngHash(t, off), pngHash(t, on); a != b {
++		t.Fatalf("畫面不同：關 %s，開 %s", a, b)
++	}
++	a, b := off.Machine(), on.Machine()
++	st := on.Sound()
++	if st.Stops != 0 {
++		t.Skipf("本路徑呼叫了停止常式（%d 次），它會寫 2BCC:0223，狀態不再逐位元相同", st.Stops)
++	}
++	if a.Steps != b.Steps || a.CPU.IP != b.CPU.IP || a.CPU.Seg != b.CPU.Seg || a.CPU.R != b.CPU.R || !bytes.Equal(a.Mem, b.Mem) {
++		t.Fatal("CPU 或記憶體狀態不同")
++	}
++	if st.Starts == 0 || st.Queries == 0 {
++		t.Fatalf("掛鉤開著卻沒有觀察到呼叫：%+v", st)
++	}
++	t.Logf("90M 步：Starts=%d Stops=%d Fades=%d SFX=%d Queries=%d BadSFX=%d MidAddr=%#x SkippedStarts=%d", st.Starts, st.Stops, st.Fades, st.SFX, st.Queries, st.BadSFX, st.MidAddr, st.SkippedStarts)
++	want := scoutMID(t)
++	if len(sink.starts) == 0 || !bytes.HasPrefix(sink.starts[0], want) {
++		t.Fatalf("第一次 MusicStart 不是 SCOUT.MID（%d 筆）", len(sink.starts))
++	}
++}
++
++func runSteps(t *testing.T, opt Options, n uint64) *Session {
++	t.Helper()
++	opt.Interval = NativeInterval
++	s, err := Open(origRoot(t), opt)
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.nextTrim = ^uint64(0) // 不清診斷紀錄：下面用 DOS 層的開檔記錄當獨立 oracle
++	if st := s.RunSteps(n); st.Kind != StopSteps {
++		t.Fatal(st.Msg)
++	}
++	return s
++}
++
++// 播放中不重載。三種 Sink：
++//   - 恆假（等同原版旗標 0 的行為，docs/re/010 第 4.2 節）：30M 步內反覆重載 MID（反對照，證明偵測有作用）；
++//   - 跟隨（像真的引擎）：只有開機的一次 MusicStart；
++//   - 恆真（卡住的驅動，docs/re/010 H3）：PlayMusic 在淡出後的等待迴圈出不來，連一次 MusicStart 都沒有（正對照）。
++func TestSoundPlayingSuppressesReload(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	neverS := runSteps(t, Options{Sound: &fakeSink{}}, 30_000_000)
++	never := neverS.Sound().Starts
++	followSink := &fakeSink{follow: true}
++	follow := runSteps(t, Options{Sound: followSink}, 30_000_000)
++	// 獨立 oracle：DOS 檔案層實際開過 SCOUT.MID 的次數，必須等於掛鉤看到的 MusicStart 次數
++	// （開檔由 192B:059B 的 fread 前置完成，與掛鉤的觀察點不同；docs/re/010 第 5 節 E0b 另有 1706 次的獨立收據）。
++	opens := func(s *Session) (n uint64) {
++		for _, name := range s.DOS().Opened {
++			if strings.EqualFold(filepath.Base(strings.ReplaceAll(name, `\`, "/")), "SCOUT.MID") {
++				n++
++			}
++		}
++		return
++	}
++	if got := opens(neverS); got != never {
++		t.Fatalf("DOS 層開過 SCOUT.MID %d 次，掛鉤看到 MusicStart %d 次，兩者應相等", got, never)
++	}
++	if got := opens(follow); got != 1 {
++		t.Fatalf("跟隨型 Sink：DOS 層開過 SCOUT.MID %d 次，應為 1", got)
++	}
++	stuckSink := &fakeSink{fixed: true}
++	stuck := runSteps(t, Options{Sound: stuckSink}, 30_000_000)
++	t.Logf("30M 步 MusicStart：恆假 %d 次，跟隨 %d 次，恆真 %d 次；恆真時 CS:IP ＝ %04X:%04X", never, follow.Sound().Starts, stuck.Sound().Starts,
++		stuck.Machine().CPU.Seg[cpu.CS], stuck.Machine().CPU.IP)
++	if never < 50 {
++		t.Fatalf("恆假（反對照）應反覆重載，只有 %d 次：偵測器沒有作用", never)
++	}
++	if got := follow.Sound().Starts; got != 1 {
++		t.Fatalf("跟隨型 Sink 應只有開機的一次，得到 %d", got)
++	}
++	if got := stuck.Sound().Starts; got != 0 {
++		t.Fatalf("恆真（卡住的驅動）時遊戲應卡在 PlayMusic 的等待迴圈，卻看到 %d 次 MusicStart", got)
++	}
++	if cs := stuck.Machine().CPU.Seg[cpu.CS]; cs != musicSeg && cs != soundSeg {
++		t.Fatalf("恆真時 CS ＝ %04X，應停在 PlayMusic（%04X）或聲音常式（%04X）", cs, musicSeg, soundSeg)
++	}
++	if len(followSink.fades) == 0 {
++		t.Fatal("開機的 PlayMusic 應先呼叫淡出")
++	}
++}
++
++// 曲子自然結束後遊戲自己重播同一首：跟隨型 Sink 在開機後讓 Playing 變假，
++// 遊戲要在有限步數內再次 MusicStart，資料仍是 SCOUT.MID。
++func TestSoundNaturalEndReplays(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	sink := &fakeSink{follow: true}
++	opt := Options{Interval: NativeInterval, Sound: sink}
++	s, err := Open(origRoot(t), opt)
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.RunSteps(5_000_000)
++	if sink.nStarts() != 1 {
++		t.Fatalf("開機後應只有一次 MusicStart，得到 %d", sink.nStarts())
++	}
++	sink.setPlaying(false) // 曲子自然結束
++	s.RunSteps(20_000_000)
++	if sink.nStarts() < 2 {
++		t.Fatalf("曲子結束後遊戲沒有重播：%d 次 MusicStart", sink.nStarts())
++	}
++	want := scoutMID(t)
++	for i, b := range sink.starts {
++		if !bytes.HasPrefix(b, want) {
++			t.Fatalf("第 %d 次 MusicStart 不是 SCOUT.MID", i+1)
++		}
++	}
++}
++
++// 換曲路徑（docs/spec/007 第 7 節）：用長跑取樣的狀態檔（遊戲停在標題後的畫面，目前曲號 14，
++// 無 Sink 時 PlayMusic(14) 被反覆呼叫）。載入後 PlayMusic 的順序必須是淡出、開始，
++// 開始的資料是 NATIONAL.MID；之後（跟隨型 Sink 回報播放中）不再重載。缺狀態檔 skip。
++func TestSoundPlayMusicPathFromState(t *testing.T) {
++	p := os.Getenv("HR_SOAK_STATE")
++	if p == "" {
++		t.Skip("沒有設 HR_SOAK_STATE")
++	}
++	if _, err := os.Stat(p); err != nil {
++		t.Skipf("狀態檔不存在：%v", err)
++	}
++	root := origRoot(t)
++	want, err := os.ReadFile(filepath.Join(root, "NATIONAL.MID"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	sink := &fakeSink{follow: true}
++	s, err := Open(root, Options{Interval: NativeInterval, Sound: sink})
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.nextTrim = ^uint64(0)
++	s.RunSteps(1_000_000)
++	if err := state.Load(p, s.m, s.d); err != nil {
++		t.Fatal(err)
++	}
++	if got := s.m.Read8(lin(stateSeg, curTrack)); got != 14 {
++		t.Skipf("狀態檔的目前曲號是 %d，不是 14", got)
++	}
++	sink.mu.Lock()
++	sink.log, sink.starts, sink.fades = nil, nil, nil
++	sink.playing = false // 載入的狀態沒有「正在播放」的曲子（開機時 Sink 回報的播放中是舊的）
++	sink.mu.Unlock()
++	s.RunSteps(s.m.Steps + 5_000_000)
++	sink.mu.Lock()
++	defer sink.mu.Unlock()
++	var order []string // 音效（點擊音）可能穿插，順序只看音樂事件
++	for _, e := range sink.log {
++		if e != "sfx" {
++			order = append(order, e)
++		}
++	}
++	if len(order) < 2 || order[0] != "fade" || order[1] != "start" {
++		t.Fatalf("PlayMusic 的音樂事件順序 %v，應以 [fade start] 開頭（全部事件 %v）", order, sink.log)
++	}
++	if !bytes.HasPrefix(sink.starts[0], want) {
++		t.Fatal("換曲後的 MusicStart 不是 NATIONAL.MID")
++	}
++	if n := len(sink.starts); n != 1 {
++		t.Fatalf("跟隨型 Sink 回報播放中之後不該再重載，得到 %d 次 MusicStart（事件 %v）", n, sink.log)
++	}
++	if got := s.m.Read8(lin(stateSeg, curTrack)); got != 14 {
++		t.Fatalf("PlayMusic 結束後目前曲號是 %d，應為 14", got)
++	}
++}
++
++// 診斷與機器人存下的狀態檔不帶聲音狀態：Sink 開啟時存的狀態，3E24:01BA 是 0；
++// 無 Sink 載入後，遊戲在有限步數內離開 PlayMusic 的等待迴圈（會呼叫 059B 重讀 MID），不卡住。
++func TestSoundStateFilesAreClean(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	sink := &fakeSink{follow: true}
++	s := runSteps(t, Options{Sound: sink}, 20_000_000) // 開機後 Sink 回報播放中的狀態
++	if sink.nStarts() != 1 {
++		t.Fatalf("前提不成立：開機後 MusicStart %d 次", sink.nStarts())
++	}
++	if got := s.m.Read16(lin(soundData, 0x01BA)); got != 0 {
++		t.Fatalf("Sink 開啟時 3E24:01BA ＝ %#x，應為 0（掛鉤不寫它）", got)
++	}
++	path := filepath.Join(t.TempDir(), "sound-on.state")
++	if err := state.Save(path, s.m, s.d); err != nil {
++		t.Fatal(err)
++	}
++	// 無 Sink 載入並繼續跑：第一次 PlayMusic（059B 讀檔）必須發生，而且之後遊戲仍在前進
++	bare, err := Open(origRoot(t), Options{Interval: NativeInterval})
++	if err != nil {
++		t.Fatal(err)
++	}
++	bare.nextTrim = ^uint64(0)
++	bare.RunSteps(1_000_000)
++	if err := state.Load(path, bare.m, bare.d); err != nil {
++		t.Fatal(err)
++	}
++	opened := len(bare.d.Opened)
++	bare.RunSteps(bare.m.Steps + 10_000_000)
++	if len(bare.d.Opened) == opened {
++		t.Fatal("無 Sink 載入後 10M 步沒有任何開檔：遊戲卡在 PlayMusic 的等待迴圈（狀態檔帶了聲音狀態？）")
++	}
++	if cs := bare.m.CPU.Seg[cpu.CS]; cs == soundSeg && bare.m.CPU.IP >= 0x0274 && bare.m.CPU.IP <= 0x02D1 {
++		t.Logf("提示：此刻 CS:IP 在 0274 內（%04X:%04X），但有開檔表示遊戲仍在前進", cs, bare.m.CPU.IP)
++	}
++}
++
++// 轉送給引擎並記下每次 MusicStart 當下的客體 tick 數。
++type spySink struct {
++	eng    *sound.Engine
++	ticks  func() uint64
++	startT []uint64
++	want   []byte // 非空時，檢查每次 MusicStart 的資料以它開頭
++	bad    int
++}
++
++func (p *spySink) MusicStart(mid []byte) {
++	p.startT = append(p.startT, p.ticks())
++	if len(p.want) > 0 && !bytes.HasPrefix(mid, p.want) {
++		p.bad++
++	}
++	p.eng.MusicStart(mid)
++}
++func (p *spySink) MusicStop()       { p.eng.MusicStop() }
++func (p *spySink) MusicFade(n int)  { p.eng.MusicFade(n) }
++func (p *spySink) SFX(id, s, e int) { p.eng.SFX(id, s, e) }
++func (p *spySink) Playing() bool    { return p.eng.Playing() }
++
++// Engine 加 Session 的整合：以模擬速率餵引擎取樣（每個遊戲秒餵 44100 個取樣框，等同牆鐘拉取者追上遊戲時鐘），
++// 開機的 SCOUT.MID（約 36.4 秒）播完後，遊戲必須自己重播，連續三次 MusicStart。
++//   - 第 1 至 2 次相隔只驗證「曲末後遊戲自行重播」：開機時引擎沒有目前曲，第一首立即出聲，Z1 的假淡出看不到。
++//   - 第 2 至 3 次相隔才驗證 Z1（曲末後、尾音還在唱時的淡出必須是空操作）：若引擎把曲末後的淡出當成真的，
++//     第二首要晚約 0.71 秒才出聲，它的 SongDone 與 Playing()==false 跟著晚，第三次 MusicStart 因此晚約 0.71 秒。
++//     容差 0.35 遊戲秒（每批 1M 步約 0.18 遊戲秒的量化加一個 tick 的重播延遲）小於 0.71，所以拿掉修正會失敗。
++//     突變驗證記在 docs/re/019。
++func TestSoundEngineSessionIntegration(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	root := origRoot(t)
++	want, err := os.ReadFile(filepath.Join(root, "SCOUT.MID"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	song, err := sound.ParseSMF(want)
++	if err != nil {
++		t.Fatal(err)
++	}
++	eng := sound.NewEngine()
++	eng.SetMute(true)
++	spy := &spySink{eng: eng, want: want}
++	s, err := Open(root, Options{Interval: DefaultInterval, Sound: spy})
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.nextTrim = ^uint64(0)
++	spy.ticks = func() uint64 { return s.m.Ticks }
++	buf := make([]byte, 4*sound.SampleRate)
++	var fed float64
++	for float64(s.m.Ticks)/TickHz < 150 && len(spy.startT) < 3 {
++		s.RunSteps(s.m.Steps + 1_000_000)
++		now := float64(s.m.Ticks) / TickHz
++		for fed < now {
++			d := now - fed
++			if d > 1 {
++				d = 1
++			}
++			frames := int(d * sound.SampleRate)
++			if frames > 0 {
++				eng.Read(buf[:4*frames])
++			}
++			fed += d
++		}
++	}
++	if len(spy.startT) < 3 {
++		t.Fatalf("150 遊戲秒內只有 %d 次 MusicStart：曲末後遊戲沒有連續重播", len(spy.startT))
++	}
++	at := func(i int) float64 { return float64(spy.startT[i]) / TickHz }
++	dur := song.Seconds()
++	gap12, gap23 := at(1)-at(0), at(2)-at(1)
++	t.Logf("MusicStart 在遊戲秒 %.2f、%.2f、%.2f；相隔 %.2f 與 %.2f；SCOUT.MID 曲長 %.2f 秒", at(0), at(1), at(2), gap12, gap23, dur)
++	const tol = 0.35
++	for i, g := range []float64{gap12, gap23} {
++		if g < dur-tol || g > dur+tol {
++			t.Errorf("第 %d 至 %d 次 MusicStart 相隔 %.2f 遊戲秒，應在曲長 %.2f 的正負 %.2f 內", i+1, i+2, g, dur, tol)
++		}
++	}
++	// 每次 MusicStart 的資料都是 SCOUT.MID（Sink 收到的是 0x4E20 位元組的緩衝複本，前綴即檔案內容）
++	if spy.bad != 0 {
++		t.Errorf("%d 次 MusicStart 的資料不是以 SCOUT.MID 開頭", spy.bad)
++	}
++}
+diff --git a/apps/hr/sound/engine.go b/apps/hr/sound/engine.go
+new file mode 100644
+index 0000000..ca2de87
+--- /dev/null
++++ b/apps/hr/sound/engine.go
+@@ -0,0 +1,313 @@
++package sound
++
++import (
++	"math"
++	"sync/atomic"
++)
++
++// TickHz 是遊戲計時器（INT 1Ch）的名目頻率：PIT 通道 0 在預設分頻 65536 時 1193182 ÷ 65536 Hz
++// （dosgolem 的 internal/machine/pit.go 的 PITDefaultDivisor；與 runtime.TickHz 同值，各包各存一份以免互相依賴）。
++const TickHz = 18.2065
++
++// FadeSeconds 回傳 MusicFade(n) 的淡出長度（秒）。原版（有驅動、旗標為 1）的淡出是 13 級階梯，
++// 每級要等計時器 0Eh 歸零；INT 1Ch 處理常式每 tick 對每個非 0 計時器減 3（docs/re/018 第 4 節），
++// 所以每級 ceil(2n/3) 個 tick，總長 13 × ceil(2n/3) ÷ TickHz。n ＝ 1 時約 0.71 秒。
++// 等級：強推論（真機的 INT 1Ch 頻率沒有驗證）。
++func FadeSeconds(n int) float64 {
++	if n < 1 {
++		n = 1
++	}
++	return 13 * math.Ceil(2*float64(n)/3) / TickHz
++}
++
++const (
++	chunkFrames = 1024
++	sfxGain     = 0.5
++	pcmRate     = 8000
++	cmdQueue    = 64
++)
++
++type cmdKind uint8
++
++const (
++	cStart cmdKind = iota + 1
++	cStop
++	cFade
++	cSFX
++)
++
++type command struct {
++	kind  cmdKind
++	r     *Renderer
++	epoch uint64
++	n     int
++	pcm   []byte
++}
++
++// Engine 把音樂（SMF 合成）與音效（8 位元 PCM 切片）混成立體聲 16 位元小端串流。
++//
++// 執行緒模型：MusicStart、MusicStop、MusicFade、SFX、Playing 由模擬執行緒呼叫（同一時間一個呼叫者）；
++// Read 由唯一的拉取者呼叫（音訊裝置的回呼，或裝置不可用時的牆鐘拉取執行緒）。兩邊只透過一個有界命令佇列
++// 與一個原子狀態字溝通，沒有鎖；Read 不配置記憶體。
++//
++// 「正在播放」的時鐘是拉取者的取樣時鐘：自然結束發生在 Read 渲染到曲末時。所以拉取者必須以牆鐘速度持續呼叫
++// Read，即使裝置不可用或靜音（docs/spec/007 第 5 節）。
++type Engine struct {
++	cmds  chan command
++	state atomic.Uint64 // 世代 << 1 ｜ 播放中；模擬端每個命令遞增世代，音訊端只以 CAS 在世代不變時結束
++	epoch uint64        // 只有模擬端使用
++	mute  atomic.Bool
++	pcm   atomic.Pointer[[]byte]
++	// Log 非空時，被忽略的事件在這裡回報（解析失敗、音效編號不合、命令佇列滿）。呼叫端負責限速。
++	Log func(format string, args ...any)
++
++	// 以下只有 Read 的執行緒使用
++	cur       *Renderer
++	curEpoch  uint64
++	tail      [3]*Renderer
++	fading    bool
++	fadeLeft  uint64
++	fadeTotal uint64
++	pending   *Renderer
++	pendEpoch uint64
++	sfxData   []byte
++	sfxPos    float64
++	sfxOn     bool
++	tmp, mix  []float32
++}
++
++// NewEngine 建立引擎。
++func NewEngine() *Engine {
++	return &Engine{cmds: make(chan command, cmdQueue), tmp: make([]float32, chunkFrames), mix: make([]float32, chunkFrames)}
++}
++
++func (e *Engine) logf(format string, args ...any) {
++	if e.Log != nil {
++		e.Log(format, args...)
++	}
++}
++
++// SetPCM 交入 SOUND_E.PCM 的整個檔案位元組（8 位元無號、8000 Hz）。要在第一次 SFX 之前呼叫。
++func (e *Engine) SetPCM(b []byte) { e.pcm.Store(&b) }
++
++// SetMute 切換靜音：引擎照常推進，只是輸出填 0。
++func (e *Engine) SetMute(m bool) { e.mute.Store(m) }
++
++// Muted 回報是否靜音。
++func (e *Engine) Muted() bool { return e.mute.Load() }
++
++func (e *Engine) send(c command) {
++	select {
++	case e.cmds <- c:
++	default:
++		e.logf("聲音命令佇列已滿（拉取者停滯？），丟棄一個命令（種類 %d）", c.kind)
++		if c.kind == cStart {
++			// 開始命令被丟掉：不能讓狀態字一直說「播放中」（沒有人會把它結束，遊戲會永遠不重播）。
++			e.epoch++
++			e.state.Store(e.epoch << 1)
++		}
++	}
++}
++
++// MusicStart 開始播放 mid（遊戲 MID 緩衝的複本，後面可能帶有前一首的殘餘，依 SMF 結構取有效長度）。
++// 解析失敗時忽略並回報，狀態不變。淡出尚未結束時，新曲排到淡出結束後。
++func (e *Engine) MusicStart(mid []byte) {
++	song, err := ParseSMF(mid)
++	if err != nil {
++		e.logf("MusicStart 忽略：%v", err)
++		return
++	}
++	e.epoch++
++	e.state.Store(e.epoch<<1 | 1)
++	e.send(command{kind: cStart, r: NewRenderer(song), epoch: e.epoch})
++}
++
++// MusicStop 立即停止（不淡出），並取消排隊中的曲子。
++func (e *Engine) MusicStop() {
++	e.epoch++
++	e.state.Store(e.epoch << 1)
++	e.send(command{kind: cStop, epoch: e.epoch})
++}
++
++// MusicFade 開始淡出目前的曲子，長度 FadeSeconds(n) 秒。沒有曲子在播時沒有作用；已在淡出中則忽略；
++// 排隊中的曲子被丟棄。呼叫後 Playing() 立即為假（遊戲的 PlayMusic 迴圈不可阻塞）。
++func (e *Engine) MusicFade(n int) {
++	e.epoch++
++	e.state.Store(e.epoch << 1)
++	e.send(command{kind: cFade, n: n, epoch: e.epoch})
++}
++
++// SFX 播放 PCM 檔的 [start, end) 切片，取代尚未播完的舊音效。範圍不合時忽略並回報。
++func (e *Engine) SFX(id, start, end int) {
++	p := e.pcm.Load()
++	if p == nil || start < 0 || end <= start || end > len(*p) {
++		n := 0
++		if p != nil {
++			n = len(*p)
++		}
++		e.logf("SFX 忽略：id %#x 的切片 [%d,%d) 不在 PCM（%d bytes）內", id, start, end, n)
++		return
++	}
++	e.send(command{kind: cSFX, pcm: (*p)[start:end]})
++}
++
++// Playing 回報音樂是否「正在播放」：已排隊的新曲算播放中；淡出與停止立即算已停；曲子到達曲末算已停。
++func (e *Engine) Playing() bool { return e.state.Load()&1 == 1 }
++
++// --- 以下只在 Read 的執行緒 ---
++
++func (e *Engine) drain() {
++	for {
++		select {
++		case c := <-e.cmds:
++			e.apply(c)
++		default:
++			return
++		}
++	}
++}
++
++func (e *Engine) apply(c command) {
++	switch c.kind {
++	case cStart:
++		if e.fading {
++			e.pending, e.pendEpoch = c.r, c.epoch
++			return
++		}
++		e.retire(e.cur)
++		e.cur, e.curEpoch = c.r, c.epoch
++	case cStop:
++		e.retire(e.cur)
++		e.cur, e.pending, e.fading = nil, nil, false
++	case cFade:
++		e.pending = nil
++		if e.cur == nil || e.fading {
++			return
++		}
++		// 閒置：目前曲子已經自然結束（只剩尾音在唱）也算閒置。遊戲的重播節拍在曲末後下一個 tick 內
++		// 呼叫 PlayMusic，先走淡出；若這裡把尾音當成還在播而進入淡出，每次循環都會多等一段淡出才開始新曲，
++		// 而原版沒有這個空檔（docs/spec/007 第 4 節第 2 點）。尾音交給 retire 自然唱完。
++		if e.cur.SongDone() {
++			e.retire(e.cur)
++			e.cur = nil
++			return
++		}
++		e.fading = true
++		e.fadeTotal = uint64(FadeSeconds(c.n) * SampleRate)
++		e.fadeLeft = e.fadeTotal
++	case cSFX:
++		e.sfxData, e.sfxPos, e.sfxOn = c.pcm, 0, true
++	}
++}
++
++// retire 讓被取代或停止的曲子的尾音唱完。
++func (e *Engine) retire(r *Renderer) {
++	if r == nil {
++		return
++	}
++	r.ReleaseAll()
++	if r.Silent() {
++		return
++	}
++	copy(e.tail[:], e.tail[1:])
++	e.tail[len(e.tail)-1] = r
++}
++
++// Read 填滿 p（立體聲 16 位元小端，每個取樣框 4 bytes），永不回傳錯誤；p 的長度不是 4 的倍數時只填到整數個框。
++func (e *Engine) Read(p []byte) (int, error) {
++	frames := len(p) / 4
++	off := 0
++	for frames > 0 {
++		e.drain()
++		n := frames
++		if n > chunkFrames {
++			n = chunkFrames
++		}
++		mix := e.mix[:n]
++		for i := range mix {
++			mix[i] = 0
++		}
++		e.renderChunk(mix)
++		muted := e.mute.Load()
++		for i := 0; i < n; i++ {
++			var s int16
++			if !muted {
++				s = int16(softClip(mix[i]) * 32000)
++			}
++			p[off], p[off+1], p[off+2], p[off+3] = byte(s), byte(s>>8), byte(s), byte(s>>8)
++			off += 4
++		}
++		frames -= n
++	}
++	return off, nil
++}
++
++func (e *Engine) renderChunk(mix []float32) {
++	n := len(mix)
++	tmp := e.tmp[:n]
++	if e.cur != nil {
++		for i := range tmp {
++			tmp[i] = 0
++		}
++		e.cur.Render(tmp)
++		if e.fading {
++			for i := range tmp {
++				var g float32
++				if e.fadeLeft > 0 {
++					g = float32(e.fadeLeft) / float32(e.fadeTotal)
++					e.fadeLeft--
++				}
++				mix[i] += tmp[i] * g
++			}
++			if e.fadeLeft == 0 {
++				e.fading, e.cur = false, nil
++				if e.pending != nil {
++					e.cur, e.curEpoch = e.pending, e.pendEpoch
++					e.pending = nil
++				}
++			}
++		} else {
++			for i := range tmp {
++				mix[i] += tmp[i]
++			}
++			if e.cur.SongDone() {
++				// 世代沒變才結束；期間若模擬端又下了命令，狀態字的世代已不同，CAS 失敗，不誤清新曲的狀態
++				e.state.CompareAndSwap(e.curEpoch<<1|1, e.curEpoch<<1)
++				if e.cur.Silent() {
++					e.cur = nil
++				}
++			}
++		}
++	}
++	for k := range e.tail {
++		r := e.tail[k]
++		if r == nil {
++			continue
++		}
++		for i := range tmp {
++			tmp[i] = 0
++		}
++		r.Render(tmp)
++		for i := range tmp {
++			mix[i] += tmp[i]
++		}
++		if r.Silent() {
++			e.tail[k] = nil
++		}
++	}
++	if e.sfxOn {
++		d := e.sfxData
++		for i := 0; i < n; i++ {
++			ip := int(e.sfxPos)
++			if ip >= len(d)-1 {
++				e.sfxOn = false
++				break
++			}
++			fr := float32(e.sfxPos - float64(ip))
++			a := (float32(d[ip]) - 128) / 128
++			b := (float32(d[ip+1]) - 128) / 128
++			mix[i] += (a + (b-a)*fr) * sfxGain
++			e.sfxPos += pcmRate / float64(SampleRate)
++		}
++	}
++}
+diff --git a/apps/hr/sound/engine_test.go b/apps/hr/sound/engine_test.go
+new file mode 100644
+index 0000000..89619be
+--- /dev/null
++++ b/apps/hr/sound/engine_test.go
+@@ -0,0 +1,506 @@
++package sound
++
++import (
++	"bytes"
++	"encoding/binary"
++	"math"
++	"sync"
++	"testing"
++)
++
++func readFrames(e *Engine, frames int) []byte {
++	p := make([]byte, 4*frames)
++	n, err := e.Read(p)
++	if err != nil || n != len(p) {
++		panic("Read")
++	}
++	return p
++}
++
++func energy(p []byte) (e float64, nonzero int) {
++	for i := 0; i+1 < len(p); i += 2 {
++		v := float64(int16(binary.LittleEndian.Uint16(p[i:])))
++		e += v * v
++		if v != 0 {
++			nonzero++
++		}
++	}
++	return
++}
++
++func en(p []byte) float64 { e, _ := energy(p); return e }
++
++func secs(s float64) int { return int(math.Round(s * SampleRate)) }
++
++func TestFadeSeconds(t *testing.T) {
++	// 每級 ceil(2n/3) 個 tick（INT 1Ch 處理常式每 tick 減 3），13 級
++	for n, want := range map[int]float64{0: 13 / TickHz, 1: 13 / TickHz, 2: 26 / TickHz, 3: 26 / TickHz, 4: 39 / TickHz} {
++		if got := FadeSeconds(n); math.Abs(got-want) > 1e-9 {
++			t.Errorf("FadeSeconds(%d)=%v，應為 %v", n, got, want)
++		}
++	}
++	if s := FadeSeconds(1); s < 0.70 || s > 0.73 {
++		t.Errorf("n=1 約 0.71 秒，得到 %v", s)
++	}
++}
++
++func TestSongSizeIgnoresTrailingBytes(t *testing.T) {
++	good := oneNote(0)
++	s, err := ParseSMF(append(append([]byte(nil), good...), bytes.Repeat([]byte{0xAB}, 500)...))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if s.Size != len(good) {
++		t.Fatalf("Size=%d，應為 %d（殘餘位元組不算）", s.Size, len(good))
++	}
++}
++
++func TestEngineLifecycle(t *testing.T) {
++	e := NewEngine()
++	if e.Playing() {
++		t.Fatal("剛建立不該在播放")
++	}
++	e.MusicStart(oneNote(0))
++	if !e.Playing() {
++		t.Fatal("MusicStart 後應在播放（立即，不等 Read）")
++	}
++	if en(readFrames(e, SampleRate/4)) == 0 {
++		t.Fatal("播放中輸出全為 0")
++	}
++	if !e.Playing() {
++		t.Fatal("曲子 1 秒，讀 0.25 秒後仍應在播放")
++	}
++	readFrames(e, SampleRate) // 越過曲末
++	if e.Playing() {
++		t.Fatal("到達曲末後 Playing 應為假（遊戲靠它重播）")
++	}
++	// 停止
++	e.MusicStart(oneNote(0))
++	e.MusicStop()
++	if e.Playing() {
++		t.Fatal("MusicStop 後 Playing 應立即為假")
++	}
++}
++
++func TestEngineFadeAndQueue(t *testing.T) {
++	e := NewEngine()
++	e.MusicStart(oneNote(48)) // 持續音
++	readFrames(e, 1000)
++	e.MusicFade(1)
++	if e.Playing() {
++		t.Fatal("MusicFade 後 Playing 應立即為假（PlayMusic 的 0274 迴圈不可阻塞）")
++	}
++	e.MusicStart(oneNote(0)) // 淡出中收到新曲：排隊，且算播放中
++	if !e.Playing() {
++		t.Fatal("排隊中的曲子應算播放中")
++	}
++	total := secs(FadeSeconds(1))
++	first := en(readFrames(e, total/4))
++	readFrames(e, total/2)
++	last := en(readFrames(e, total/4-1000-1))
++	if !(first > last) {
++		t.Fatalf("淡出沒有變小：前 %.1f，後 %.1f", first, last)
++	}
++	readFrames(e, 4096) // 越過淡出結束，排隊的新曲開始
++	if !e.Playing() {
++		t.Fatal("新曲開始後應在播放")
++	}
++	if e.cur == nil || e.pending != nil {
++		t.Fatalf("淡出結束後排隊的曲子應成為目前曲：cur=%v pending=%v", e.cur != nil, e.pending != nil)
++	}
++	if en(readFrames(e, 4000)) == 0 {
++		t.Fatal("新曲沒有聲音")
++	}
++}
++
++// 閒置時的淡出是空操作：緊接著的 MusicStart 必須立刻開始，不能排在假淡出之後
++// （開機的 PlayMusic(16) 與每次重播都是 MusicFade 接 MusicStart）。
++func TestEngineFadeWhileIdleIsNoop(t *testing.T) {
++	e := NewEngine()
++	e.MusicFade(1)
++	e.MusicStart(oneNote(48))
++	if !e.Playing() {
++		t.Fatal("閒置時淡出後的 MusicStart 應立即播放")
++	}
++	readFrames(e, 10)
++	if e.cur == nil || e.fading || e.pending != nil {
++		t.Fatalf("閒置時的淡出不該留下狀態：cur=%v fading=%v pending=%v", e.cur != nil, e.fading, e.pending != nil)
++	}
++}
++
++// 排隊中收到淡出：丟棄佇列，Playing 仍為假（否則 0274 迴圈要空轉到佇列曲播完）；停止同樣清佇列。
++func TestEngineFadeAndStopDropQueue(t *testing.T) {
++	for _, drop := range []string{"fade", "stop"} {
++		e := NewEngine()
++		e.MusicStart(oneNote(48))
++		readFrames(e, 100)
++		e.MusicFade(1)
++		e.MusicStart(oneNote(0))
++		if drop == "fade" {
++			e.MusicFade(1)
++		} else {
++			e.MusicStop()
++		}
++		if e.Playing() {
++			t.Fatalf("%s：佇列被丟棄後 Playing 應為假", drop)
++		}
++		readFrames(e, secs(FadeSeconds(1))+5000)
++		if e.Playing() || e.pending != nil {
++			t.Fatalf("%s：被丟棄的曲子不該在淡出後開始", drop)
++		}
++		if en(readFrames(e, 4000)) != 0 {
++			t.Fatalf("%s：淡出結束後不該有聲音", drop)
++		}
++	}
++}
++
++// 狀態字的世代保護：模擬端在音訊端剛好偵測到舊曲結束時又下了新命令，結束的 CAS 要失敗，
++// 不能把新曲的「播放中」清掉。
++func TestEngineEndCASDoesNotClearNewerState(t *testing.T) {
++	e := NewEngine()
++	e.MusicStart(oneNote(0))
++	e.drain()
++	mix := make([]float32, chunkFrames)
++	for !e.cur.SongDone() {
++		for i := range mix {
++			mix[i] = 0
++		}
++		e.cur.Render(mix)
++	}
++	// 模擬端在此刻下了新的 MusicStart（命令還沒被音訊端取走）
++	e.epoch++
++	e.state.Store(e.epoch<<1 | 1)
++	for i := range mix {
++		mix[i] = 0
++	}
++	e.renderChunk(mix)
++	if !e.Playing() {
++		t.Fatal("舊曲的結束不該清掉較新世代的播放狀態")
++	}
++}
++
++func TestEngineBadMIDIIgnored(t *testing.T) {
++	e := NewEngine()
++	var logs int
++	e.Log = func(string, ...any) { logs++ }
++	e.MusicStart(oneNote(0))
++	e.MusicStart([]byte("not a midi file at all"))
++	e.MusicStart(nil)
++	if logs != 2 {
++		t.Fatalf("壞資料應各回報一次，實為 %d", logs)
++	}
++	if !e.Playing() {
++		t.Fatal("壞資料不可打斷正在播放的曲子")
++	}
++}
++
++func TestEngineSFX(t *testing.T) {
++	e := NewEngine()
++	pcm := make([]byte, 400)
++	for i := range pcm {
++		pcm[i] = 128
++	}
++	for i := 100; i < 300; i++ {
++		pcm[i] = byte(128 + 100*math.Sin(float64(i)/4))
++	}
++	var logs int
++	e.Log = func(string, ...any) { logs++ }
++	e.SFX(0x32, 0, 100) // 還沒有 PCM：忽略並回報
++	if logs != 1 {
++		t.Fatalf("沒有 PCM 時應回報，logs=%d", logs)
++	}
++	e.SetPCM(pcm)
++	// 負對照：靜音切片輸出為 0
++	e.SFX(0x32, 0, 100)
++	if en, nz := energy(readFrames(e, 1000)); en != 0 || nz != 0 {
++		t.Fatalf("靜音切片不應有輸出：能量 %.1f", en)
++	}
++	// 正對照：有聲切片
++	e.SFX(0x33, 100, 300)
++	if en(readFrames(e, 1000)) == 0 {
++		t.Fatal("有聲切片沒有輸出")
++	}
++	// 播完後停止：200 個 8 kHz 樣本約 1103 個輸出框
++	readFrames(e, 4000)
++	if e.sfxOn {
++		t.Fatal("音效播完後應停止")
++	}
++	// 範圍不合
++	logs = 0
++	e.SFX(0x34, 300, 500)
++	e.SFX(0x34, 50, 50)
++	e.SFX(0x34, -1, 10)
++	if logs != 3 {
++		t.Fatalf("不合範圍應忽略並回報：logs=%d", logs)
++	}
++	readFrames(e, 10)
++	if e.sfxOn {
++		t.Fatal("不合範圍的切片不該播放")
++	}
++	// 新音效取代舊音效，從頭開始
++	e.SFX(0x33, 100, 300)
++	readFrames(e, 500)
++	pos := e.sfxPos
++	e.SFX(0x33, 100, 300)
++	readFrames(e, 1)
++	if !(e.sfxPos < pos) || e.sfxPos > 2 {
++		t.Fatalf("新音效沒有從頭開始：舊 %.1f 新 %.1f", pos, e.sfxPos)
++	}
++	// 輸出對獨立計算的線性內插：8 kHz 升 44.1 kHz，輸出框 i 對應來源位置 i×8000/44100
++	e2 := NewEngine()
++	e2.SetPCM(pcm)
++	e2.SFX(0x33, 100, 300)
++	out := readFrames(e2, 300)
++	for i := 0; i < 300; i++ {
++		pos := float64(i) * pcmRate / SampleRate
++		ip := int(pos)
++		fr := pos - float64(ip)
++		a, b := (float64(pcm[100+ip])-128)/128, (float64(pcm[100+ip+1])-128)/128
++		want := softClip(float32((a+(b-a)*fr)*sfxGain)) * 32000
++		got := float64(int16(binary.LittleEndian.Uint16(out[4*i:])))
++		if math.Abs(got-float64(want)) > 2 {
++			t.Fatalf("框 %d：輸出 %v，獨立計算 %v", i, got, want)
++		}
++	}
++}
++
++func TestEngineMute(t *testing.T) {
++	e := NewEngine()
++	e.MusicStart(oneNote(48))
++	e.SetMute(true)
++	if en, nz := energy(readFrames(e, 2000)); en != 0 || nz != 0 {
++		t.Fatal("靜音時輸出必須全為 0")
++	}
++	readFrames(e, SampleRate) // 靜音期間引擎照常推進
++	if e.Playing() {
++		t.Fatal("靜音期間曲子仍應推進到曲末")
++	}
++	e.SetMute(false)
++	e.MusicStart(oneNote(48))
++	if en(readFrames(e, 2000)) == 0 {
++		t.Fatal("取消靜音後應有輸出")
++	}
++}
++
++func TestEngineReadPartialFrame(t *testing.T) {
++	e := NewEngine()
++	p := make([]byte, 10)
++	n, err := e.Read(p)
++	if err != nil || n != 8 {
++		t.Fatalf("n=%d err=%v，應填到整數個框（8）", n, err)
++	}
++}
++
++func TestEngineReadNoAlloc(t *testing.T) {
++	e := NewEngine()
++	e.SetPCM(bytes.Repeat([]byte{200, 60}, 2000))
++	e.MusicStart(oneNote(48))
++	e.SFX(0x32, 0, 3000)
++	p := make([]byte, 4*4410)
++	readFrames(e, 100)
++	if a := testing.AllocsPerRun(20, func() { e.Read(p) }); a != 0 {
++		t.Fatalf("Read 每次配置 %.1f 次，應為 0", a)
++	}
++}
++
++// 模擬端與拉取者並行（-race）：模擬端連續下命令，拉取者持續 Read。
++func TestEngineConcurrent(t *testing.T) {
++	e := NewEngine()
++	e.SetPCM(bytes.Repeat([]byte{200, 60}, 2000))
++	mid := oneNote(0)
++	var wg sync.WaitGroup
++	stop := make(chan struct{})
++	wg.Add(1)
++	go func() {
++		defer wg.Done()
++		p := make([]byte, 4*512)
++		for {
++			select {
++			case <-stop:
++				return
++			default:
++				e.Read(p)
++			}
++		}
++	}()
++	for i := 0; i < 300; i++ {
++		e.MusicStart(mid)
++		e.Playing()
++		e.SFX(0x32, 0, 1000)
++		if i%7 == 0 {
++			e.MusicFade(1)
++		}
++		if i%11 == 0 {
++			e.MusicStop()
++		}
++	}
++	close(stop)
++	wg.Wait()
++}
++
++func TestNullSinkUsesGuestClock(t *testing.T) {
++	var now uint64 = 1000
++	n := &NullSink{Now: func() uint64 { return now }}
++	var logs int
++	n.Log = func(string, ...any) { logs++ }
++	if n.Playing() {
++		t.Fatal("未開始不該在播放")
++	}
++	n.MusicStart(oneNote(0)) // 1 秒 ＝ ceil(18.2065) ＝ 19 tick
++	for _, tc := range []struct {
++		at   uint64
++		want bool
++	}{{1000, true}, {1018, true}, {1019, false}, {5000, false}} {
++		now = tc.at
++		if got := n.Playing(); got != tc.want {
++			t.Fatalf("tick %d：Playing=%v，應為 %v", tc.at, got, tc.want)
++		}
++	}
++	now = 2000
++	n.MusicStart(oneNote(0))
++	n.MusicFade(1)
++	if n.Playing() {
++		t.Fatal("淡出後應立即為假")
++	}
++	n.MusicStart([]byte("garbage"))
++	if logs != 1 || n.Playing() {
++		t.Fatalf("壞資料應忽略並回報：logs=%d playing=%v", logs, n.Playing())
++	}
++}
++
++// 曲子自然結束、尾音還在唱的時候，遊戲的重播節拍呼叫 PlayMusic（先淡出再開始）：淡出必須是空操作，
++// 新曲立刻開始，不能為了不存在的曲子淡出一段（原版沒有這個空檔；審查 Z1）。
++func TestEngineFadeAfterNaturalEndIsNoop(t *testing.T) {
++	e := NewEngine()
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	t1 := (&tb{}).ev(0, 0xc0, 89).ev(0, 0x90, 60, 100).ev(96, 0x80, 60, 0).end(0) // 音符到曲末才結束，墊音釋放約 0.6 秒
++	pad, err := ParseSMF(smf(1, 48, t0, t1))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if pad.Seconds() < 0.99 || pad.Seconds() > 1.01 {
++		t.Fatalf("前提：曲長 %v", pad.Seconds())
++	}
++	e.MusicStart(smf(1, 48, t0, t1))
++	readFrames(e, SampleRate+SampleRate/50) // 越過曲末約 20 毫秒
++	if e.Playing() {
++		t.Fatal("曲末後 Playing 應為假")
++	}
++	if e.cur == nil || e.cur.Silent() {
++		t.Fatalf("前提：曲末後尾音應還在唱（cur＝%v）", e.cur != nil)
++	}
++	old := e.cur
++	e.MusicFade(1)
++	e.MusicStart(oneNote(48))
++	if !e.Playing() {
++		t.Fatal("新曲開始後應在播放")
++	}
++	readFrames(e, 100)
++	if e.fading || e.pending != nil {
++		t.Fatalf("曲末後的淡出應是空操作：fading＝%v pending＝%v", e.fading, e.pending != nil)
++	}
++	if e.cur == nil || e.cur == old {
++		t.Fatal("新曲應立刻成為目前曲（不是排在淡出之後）")
++	}
++	// 舊曲的尾音交給 tail 自然唱完，沒有被截斷：此刻 tail 裡仍有它
++	n := 0
++	for _, r := range e.tail {
++		if r == old {
++			n++
++		}
++	}
++	if n != 1 {
++		t.Fatalf("舊曲的尾音應在 tail 裡唱完，tail 中有 %d 份", n)
++	}
++}
++
++// 命令佇列滿（拉取者停滯）時丟掉的 MusicStart 不能讓狀態字永遠說「播放中」。
++func TestEngineDroppedStartDoesNotLeavePlayingState(t *testing.T) {
++	e := NewEngine()
++	var logs int
++	e.Log = func(string, ...any) { logs++ }
++	for i := 0; i < cmdQueue; i++ {
++		e.MusicStop() // 沒有拉取者：佇列被塞滿
++	}
++	e.MusicStart(oneNote(0))
++	if logs == 0 {
++		t.Fatal("佇列滿時應回報")
++	}
++	if e.Playing() {
++		t.Fatal("開始命令被丟棄後 Playing 不該是真")
++	}
++	// 拉取者恢復後引擎正常
++	readFrames(e, 1000)
++	e.MusicStart(oneNote(0))
++	if !e.Playing() {
++		t.Fatal("恢復後 MusicStart 應正常")
++	}
++}
++
++// SFX 不遞增世代（docs/spec/007 第 5.1 節）：播放中點一下音效，曲子到曲末仍要自然結束（Playing 變假）。
++// 若 SFX 改成遞增世代，自然結束的 CAS 會失敗，Playing() 永遠為真，遊戲不再重播這首曲子。
++func TestEngineSFXDoesNotBumpEpoch(t *testing.T) {
++	e := NewEngine()
++	e.SetPCM(bytes.Repeat([]byte{200, 60}, 2000))
++	e.MusicStart(oneNote(0)) // 1 秒
++	readFrames(e, SampleRate/4)
++	e.SFX(0x32, 0, 1000)
++	e.SFX(0x33, 0, 500)
++	if !e.Playing() {
++		t.Fatal("SFX 不該改變音樂的播放狀態")
++	}
++	readFrames(e, SampleRate) // 越過曲末
++	if e.Playing() {
++		t.Fatal("播放中呼叫過 SFX 之後，曲子到曲末仍應自然結束；Playing 仍為真代表 SFX 遞增了世代")
++	}
++}
++
++// 並行的命令洪流結束、讀取者停止後，狀態字與命令序列一致：再下的最後一個音樂命令決定 Playing()
++// （MusicStart 排進佇列算播放中；MusicStop、MusicFade 立即為假）。並行階段留下的世代或 CAS 殘留
++// 不得讓後續命令失效。
++func TestEngineConcurrentThenQuiescentStateMatchesLastCommand(t *testing.T) {
++	for _, last := range []string{"start", "stop", "fade"} {
++		e := NewEngine()
++		e.SetPCM(bytes.Repeat([]byte{200, 60}, 2000))
++		mid := oneNote(0)
++		var wg sync.WaitGroup
++		stop := make(chan struct{})
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			p := make([]byte, 4*512)
++			for {
++				select {
++				case <-stop:
++					return
++				default:
++					e.Read(p)
++				}
++			}
++		}()
++		for i := 0; i < 200; i++ {
++			e.MusicStart(mid)
++			e.SFX(0x32, 0, 1000)
++			if i%5 == 0 {
++				e.MusicFade(1)
++			}
++		}
++		close(stop)
++		wg.Wait()
++		// 讀取者已停止，洪流結束時命令佇列可能還是滿的（負載高時讀取者被排程擠掉）；此時最後一個 MusicStart
++		// 會因佇列滿被丟棄而讓斷言偶發失敗。先 Read 一次清空佇列，再下最後一個命令。
++		readFrames(e, 1024)
++		switch last {
++		case "start":
++			e.MusicStart(mid)
++		case "stop":
++			e.MusicStop()
++		case "fade":
++			e.MusicStart(mid)
++			e.MusicFade(1)
++		}
++		if got, want := e.Playing(), last == "start"; got != want {
++			t.Errorf("最後命令 %s：Playing()=%v，應為 %v", last, got, want)
++		}
++	}
++}
+diff --git a/apps/hr/sound/nullsink.go b/apps/hr/sound/nullsink.go
+new file mode 100644
+index 0000000..7de67a1
+--- /dev/null
++++ b/apps/hr/sound/nullsink.go
+@@ -0,0 +1,36 @@
++package sound
++
++import "math"
++
++// NullSink 是不出聲、確定性的 Sink（docs/spec/007 第 2 節與第 5.3 節）：「正在播放」的時鐘是遊戲自己的計時器
++// （Now 回傳客體的 tick 數，例如 machine.Ticks），不依賴音訊裝置與牆鐘。給機器人、長跑與測試用，
++// 讓它們走和玩家相同的遊戲路徑（不重複讀 MID、曲末後由遊戲重播）而指令軌跡可重現。
++// 只能由模擬執行緒使用。
++type NullSink struct {
++	Now func() uint64
++	// Log 非空時回報被忽略的 MID。
++	Log func(format string, args ...any)
++
++	endTick uint64
++	active  bool
++	Starts  uint64
++	SFXs    uint64
++}
++
++func (n *NullSink) MusicStart(mid []byte) {
++	song, err := ParseSMF(mid)
++	if err != nil {
++		if n.Log != nil {
++			n.Log("NullSink: MusicStart 忽略：%v", err)
++		}
++		return
++	}
++	n.Starts++
++	n.active = true
++	n.endTick = n.Now() + uint64(math.Ceil(song.Seconds()*TickHz))
++}
++
++func (n *NullSink) MusicStop()      { n.active = false }
++func (n *NullSink) MusicFade(int)   { n.active = false }
++func (n *NullSink) SFX(_, _, _ int) { n.SFXs++ }
++func (n *NullSink) Playing() bool   { return n.active && n.Now() < n.endTick }
+diff --git a/apps/hr/sound/patches.go b/apps/hr/sound/patches.go
+new file mode 100644
+index 0000000..a00b86d
+--- /dev/null
++++ b/apps/hr/sound/patches.go
+@@ -0,0 +1,108 @@
++package sound
++
++// 本檔的參數是本專案自行設計的 FM 音色（docs/spec/007 第 10 節）：沒有使用也沒有複製任何現成音色庫、
++// 音源檔或驅動的資料。音色號依 General MIDI 的 0 起算（docs/re/018 第 1 節列出原曲實際用到的 22 個）。
++// 每項只是一組數字：兩個運算元的頻率倍數、調變指數、回授、包絡，加上顫音。聽感調整改這裡，
++// 不影響任何介面。
++//
++// 流程紀錄（docs/spec/007 第 10 節要求；這一點無法用測試證明，只能靠這份紀錄）：
++//   - 設計方法：依 General MIDI 音色名稱，以聲學直覺手調 FM 參數，數值用音樂量表達（倍率、秒、弧度）。
++//   - 日期：2026-10-03。
++//   - 處理者：AI 協助（Claude），未經人工審核。
++//   - 未參考任何音色庫、GENMIDI、SoundFont 或晶片暫存器傾印；單元測試用的 MIDI 全是測試內組出的位元組。
++
++// envSpec 是包絡參數，單位秒。S 是維持準位（0 到 1）；SD 是維持階段的衰減時間常數（0 表示不衰減，
++// 用於「按住不放仍會慢慢變小」的撥弦與敲擊類音色）。
++type envSpec struct{ A, D, S, SD, R float32 }
++
++type vibSpec struct{ Rate, Cents, Delay float32 }
++
++// patch 是一個雙運算元 FM 音色。Add 為真時兩個運算元相加（疊加合成），否則調變器調變載波。
++type patch struct {
++	Name      string
++	ModMult   float32 // 調變器相對音高的頻率倍數
++	CarMult   float32
++	Index     float32 // 調變指數（弧度），Add 時為調變器的混入音量
++	Fb        float32 // 調變器自身回授（弧度）
++	Add       bool
++	ModWave   uint8 // 0 正弦、1 半波整流、2 絕對值
++	CarWave   uint8
++	Mod, Car  envSpec
++	Vib       vibSpec
++	Gain      float32
++	KeyScale  float32 // 每高一個八度，衰減時間縮短的倍率指數（0 不縮）
++	VelBright float32 // 力度對調變指數的影響（0 到 1）
++}
++
++var (
++	pPiano = patch{Name: "piano", ModMult: 1, CarMult: 1, Index: 1.7, Fb: 0.15,
++		Mod: envSpec{0.001, 0.30, 0.12, 1.4, 0.12}, Car: envSpec{0.001, 0.80, 0.30, 2.6, 0.22}, Gain: 1, KeyScale: 0.5, VelBright: 0.6}
++	pXylo = patch{Name: "xylophone", ModMult: 3, CarMult: 1, Index: 1.1, Mod: envSpec{0.001, 0.06, 0, 0, 0.05},
++		Car: envSpec{0.001, 0.40, 0, 0, 0.15}, Gain: 1, VelBright: 0.5}
++	pOrgan = patch{Name: "organ", ModMult: 2, CarMult: 1, Index: 0.55, Add: true,
++		Mod: envSpec{0.012, 0.01, 1, 0, 0.06}, Car: envSpec{0.012, 0.01, 1, 0, 0.06}, Gain: 0.85}
++	pPluck = patch{Name: "pluck", ModMult: 1, CarMult: 1, Index: 1.5, Fb: 0.25,
++		Mod: envSpec{0.001, 0.10, 0.05, 0.9, 0.08}, Car: envSpec{0.001, 0.30, 0.20, 1.2, 0.12}, Gain: 1, VelBright: 0.5}
++	pEBass = patch{Name: "electric bass", ModMult: 1, CarMult: 1, Index: 2.0, Fb: 0.40,
++		Mod: envSpec{0.001, 0.12, 0.20, 0.8, 0.08}, Car: envSpec{0.001, 0.25, 0.55, 1.5, 0.10}, Gain: 1.15, VelBright: 0.5}
++	pFBass = patch{Name: "fretless bass", ModMult: 1, CarMult: 1, Index: 0.95, Fb: 0.1,
++		Mod: envSpec{0.005, 0.30, 0.40, 0, 0.15}, Car: envSpec{0.010, 0.20, 0.78, 0, 0.15}, Gain: 1.15, Vib: vibSpec{5, 6, 0.3}}
++	pStrings = patch{Name: "strings", ModMult: 1, CarMult: 1, Index: 1.0, Fb: 0.55,
++		Mod: envSpec{0.30, 0.30, 0.80, 0, 0.40}, Car: envSpec{0.25, 0.20, 0.90, 0, 0.40}, Gain: 0.85, Vib: vibSpec{5.5, 8, 0.3}}
++	pSynStr = patch{Name: "synth strings", ModMult: 1, CarMult: 1, Index: 1.2, Fb: 0.85,
++		Mod: envSpec{0.18, 0.30, 0.80, 0, 0.35}, Car: envSpec{0.15, 0.20, 0.90, 0, 0.35}, Gain: 0.8, Vib: vibSpec{5, 6, 0.25}}
++	pSynStr2 = patch{Name: "synth strings 2", ModMult: 2, CarMult: 1, Index: 0.6, Add: true,
++		Mod: envSpec{0.20, 0.30, 0.85, 0, 0.35}, Car: envSpec{0.20, 0.20, 0.90, 0, 0.35}, Gain: 0.85, Vib: vibSpec{5, 7, 0.25}}
++	pVoice = patch{Name: "voice", ModMult: 1, CarMult: 1, Index: 0.5, Fb: 0.1,
++		Mod: envSpec{0.12, 0.30, 0.70, 0, 0.30}, Car: envSpec{0.12, 0.20, 0.90, 0, 0.30}, Gain: 0.95, Vib: vibSpec{5, 9, 0.25}}
++	pHit = patch{Name: "orchestra hit", ModMult: 1, CarMult: 1, Index: 3.0, Fb: 0.8,
++		Mod: envSpec{0.002, 0.40, 0, 0, 0.20}, Car: envSpec{0.002, 0.45, 0, 0, 0.25}, Gain: 0.9}
++	pBrass = patch{Name: "trumpet", ModMult: 1, CarMult: 1, Index: 2.6, Fb: 0.1,
++		Mod: envSpec{0.030, 0.15, 0.70, 0, 0.08}, Car: envSpec{0.030, 0.10, 0.85, 0, 0.08}, Gain: 0.9, VelBright: 0.7}
++	pTuba = patch{Name: "tuba", ModMult: 1, CarMult: 1, Index: 1.5, Fb: 0.3,
++		Mod: envSpec{0.040, 0.15, 0.70, 0, 0.12}, Car: envSpec{0.040, 0.10, 0.85, 0, 0.12}, Gain: 1.1, VelBright: 0.6}
++	pReed = patch{Name: "reed", ModMult: 1, CarMult: 1, Index: 1.0, Fb: 0.3, CarWave: 0,
++		Mod: envSpec{0.030, 0.10, 0.70, 0, 0.10}, Car: envSpec{0.030, 0.10, 0.85, 0, 0.10}, Gain: 0.9, Vib: vibSpec{5.5, 7, 0.2}}
++	pFlute = patch{Name: "flute", ModMult: 1, CarMult: 1, Index: 0.35,
++		Mod: envSpec{0.060, 0.10, 0.80, 0, 0.12}, Car: envSpec{0.060, 0.10, 0.90, 0, 0.12}, Gain: 0.95, Vib: vibSpec{5, 10, 0.2}}
++	pLead4 = patch{Name: "lead chiff", ModMult: 1, CarMult: 1, Index: 1.6,
++		Mod: envSpec{0.001, 0.08, 0.30, 0, 0.10}, Car: envSpec{0.005, 0.10, 0.85, 0, 0.10}, Gain: 0.85, VelBright: 0.5}
++	pLead5 = patch{Name: "lead charang", ModMult: 1, CarMult: 1, Index: 2.2, Fb: 0.8,
++		Mod: envSpec{0.005, 0.10, 0.60, 0, 0.12}, Car: envSpec{0.005, 0.10, 0.80, 0, 0.12}, Gain: 0.8, VelBright: 0.5}
++	pLead7 = patch{Name: "lead fifths", ModMult: 1.5, CarMult: 1, Index: 0.75, Add: true,
++		Mod: envSpec{0.010, 0.10, 0.90, 0, 0.12}, Car: envSpec{0.010, 0.10, 0.90, 0, 0.12}, Gain: 0.85}
++	pPadWarm = patch{Name: "pad warm", ModMult: 1, CarMult: 1, Index: 0.6, Fb: 0.1,
++		Mod: envSpec{0.40, 0.40, 0.80, 0, 0.60}, Car: envSpec{0.40, 0.30, 0.90, 0, 0.60}, Gain: 0.95, Vib: vibSpec{4.5, 5, 0.4}}
++	pPadChoir = patch{Name: "pad choir", ModMult: 1, CarMult: 1, Index: 0.5, Fb: 0.05,
++		Mod: envSpec{0.30, 0.30, 0.70, 0, 0.50}, Car: envSpec{0.30, 0.20, 0.90, 0, 0.50}, Gain: 0.95, Vib: vibSpec{5, 9, 0.3}}
++	pPadMetal = patch{Name: "pad metallic", ModMult: 2.76, CarMult: 1, Index: 1.3,
++		Mod: envSpec{0.20, 1.20, 0.40, 0, 0.60}, Car: envSpec{0.20, 0.50, 0.85, 0, 0.60}, Gain: 0.85, Vib: vibSpec{4.5, 5, 0.4}}
++	pPadHalo = patch{Name: "pad halo", ModMult: 2, CarMult: 1, Index: 0.8, Fb: 0.1,
++		Mod: envSpec{0.35, 0.60, 0.60, 0, 0.70}, Car: envSpec{0.35, 0.40, 0.90, 0, 0.70}, Gain: 0.9, Vib: vibSpec{5, 6, 0.4}}
++	pRain = patch{Name: "fx rain", ModMult: 1.41, CarMult: 1, Index: 1.0, Fb: 0.2,
++		Mod: envSpec{0.05, 1.50, 0.30, 0, 0.50}, Car: envSpec{0.05, 1.50, 0.40, 0, 0.50}, Gain: 0.8}
++	pBell = patch{Name: "tinkle bell", ModMult: 3.5, CarMult: 1, Index: 1.8,
++		Mod: envSpec{0.001, 0.50, 0, 0, 0.30}, Car: envSpec{0.001, 1.20, 0, 0, 0.50}, Gain: 0.9}
++)
++
++// 原曲實際用到的 22 個音色（0 起算）。
++var explicitPatches = map[uint8]*patch{
++	0: &pPiano, 13: &pXylo, 16: &pOrgan, 34: &pEBass, 35: &pFBass,
++	48: &pStrings, 50: &pSynStr, 51: &pSynStr2, 53: &pVoice, 55: &pHit,
++	56: &pBrass, 58: &pTuba, 73: &pFlute, 83: &pLead4, 84: &pLead5,
++	86: &pLead7, 89: &pPadWarm, 91: &pPadChoir, 93: &pPadMetal, 94: &pPadHalo,
++	96: &pRain, 112: &pBell,
++}
++
++// 其他音色號依 General MIDI 的家族（每 8 號一族）取預設。
++var familyPatches = [16]*patch{
++	&pPiano, &pXylo, &pOrgan, &pPluck, &pEBass, &pStrings, &pStrings, &pBrass,
++	&pReed, &pFlute, &pLead4, &pPadWarm, &pRain, &pPluck, &pBell, &pRain,
++}
++
++func patchFor(program uint8) *patch {
++	if p, ok := explicitPatches[program&0x7f]; ok {
++		return p
++	}
++	return familyPatches[(program&0x7f)>>3]
++}
+diff --git a/apps/hr/sound/smf.go b/apps/hr/sound/smf.go
+new file mode 100644
+index 0000000..b983779
+--- /dev/null
++++ b/apps/hr/sound/smf.go
+@@ -0,0 +1,273 @@
++// Package sound 是高報酬戰將前端的音樂與音效引擎（docs/spec/007）。
++// 只依賴標準庫：標準 MIDI 檔解析、雙運算元 FM 合成、混音。不含任何原版位元組，
++// 原版的 MID 與 PCM 只在執行期由呼叫端交進來。
++package sound
++
++import (
++	"encoding/binary"
++	"errors"
++	"fmt"
++	"sort"
++)
++
++// Kind 是引擎關心的事件種類，其餘 MIDI 事件在解析時略過（docs/re/018 第 1 節：原曲只有這些）。
++type Kind uint8
++
++const (
++	NoteOff Kind = iota + 1
++	NoteOn
++	Program
++	Volume // 控制器 7
++	Tempo
++	End // 軌結束
++)
++
++// Event 是已排序事件。A、B 的意義：NoteOn/NoteOff 為音高與力度；Program 的 A 為音色號；Volume 的 A 為值。
++type Event struct {
++	Tick  uint32
++	Kind  Kind
++	Ch    uint8
++	A, B  uint8
++	Tempo uint32 // Tempo：微秒每四分音符
++}
++
++// Song 是解析後的曲子。
++type Song struct {
++	Division uint16
++	Tracks   int
++	Events   []Event // 依 (Tick, 優先序) 穩定排序
++	EndTick  uint32  // 所有軌結束 tick 的最大值（沒有 End 事件時取最後一個事件）
++	Size     int     // 解析用掉的位元組數：MThd 加各 MTrk 區塊（含未知區塊）；其後的殘餘位元組不算
++}
++
++// 解析上限。原版緩衝最多 0x4E20 bytes，所以事件數不可能超過這個量級。
++const (
++	maxTracks = 64
++	maxEvents = 1 << 17
++)
++
++var (
++	ErrShort     = errors.New("sound: 資料太短，不是 MIDI 檔")
++	ErrNotSMF    = errors.New("sound: 沒有 MThd 簽章")
++	ErrFormat    = errors.New("sound: 不支援的 MIDI 格式（只支援格式 0 與 1，division 為每四分音符 ticks）")
++	ErrTruncated = errors.New("sound: MTrk 區塊或事件被截斷")
++	ErrNoTracks  = errors.New("sound: 沒有可解析的軌")
++	ErrTooMany   = errors.New("sound: 軌數或事件數超過上限")
++)
++
++func readVLQ(b []byte, p *int) (uint32, bool) {
++	var v uint32
++	for i := 0; i < 4; i++ {
++		if *p >= len(b) {
++			return 0, false
++		}
++		c := b[*p]
++		*p++
++		v = v<<7 | uint32(c&0x7f)
++		if c&0x80 == 0 {
++			return v, true
++		}
++	}
++	return 0, false
++}
++
++// ParseSMF 解析標準 MIDI 檔。b 可以在 MIDI 資料之後帶有任意多餘位元組（遊戲的 MID 緩衝在短檔之後會殘留前一首的尾巴），
++// 只讀 MThd 宣告的軌數。資料被截斷、軌數為 0、SMPTE division、格式 2 一律拒絕，不做部分接受。
++func ParseSMF(b []byte) (*Song, error) {
++	if len(b) < 14 {
++		return nil, ErrShort
++	}
++	if string(b[:4]) != "MThd" {
++		return nil, ErrNotSMF
++	}
++	hl := binary.BigEndian.Uint32(b[4:])
++	if hl < 6 || uint64(hl) > uint64(len(b)-8) {
++		return nil, ErrTruncated
++	}
++	format := binary.BigEndian.Uint16(b[8:])
++	ntrk := int(binary.BigEndian.Uint16(b[10:]))
++	div := binary.BigEndian.Uint16(b[12:])
++	if format > 1 || div == 0 || div&0x8000 != 0 {
++		return nil, ErrFormat
++	}
++	if ntrk == 0 {
++		return nil, ErrNoTracks
++	}
++	if ntrk > maxTracks {
++		return nil, ErrTooMany
++	}
++	s := &Song{Division: div}
++	p := 8 + int(hl)
++	type tagged struct {
++		Event
++		track int
++		prio  int
++	}
++	var all []tagged
++	for t := 0; t < ntrk; {
++		if p+8 > len(b) {
++			return nil, ErrTruncated
++		}
++		id := string(b[p : p+4])
++		ln := binary.BigEndian.Uint32(b[p+4:])
++		p += 8
++		if uint64(ln) > uint64(len(b)-p) {
++			return nil, ErrTruncated
++		}
++		body := b[p : p+int(ln)]
++		p += int(ln)
++		if id != "MTrk" {
++			continue // 未知區塊略過，不算軌
++		}
++		var tick uint32
++		var run byte
++		q := 0
++		sawEnd := false
++		for q < len(body) && !sawEnd {
++			dt, ok := readVLQ(body, &q)
++			if !ok || q >= len(body) {
++				return nil, ErrTruncated
++			}
++			tick += dt
++			st := body[q]
++			if st < 0x80 {
++				if run == 0 {
++					return nil, ErrTruncated
++				}
++				st = run
++			} else {
++				q++
++				if st < 0xf0 {
++					run = st
++				}
++			}
++			switch {
++			case st == 0xff:
++				if q >= len(body) {
++					return nil, ErrTruncated
++				}
++				mt := body[q]
++				q++
++				l, ok := readVLQ(body, &q)
++				if !ok || uint64(q)+uint64(l) > uint64(len(body)) {
++					return nil, ErrTruncated
++				}
++				d := body[q : q+int(l)]
++				q += int(l)
++				switch mt {
++				case 0x51:
++					if len(d) == 3 {
++						tp := uint32(d[0])<<16 | uint32(d[1])<<8 | uint32(d[2])
++						if tp != 0 {
++							all = append(all, tagged{Event{Tick: tick, Kind: Tempo, Tempo: tp}, t, 1})
++						}
++					}
++				case 0x2f:
++					all = append(all, tagged{Event{Tick: tick, Kind: End}, t, 3})
++					sawEnd = true
++				}
++			case st == 0xf0 || st == 0xf7:
++				l, ok := readVLQ(body, &q)
++				if !ok || uint64(q)+uint64(l) > uint64(len(body)) {
++					return nil, ErrTruncated
++				}
++				q += int(l)
++			default:
++				ch := st & 15
++				switch st >> 4 {
++				case 0x8, 0x9, 0xa, 0xb, 0xe:
++					if q+2 > len(body) {
++						return nil, ErrTruncated
++					}
++					a, bb := body[q], body[q+1]
++					q += 2
++					switch st >> 4 {
++					case 0x8:
++						all = append(all, tagged{Event{Tick: tick, Kind: NoteOff, Ch: ch, A: a & 0x7f, B: bb}, t, 0})
++					case 0x9:
++						if bb == 0 {
++							all = append(all, tagged{Event{Tick: tick, Kind: NoteOff, Ch: ch, A: a & 0x7f}, t, 0})
++						} else {
++							all = append(all, tagged{Event{Tick: tick, Kind: NoteOn, Ch: ch, A: a & 0x7f, B: bb & 0x7f}, t, 2})
++						}
++					case 0xb:
++						if a == 7 {
++							all = append(all, tagged{Event{Tick: tick, Kind: Volume, Ch: ch, A: bb & 0x7f}, t, 1})
++						}
++					}
++				case 0xc, 0xd:
++					if q+1 > len(body) {
++						return nil, ErrTruncated
++					}
++					if st>>4 == 0xc {
++						all = append(all, tagged{Event{Tick: tick, Kind: Program, Ch: ch, A: body[q] & 0x7f}, t, 1})
++					}
++					q++
++				default:
++					return nil, ErrTruncated // 0xf1 到 0xf6、0xf8 以上不該出現在檔內
++				}
++			}
++			if len(all) > maxEvents {
++				return nil, ErrTooMany
++			}
++		}
++		if !sawEnd && q < len(body) {
++			return nil, ErrTruncated
++		}
++		if tick > s.EndTick {
++			s.EndTick = tick
++		}
++		t++
++	}
++	if len(all) == 0 {
++		return nil, ErrNoTracks
++	}
++	sort.SliceStable(all, func(i, j int) bool {
++		if all[i].Tick != all[j].Tick {
++			return all[i].Tick < all[j].Tick
++		}
++		return all[i].prio < all[j].prio
++	})
++	s.Tracks = ntrk
++	s.Size = p
++	s.Events = make([]Event, len(all))
++	for i := range all {
++		s.Events[i] = all[i].Event
++	}
++	return s, nil
++}
++
++// sampleTimes 把每個事件的 tick 換成以 rate 取樣的位置，另回傳曲子結束的取樣位置。
++// 整數運算：累計 Σ(Δtick × 速度) 再乘 rate 除 (division × 1e6)，不隨長度漂移。
++func (s *Song) sampleTimes(rate int) (pos []uint64, end uint64) {
++	pos = make([]uint64, len(s.Events))
++	tempo := uint64(500000)
++	var num uint64 // 單位：微秒 × division
++	var last uint32
++	conv := func(n uint64) uint64 { return n * uint64(rate) / (uint64(s.Division) * 1000000) }
++	for i, e := range s.Events {
++		num += uint64(e.Tick-last) * tempo
++		last = e.Tick
++		pos[i] = conv(num)
++		if e.Kind == Tempo {
++			tempo = uint64(e.Tempo)
++		}
++	}
++	if s.EndTick > last {
++		num += uint64(s.EndTick-last) * tempo
++	}
++	return pos, conv(num)
++}
++
++// Duration 回傳以 rate 取樣的曲長（取樣數），依速度事件換算。
++func (s *Song) Duration(rate int) uint64 {
++	_, end := s.sampleTimes(rate)
++	return end
++}
++
++func (s *Song) String() string {
++	return fmt.Sprintf("SMF division=%d 軌=%d 事件=%d 結束 tick=%d", s.Division, s.Tracks, len(s.Events), s.EndTick)
++}
++
++// Seconds 回傳曲長（秒），依速度事件換算，不含釋放尾音。
++func (s *Song) Seconds() float64 { return float64(s.Duration(SampleRate)) / SampleRate }
+diff --git a/apps/hr/sound/sound_test.go b/apps/hr/sound/sound_test.go
+new file mode 100644
+index 0000000..8b0a50a
+--- /dev/null
++++ b/apps/hr/sound/sound_test.go
+@@ -0,0 +1,301 @@
++package sound
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/binary"
++	"math"
++	"testing"
++)
++
++// 測試用的 SMF 組裝器：全部是測試內自行組出的位元組，不引用任何原版檔案。
++
++func vlq(v uint32) []byte {
++	b := []byte{byte(v & 0x7f)}
++	for v >>= 7; v > 0; v >>= 7 {
++		b = append([]byte{byte(v&0x7f) | 0x80}, b...)
++	}
++	return b
++}
++
++type tb struct{ b []byte }
++
++func (t *tb) ev(dt uint32, data ...byte) *tb {
++	t.b = append(t.b, vlq(dt)...)
++	t.b = append(t.b, data...)
++	return t
++}
++func (t *tb) tempo(dt, us uint32) *tb {
++	return t.ev(dt, 0xff, 0x51, 3, byte(us>>16), byte(us>>8), byte(us))
++}
++func (t *tb) end(dt uint32) *tb { return t.ev(dt, 0xff, 0x2f, 0) }
++
++func smf(format, div uint16, tracks ...*tb) []byte {
++	var b bytes.Buffer
++	b.WriteString("MThd")
++	binary.Write(&b, binary.BigEndian, uint32(6))
++	binary.Write(&b, binary.BigEndian, format)
++	binary.Write(&b, binary.BigEndian, uint16(len(tracks)))
++	binary.Write(&b, binary.BigEndian, div)
++	for _, t := range tracks {
++		b.WriteString("MTrk")
++		binary.Write(&b, binary.BigEndian, uint32(len(t.b)))
++		b.Write(t.b)
++	}
++	return b.Bytes()
++}
++
++// oneNote 是 1 秒的曲子：速度 500000、division 48、第 0 通道音符 60 從 tick 0 到 48，曲末 tick 96。
++func oneNote(prog byte) []byte {
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	t1 := (&tb{}).ev(0, 0xc0, prog).ev(0, 0x90, 60, 100).ev(48, 0x90, 60, 0).end(48)
++	return smf(1, 48, t0, t1)
++}
++
++func TestParseBasics(t *testing.T) {
++	s, err := ParseSMF(oneNote(0))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if s.Division != 48 || s.Tracks != 2 || s.EndTick != 96 {
++		t.Fatalf("division=%d tracks=%d end=%d", s.Division, s.Tracks, s.EndTick)
++	}
++	want := []Kind{Tempo, Program, NoteOn, NoteOff, End, End}
++	var got []Kind
++	for _, e := range s.Events {
++		got = append(got, e.Kind)
++	}
++	if len(got) != len(want) {
++		t.Fatalf("事件種類 %v，應為 %v", got, want)
++	}
++	for i := range want {
++		if got[i] != want[i] {
++			t.Fatalf("事件 %d：%v，應為 %v（全部 %v）", i, got[i], want[i], got)
++		}
++	}
++	if d := s.Duration(SampleRate); d != SampleRate {
++		t.Fatalf("曲長 %d 取樣，應為 %d", d, SampleRate)
++	}
++}
++
++func TestTempoChange(t *testing.T) {
++	t0 := (&tb{}).tempo(0, 500000).tempo(48, 1000000).end(48)
++	s, err := ParseSMF(smf(1, 48, t0))
++	if err != nil {
++		t.Fatal(err)
++	}
++	// 前 48 tick 為 0.5 秒，後 48 tick 為 1.0 秒
++	if d, want := s.Duration(SampleRate), uint64(SampleRate*3/2); d != want {
++		t.Fatalf("曲長 %d，應為 %d", d, want)
++	}
++}
++
++func TestSameTickOrdering(t *testing.T) {
++	// 同一 tick 的 note-off 必須先於 note-on、program 先於 note-on，與寫入順序無關
++	t1 := (&tb{}).ev(0, 0x90, 60, 100).ev(48, 0x90, 62, 100).ev(0, 0xc0, 5).ev(0, 0x80, 60, 0).end(48)
++	s, err := ParseSMF(smf(0, 48, t1))
++	if err != nil {
++		t.Fatal(err)
++	}
++	var at48 []Kind
++	for _, e := range s.Events {
++		if e.Tick == 48 {
++			at48 = append(at48, e.Kind)
++		}
++	}
++	if len(at48) != 3 || at48[0] != NoteOff || at48[1] != Program || at48[2] != NoteOn {
++		t.Fatalf("tick 48 的順序 %v，應為 [NoteOff Program NoteOn]", at48)
++	}
++}
++
++func TestRunningStatus(t *testing.T) {
++	// 0x90 60 100 | (省略狀態) 62 100 | (省略狀態) 64 0
++	t1 := (&tb{}).ev(0, 0x90, 60, 100).ev(10, 62, 100).ev(10, 64, 0).end(10)
++	s, err := ParseSMF(smf(0, 48, t1))
++	if err != nil {
++		t.Fatal(err)
++	}
++	var on, off int
++	for _, e := range s.Events {
++		switch e.Kind {
++		case NoteOn:
++			on++
++		case NoteOff:
++			off++
++		}
++	}
++	if on != 2 || off != 1 {
++		t.Fatalf("on=%d off=%d，應為 2 與 1", on, off)
++	}
++}
++
++func TestParseTrailingGarbageAndUnknownChunk(t *testing.T) {
++	// 遊戲的 MID 緩衝在短檔之後殘留前一首的位元組：必須只讀宣告的軌數
++	b := oneNote(0)
++	b = append(b, bytes.Repeat([]byte{0xAA, 'M', 'T', 'r', 'k', 0xFF}, 50)...)
++	if _, err := ParseSMF(b); err != nil {
++		t.Fatalf("尾端殘留應被忽略：%v", err)
++	}
++	// 軌之間的未知區塊略過
++	var x bytes.Buffer
++	good := oneNote(0)
++	x.Write(good[:14])
++	x.WriteString("XFIH")
++	binary.Write(&x, binary.BigEndian, uint32(3))
++	x.Write([]byte{1, 2, 3})
++	x.Write(good[14:])
++	if _, err := ParseSMF(x.Bytes()); err != nil {
++		t.Fatalf("未知區塊應被略過：%v", err)
++	}
++}
++
++// 負對照：下列輸入必須被拒絕，而不是部分接受。
++func TestParseRejects(t *testing.T) {
++	good := oneNote(0)
++	cases := map[string][]byte{
++		"空":          nil,
++		"太短":         good[:10],
++		"沒有 MThd":    append([]byte("RIFF"), good[4:]...),
++		"格式 2":       smf(2, 48, (&tb{}).end(0)),
++		"SMPTE":      smf(1, 0xE728, (&tb{}).end(0)),
++		"division 0": smf(1, 0, (&tb{}).end(0)),
++		"軌數 0":       smf(1, 48),
++		"MTrk 被截斷":   good[:len(good)-5],
++		"只有 MThd":    good[:14],
++		"事件截斷":       smf(0, 48, (&tb{}).ev(0, 0x90, 60)),
++		"首事件缺狀態":     smf(0, 48, (&tb{}).ev(0, 60, 100).end(0)),
++	}
++	for name, b := range cases {
++		if s, err := ParseSMF(b); err == nil {
++			t.Errorf("%s：應被拒絕，卻得到 %v", name, s)
++		}
++	}
++	// 宣告 3 軌但只有 2 軌的資料
++	b := append([]byte(nil), good...)
++	b[11] = 3
++	if _, err := ParseSMF(b); err == nil {
++		t.Errorf("宣告軌數多於實際，應被拒絕")
++	}
++}
++
++func sha(f []float32) [32]byte {
++	b := make([]byte, 4*len(f))
++	for i, v := range f {
++		binary.LittleEndian.PutUint32(b[4*i:], math.Float32bits(v))
++	}
++	return sha256.Sum256(b)
++}
++
++func stats(f []float32) (peak, rms float64, bad int) {
++	var sum float64
++	for _, v := range f {
++		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
++			bad++
++			continue
++		}
++		if a := math.Abs(float64(v)); a > peak {
++			peak = a
++		}
++		sum += float64(v) * float64(v)
++	}
++	if len(f) > 0 {
++		rms = math.Sqrt(sum / float64(len(f)))
++	}
++	return
++}
++
++func TestRenderDeterministicAndSane(t *testing.T) {
++	s, _ := ParseSMF(oneNote(0))
++	a, b := RenderSong(s), RenderSong(s)
++	if sha(a) != sha(b) {
++		t.Fatal("同一首兩次轉檔不相同")
++	}
++	peak, rms, bad := stats(a)
++	if bad != 0 || peak <= 0.01 || peak > 1 || rms <= 0.001 {
++		t.Fatalf("peak=%.4f rms=%.5f 異常值 %d", peak, rms, bad)
++	}
++	if len(a) < SampleRate || len(a) > SampleRate+3*SampleRate {
++		t.Fatalf("長度 %d 取樣不合理", len(a))
++	}
++	// 曲末之後的尾音要唱完：最後一個取樣近乎靜音
++	if v := math.Abs(float64(a[len(a)-1])); v > 0.01 {
++		t.Fatalf("尾端仍有 %.4f", v)
++	}
++}
++
++func TestProgramsDiffer(t *testing.T) {
++	// 負對照：不同音色必須產生不同的波形（避免查表全部指向同一個音色）
++	seen := map[[32]byte]uint8{}
++	for _, p := range []uint8{0, 13, 16, 34, 35, 48, 50, 51, 53, 55, 56, 58, 73, 83, 84, 86, 89, 91, 93, 94, 96, 112} {
++		s, _ := ParseSMF(oneNote(p))
++		h := sha(RenderSong(s))
++		if q, dup := seen[h]; dup {
++			t.Errorf("音色 %d 與 %d 的輸出相同", p, q)
++		}
++		seen[h] = p
++	}
++	// 家族預設也要有輸出
++	for _, p := range []uint8{1, 8, 24, 40, 64, 80, 104, 120, 127} {
++		s, _ := ParseSMF(oneNote(p))
++		if pk, _, bad := stats(RenderSong(s)); pk < 0.01 || bad != 0 {
++			t.Errorf("音色 %d 無輸出或有異常值", p)
++		}
++	}
++}
++
++func TestDrums(t *testing.T) {
++	for _, note := range []byte{36, 38, 45, 46, 49, 42, 70} {
++		t1 := (&tb{}).ev(0, 0x99, note, 110).end(48)
++		s, err := ParseSMF(smf(0, 48, t1))
++		if err != nil {
++			t.Fatal(err)
++		}
++		pk, rms, bad := stats(RenderSong(s))
++		if pk < 0.01 || rms <= 0 || bad != 0 {
++			t.Errorf("鼓 %d：peak=%.4f rms=%.5f bad=%d", note, pk, rms, bad)
++		}
++	}
++}
++
++func TestPolyphonyLimit(t *testing.T) {
++	t1 := &tb{}
++	for i := 0; i < 40; i++ {
++		t1.ev(0, 0x90, byte(40+i), 100)
++	}
++	t1.end(96)
++	s, err := ParseSMF(smf(0, 48, t1))
++	if err != nil {
++		t.Fatal(err)
++	}
++	r := NewRenderer(s)
++	buf := make([]float32, 2048)
++	r.Render(buf)
++	n := 0
++	for i := range r.voices {
++		if r.voices[i].active {
++			n++
++		}
++	}
++	if n != maxVoices {
++		t.Fatalf("40 個同時音符後 %d 個聲部在發聲，應為上限 %d", n, maxVoices)
++	}
++	for i := range buf {
++		buf[i] = softClip(buf[i])
++	}
++	if pk, _, bad := stats(buf); bad != 0 || pk > 1 {
++		t.Fatalf("peak=%.3f bad=%d", pk, bad)
++	}
++}
++
++func TestVolumeControllerScales(t *testing.T) {
++	mk := func(vol byte) []float32 {
++		t1 := (&tb{}).ev(0, 0xb0, 7, vol).ev(0, 0x90, 60, 100).ev(48, 0x90, 60, 0).end(48)
++		s, _ := ParseSMF(smf(0, 48, t1))
++		return RenderSong(s)
++	}
++	lo, _, _ := stats(mk(30))
++	hi, _, _ := stats(mk(127))
++	if !(hi > lo*2) {
++		t.Fatalf("控制器 7 沒有影響音量：30 → %.4f，127 → %.4f", lo, hi)
++	}
++}
+diff --git a/apps/hr/sound/synth.go b/apps/hr/sound/synth.go
+new file mode 100644
+index 0000000..03bcda6
+--- /dev/null
++++ b/apps/hr/sound/synth.go
+@@ -0,0 +1,555 @@
++package sound
++
++import "math"
++
++// 合成核心：雙運算元 FM 的旋律聲部，加上五種合成打擊樂。不使用隨機數與牆上時鐘，
++// 同一組建下相同輸入得到逐位元相同的輸出（打擊樂雜訊用固定種子的線性同餘產生器）。
++
++const (
++	// SampleRate 是引擎的輸出取樣率。
++	SampleRate = 44100
++	maxVoices  = 24
++	maxDrums   = 8
++	sineN      = 4096
++	// masterGain 在驗收之前固定為 0.30，不用離線轉檔的峰值反推（docs/spec/007 第 5.1 節）。
++	masterGain = 0.30
++)
++
++var sineTab [3][sineN + 1]float32
++
++func init() {
++	for i := 0; i <= sineN; i++ {
++		s := math.Sin(2 * math.Pi * float64(i) / sineN)
++		sineTab[0][i] = float32(s)
++		sineTab[1][i] = float32(math.Max(s, 0))
++		sineTab[2][i] = float32(math.Abs(s))
++	}
++}
++
++// wave 查表取波形。phase 的單位是圈（可以是任何實數）。
++func wave(w uint8, phase float32) float32 {
++	p := phase - float32(math.Floor(float64(phase)))
++	f := p * sineN
++	i := int(f)
++	if i >= sineN {
++		i = sineN - 1
++	}
++	fr := f - float32(i)
++	a := sineTab[w][i]
++	return a + (sineTab[w][i+1]-a)*fr
++}
++
++type envCoef struct{ aStep, dCoef, sl, sCoef, rCoef float32 }
++
++func makeEnvCoef(e envSpec, scale float32) envCoef {
++	a := e.A
++	if a < 0.0005 {
++		a = 0.0005
++	}
++	d := e.D * scale
++	if d < 0.002 {
++		d = 0.002
++	}
++	r := e.R
++	if r < 0.005 {
++		r = 0.005
++	}
++	c := envCoef{
++		aStep: float32(1 / (float64(a) * SampleRate)),
++		dCoef: float32(math.Exp(-3 / (float64(d) * SampleRate))),
++		sl:    e.S,
++		sCoef: 1,
++		rCoef: float32(math.Exp(-5 / (float64(r) * SampleRate))),
++	}
++	if e.SD > 0 {
++		c.sCoef = float32(math.Exp(-3 / (float64(e.SD*scale) * SampleRate)))
++	}
++	return c
++}
++
++const (
++	stAttack = iota
++	stDecay
++	stSustain
++	stRelease
++	stDone
++)
++
++const envFloor = 0.0003
++
++type envState struct {
++	stage uint8
++	lvl   float32
++}
++
++func (e *envState) step(c *envCoef) float32 {
++	switch e.stage {
++	case stAttack:
++		e.lvl += c.aStep
++		if e.lvl >= 1 {
++			e.lvl = 1
++			e.stage = stDecay
++		}
++	case stDecay:
++		if c.sl <= 0 {
++			e.lvl *= c.dCoef
++			if e.lvl < envFloor {
++				e.lvl, e.stage = 0, stDone
++			}
++		} else {
++			e.lvl = c.sl + (e.lvl-c.sl)*c.dCoef
++			if e.lvl-c.sl < 0.002 {
++				e.stage = stSustain
++			}
++		}
++	case stSustain:
++		e.lvl *= c.sCoef
++		if e.lvl < envFloor {
++			e.lvl, e.stage = 0, stDone
++		}
++	case stRelease:
++		e.lvl *= c.rCoef
++		if e.lvl < envFloor {
++			e.lvl, e.stage = 0, stDone
++		}
++	}
++	return e.lvl
++}
++
++func (e *envState) release() {
++	if e.stage != stRelease && e.stage != stDone {
++		e.stage = stRelease
++	}
++}
++
++type voice struct {
++	active      bool
++	ch, note    uint8
++	age         uint64
++	p           *patch
++	cPhase      float32
++	mPhase      float32
++	cInc, mInc  float32
++	idx         float32 // 調變指數（圈），Add 時為混入音量
++	fb          float32
++	fbPrev      float32
++	amp         float32
++	mEnv, cEnv  envState
++	mC, cC      envCoef
++	lfo, lfoInc float32
++	vibDelay    int
++	vibDepth    float32
++	released    bool
++	modW, carW  uint8
++	add         bool
++	vibratoOn   bool
++}
++
++func (v *voice) start(p *patch, note, vel uint8, age uint64) {
++	f := 440 * math.Pow(2, (float64(note)-69)/12)
++	scale := float32(1)
++	if p.KeyScale != 0 {
++		scale = float32(math.Pow(2, -float64(p.KeyScale)*(float64(note)-60)/12))
++	}
++	vf := float32(vel) / 127
++	*v = voice{
++		active: true, note: note, age: age, p: p,
++		cInc: float32(f * float64(p.CarMult) / SampleRate),
++		mInc: float32(f * float64(p.ModMult) / SampleRate),
++		fb:   p.Fb / (2 * math.Pi),
++		amp:  p.Gain * (0.35 + 0.65*vf),
++		mC:   makeEnvCoef(p.Mod, scale),
++		cC:   makeEnvCoef(p.Car, scale),
++		modW: p.ModWave, carW: p.CarWave, add: p.Add,
++	}
++	if v.mInc > 0.49 {
++		v.mInc = 0.49
++	}
++	if v.cInc > 0.49 {
++		v.cInc = 0.49
++	}
++	bright := 1 - p.VelBright + p.VelBright*vf
++	if p.Add {
++		v.idx = p.Index * bright
++	} else {
++		v.idx = p.Index / (2 * math.Pi) * bright
++	}
++	if p.Vib.Cents != 0 {
++		v.vibratoOn = true
++		v.lfoInc = p.Vib.Rate / SampleRate
++		v.vibDelay = int(p.Vib.Delay * SampleRate)
++		v.vibDepth = p.Vib.Cents * 0.0005776
++	}
++}
++
++func (v *voice) release() {
++	v.released = true
++	v.mEnv.release()
++	v.cEnv.release()
++}
++
++func (v *voice) next() float32 {
++	mul := float32(1)
++	if v.vibratoOn {
++		if v.vibDelay > 0 {
++			v.vibDelay--
++		} else {
++			v.lfo += v.lfoInc
++			if v.lfo >= 1 {
++				v.lfo--
++			}
++			mul = 1 + v.vibDepth*wave(0, v.lfo)
++		}
++	}
++	me := v.mEnv.step(&v.mC)
++	ce := v.cEnv.step(&v.cC)
++	mo := wave(v.modW, v.mPhase+v.fb*v.fbPrev) * me
++	v.fbPrev = mo
++	var out float32
++	if v.add {
++		out = wave(v.carW, v.cPhase)*ce + mo*v.idx
++	} else {
++		out = wave(v.carW, v.cPhase+mo*v.idx) * ce
++	}
++	v.mPhase += v.mInc * mul
++	if v.mPhase >= 1 {
++		v.mPhase--
++	}
++	v.cPhase += v.cInc * mul
++	if v.cPhase >= 1 {
++		v.cPhase--
++	}
++	if v.cEnv.stage == stDone {
++		v.active = false
++	}
++	return out * v.amp
++}
++
++// 打擊樂：全部由合成產生，參數見 drumKinds。
++type drumKind uint8
++
++const (
++	drKick drumKind = iota
++	drSnare
++	drTom
++	drHatClosed
++	drHatOpen
++	drCrash
++)
++
++type drumVoice struct {
++	active  bool
++	kind    drumKind
++	n       uint32 // 已產生的取樣數
++	phase   float32
++	f0, f1  float32 // 起始與結束頻率（Hz）
++	tf      float32 // 頻率衰減時間常數（取樣）
++	env     float32
++	envCoef float32
++	toneAmp float32
++	noiseA  float32
++	click   float32
++	hp      float32
++	lp      float32
++	amp     float32
++	age     uint64
++	maxN    uint32
++}
++
++func coefFor(tau float64) float32 { return float32(math.Exp(-1 / (tau * SampleRate))) }
++
++func (d *drumVoice) start(note, vel uint8, age uint64) {
++	vf := float32(vel) / 127
++	*d = drumVoice{active: true, age: age, env: 1, amp: 0.45 + 0.55*vf}
++	switch {
++	case note == 35 || note == 36:
++		d.kind = drKick
++		d.f0, d.f1, d.tf = 150, 48, 0.03*SampleRate
++		d.envCoef = coefFor(0.16)
++		d.toneAmp, d.noiseA, d.click = 1.0, 0, 0.35
++		d.maxN = SampleRate / 2
++	case note == 37 || note == 38 || note == 39 || note == 40:
++		d.kind = drSnare
++		d.f0, d.f1, d.tf = 220, 175, 0.02*SampleRate
++		d.envCoef = coefFor(0.07)
++		d.toneAmp, d.noiseA = 0.45, 0.85
++		d.hp = 0.35
++		d.maxN = SampleRate * 4 / 10
++	case note == 41 || note == 43 || note == 45 || note == 47 || note == 48 || note == 50:
++		d.kind = drTom
++		sc := float32(math.Pow(2, (float64(note)-45)/12))
++		d.f0, d.f1, d.tf = 170*sc, 95*sc, 0.05*SampleRate
++		d.envCoef = coefFor(0.20)
++		d.toneAmp = 1.0
++		d.maxN = SampleRate * 6 / 10
++	case note == 42 || note == 44:
++		d.kind = drHatClosed
++		d.envCoef = coefFor(0.03)
++		d.noiseA, d.hp = 0.6, 0.92
++		d.maxN = SampleRate / 5
++	case note == 46 || note == 51 || note == 53 || note == 59:
++		d.kind = drHatOpen
++		d.envCoef = coefFor(0.14)
++		d.noiseA, d.hp = 0.6, 0.90
++		d.maxN = SampleRate * 7 / 10
++	case note == 49 || note == 52 || note == 55 || note == 57:
++		d.kind = drCrash
++		d.envCoef = coefFor(0.55)
++		d.noiseA, d.hp = 0.7, 0.88
++		d.f0, d.f1, d.tf = 520, 520, 1
++		d.toneAmp = 0.12
++		d.maxN = SampleRate * 2
++	default:
++		d.kind = drHatClosed
++		d.envCoef = coefFor(0.04)
++		d.noiseA, d.hp = 0.5, 0.9
++		d.maxN = SampleRate / 4
++	}
++}
++
++func (d *drumVoice) next(rng *uint32) float32 {
++	var out float32
++	if d.toneAmp != 0 {
++		fr := d.f1 + (d.f0-d.f1)*float32(math.Exp(-float64(d.n)/float64(d.tf)))
++		d.phase += fr / SampleRate
++		if d.phase >= 1 {
++			d.phase--
++		}
++		out += wave(0, d.phase) * d.toneAmp
++	}
++	if d.noiseA != 0 || d.click != 0 {
++		*rng = *rng*1664525 + 1013904223
++		nz := float32(int32(*rng)) / 2147483648
++		if d.hp > 0 {
++			// 一階高通：減去低通
++			d.lp += (1 - d.hp) * (nz - d.lp)
++			nz -= d.lp
++		}
++		out += nz * d.noiseA
++		if d.click != 0 && d.n < 200 {
++			out += nz * d.click * (1 - float32(d.n)/200)
++		}
++	}
++	out *= d.env * d.amp
++	d.env *= d.envCoef
++	d.n++
++	if d.n >= d.maxN || d.env < envFloor {
++		d.active = false
++	}
++	return out
++}
++
++// Renderer 是一首曲子的播放狀態。Render 把這首曲子的單聲道輸出「加到」dst。
++type Renderer struct {
++	song   *Song
++	pos    []uint64
++	endPos uint64
++	next   int
++	cur    uint64
++	prog   [16]uint8
++	vol    [16]uint8
++	seq    uint64
++	rng    uint32
++	voices [maxVoices]voice
++	drums  [maxDrums]drumVoice
++
++	// Steals 是聲部不夠而取代發聲中聲部的次數（驗收：原曲為 0）。
++	Steals uint64
++	// OnEvent 非 nil 時，每個事件送出時以送出的取樣位置呼叫（測試與驗收用；正式播放不設）。
++	OnEvent func(e *Event, sample uint64)
++}
++
++// NewRenderer 以 SampleRate 準備播放 s。
++func NewRenderer(s *Song) *Renderer {
++	r := &Renderer{song: s, rng: 0x1234abcd}
++	r.pos, r.endPos = s.sampleTimes(SampleRate)
++	for i := range r.vol {
++		r.vol[i] = 100 // General MIDI 的預設音量
++	}
++	return r
++}
++
++// SongDone 是所有事件都已送出且已到曲末。尾音（釋放階段）可能仍在發聲，另見 Silent。
++func (r *Renderer) SongDone() bool { return r.next >= len(r.song.Events) && r.cur >= r.endPos }
++
++// Silent 是沒有任何聲部在發聲。
++func (r *Renderer) Silent() bool {
++	for i := range r.voices {
++		if r.voices[i].active {
++			return false
++		}
++	}
++	for i := range r.drums {
++		if r.drums[i].active {
++			return false
++		}
++	}
++	return true
++}
++
++// ReleaseAll 讓所有聲部進入釋放階段，並丟掉尚未送出的事件。
++func (r *Renderer) ReleaseAll() {
++	r.next = len(r.song.Events)
++	for i := range r.voices {
++		if r.voices[i].active {
++			r.voices[i].release()
++		}
++	}
++}
++
++func (r *Renderer) noteOn(ch, note, vel uint8) {
++	r.seq++
++	if ch == 9 {
++		slot := -1
++		var oldest uint64 = math.MaxUint64
++		for i := range r.drums {
++			if !r.drums[i].active {
++				slot = i
++				break
++			}
++			if r.drums[i].age < oldest {
++				oldest, slot = r.drums[i].age, i
++			}
++		}
++		r.drums[slot].start(note, vel, r.seq)
++		return
++	}
++	slot := -1
++	for i := range r.voices {
++		if !r.voices[i].active {
++			slot = i
++			break
++		}
++	}
++	if slot < 0 {
++		r.Steals++
++		// 先取最小聲的釋放中聲部，其次取最舊的
++		quiet := float32(2)
++		for i := range r.voices {
++			v := &r.voices[i]
++			if v.released && v.cEnv.lvl < quiet {
++				quiet, slot = v.cEnv.lvl, i
++			}
++		}
++		if slot < 0 {
++			var oldest uint64 = math.MaxUint64
++			for i := range r.voices {
++				if r.voices[i].age < oldest {
++					oldest, slot = r.voices[i].age, i
++				}
++			}
++		}
++	}
++	r.voices[slot].start(patchFor(r.prog[ch]), note, vel, r.seq)
++	r.voices[slot].ch = ch
++}
++
++func (r *Renderer) noteOff(ch, note uint8) {
++	if ch == 9 {
++		return // 打擊樂自己衰減
++	}
++	best := -1
++	var oldest uint64 = math.MaxUint64
++	for i := range r.voices {
++		v := &r.voices[i]
++		if v.active && !v.released && v.ch == ch && v.note == note && v.age < oldest {
++			oldest, best = v.age, i
++		}
++	}
++	if best >= 0 {
++		r.voices[best].release()
++	}
++}
++
++func (r *Renderer) dispatch(e *Event) {
++	switch e.Kind {
++	case NoteOn:
++		r.noteOn(e.Ch, e.A, e.B)
++	case NoteOff:
++		r.noteOff(e.Ch, e.A)
++	case Program:
++		r.prog[e.Ch&15] = e.A
++	case Volume:
++		r.vol[e.Ch&15] = e.A
++	}
++}
++
++var chanGain [128]float32
++
++func init() {
++	for i := range chanGain {
++		g := float32(i) / 127
++		chanGain[i] = g * g
++	}
++}
++
++// Render 把輸出加到 dst（單聲道，SampleRate）。
++func (r *Renderer) Render(dst []float32) {
++	evs := r.song.Events
++	for i := range dst {
++		for r.next < len(evs) && r.pos[r.next] <= r.cur {
++			if r.OnEvent != nil {
++				r.OnEvent(&evs[r.next], r.cur)
++			}
++			r.dispatch(&evs[r.next])
++			r.next++
++		}
++		var sum float32
++		for j := range r.voices {
++			v := &r.voices[j]
++			if v.active {
++				sum += v.next() * chanGain[r.vol[v.ch&15]]
++			}
++		}
++		for j := range r.drums {
++			d := &r.drums[j]
++			if d.active {
++				sum += d.next(&r.rng) * chanGain[r.vol[9]]
++			}
++		}
++		dst[i] += sum * masterGain
++		r.cur++
++	}
++}
++
++// softClip 是 tanh 的有理近似，輸入夾在 ±3，輸出落在 ±1。
++func softClip(x float32) float32 {
++	if x >= 3 {
++		return 1
++	}
++	if x <= -3 {
++		return -1
++	}
++	x2 := x * x
++	return x * (27 + x2) / (27 + 9*x2)
++}
++
++// RenderSongRaw 離線轉出整首曲子（含尾音，最多多 3 秒），單聲道 float32，SampleRate，不經限幅。
++// 同時回傳渲染器，供驗收讀 Steals。
++func RenderSongRaw(s *Song, hook func(*Event, uint64)) ([]float32, *Renderer) {
++	r := NewRenderer(s)
++	r.OnEvent = hook
++	total := int(r.endPos) + 3*SampleRate
++	out := make([]float32, 0, total)
++	buf := make([]float32, 1024)
++	for len(out) < total {
++		for i := range buf {
++			buf[i] = 0
++		}
++		r.Render(buf)
++		out = append(out, buf...)
++		if r.SongDone() && r.Silent() {
++			break
++		}
++	}
++	return out, r
++}
++
++// RenderSong 是 RenderSongRaw 加上限幅（與 Engine 輸出相同的路徑）。供驗證與 hrmusic 使用。
++func RenderSong(s *Song) []float32 {
++	out, _ := RenderSongRaw(s, nil)
++	for i := range out {
++		out[i] = softClip(out[i])
++	}
++	return out
++}
+diff --git a/apps/hr/sound/verify_test.go b/apps/hr/sound/verify_test.go
+new file mode 100644
+index 0000000..cd73b0a
+--- /dev/null
++++ b/apps/hr/sound/verify_test.go
+@@ -0,0 +1,342 @@
++package sound
++
++import (
++	"math"
++	"testing"
++)
++
++// 這些測試的判準都來自 SMF 本身或獨立的公式，不依賴合成器的內部參數，
++// 目的是讓「固定振幅的正弦波播到曲末」這種壞合成器過不了（docs/spec/007 第 8 節）。
++
++func rms(f []float32) float64 {
++	var s float64
++	for _, v := range f {
++		s += float64(v) * float64(v)
++	}
++	if len(f) == 0 {
++		return 0
++	}
++	return math.Sqrt(s / float64(len(f)))
++}
++
++// 起音取樣位置對獨立公式：tick 依速度表換成秒再乘取樣率，容差 1 取樣。
++func TestEventTimingMatchesIndependentFormula(t *testing.T) {
++	// division 96；速度 400000 → tick 96 後改 700000 → tick 288 後改 250000
++	t0 := (&tb{}).tempo(0, 400000).tempo(96, 700000).tempo(192, 250000).end(300)
++	t1 := (&tb{}).
++		ev(0, 0x90, 60, 90).ev(30, 0x80, 60, 0).
++		ev(66, 0x90, 62, 90).ev(100, 0x80, 62, 0).  // tick 96 與 196
++		ev(100, 0x90, 64, 90).ev(150, 0x80, 64, 0). // tick 296 與 446（446 超過速度軌結束）
++		end(0)
++	s, err := ParseSMF(smf(1, 96, t0, t1))
++	if err != nil {
++		t.Fatal(err)
++	}
++	type seg struct {
++		tick uint64
++		us   float64
++	}
++	tempos := []seg{{0, 400000}, {96, 700000}, {288, 250000}}
++	secAt := func(tick uint64) float64 {
++		var sec, last = 0.0, uint64(0)
++		cur := tempos[0].us
++		for _, tp := range tempos[1:] {
++			if tp.tick >= tick {
++				break
++			}
++			sec += float64(tp.tick-last) * cur / 96 / 1e6
++			last, cur = tp.tick, tp.us
++		}
++		return sec + float64(tick-last)*cur/96/1e6
++	}
++	var got []struct {
++		k      Kind
++		tick   uint32
++		sample uint64
++	}
++	_, r := RenderSongRaw(s, func(e *Event, sample uint64) {
++		if e.Kind == NoteOn || e.Kind == NoteOff {
++			got = append(got, struct {
++				k      Kind
++				tick   uint32
++				sample uint64
++			}{e.Kind, e.Tick, sample})
++		}
++	})
++	_ = r
++	if len(got) != 6 {
++		t.Fatalf("音符事件 %d 個，應為 6", len(got))
++	}
++	for _, g := range got {
++		want := math.Floor(secAt(uint64(g.tick)) * SampleRate)
++		if d := math.Abs(float64(g.sample) - want); d > 1 {
++			t.Errorf("tick %d（%v）：送出於取樣 %d，獨立公式 %.1f，差 %.1f", g.tick, g.k, g.sample, want, d)
++		}
++	}
++}
++
++// 有音與休止：音符時段的能量高，休止（超過最長釋放之後）幾乎為 0。固定正弦波過不了。
++func TestRestsAreSilentAndNotesAreAudible(t *testing.T) {
++	// 速度 500000、division 48：1 tick ＝ 約 10.4 ms。音符 tick 0 到 48（0.5 s），休止到 tick 192（2.0 s），音符 192 到 240。
++	t0 := (&tb{}).tempo(0, 500000).end(264)
++	for _, prog := range []uint8{0, 35, 56, 73} {
++		t1 := (&tb{}).ev(0, 0xc0, prog).ev(0, 0x90, 60, 100).ev(48, 0x80, 60, 0).ev(144, 0x90, 67, 100).ev(48, 0x80, 67, 0).end(24)
++		sp, err := ParseSMF(smf(1, 48, t0, t1))
++		if err != nil {
++			t.Fatal(err)
++		}
++		f, _ := RenderSongRaw(sp, nil)
++		win := func(a, b float64) []float32 { return f[secsF(a):secsF(b)] }
++		if r := rms(win(0.05, 0.45)); r < 0.01 {
++			t.Errorf("音色 %d：音符時段 RMS %.5f 太小", prog, r)
++		}
++		// 休止：0.5 s 後最長釋放約 1.2 s（鈴），從 1.8 s 到 2.0 s 要幾乎靜音
++		if r := rms(win(1.8, 1.99)); r > 0.002 {
++			t.Errorf("音色 %d：休止時段 RMS %.5f 太大（卡音或常數音）", prog, r)
++		}
++		if r := rms(win(2.05, 2.45)); r < 0.01 {
++			t.Errorf("音色 %d：第二個音 RMS %.5f 太小", prog, r)
++		}
++	}
++}
++
++func secsF(s float64) int { return int(math.Round(s * SampleRate)) }
++
++// 基頻：單音區段自相關，對 MIDI 音高。
++func TestPitchMatchesMIDINote(t *testing.T) {
++	estimate := func(f []float32) float64 {
++		// 自相關在 30 Hz 到 2 kHz 間找最大值（取第一個超過全域最大 0.9 倍的峰，避免倍頻）
++		minLag, maxLag := SampleRate/2000, SampleRate/30
++		var r0 float64
++		for _, v := range f {
++			r0 += float64(v) * float64(v)
++		}
++		best, bestLag := 0.0, 0
++		corr := make([]float64, maxLag+1)
++		for lag := minLag; lag <= maxLag; lag++ {
++			var s float64
++			for i := 0; i+lag < len(f); i++ {
++				s += float64(f[i]) * float64(f[i+lag])
++			}
++			corr[lag] = s / r0
++			if corr[lag] > best {
++				best, bestLag = corr[lag], lag
++			}
++		}
++		for lag := minLag + 1; lag < maxLag; lag++ {
++			if corr[lag] > 0.9*best && corr[lag] >= corr[lag-1] && corr[lag] >= corr[lag+1] {
++				bestLag = lag
++				break
++			}
++		}
++		return float64(SampleRate) / float64(bestLag)
++	}
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	for _, prog := range []uint8{0, 35, 48, 56, 73, 89} {
++		for _, note := range []byte{40, 52, 60, 72, 84} {
++			t1 := (&tb{}).ev(0, 0xc0, prog).ev(0, 0x90, note, 100).ev(96, 0x80, note, 0).end(0)
++			s, _ := ParseSMF(smf(1, 48, t0, t1))
++			f, _ := RenderSongRaw(s, nil)
++			seg := f[secsF(0.6) : secsF(0.6)+4096] // 起音與包絡過了的穩定段
++			want := 440 * math.Pow(2, (float64(note)-69)/12)
++			got := estimate(seg)
++			if math.Abs(got-want)/want > 0.03 {
++				t.Errorf("音色 %d 音符 %d：基頻 %.1f Hz，應為 %.1f Hz", prog, note, got, want)
++			}
++		}
++	}
++}
++
++// 各通道單獨渲染再相加（不限幅）必須等於整首渲染：聲部之間互不干擾，複音沒有取代。
++func TestPerChannelSumEqualsFull(t *testing.T) {
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	mk := func(chs ...int) *Song {
++		t1 := &tb{}
++		// 三個旋律通道（2、3、4）與打擊樂通道 10；事件交錯寫在同一軌，依通道過濾
++		type ev struct {
++			dt  uint32
++			ch  int
++			msg []byte
++		}
++		all := []ev{
++			{0, 1, []byte{0xc1, 0}}, {0, 2, []byte{0xc2, 35}}, {0, 3, []byte{0xc3, 56}},
++			{0, 1, []byte{0x91, 60, 100}}, {0, 2, []byte{0x92, 40, 100}}, {0, 3, []byte{0x93, 67, 90}}, {0, 9, []byte{0x99, 36, 110}},
++			{24, 9, []byte{0x99, 38, 100}}, {24, 1, []byte{0x81, 60, 0}}, {0, 2, []byte{0x82, 40, 0}}, {0, 3, []byte{0x83, 67, 0}},
++			{12, 1, []byte{0x91, 64, 100}}, {12, 9, []byte{0x99, 46, 90}}, {24, 1, []byte{0x81, 64, 0}},
++		}
++		keep := func(c int) bool {
++			for _, x := range chs {
++				if x == c {
++					return true
++				}
++			}
++			return false
++		}
++		var carry uint32
++		for _, e := range all {
++			if keep(e.ch) {
++				t1.ev(e.dt+carry, e.msg...)
++				carry = 0
++			} else {
++				carry += e.dt
++			}
++		}
++		t1.end(carry)
++		s, err := ParseSMF(smf(1, 48, t0, t1))
++		if err != nil {
++			t.Fatal(err)
++		}
++		return s
++	}
++	full, rf := RenderSongRaw(mk(1, 2, 3, 9), nil)
++	if rf.Steals != 0 {
++		t.Fatalf("不該有聲部被取代：%d", rf.Steals)
++	}
++	sum := make([]float32, len(full))
++	for _, c := range []int{1, 2, 3, 9} {
++		f, _ := RenderSongRaw(mk(c), nil)
++		if len(f) > len(sum) {
++			t.Fatalf("通道 %d 的渲染比整首長", c)
++		}
++		for i, v := range f {
++			sum[i] += v
++		}
++	}
++	var maxd float64
++	for i := range full {
++		if d := math.Abs(float64(full[i] - sum[i])); d > maxd {
++			maxd = d
++		}
++	}
++	if maxd > 1e-5 {
++		t.Fatalf("通道和與整首最大差 %.3g，應為 0（容差 1e-5）", maxd)
++	}
++	if rms(full) < 0.01 {
++		t.Fatal("整首近乎靜音")
++	}
++}
++
++// 打擊樂 36、38、45、46、49 各有起音瞬態：起音後 20 ms 的 RMS 遠高於起音前 20 ms。
++func TestDrumOnsets(t *testing.T) {
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	for _, note := range []byte{36, 38, 45, 46, 49} {
++		t1 := (&tb{}).ev(48, 0x99, note, 110).end(48) // 0.5 s 起音
++		s, _ := ParseSMF(smf(1, 48, t0, t1))
++		f, _ := RenderSongRaw(s, nil)
++		on := secsF(0.5)
++		before, after := rms(f[on-secsF(0.02):on]), rms(f[on:on+secsF(0.02)])
++		if before != 0 || after < 0.003 {
++			t.Errorf("鼓 %d：起音前 RMS %.5f，起音後 %.5f", note, before, after)
++		}
++	}
++}
++
++// 一個通道最多同時 24 個聲部以外不應取代：兩個同時音符不產生 Steals。
++func TestNoStealsWithinPolyphony(t *testing.T) {
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	t1 := (&tb{}).ev(0, 0x90, 60, 100).ev(0, 0x90, 64, 100).ev(48, 0x80, 60, 0).ev(0, 0x80, 64, 0).end(0)
++	s, _ := ParseSMF(smf(1, 48, t0, t1))
++	_, r := RenderSongRaw(s, nil)
++	if r.Steals != 0 {
++		t.Fatalf("Steals=%d", r.Steals)
++	}
++	// 負對照：上限降到不夠時 Steals 要大於 0（偵測有作用）
++	t2 := &tb{}
++	for i := 0; i < maxVoices+3; i++ {
++		t2.ev(0, 0x90, byte(40+i), 100)
++	}
++	t2.end(48)
++	s2, _ := ParseSMF(smf(1, 48, t0, t2))
++	_, r2 := RenderSongRaw(s2, nil)
++	if r2.Steals != 3 {
++		t.Fatalf("多 3 個音符時 Steals=%d，應為 3", r2.Steals)
++	}
++}
++
++// 力度 0 的 note-on 視為 note-off（running status 下原曲都這樣結束音符）；同通道同音高重疊時，
++// note-off 釋放最早的一個聲部。
++func TestNoteOffSemantics(t *testing.T) {
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	// 同音高重疊兩次，再各一個 note-off：兩個聲部都要被釋放
++	t1 := (&tb{}).ev(0, 0x90, 60, 100).ev(10, 0x90, 60, 100).ev(10, 0x90, 60, 0).ev(10, 0x90, 60, 0).end(0)
++	s, _ := ParseSMF(smf(1, 48, t0, t1))
++	r := NewRenderer(s)
++	buf := make([]float32, SampleRate/2)
++	r.Render(buf) // 0.5 s：4 個事件（tick 0、10、20、30）都已送出
++	var released, active int
++	for i := range r.voices {
++		if r.voices[i].active {
++			active++
++			if r.voices[i].released {
++				released++
++			}
++		}
++	}
++	if active != 2 || released != 2 {
++		t.Fatalf("active=%d released=%d，兩個重疊音符都應被釋放", active, released)
++	}
++}
++
++// 曲中換音色必須生效（原曲有同軌換音色，MAP3_1 的 FM3 軌 13 次）：換音色之前的輸出與「沒有換音色」的版本逐位元相同，
++// 換音色之後不同。壞合成器若忽略曲中 program change，這個測試擋得下。
++func TestMidTrackProgramChangeTakesEffect(t *testing.T) {
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	with := (&tb{}).ev(0, 0xc0, 0).ev(0, 0x90, 60, 100).ev(48, 0x80, 60, 0).ev(0, 0xc0, 56).ev(0, 0x90, 60, 100).ev(48, 0x80, 60, 0).end(0)
++	without := (&tb{}).ev(0, 0xc0, 0).ev(0, 0x90, 60, 100).ev(48, 0x80, 60, 0).ev(0, 0x90, 60, 100).ev(48, 0x80, 60, 0).end(0)
++	a, _ := ParseSMF(smf(1, 48, t0, with))
++	b, _ := ParseSMF(smf(1, 48, t0, without))
++	fa, _ := RenderSongRaw(a, nil)
++	fb, _ := RenderSongRaw(b, nil)
++	half := secsF(0.5)
++	for i := 0; i < half; i++ {
++		if fa[i] != fb[i] {
++			t.Fatalf("換音色之前的輸出應相同，取樣 %d 不同", i)
++		}
++	}
++	diff := 0
++	for i := half; i < secsF(1.0) && i < len(fa) && i < len(fb); i++ {
++		if fa[i] != fb[i] {
++			diff++
++		}
++	}
++	if diff < SampleRate/10 {
++		t.Fatalf("換音色之後輸出幾乎相同（%d 個不同取樣）：曲中 program change 沒有生效", diff)
++	}
++}
++
++// 起音延遲：音符事件之後，輸出在 30 毫秒內就要有訊號（壞合成器若延遲發聲，例如多 100 毫秒，擋得下）。
++// 22 個原曲音色各測一次；慢起音的墊音以「超過最終峰值的 1%」判斷。
++func TestOnsetLatency(t *testing.T) {
++	t0 := (&tb{}).tempo(0, 500000).end(96)
++	for _, prog := range []uint8{0, 13, 16, 34, 35, 48, 50, 51, 53, 55, 56, 58, 73, 83, 84, 86, 89, 91, 93, 94, 96, 112} {
++		t1 := (&tb{}).ev(0, 0xc0, prog).ev(48, 0x90, 60, 100).ev(48, 0x80, 60, 0).end(0) // tick 48 ＝ 0.5 秒起音
++		s, _ := ParseSMF(smf(1, 48, t0, t1))
++		f, _ := RenderSongRaw(s, nil)
++		on := secsF(0.5)
++		var peak float64
++		for _, v := range f[on:] {
++			if a := math.Abs(float64(v)); a > peak {
++				peak = a
++			}
++		}
++		if peak < 0.005 {
++			t.Errorf("音色 %d：沒有輸出", prog)
++			continue
++		}
++		first := -1
++		for i := on; i < len(f); i++ {
++			if math.Abs(float64(f[i])) > 0.01*peak {
++				first = i - on
++				break
++			}
++		}
++		if first < 0 || first > secsF(0.030) {
++			t.Errorf("音色 %d：起音後 %d 取樣（%.1f 毫秒）才有訊號，應在 30 毫秒內", prog, first, float64(first)*1000/SampleRate)
++		}
++		for i := 0; i < on; i++ {
++			if f[i] != 0 {
++				t.Fatalf("音色 %d：起音之前（取樣 %d）就有輸出", prog, i)
++			}
++		}
++	}
++}
+-- 
+2.43.0
+
