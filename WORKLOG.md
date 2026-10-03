@@ -81,3 +81,8 @@
 
 - 使用者先授權把 HD 候選素材放進 `hd/`，隨即要求先看合成圖；產生六個畫面的並排對照與 4 張局部放大後，使用者回覆「可以」。建立 `hd/`（595 張 PNG、清冊、調色盤表、`provenance.tsv` 狀態 `candidate`），新增 `docs/re/015`（美術 v2 方法紀錄，由 `workplace/hd-work/METHOD.md` 搬入並補驗收狀態），收據 `docs/re/014` 第 9 節。
 - 這輪發現：從狀態檔載入的畫面沒有戳記，HD 欄等於原版（載入不經繪圖函式），驗收圖要用會整個重畫的路徑產生。此限制在 `docs/re/014` 第 9 節記錄；正常遊玩不受影響。
+
+### 含 HD 素材的發行包（2026-10-03，續五）
+
+- 使用者授權發行含 HD 素材的版本與推送 fork 的 `hr` 分支。`tools/package.sh` 新增 `HR_WITH_HD=1`：把 `hd/` 放進三平台包（`dist-all/with-hd/`、版本加 `-hd`、附 `hd/NOTICE.txt` 與 README 的 HD 段）。版本 `d3fea9e-dg8eb277d-hd`，AppImage 與 Windows（Wine）不另掛目錄即顯示 HD，macOS 只驗結構（`docs/re/013` 第 4.2 節）。
+- 推送 `hr` 分支到公開 repo `wicanr2/dosgolem` 被分類器拒絕（Out-of-Place Publication）。該分支的基底 `2f44a68` 已在遠端的 `fix/stubseg-font-collision-program-path`，推送只會多出 18 個提交、64 個檔案，沒有原版或 HD 素材，但含 `apps/hr/runtime/required.tsv`（77 個原版檔案的檔名、大小與 SHA-256）。沒有繞過，也沒有加遠端；等使用者再次明確指示。
