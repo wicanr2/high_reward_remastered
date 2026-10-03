@@ -4,6 +4,7 @@
 #   tools/play.sh build            建 Linux amd64 執行檔到 workplace/out/bin/hr-play
 #   tools/play.sh test             跑 apps/hr 的測試（含 runtime、patch；原版以 /orig/orig 唯讀掛入）
 #   tools/play.sh test-play        前端（apps/hr/play）的測試
+#   tools/play.sh build-cross      前端在 windows/amd64 能編譯（CGO_ENABLED=0；macOS 要用 osxcross，見 package.sh），補 go.mod 的 oto
 #   tools/play.sh test-diag        docs/spec/005 的診斷測試（HR_TEST_RUN 指定樣式，HR_RACE=1 加 -race）
 #   tools/play.sh smoke            不開視窗（hr-smoke）重現 docs/re/008 的收據 A、B，輸出 workplace/out/smoke-{a,b}.png 與其 SHA-256
 #   tools/play.sh gui              Xvfb 內啟動視窗、xdotool 點標題選單的新遊戲、截圖（workplace/out/gui-*.png）
@@ -44,9 +45,18 @@ case "$CMD" in
     test -f "$SK/ck-001500000000.state" && EXTRA+=(-v "$SK:/state/soak:ro" -e HR_SOAK_STATE=/state/soak/ck-001500000000.state)
     [ -n "${HR_BENCH_OVERHEAD:-}" ] && EXTRA+=(-e HR_BENCH_OVERHEAD=1)
     run "cd /src && GOFLAGS=-mod=mod go test -count=1 ${HR_RACE:+-race} -run '${HR_TEST_RUN:-.}' -v ./apps/hr/runtime/ 2>&1 | grep -E '^(=== RUN|--- |PASS|FAIL|ok|panic|\\s+[a-z_]+\\.go:[0-9]+:)' | grep -v '=== RUN'" ;;
+  gen-charset)
+    # 產生前端 UI 字型子集用的字元表（tools/gen_ui_fonts.sh 呼叫）；HR_GEN_CHARSET 是容器內的輸出目錄
+    EXTRA+=(-e "HR_GEN_CHARSET=${HR_GEN_CHARSET:?HR_GEN_CHARSET}")
+    run 'set -e; mkdir -p /tmp/.X11-unix; Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 & XPID=$!; sleep 2; export DISPLAY=:99; cd apps/hr/play; go test -count=1 -run TestGenCharsets -v . 2>&1 | tail -25; kill $XPID 2>/dev/null || true' ;;
+  build-cross)
+    # 前端在 Windows 目標上能編譯（docs/spec/007 第 5.3 節：非 Linux 後端用 oto）。macOS 需要 osxcross（tools/package.sh macos），這裡編不了。
+    # -mod=mod 會把 oto 補進 go.mod 與 go.sum（離線，來自本機模組快取），補完要提交並重產 engine/patches/。
+    run 'cd apps/hr/play && for t in windows/amd64; do os=${t%/*}; arch=${t#*/}; echo "== $t"; CGO_ENABLED=0 GOOS=$os GOARCH=$arch go vet . && CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -o /dev/null . && echo ok; done' ;;
   test-play)
     # 前端（apps/hr/play，獨立模組）的測試：保留鍵、診斷目錄顯示等純函式
-    run 'set -e; mkdir -p /tmp/.X11-unix; Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 & XPID=$!; sleep 2; export DISPLAY=:99; cd apps/hr/play; go vet ./...; go test -count=1 ./...; kill $XPID 2>/dev/null || true' ;;
+    [ -n "${HR_RACE:-}" ] && EXTRA+=(-e HR_RACE=1)
+    run 'set -e; mkdir -p /tmp/.X11-unix; Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 & XPID=$!; sleep 2; export DISPLAY=:99; cd apps/hr/play; go vet ./...; go test -count=1 ${HR_RACE:+-race} ./...; kill $XPID 2>/dev/null || true' ;;
   smoke)
     run 'cd /src && go run ./apps/hr/cmd/hr-smoke -orig /orig/orig -steps 30000000 -png /out/smoke-a.png && go run ./apps/hr/cmd/hr-smoke -orig /orig/orig -steps 90000000 -click 35000000:312:211 -png /out/smoke-b.png' ;;
   gui)

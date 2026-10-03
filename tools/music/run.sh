@@ -11,7 +11,7 @@ test -d "$ROOT/workplace/orig" || { echo "缺 workplace/orig" >&2; exit 1; }
 test -f "$ROOT/tools/music/${1:?工具名}.go" || { echo "沒有 tools/music/$1.go" >&2; exit 1; }
 mkdir -p "$ROOT/workplace/out/music" "$ROOT/workplace/gocache"
 tool="$1"; shift
-exec timeout 10m docker run --rm --network none \
+exec timeout 10m docker run --rm --name "hr-music-$$" --network none \
   --memory 2g --cpus 2 --pids-limit 128 \
   --log-opt max-size=10m --log-opt max-file=3 \
   -u "$(id -u):$(id -g)" \

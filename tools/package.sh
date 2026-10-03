@@ -65,11 +65,16 @@ make_notices() { # $1 輸出檔
     M=/go/pkg/mod
     echo "本程式靜態連結下列第三方軟體。授權全文如下。"
     for d in github.com/hajimehoshi/ebiten/v2@v2.9.9 github.com/ebitengine/purego@v0.9.0 \
-             github.com/ebitengine/hideconsole@v1.0.0 github.com/jezek/xgb@v1.1.1 \
+             github.com/ebitengine/hideconsole@v1.0.0 github.com/ebitengine/oto/v3@v3.4.0 github.com/jezek/xgb@v1.1.1 \
              golang.org/x/sys@v0.36.0 golang.org/x/sync@v0.17.0; do
       echo; echo "================================================================"; echo "$d"; echo "================================================================"
       cat "$M/$d/LICENSE"
     done
+    # 介面字型子集（docs/spec/006 第 6 節）：字型內嵌的版權與授權說明加 OFL 全文，由 tools/gen_ui_fonts.sh 產生
+    if [ -f /w/dosgolem/apps/hr/play/fonts/OFL.txt ]; then
+      echo; echo "================================================================"; echo "Noto Sans CJK 子集（介面字型）"; echo "================================================================"
+      cat /w/dosgolem/apps/hr/play/fonts/OFL.txt
+    fi
     echo; echo "================================================================"; echo "Go 標準函式庫與執行期"; echo "================================================================"
     cat "$(go env GOROOT)/LICENSE"
   ' > "$1"

@@ -143,3 +143,16 @@
 
 - 第三次在主機執行 `python3 --version`（接在 sed 檢查之後的「順手探測」，沒有產生檔案）。主機不跑 Python。這一類探測不需要做：要知道某工具在不在，看 `tools/` 的包裝腳本，不在主機試。
 - 一次 `cd` 之後工作目錄漂到 `workplace/` 子目錄，連續三次 Bash 呼叫的相對路徑受影響（沒有寫錯檔，兩次讀不到檔後才發現）。之後的 Bash 呼叫一律以 `cd /home/anr2/cht/hr &&` 開頭或用絕對路徑。
+
+### 音樂與音效實作、規格 006 第三版、M10 證據（2026-10-03，續十二）
+
+- 音樂與音效：fork 工作樹實作了 `apps/hr/sound`（SMF 解析、FM 合成、引擎）、`apps/hr/runtime/sound.go`（掛鉤，10 個入口位元組檢查，失敗即關閉）、前端音訊後端（Linux 為 purego 載入 `libasound.so.2`，Windows 與 macOS 為 oto v3.4.0，不用 `ebiten/audio`）、`hrmusic` 離線轉檔與驗收。全部未提交，規格 `docs/spec/007` 仍是 DRAFT（第三版），等第三輪審查。
+- 第三輪審查前先自己找到並修了一個引擎錯誤：曲子自然結束、尾音還在唱時，遊戲的重播節拍呼叫的淡出被當成真的，每個循環多等一段淡出。修在 `cFade` 的閒置分支，並用「停用修正後測試必須失敗」的正對照確認。
+- 驗收：27 個 MID 全部通過 `hrmusic -check`；基頻抽查 798/799，壞渲染器 26/799；機器人 `-sound` 2 遊戲小時 × 2 種子 completed，T2 零轉儲。數字與重跑方法在 `docs/re/019`。聽感沒有評估，WAV 在 `workplace/out/music/wav/`，等使用者試聽。
+- 規格 `docs/spec/006` 第三版：邏輯畫面固定 1280x800，基底 theme 與衍生 theme 的檢查分開，偏好設定只寫被切換的欄位，字型子集旗標與授權檔。草稿實作（theme 預載與釋放、prefs、i18n、字型子集）在 fork 工作樹，未提交。
+- M10 證據 `docs/re/020`（文字管線與字型）；`tools/text/`、`tools/ida_text_{callargs,strings}.py`。規格 008 尚未寫。
+
+### 勘誤（續十二）
+
+- `hrmusic` 的基頻抽查失敗訊息仍寫「基頻在 MIDI 音高的 3% 內」，但判準早已改成調和累加比例。訊息已改，判準與通過數字不受影響。
+- 又有一次工作目錄漂到 `workplace/out/bot`（在該目錄 `head` 兩個 summary 之後沒有回到 repo 根）。同一條規則：Bash 呼叫以 `cd /home/anr2/cht/hr &&` 開頭。
