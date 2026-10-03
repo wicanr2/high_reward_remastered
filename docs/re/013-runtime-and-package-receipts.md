@@ -61,6 +61,18 @@
 | Windows | `HighReward-<版本>-win64.zip` | `CGO_ENABLED=0`、`-H=windowsgui` | Wine（`psychicwar-wine`）加 Xvfb：視窗啟動並顯示標題畫面（confirmed）；Wine 與軟體繪圖下每 2 秒只有 1 至 3 個 tick，只能證明能啟動，不代表速度（未知：實機） |
 | macOS | `HighReward-<版本>-macos.zip` | osxcross，arm64 與 x86_64，`lipo` 合成 universal，最低 macOS 11.0，未簽章 | `tools/pkg/verify_macos.sh`：`lipo -info` 含兩種架構、`Info.plist` 以 `plistlib` 解析成功、`.icns` 檔頭正確。**沒有實機驗證**，結構過關不等於功能正常 |
 
+### 4.1 乾淨工作樹的發行包（2026-10-03）
+
+版本字串 `97c1b13-dg8118664`（本 repo 的 commit `97c1b13`，dosgolem 分支 `hr` 的 commit `8118664`；`git describe --dirty` 沒有 `dirty`）。含 HD 疊層的前端（`docs/re/014`）：找得到 `hd/` 目錄（`-hd`、`HR_HD`、AppImage 檔案旁、執行檔旁、macOS 的 `Contents/Resources/hd`、目前目錄）就啟用，找不到就顯示原版畫面；三個包都不含 HD 素材與原版素材。
+
+| 產物 | 大小（bytes） | SHA-256 |
+|---|---|---|
+| `HighReward-97c1b13-dg8118664-x86_64.AppImage` | 4,340,216 | `1fc800e469d1e42dd4a24c2140c4270cafc104627539d1d922480d889115e290` |
+| `HighReward-97c1b13-dg8118664-win64.zip` | 3,778,966 | `3bbd9d216371e58f4c0dfb527ea946678c10e1aa61dc95f47a5145d5be7704e3` |
+| `HighReward-97c1b13-dg8118664-macos.zip` | 7,303,692 | `7454f466b3cb288ea0aa348b2facb8c78689950556bf844acb47a8d04a37e6cd` |
+
+驗收（本次重建後重跑）：外洩掃描三個包命中 0；AppImage 在 Xvfb 內啟動並點新遊戲，原版目錄在 `.AppImage` 旁（`pkg-appimage-newgame.png`），另以 `HR_HD_DIR` 把 HD 目錄掛在 `.AppImage` 旁重跑，新遊戲畫面顯示 HD（`pkg-appimage-hd-newgame.png`）；Windows 以 `tools/pkg/verify_wine.sh` 在 Wine 加 Xvfb 內啟動，顯示標題畫面（`pkg-wine-title.png`，沒有 `hd/`，所以是原版畫面）；macOS 只驗結構（`lipo` 含 x86_64 與 arm64），沒有實機。HD 前端在 Windows 與 macOS 沒有驗過。
+
 外洩掃描：`tools/pkg/leakscan.py` 依 `docs/re/source-inventory.tsv` 的檔名與 SHA-256 掃描三個包的暫存目錄，命中 0。
 
 原版目錄的尋找順序：`-orig`、環境變數 `HR_ORIG`、`.AppImage` 旁的 `original`、執行檔旁的 `original`、macOS 的 `Contents/Resources/original`、目前目錄的 `original`、使用者資料目錄記住的上次路徑。
