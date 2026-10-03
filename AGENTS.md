@@ -8,7 +8,7 @@
 |---|---|---|
 | 1 | 取得 jsdos 版原版 | 完成，見 `docs/re/001-source-intake.md` |
 | 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中：`MAIN.EXE` 在 dosgolem 內可到標題、新遊戲、讀檔、存檔（暫存層）、戰鬥佈陣等畫面（`docs/re/008`、`docs/re/012`）；執行層、前端與三平台打包已實作（`docs/spec/003` READY，`docs/re/013`）；沒有聲音，不播片頭片尾 |
-| 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 進行中：找到並重現一個堆疊溢位當機（`docs/re/011`），修補規格 READY 並已實作（`docs/spec/002`，在記憶體內把 `_stklen` 由 0x1000 改成 0x8000，收據 `docs/re/013`）；是否即使用者說的當機：未確認 |
+| 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 進行中：找到並重現一個堆疊溢位當機（`docs/re/011`），修補規格 READY 並已實作（`docs/spec/002`，在記憶體內把 `_stklen` 由 0x1000 改成 0x8000，收據 `docs/re/013`）；遊玩機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各 2 個種子、每組 2 遊戲小時，沒有當機與凍結，原版堆疊最深用到約一半，未走到溢位路徑（`docs/re/016`）；是否即使用者說的當機：未確認 |
 | 4 | HD 化遊戲圖片 | 進行中：圖像格式已全部解碼（`docs/re/006`），繪圖原語已逆向（`docs/re/009` DRAFT），替換機制規格 READY 並已實作掛鉤、驗證、合成與前端（`docs/spec/004`，收據 `docs/re/014`）；美術 v2 素材 595 張在 `hd/`（`provenance.tsv` 狀態 accepted，`docs/re/015`）；使用者 2026-10-03 看過六個畫面的合成圖後整體接受 |
 
 - 目前範圍是用 dosgolem 執行原版。原版 EXE、資料檔、遊戲規則與存檔格式保持原樣。改變遊戲行為、存檔格式或平衡的提案超出範圍，先經使用者決定。
@@ -28,6 +28,7 @@
   - repo 保持 private。轉公開、建立公開 Release、對外散布含 HD 素材的任何包，都先問使用者。
   - 轉公開前要先處理 git 歷史（HD 素材進了歷史，只在最新 commit 刪除不夠），並更新 `LICENSE` 第 2 條 (c) 點名這些素材。
   - 發行包預設不含 HD 素材與原版素材。要含，先經使用者決定。
+- 使用者 2026-10-03 要求 README 附 dosgolem 執行後的截圖（含 HD），截圖放 `docs/images/`。這是上一條「不得提交原版圖像」的唯一例外：只限少量執行畫面，不放解包出的圖像，repo 保持 private。截圖含原版畫面與 HD 衍生物，轉公開前與 `hd/` 一併處理（移除，或先取得授權並更新 `LICENSE` 第 2 條 (c)）。新增截圖前同樣先問。
 
 ## 3. 二進位盤點
 
@@ -113,9 +114,11 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 |---|---|
 | `IDEA.md` | 使用者的原始需求，不改 |
 | `AGENTS.md` | 本檔 |
+| `README.md` | 專案首頁（遊戲介紹與來源、現況、截圖、執行方法、文件導航） |
 | `LICENSE` | RRSAL-1.0 |
 | `docs/re/` | 證據：位址、雜湊、樣本、推論等級、重跑方法。編號 `NNN-主題.md` 為報告，`data/` 放原始輸出，`source-inventory.tsv` 是原版清冊 |
 | `docs/spec/` | DRAFT、READY、CONFORMED 規格 |
+| `docs/images/` | README 用的執行截圖（含原版畫面與 HD 衍生物，private，見第 2 節） |
 | `tools/` | 容器包裝腳本與清冊工具 |
 | `workplace/` | 唯一可寫的研究工作區，已 gitignore：原版壓縮檔、解包、dosgolem 副本、探針輸出、截圖草稿 |
 | `hd/` | HD 素材（候選與已驗收），版控，private：`catalog.tsv`、`palettes.tsv`、`provenance.tsv`、`x2/`（595 張 PNG）。驗收前的草稿與對照圖在 `workplace/hd-work/` |
@@ -123,7 +126,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | `packaging/` | 發行包內的說明文字（README、PUT_ORIGINAL_FILES_HERE） |
 | `dist-all/` | 唯一的交付根目錄，已 gitignore |
 
-- `README.md` 尚未建立（`WORKLOG.md` 已建立）。建立或大改 README 前先讀 `~/.claude/rulebook/80-retro-cht-readme-polish.md`，對外文字寫完過一次 `humanizer-zh-tw`。
+- `README.md` 已建立（2026-10-03），是專案首頁：遊戲介紹、現況摘要、截圖、執行方法與文件導航。逐輪紀錄寫 `WORKLOG.md`，不放 README。大改 README 前先讀 `~/.claude/rulebook/80-retro-cht-readme-polish.md`，對外文字寫完過一次 `humanizer-zh-tw`。
 - 正文只寫現況。推翻舊結論的原因追加到 `WORKLOG.md` 的勘誤段，教訓寫成規則。
 - 不為相同職責另建同義文件或工作目錄。
 
@@ -169,7 +172,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | M1 | 取得原版、雜湊清冊、啟動鏈與檔頭盤點 | 完成 |
 | M2 | 建立 `workplace/dosgolem` 副本，用 `cmd/probe` 產生冷啟動能力報告。缺口只記錄，不當場補 | 完成，見 `docs/re/003-cold-start-capability-report.md` |
 | M3 | 冷啟動到片頭、主選單、進入遊戲的可重播收據（dosgolem 為權威，DOSBox-X 交叉驗證）。缺的服務逐項先寫 DRAFT 規格再補 | 進行中：標題、新遊戲、讀檔、存檔、系統選單、戰鬥佈陣已有收據（`docs/re/008`、`docs/re/012`）；`OP.EXE`、`SIG.COM`、`END.EXE`、DOSBox-X 對照未做 |
-| M4 | 長跑，定位停機點並分類 | 進行中：隨機輸入與介面探索兩條線已建（`docs/re/011`、`docs/re/012`）；覆蓋不足（overlay 讀取起點 17 至 20 個，共 139 個）；計時器擾動、音效路徑、戰鬥進行未量 |
+| M4 | 長跑，定位停機點並分類 | 進行中：隨機輸入與介面探索兩條線已建（`docs/re/011`、`docs/re/012`）；覆蓋不足（overlay 讀取起點 17 至 20 個，共 139 個）；遊玩機器人已建並跑完 2 組 2 遊戲小時（`docs/re/016`）；計時器擾動、音效路徑未量，戰鬥進行只在機器人的截圖裡出現過（種子 2 兩張） |
 | M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 進行中：堆疊溢位已定位，規格 `docs/spec/002` READY 並已實作；是否即使用者說的當機未確認，其他停機點未找到 |
 | M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 進行中：格式解碼完成；繪圖原語逆向（`docs/re/009` DRAFT）；替換機制規格 `docs/spec/004` READY，掛鉤、驗證、合成與前端已實作（`docs/re/014`）；美術 v2 素材已進 `hd/`，使用者整體接受（全部 accepted）；HD 化完成 |
 | M7 | 三平台前端、打包與發行前驗證 | 進行中：規格 `docs/spec/003` READY，執行層、前端、三平台打包腳本已實作；Linux 與 Windows（Wine）已驗，macOS 只驗結構；HD 前端在 Linux（Xvfb）與 Windows（Wine，標題畫面）驗過，macOS 沒有；三平台發行包已用含 HD 前端的版本重建（`docs/re/013` 第 4.1 節），另有含 HD 素材的包在 `dist-all/with-hd/`（第 4.2 節，只供私人流通）；2026-10-03 修正長跑記憶體成長缺陷（`Session.idleForTrim`）後的最新包見第 4.3 節（`v0.1.0-hd` 含該缺陷，已由 `v0.1.1-hd` 取代）；聲音、片頭片尾未做（`docs/re/013`、`docs/re/014`） |

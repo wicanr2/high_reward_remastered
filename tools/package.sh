@@ -134,7 +134,7 @@ SH
 [Desktop Entry]
 Type=Application
 Name=高報酬戰將 hr-play
-Comment=《高報酬戰將》（DOS，1993）的桌面執行器，需自備原版檔案
+Comment=《高報酬戰將》（DOS 版）的桌面執行器，需自備原版檔案
 Exec=hr-play
 Icon=hr-play
 Categories=Game;

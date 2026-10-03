@@ -1,0 +1,139 @@
+From d4e568c3c177788473d9e211d9821c20902b04d4 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 18:06:47 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr:=20=E5=81=B5=E6=B8=AC=E5=99=A8=E6=AD=A3?=
+ =?UTF-8?q?=E5=B0=8D=E7=85=A7=E7=94=A8=E7=9A=84=E6=97=97=E6=A8=99=EF=BC=88?=
+ =?UTF-8?q?Options.Stklen=E3=80=81hrbot=20-stklen=E3=80=81-inject-hang-min?=
+ =?UTF-8?q?utes=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+docs/re/016：兩遊戲小時的遊玩測試要先證明偵測器會報警。-stklen 把補丁寫入的 _stklen
+縮小，讓已知會溢位的遊玩觸發堆疊溢位停機；-inject-hang-minutes 在輪詢點把兩個位元組改成
+jmp $，驗證凍結偵測與現場存檔。前端不使用這兩個旗標。測試 TestStklenOverride。
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrbot/main.go       | 17 +++++++++++++++--
+ apps/hr/runtime/session.go      |  9 ++++++++-
+ apps/hr/runtime/session_test.go | 13 +++++++++++++
+ 3 files changed, 36 insertions(+), 3 deletions(-)
+
+diff --git a/apps/hr/cmd/hrbot/main.go b/apps/hr/cmd/hrbot/main.go
+index 371e129..4b956b6 100644
+--- a/apps/hr/cmd/hrbot/main.go
++++ b/apps/hr/cmd/hrbot/main.go
+@@ -55,6 +55,8 @@ type options struct {
+ 	seed               int64
+ 	interval           uint64
+ 	noPatch            bool
++	stklen             int
++	injectHang         float64
+ 	thinkMin, thinkMax int
+ 	shotMinutes        float64
+ 	ckptMinutes        float64
+@@ -100,6 +102,7 @@ type bot struct {
+ 	crashInfo    string
+ 	frozen       bool
+ 	noPollStreak int
++	hung         bool
+ 	noPollStart  uint64
+ 	ckpts        []string
+ }
+@@ -112,6 +115,8 @@ func main() {
+ 	flag.Int64Var(&o.seed, "seed", 1, "亂數種子（同程式、同種子可重現）")
+ 	flag.Uint64Var(&o.interval, "interval", hrrt.DefaultInterval, "計時器間隔（道指令／tick，分頻 65536），預設同前端")
+ 	flag.BoolVar(&o.noPatch, "no-stack-patch", false, "關掉堆疊補丁（對照：看原版堆疊會不會在遊玩中溢位）")
++	flag.IntVar(&o.stklen, "stklen", 0, "覆寫補丁寫入的 _stklen（0 ＝ 預設 0x8000）。偵測器正對照：-stklen 1024 讓已知會溢位的遊玩觸發停機")
++	flag.Float64Var(&o.injectHang, "inject-hang-minutes", 0, "正對照：遊戲時間到這個分鐘數，在輪詢點把 CS:IP 的兩個位元組改成 jmp $，凍結偵測要報警（0 ＝ 不注入）")
+ 	flag.IntVar(&o.thinkMin, "think-min", 18, "每個動作之後的思考時間下限（tick，約 1 秒）")
+ 	flag.IntVar(&o.thinkMax, "think-max", 55, "思考時間上限（tick，約 3 秒）")
+ 	flag.Float64Var(&o.shotMinutes, "shot-minutes", 5, "每幾遊戲分鐘存一張截圖")
+@@ -248,7 +253,7 @@ func stopName(k hrrt.StopKind) string {
+ 
+ // startGame 開一個新的 Session（等於玩家重新啟動程式），走到標題選單，讀檔或開新遊戲。
+ func (b *bot) startGame() (*hrrt.Stop, error) {
+-	s, err := hrrt.Open(b.opt.orig, hrrt.Options{SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch})
++	s, err := hrrt.Open(b.opt.orig, hrrt.Options{SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch, Stklen: uint16(b.opt.stklen)})
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -417,6 +422,14 @@ func (b *bot) step() *hrrt.Stop {
+ 		b.noPollStreak = 0
+ 		sig = b.chain()
+ 	}
++	if b.opt.injectHang > 0 && !b.hung && polled && float64(b.gameTicks)/tickHz/60 >= b.opt.injectHang {
++		// 偵測器正對照：把輪詢點的下一道指令換成 jmp $，遊戲從此不再輪詢滑鼠；不是遊玩，只用來證明凍結偵測會報警。
++		m := b.s.Machine()
++		lin := cpu.Linear(m.CPU.Seg[cpu.CS], m.CPU.IP)
++		m.Mem[lin], m.Mem[lin+1] = 0xEB, 0xFE
++		b.hung = true
++		b.logEvent("inject-hang", fmt.Sprintf("CS:IP %04X:%04X 改成 jmp $", m.CPU.Seg[cpu.CS], m.CPU.IP))
++	}
+ 	b.learn(sig)
+ 	a := b.choose(sig)
+ 	b.last = &pendingAct{sig: sig, a: a}
+@@ -651,7 +664,7 @@ func (b *bot) summary(status string, wall time.Duration) {
+ 	j, _ := json.MarshalIndent(map[string]any{
+ 		"status": status, "game_hours": float64(b.gameTicks) / tickHz / 3600, "actions": b.actionsN, "restarts": b.restarts, "quits": b.quits,
+ 		"unique_screens": len(b.sigsEver), "min_sp": fmt.Sprintf("%04X", b.minSP), "max_same_sig_streak": b.maxSame, "suspect_freezes": b.freezes,
+-		"crash": b.crashInfo, "no_stack_patch": b.opt.noPatch, "seed": b.opt.seed, "interval": b.opt.interval, "wall_seconds": wall.Seconds(), "file_opens": opens,
++		"crash": b.crashInfo, "no_stack_patch": b.opt.noPatch, "stklen": b.opt.stklen, "seed": b.opt.seed, "interval": b.opt.interval, "wall_seconds": wall.Seconds(), "file_opens": opens,
+ 	}, "", "  ")
+ 	_ = os.WriteFile(filepath.Join(b.out, "summary.json"), j, 0o644)
+ }
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 787cc28..dc66927 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -47,6 +47,9 @@ type Options struct {
+ 	Interval uint64
+ 	// NoStackPatch 關掉 docs/spec/002 的堆疊補丁（對照與診斷用）。
+ 	NoStackPatch bool
++	// Stklen 覆寫補丁寫入的 `_stklen`（0 ＝ patch.StklenPatched）。偵測器的正對照用：
++	// 把堆疊縮到 1024 讓已知會溢位的遊玩觸發停機，證明溢位偵測與現場存檔會動。
++	Stklen uint16
+ 	// HostClock 讓 DOS 日期與時間取主機時鐘（存檔列才有真的日期）；預設維持固定值（決定性）。
+ 	HostClock bool
+ 	// Verify 對必要檔案做完整 SHA-256 驗證（預設只驗存在與大小）。
+@@ -210,7 +213,11 @@ func Open(root string, opt Options) (*Session, error) {
+ 		return nil, err
+ 	}
+ 	if !opt.NoStackPatch {
+-		res, err := patch.ApplyStackPatch(s.m, s.imageSHA, patch.StklenPatched)
++		stk := opt.Stklen
++		if stk == 0 {
++			stk = patch.StklenPatched
++		}
++		res, err := patch.ApplyStackPatch(s.m, s.imageSHA, stk)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+diff --git a/apps/hr/runtime/session_test.go b/apps/hr/runtime/session_test.go
+index 459f66d..d32f7e6 100644
+--- a/apps/hr/runtime/session_test.go
++++ b/apps/hr/runtime/session_test.go
+@@ -120,6 +120,19 @@ func TestStackPatchAppliedAtStartup(t *testing.T) {
+ 	}
+ }
+ 
++// Stklen 覆寫（偵測器正對照用）：頂端是 _stklen 加 0x10。
++func TestStklenOverride(t *testing.T) {
++	root := origRoot(t)
++	s, err := Open(root, Options{Interval: NativeInterval, Stklen: 1024})
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.RunSteps(1_000_000)
++	if top := s.Stats().StackTop; top != 0x0410 {
++		t.Fatalf("堆疊頂端 %04X，預期 0410", top)
++	}
++}
++
+ // 輸入映射：遊戲區座標加 40 列後送入；按下到遊戲輪詢 3 次才放開。
+ func TestMouseClickReachesGameAndHoldsForPolls(t *testing.T) {
+ 	root := origRoot(t)
+-- 
+2.43.0
+
