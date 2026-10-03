@@ -1,0 +1,102 @@
+From b67e91147a75b33921557e83df99795a36356036 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 19:09:18 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/runtime:=20=E7=86=B1=E8=BF=B4=E5=9C=88?=
+ =?UTF-8?q?=E9=80=9F=E5=BA=A6=E5=9F=BA=E6=BA=96=20BenchmarkRunSteps?=
+ =?UTF-8?q?=EF=BC=88docs/spec/005=20=E7=AC=AC=209=20=E7=AF=80=E7=9A=84=20A?=
+ =?UTF-8?q?=20=E7=89=88=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+回報牆鐘與使用者 CPU 時間（user-ns/op）；場景 cold、cold-hdhooks，battle-state 由 HR_BENCH_STATE 指定。
+origRoot 改接受 testing.TB。診斷功能（spec 005）的 A/B 以這個提交為 A。
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/runtime/bench_test.go   | 59 +++++++++++++++++++++++++++++++++
+ apps/hr/runtime/session_test.go |  2 +-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+ create mode 100644 apps/hr/runtime/bench_test.go
+
+diff --git a/apps/hr/runtime/bench_test.go b/apps/hr/runtime/bench_test.go
+new file mode 100644
+index 0000000..b151073
+--- /dev/null
++++ b/apps/hr/runtime/bench_test.go
+@@ -0,0 +1,59 @@
++package runtime
++
++import (
++	"os"
++	"syscall"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// 熱迴圈速度的 A/B 量測（docs/spec/005 第 9 節，由 tools/bench.sh 交錯執行）。
++// 回報牆鐘（ns/op）與使用者 CPU 時間（user-ns/op）：主機負載高時牆鐘會被其他行程淹沒，
++// 閘門看使用者 CPU 時間。
++
++func userNanos() float64 {
++	var ru syscall.Rusage
++	_ = syscall.Getrusage(syscall.RUSAGE_SELF, &ru)
++	return float64(ru.Utime.Nano())
++}
++
++func benchSteps(b *testing.B, opt Options, state0 string, steps uint64) {
++	root := origRoot(b)
++	opt.NoPacing = true
++	var user float64
++	for i := 0; i < b.N; i++ {
++		b.StopTimer()
++		s, err := Open(root, opt)
++		if err != nil {
++			b.Fatal(err)
++		}
++		if state0 != "" {
++			if err := state.Load(state0, s.m, s.d); err != nil {
++				b.Fatal(err)
++			}
++		}
++		target := s.m.Steps + steps
++		b.StartTimer()
++		u0 := userNanos()
++		s.RunSteps(target)
++		user += userNanos() - u0
++		b.StopTimer()
++	}
++	b.ReportMetric(user/float64(b.N), "user-ns/op")
++}
++
++func BenchmarkRunSteps(b *testing.B) {
++	b.Run("cold", func(b *testing.B) { benchSteps(b, Options{Interval: NativeInterval}, "", 200_000_000) })
++	b.Run("cold-hdhooks", func(b *testing.B) { benchSteps(b, Options{Interval: NativeInterval, HDHooks: true}, "", 200_000_000) })
++	b.Run("battle-state", func(b *testing.B) {
++		p := os.Getenv("HR_BENCH_STATE")
++		if p == "" {
++			b.Skip("沒有設 HR_BENCH_STATE（戰鬥佈陣狀態檔）")
++		}
++		if _, err := os.Stat(p); err != nil {
++			b.Skipf("狀態檔不存在：%v", err)
++		}
++		benchSteps(b, Options{Interval: NativeInterval}, p, 100_000_000)
++	})
++}
+diff --git a/apps/hr/runtime/session_test.go b/apps/hr/runtime/session_test.go
+index d32f7e6..3f40b63 100644
+--- a/apps/hr/runtime/session_test.go
++++ b/apps/hr/runtime/session_test.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ // 原版素材不在本儲存庫：缺檔就 skip，不用替代檔（CLAUDE.md [HARD]）。
+-func origRoot(t *testing.T) string {
++func origRoot(t testing.TB) string {
+ 	t.Helper()
+ 	root := os.Getenv("HR_ORIG")
+ 	if root == "" {
+-- 
+2.43.0
+
