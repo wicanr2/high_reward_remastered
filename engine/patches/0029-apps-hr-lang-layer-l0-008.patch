@@ -1,0 +1,2868 @@
+From fabe4f2f6c1168c4c0eb0b4ac25df19797460956 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sun, 4 Oct 2026 07:31:28 +0800
+Subject: [PATCH] =?UTF-8?q?internal/dos=E3=80=81apps/hr=EF=BC=9A=E8=AA=9E?=
+ =?UTF-8?q?=E8=A8=80=E5=B1=A4=20L0=EF=BC=88docs/spec/008=20=E7=AC=AC?=
+ =?UTF-8?q?=E5=85=AB=E7=89=88=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- internal/dos：DOS.LangDir，resolve 回 (path, Layer)，順序暫存層、語言層、原版；寫入模式開語言層的檔回存取被拒（AX=5）；searchFor 順序 Root、LangDir、Scratch；renameFile 改層別判斷
+- 狀態檔：dosState 加 LangDir、LangManifest（omitempty），PreflightState 與 LoadState 共用解碼與比對，state.Load 先預檢再套用；StateDigest 空語言層不變
+- 開檔層報告 OpenedLayers、OnOpenLayer；診斷 info.txt 加「語言層」區段（T1、T2、T3）
+- probe、hrsoak、hrbot 的 -lang-dir（不存在或不是目錄一律失敗，層重疊是設定錯誤）；runtime Options.LangDir 暫時綁定（L1 換成驗證）
+- 測試：語言層、預檢、診斷區段與突變驗證；LangDir 空的冷啟動 90M 步 A/B 與基準逐位元相同
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrbot/lang.go          |   16 +
+ apps/hr/cmd/hrbot/lang_test.go     |   20 +
+ apps/hr/cmd/hrbot/main.go          |    6 +
+ apps/hr/cmd/hrsoak/langdir.go      |   63 ++
+ apps/hr/cmd/hrsoak/langdir_test.go |  111 +++
+ apps/hr/cmd/hrsoak/main.go         |   11 +
+ apps/hr/runtime/crash.go           |    4 +-
+ apps/hr/runtime/diag.go            |    1 +
+ apps/hr/runtime/diag_test.go       |   17 +-
+ apps/hr/runtime/lang.go            |   96 +++
+ apps/hr/runtime/lang_test.go       |  433 ++++++++++++
+ apps/hr/runtime/session.go         |    8 +
+ cmd/probe/langdir.go               |   82 +++
+ cmd/probe/langdir_test.go          |  112 +++
+ cmd/probe/main.go                  |   13 +
+ internal/dos/dos.go                |   27 +-
+ internal/dos/dosinfo.go            |    5 +-
+ internal/dos/exec.go               |    4 +-
+ internal/dos/fileops.go            |   11 +-
+ internal/dos/files.go              |   77 ++-
+ internal/dos/find.go               |    5 +-
+ internal/dos/font.go               |    2 +-
+ internal/dos/lang_test.go          | 1030 ++++++++++++++++++++++++++++
+ internal/dos/state.go              |   58 +-
+ internal/dos/state_test.go         |    2 +-
+ internal/state/lang_test.go        |  132 ++++
+ internal/state/state.go            |   28 +-
+ 27 files changed, 2335 insertions(+), 39 deletions(-)
+ create mode 100644 apps/hr/cmd/hrbot/lang.go
+ create mode 100644 apps/hr/cmd/hrbot/lang_test.go
+ create mode 100644 apps/hr/cmd/hrsoak/langdir.go
+ create mode 100644 apps/hr/cmd/hrsoak/langdir_test.go
+ create mode 100644 apps/hr/runtime/lang.go
+ create mode 100644 apps/hr/runtime/lang_test.go
+ create mode 100644 cmd/probe/langdir.go
+ create mode 100644 cmd/probe/langdir_test.go
+ create mode 100644 internal/dos/lang_test.go
+ create mode 100644 internal/state/lang_test.go
+
+diff --git a/apps/hr/cmd/hrbot/lang.go b/apps/hr/cmd/hrbot/lang.go
+new file mode 100644
+index 0000000..5f49457
+--- /dev/null
++++ b/apps/hr/cmd/hrbot/lang.go
+@@ -0,0 +1,16 @@
++package main
++
++import "fmt"
++
++// checkLangBound 是 `-lang-dir` 的暫時防護（hr `docs/spec/008` §3.1，L0）：要求語言層真的綁上了。
++//
++// `hrrt.Open` 對不存在的目錄清空生效值、記一行、不回錯（前端不能因語言包消失而擋遊戲），
++// 而 hrbot 沒有給 `Options.Log`，那一行被丟掉：路徑打錯時機器人以原版跑完、退出碼 0，
++// 收據會看起來像語言包的結果。所以 `-lang-dir` 非空而 `Session` 的生效 `LangDir` 為空就回錯，拒絕執行。
++// L1 的 `Session.LangStatus()` 上線、非空原因鍵時非零結束（規格第 3.2 節）之後，換掉這個防護。
++func checkLangBound(want, effective string) error {
++	if want != "" && effective == "" {
++		return fmt.Errorf("-lang-dir %q 沒有綁上語言層（目錄不存在或不是目錄？Session 退成了原版），拒絕執行", want)
++	}
++	return nil
++}
+diff --git a/apps/hr/cmd/hrbot/lang_test.go b/apps/hr/cmd/hrbot/lang_test.go
+new file mode 100644
+index 0000000..87548ad
+--- /dev/null
++++ b/apps/hr/cmd/hrbot/lang_test.go
+@@ -0,0 +1,20 @@
++package main
++
++import (
++	"strings"
++	"testing"
++)
++
++// -lang-dir 非空而 Session 沒有綁上語言層（目錄不存在被清空）：拒絕執行，不退成原版收據。
++func TestCheckLangBound(t *testing.T) {
++	if err := checkLangBound("", ""); err != nil {
++		t.Errorf("沒有給 -lang-dir：%v", err)
++	}
++	if err := checkLangBound("/p/zh/files", "/p/zh/files"); err != nil {
++		t.Errorf("語言層已綁定：%v", err)
++	}
++	err := checkLangBound("/p/typo/files", "")
++	if err == nil || !strings.Contains(err.Error(), "/p/typo/files") {
++		t.Fatalf("-lang-dir 沒綁上應回錯並點名路徑：%v", err)
++	}
++}
+diff --git a/apps/hr/cmd/hrbot/main.go b/apps/hr/cmd/hrbot/main.go
+index 2c39c7e..aa5b3b4 100644
+--- a/apps/hr/cmd/hrbot/main.go
++++ b/apps/hr/cmd/hrbot/main.go
+@@ -52,6 +52,7 @@ var keyNames = []string{"Enter", "Esc", "Space"}
+ 
+ type options struct {
+ 	orig, out          string
++	langDir            string
+ 	hours              float64
+ 	seed               int64
+ 	interval           uint64
+@@ -121,6 +122,7 @@ type bot struct {
+ func main() {
+ 	var o options
+ 	flag.StringVar(&o.orig, "orig", "/orig/orig", "原版檔案目錄（唯讀）")
++	flag.StringVar(&o.langDir, "lang-dir", "", "唯讀的語言層目錄（語言包的 files/，docs/spec/008 第 3.1 節），傳給 hrrt.Options.LangDir；L0 要求上一層有 manifest.json（不驗證內容）")
+ 	flag.StringVar(&o.out, "out", "/out/bot", "輸出目錄")
+ 	flag.Float64Var(&o.hours, "game-hours", 2, "要玩的遊戲時間（小時，計時器 tick ÷ 18.2065）")
+ 	flag.Int64Var(&o.seed, "seed", 1, "亂數種子（同程式、同種子可重現）")
+@@ -286,6 +288,7 @@ func (b *bot) startGame() (*hrrt.Stop, error) {
+ 	}
+ 	s, err := hrrt.Open(b.opt.orig, hrrt.Options{
+ 		Sound:   snd,
++		LangDir: b.opt.langDir,
+ 		SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch, Stklen: uint16(b.opt.stklen),
+ 		DiagDir: filepath.Join(b.out, "diag"), HangSeconds: b.opt.hangSeconds,
+ 		OnDiag: func(dir, reason string) {
+@@ -297,6 +300,9 @@ func (b *bot) startGame() (*hrrt.Stop, error) {
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if err := checkLangBound(b.opt.langDir, s.DOS().LangDir); err != nil { // L0 的暫時防護，見 checkLangBound
++		return nil, err
++	}
+ 	b.s = s
+ 	sess = s
+ 	b.restarts++
+diff --git a/apps/hr/cmd/hrsoak/langdir.go b/apps/hr/cmd/hrsoak/langdir.go
+new file mode 100644
+index 0000000..3f46a7c
+--- /dev/null
++++ b/apps/hr/cmd/hrsoak/langdir.go
+@@ -0,0 +1,63 @@
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"fmt"
++	"os"
++	"path/filepath"
++)
++
++// normDir 把目錄正規化成 `filepath.Abs` 加 `filepath.Clean`。
++func normDir(p string) (string, error) {
++	abs, err := filepath.Abs(p)
++	if err != nil {
++		return "", err
++	}
++	return filepath.Clean(abs), nil
++}
++
++// bindLangDir 解析 -lang-dir（hr `docs/spec/008` §3.1，L0），回傳要設給 `DOS.LangDir`、`DOS.LangManifest` 的生效值。
++//
++// 規則與 `apps/hr/runtime` 的 `Session.bindLang`、`cmd/probe` 各自實作同一組（通用工具不能 import 語言包建置碼；
++// hrsoak 自己建 dos.New，不經 Session.Open）：
++//   - `LangDir` 正規化成 `filepath.Abs` 加 `filepath.Clean`；
++//   - 讀 `<LangDir>/../manifest.json` 的原始位元組，取 SHA-256（小寫十六進位）；檔案不存在就回錯，拒絕啟動。
++//
++// 與 `Session.bindLang` 不同的一點：`-lang-dir` 指向不存在的目錄（或不是目錄）時**回錯，不退成原版**。
++// `Session.Open` 清為空字串是為了前端不能因語言包消失而擋遊戲（`docs/spec/008` §3.1）；這個工具產生的是
++// 長跑與收據，路徑打錯卻以原版跑完、退出碼 0，收據會看起來像語言包的結果。
++//
++// 另外拒絕 `LangDir` 與原版目錄（root）或暫存層（scratch，空字串不比）相同：整個原版目錄變成語言層，
++// 寫入模式開檔一律被拒，與原版目錄「寫入只記帳」的行為不同；暫存層與語言層同一目錄則寫入會落到語言層。
++// 這是設定錯誤的保險，正式路徑（`l10n-packs/<名稱>/files`）不會遇到。
++//
++// **不驗證 manifest 的內容**：載入的目錄由 `hrl10n verify` 先驗證（`docs/spec/008` 第 3.2 節）；
++// 不讀雜湊的話，這個工具存下的檢查點與現場狀態檔記錄空雜湊，在 runtime Session 載入時被拒。
++func bindLangDir(dir, root, scratch string) (langDir, manifest string, err error) {
++	abs, err := normDir(dir)
++	if err != nil {
++		return "", "", fmt.Errorf("-lang-dir %q：%w", dir, err)
++	}
++	if st, err := os.Stat(abs); err != nil || !st.IsDir() {
++		return "", "", fmt.Errorf("-lang-dir 不存在或不是目錄，拒絕啟動（不退成原版）：%s", abs)
++	}
++	for _, other := range []struct{ name, path string }{{"-root", root}, {"-scratch", scratch}} {
++		if other.path == "" {
++			continue
++		}
++		o, err := normDir(other.path)
++		if err != nil {
++			return "", "", fmt.Errorf("%s %q：%w", other.name, other.path, err)
++		}
++		if o == abs {
++			return "", "", fmt.Errorf("-lang-dir 與 %s 是同一個目錄（%s），拒絕啟動", other.name, abs)
++		}
++	}
++	raw, err := os.ReadFile(filepath.Join(abs, "..", "manifest.json"))
++	if err != nil {
++		return "", "", fmt.Errorf("-lang-dir 的上一層缺 manifest.json，拒絕啟動：%w", err)
++	}
++	sum := sha256.Sum256(raw)
++	return abs, hex.EncodeToString(sum[:]), nil
++}
+diff --git a/apps/hr/cmd/hrsoak/langdir_test.go b/apps/hr/cmd/hrsoak/langdir_test.go
+new file mode 100644
+index 0000000..1dd1589
+--- /dev/null
++++ b/apps/hr/cmd/hrsoak/langdir_test.go
+@@ -0,0 +1,111 @@
++package main
++
++import (
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++// helloSHA 是 manifest 內容 "hello" 的 SHA-256。cmd/probe、apps/hr/runtime 的測試用同一個固定值，
++// 斷言三處（probe、hrsoak、Session）對同一個目錄算出相同的 LangManifest 與正規化的 LangDir。
++const helloSHA = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
++
++func makePack(t *testing.T) (filesDir string) {
++	t.Helper()
++	pack := t.TempDir()
++	filesDir = filepath.Join(pack, "files")
++	if err := os.MkdirAll(filesDir, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(pack, "manifest.json"), []byte("hello"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	return filesDir
++}
++
++func TestBindLangDir(t *testing.T) {
++	files := makePack(t)
++	root, scratch := t.TempDir(), t.TempDir()
++	messy := files + string(filepath.Separator) + ".." + string(filepath.Separator) + "files" + string(filepath.Separator)
++	dir, sum, err := bindLangDir(messy, root, scratch)
++	if err != nil {
++		t.Fatalf("err ＝ %v", err)
++	}
++	if dir != filepath.Clean(files) || sum != helloSHA {
++		t.Errorf("LangDir ＝ %q LangManifest ＝ %q，預期 %q 與 %s", dir, sum, filepath.Clean(files), helloSHA)
++	}
++
++	// 相對路徑轉成絕對路徑。
++	t.Chdir(filepath.Dir(files))
++	dir, sum, err = bindLangDir("files", root, "")
++	if err != nil || dir != filepath.Clean(files) || sum != helloSHA {
++		t.Errorf("相對路徑：LangDir ＝ %q LangManifest ＝ %q err ＝ %v", dir, sum, err)
++	}
++}
++
++// -lang-dir 不存在或不是目錄：回錯、拒絕啟動，不退成原版（這個工具產生的是長跑與收據）。
++func TestBindLangDirRefusesMissingOrNonDirectory(t *testing.T) {
++	root := t.TempDir()
++	missing := filepath.Join(t.TempDir(), "nope", "files")
++	if dir, sum, err := bindLangDir(missing, root, ""); err == nil || dir != "" || sum != "" || !strings.Contains(err.Error(), "拒絕啟動") {
++		t.Errorf("不存在的目錄：LangDir ＝ %q LangManifest ＝ %q err ＝ %v", dir, sum, err)
++	}
++	f := filepath.Join(t.TempDir(), "afile")
++	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	if _, _, err := bindLangDir(f, root, ""); err == nil {
++		t.Error("不是目錄也應回錯")
++	}
++}
++
++// 缺 manifest.json：拒絕啟動（回錯），不驗證內容。
++func TestBindLangDirRefusesMissingManifest(t *testing.T) {
++	files := makePack(t)
++	root := t.TempDir()
++	if err := os.Remove(filepath.Join(filepath.Dir(files), "manifest.json")); err != nil {
++		t.Fatal(err)
++	}
++	if _, _, err := bindLangDir(files, root, ""); err == nil || !strings.Contains(err.Error(), "manifest.json") {
++		t.Fatalf("缺 manifest 應回錯並點名檔名：%v", err)
++	}
++	if err := os.WriteFile(filepath.Join(filepath.Dir(files), "manifest.json"), []byte("hello"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	if _, sum, err := bindLangDir(files, root, ""); err != nil || sum != helloSHA {
++		t.Fatalf("不驗證 manifest 內容：sum ＝ %q err ＝ %v", sum, err)
++	}
++}
++
++// 層重疊防呆：LangDir 與原版目錄或暫存層正規化後相同就拒絕（不論路徑怎麼拼）。
++func TestBindLangDirRefusesOverlappingLayers(t *testing.T) {
++	files := makePack(t)
++	unclean := files + string(filepath.Separator) + "." + string(filepath.Separator) + ".." + string(filepath.Separator) + "files"
++	other := t.TempDir()
++	cases := []struct {
++		name          string
++		root, scratch string
++		wantErr       string
++	}{
++		{"與 root 相同", files, other, "-root"},
++		{"與 root 相同（拼法不同）", unclean, other, "-root"},
++		{"與 scratch 相同", other, files, "-scratch"},
++		{"與 scratch 相同（拼法不同）", other, unclean, "-scratch"},
++		{"沒有重疊", other, "", ""},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			_, _, err := bindLangDir(files, c.root, c.scratch)
++			if c.wantErr == "" {
++				if err != nil {
++					t.Fatalf("不該回錯：%v", err)
++				}
++				return
++			}
++			if err == nil || !strings.Contains(err.Error(), c.wantErr) || !strings.Contains(err.Error(), "同一個目錄") {
++				t.Fatalf("應拒絕並點名 %s：%v", c.wantErr, err)
++			}
++		})
++	}
++}
+diff --git a/apps/hr/cmd/hrsoak/main.go b/apps/hr/cmd/hrsoak/main.go
+index 0993623..27461f2 100644
+--- a/apps/hr/cmd/hrsoak/main.go
++++ b/apps/hr/cmd/hrsoak/main.go
+@@ -76,6 +76,9 @@ func main() {
+ 	spLogOn := flag.Bool("sp-log", false, "每個輸入事件記錄一行：步數、滑鼠輪詢點（1F8A:006E）當下的 SP、輸入描述，寫到 <out>/sp.tsv")
+ 	stklen := flag.Uint("stklen", 0, "新遊戲啟動前改寫 Borland 的 _stklen（DGROUP 540F:040C，原值 0x1000）；0 ＝ 不改（見 docs/re）")
+ 	scratch := flag.String("scratch", "", "DOS 的可寫暫存層目錄（寫入複製到這裡，原版目錄不動）；空字串 ＝ 唯讀")
++	langDir := flag.String("lang-dir", "", "唯讀的語言層目錄（語言包的 files/，docs/spec/008 第 3.1 節）：解析順序暫存層、語言層、原版，缺檔回退原版。"+
++		"同時讀 <目錄>/../manifest.json 的原始位元組取 SHA-256 記進狀態檔（檔案不存在就拒絕啟動，不驗證 manifest 內容）；"+
++		"配 -load-state 時狀態檔記錄的 LangDir 與 manifest 雜湊必須相同，否則拒絕載入")
+ 	keyPath := flag.String("key-path", "stdin", "按鍵送入哪條路：stdin（DOS 的 AH=01/07/08/0B 讀的佇列，遊戲實際用的路）｜bda（BIOS 鍵盤緩衝，遊戲不讀；早期長跑的行為，重現舊收據用）")
+ 	noOverflowStop := flag.Bool("no-overflow-stop", false, "堆疊溢位只記錄不停機（重現原版溢位後的後果用）")
+ 	interval := flag.Uint64("interval", 0, "計時器間隔（分頻 65536 時每個 tick 幾道指令），與 apps/hr/runtime 同一條路徑（IRQ0Base ＋ RecalcIRQ0）；0 ＝ 不改")
+@@ -117,6 +120,14 @@ func main() {
+ 		}
+ 	}
+ 	d := dos.New(m, *root)
++	if *langDir != "" { // 語言層在 Install 之前綁定，之後不變
++		dir, sum, err := bindLangDir(*langDir, *root, *scratch)
++		if err != nil {
++			die(err)
++		}
++		d.LangDir, d.LangManifest = dir, sum
++		fmt.Fprintln(rep, "# 語言層", dir, sum)
++	}
+ 	d.Install()
+ 	if *scratch != "" {
+ 		if err := os.MkdirAll(*scratch, 0o755); err != nil {
+diff --git a/apps/hr/runtime/crash.go b/apps/hr/runtime/crash.go
+index d2ec558..584092e 100644
+--- a/apps/hr/runtime/crash.go
++++ b/apps/hr/runtime/crash.go
+@@ -38,7 +38,9 @@ func (s *Session) infoHeader(reason string) string {
+ 
+ // CrashDump 把停機現場存進 dir（T1，docs/spec/003 第 3.1 節、docs/spec/005）：info.txt（第一行是固定標記，
+ // 其後是原因、步數、最低 SP、最近輸入，再加暫存器、呼叫鏈、最近呼叫、服務中斷等診斷區段）、
+-// state.state（dosgolem 狀態檔，可用 hrhd 或探針載入重現）、screen.png（停機當下的畫面）。
++// state.state（dosgolem 狀態檔，可用 hrhd 或探針載入重現；語言包 Session 存的狀態檔帶 LangDir 與 manifest 雜湊，
++// 要用 `probe -lang-dir` 或同一語言層的 Session 載入，`hrhd` 等沒有 `-lang-dir` 的工具會被拒絕，docs/spec/008 第 3.1 節）、
++// screen.png（停機當下的畫面）。
+ // 簽章不變、內容擴充。只能在 Run、RunSteps 沒有執行時呼叫（T2、T3 在迴圈內由 writeDiagDir 處理）。
+ // 輸出含原版內容的衍生物，不要提交或散布。
+ func (s *Session) CrashDump(dir, reason string) error {
+diff --git a/apps/hr/runtime/diag.go b/apps/hr/runtime/diag.go
+index fd84398..c62b55f 100644
+--- a/apps/hr/runtime/diag.go
++++ b/apps/hr/runtime/diag.go
+@@ -838,6 +838,7 @@ func (s *Session) diagSections(smp *sampleResult) string {
+ 			fmt.Fprintf(&b, "  %5d 次  %s\n         位元組 %s\n", e.v, s.addrText(cs, ip, noOvr, true), s.peekBytes(cs, ip, 16))
+ 		}
+ 	}
++	b.WriteString(s.langSection())
+ 	return b.String()
+ }
+ 
+diff --git a/apps/hr/runtime/diag_test.go b/apps/hr/runtime/diag_test.go
+index 7b5709b..8adb2fe 100644
+--- a/apps/hr/runtime/diag_test.go
++++ b/apps/hr/runtime/diag_test.go
+@@ -465,7 +465,9 @@ func hasInfoSections(t *testing.T, text string, extra ...string) {
+ 	if !strings.HasPrefix(text, diagMarker+"\n") {
+ 		t.Errorf("第一行不是固定標記：%q", strings.SplitN(text, "\n", 2)[0])
+ 	}
+-	for _, sec := range append([]string{"== 暫存器 ==", "== 目前位置 ==", "== 呼叫鏈", "== 堆疊頂部", "== 最近呼叫", "== 最近不同的呼叫目標", "== 服務中斷", "== 時間 =="}, extra...) {
++	// 「語言層」區段（docs/spec/005 第 5 節、docs/spec/008 第 3.1 節）：T1、T2、T3 都有，三個項目的標籤固定。
++	for _, sec := range append([]string{"== 暫存器 ==", "== 目前位置 ==", "== 呼叫鏈", "== 堆疊頂部", "== 最近呼叫", "== 最近不同的呼叫目標", "== 服務中斷", "== 時間 ==",
++		"== 語言層 ==\nLangDir：", "\nmanifest SHA-256：", "\n開檔命中層：\n"}, extra...) {
+ 		if !strings.Contains(text, sec) {
+ 			t.Errorf("info.txt 缺區段 %q", sec)
+ 		}
+@@ -499,12 +501,17 @@ type hangHarness struct {
+ }
+ 
+ func newHang(t *testing.T, seconds float64) *hangHarness {
++	t.Helper()
++	return newHangWith(t, Options{HangSeconds: seconds})
++}
++
++// newHangWith 與 newHang 相同，另可帶其他選項（例如 LangDir）；DiagDir 與 OnDiag 由這裡設定。
++func newHangWith(t *testing.T, opt Options) *hangHarness {
+ 	t.Helper()
+ 	h := &hangHarness{}
+-	h.s = openDiag(t, Options{
+-		DiagDir: filepath.Join(t.TempDir(), "crash"), HangSeconds: seconds,
+-		OnDiag: func(dir, reason string) { h.dirs = append(h.dirs, dir); h.n.Add(1) },
+-	})
++	opt.DiagDir = filepath.Join(t.TempDir(), "crash")
++	opt.OnDiag = func(dir, reason string) { h.dirs = append(h.dirs, dir); h.n.Add(1) }
++	h.s = openDiag(t, opt)
+ 	st, polled := h.s.RunToPoll(200_000_000)
+ 	if (st != nil && st.Kind != StopSteps) || !polled {
+ 		t.Fatalf("沒走到標題輪詢點：%v %v", st, polled)
+diff --git a/apps/hr/runtime/lang.go b/apps/hr/runtime/lang.go
+new file mode 100644
+index 0000000..fd87429
+--- /dev/null
++++ b/apps/hr/runtime/lang.go
+@@ -0,0 +1,96 @@
++package runtime
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++)
++
++// 語言層（hr `docs/spec/008` 第 3.1 節，L0）。
++
++// normDir 把目錄正規化成 `filepath.Abs` 加 `filepath.Clean`。
++func normDir(p string) (string, error) {
++	abs, err := filepath.Abs(p)
++	if err != nil {
++		return "", err
++	}
++	return filepath.Clean(abs), nil
++}
++
++// langDataFiles 是診斷「語言層」區段列命中層的檔案：七個資料檔與字模（`docs/spec/008` 第 1 節）。
++var langDataFiles = []string{
++	"COUNTRY.MES", "SP.MES", "SYSTEM.MES", "UWASA.MES", "POWERMES.MES", "ESPMES.MRG", "SHOPTAB.TBL", "CFONT.15",
++}
++
++// bindLang 在 `dos.Install` 之前把 Options.LangDir 綁到 DOS 的語言層，之後執行中不變。
++//
++// L0 的暫時做法：**不驗證 manifest 的內容**，只讀 `<LangDir>/../manifest.json` 的原始位元組算 SHA-256
++// 當 `LangManifest`（缺檔回錯）。L1 換成 `apps/hr/l10n/verify` 的 manifest 驗證，驗證失敗時以空 LangDir 開啟，
++// 並經 `Session.LangStatus()` 回報原因。
++//
++// `LangDir` 正規化成 `filepath.Abs` 加 `filepath.Clean`。指向不存在的目錄（或不是目錄）時，
++// 生效值清為空字串（LangManifest 一併清空，不去讀它的 manifest），記一行，不回錯：
++// 狀態檔記錄的是生效值，所以這個 Session 與沒有語言包的 Session 載入同一個狀態檔。
++// 與 `cmd/probe`、`apps/hr/cmd/hrsoak` 各自實作同一組規則（它們是通用工具，不能 import 本套件的驗證碼），
++// 測試以同一個目錄斷言三者算出相同值。
++//
++// 層重疊防呆：正規化之後的 `LangDir` 等於原版目錄（root）或暫存層（saveDir，空字串不比）就回錯。
++// 整個原版目錄變成語言層時，寫入模式開檔一律被拒，與原版目錄「寫入只記帳」的行為不同；
++// 暫存層與語言層同一目錄則存檔會寫進語言層。設定錯誤的保險，正式路徑（`l10n-packs/<名稱>/files`）不會遇到。
++func (s *Session) bindLang(dir, root, saveDir string) error {
++	if dir == "" {
++		return nil
++	}
++	abs, err := normDir(dir)
++	if err != nil {
++		return fmt.Errorf("語言層目錄 %q：%w", dir, err)
++	}
++	if st, err := os.Stat(abs); err != nil || !st.IsDir() {
++		s.logf("語言層目錄不存在或不是目錄，遊戲內文字維持原版：%s", abs)
++		return nil
++	}
++	for _, other := range []struct{ name, path string }{{"原版目錄", root}, {"暫存層（SaveDir）", saveDir}} {
++		if other.path == "" {
++			continue
++		}
++		o, err := normDir(other.path)
++		if err != nil {
++			return fmt.Errorf("%s %q：%w", other.name, other.path, err)
++		}
++		if o == abs {
++			return fmt.Errorf("語言層目錄與%s是同一個目錄（%s）", other.name, abs)
++		}
++	}
++	raw, err := os.ReadFile(filepath.Join(abs, "..", "manifest.json"))
++	if err != nil {
++		return fmt.Errorf("語言包缺 manifest.json（%s 的上一層）：%w", abs, err)
++	}
++	sum := sha256.Sum256(raw)
++	s.d.LangDir, s.d.LangManifest = abs, hex.EncodeToString(sum[:])
++	return nil
++}
++
++// langSection 是診斷 info.txt 的「語言層」區段（`docs/spec/005` 第 5 節）：三項是 LangDir 的值、
++// 語言包 manifest 的 SHA-256、各資料檔與 CFONT.15 的命中層（取自 `DOS.OpenedLayers`，首次與最近一次）。
++// 沒有語言包時三項皆空。三個 trigger（T1 CrashDump、T2、T3）都經 diagSections，所以都有這一區段。
++func (s *Session) langSection() string {
++	var b strings.Builder
++	d := s.d
++	b.WriteString("\n== 語言層 ==\n")
++	if d.LangDir == "" {
++		b.WriteString("LangDir：\nmanifest SHA-256：\n開檔命中層：\n")
++		return b.String()
++	}
++	fmt.Fprintf(&b, "LangDir：%s\nmanifest SHA-256：%s\n開檔命中層：\n", d.LangDir, d.LangManifest)
++	for _, name := range langDataFiles {
++		if e, ok := d.OpenedLayers[name]; ok {
++			fmt.Fprintf(&b, "  %s  首次 %s  最近 %s\n", name, e.First, e.Last)
++		} else {
++			fmt.Fprintf(&b, "  %s  未開啟\n", name)
++		}
++	}
++	return b.String()
++}
+diff --git a/apps/hr/runtime/lang_test.go b/apps/hr/runtime/lang_test.go
+new file mode 100644
+index 0000000..d90316d
+--- /dev/null
++++ b/apps/hr/runtime/lang_test.go
+@@ -0,0 +1,433 @@
++package runtime
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// 語言層（docs/spec/008 第 3.1 節，L0）在執行層的部分：LangDir 綁定、診斷「語言層」區段、開檔層報告。
++// 需要原版的測試缺檔就 skip（origRoot）。原版檔案只在測試執行時複製進 t.TempDir() 的臨時語言包，不進儲存庫。
++
++// helloSHA 是 manifest 內容 "hello" 的 SHA-256。probe、hrsoak、Session 三處的測試用同一個固定值，
++// 斷言三處對同一個目錄算出相同的 LangManifest。
++const helloSHA = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
++
++// makePack 造語言包目錄：<pack>/manifest.json（內容 "hello"，在 files/ 之外）與 <pack>/files/。
++// names 是要放進 files/ 的原版檔名，內容取自原版目錄 root（root 為空則放合成內容）。
++func makePack(t *testing.T, root string, names ...string) (filesDir string) {
++	t.Helper()
++	pack := t.TempDir()
++	filesDir = filepath.Join(pack, "files")
++	if err := os.MkdirAll(filesDir, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(pack, "manifest.json"), []byte("hello"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	for _, n := range names {
++		body := []byte("synthetic " + n)
++		if root != "" {
++			b, err := os.ReadFile(filepath.Join(root, n))
++			if err != nil {
++				t.Fatal(err)
++			}
++			body = b
++		}
++		if err := os.WriteFile(filepath.Join(filesDir, n), body, 0o644); err != nil {
++			t.Fatal(err)
++		}
++	}
++	return filesDir
++}
++
++func bindSession() (*Session, *[]string) {
++	var logs []string
++	s := &Session{d: dos.New(machine.New(), "."), logf: func(f string, a ...any) { logs = append(logs, f) }}
++	return s, &logs
++}
++
++// bindLang：空值不動；不存在或不是目錄時生效值清為空（不回錯、記一行）；正規化；manifest 雜湊；缺 manifest 回錯。
++func TestBindLang(t *testing.T) {
++	t.Run("空字串", func(t *testing.T) {
++		s, logs := bindSession()
++		if err := s.bindLang("", "/r", "/s"); err != nil || s.d.LangDir != "" || s.d.LangManifest != "" || len(*logs) != 0 {
++			t.Errorf("err ＝ %v LangDir ＝ %q 記錄 %v", err, s.d.LangDir, *logs)
++		}
++	})
++	t.Run("目錄不存在：生效值清為空，不回錯，記一行", func(t *testing.T) {
++		s, logs := bindSession()
++		if err := s.bindLang(filepath.Join(t.TempDir(), "nope", "files"), "", ""); err != nil {
++			t.Fatalf("不存在的目錄不該回錯：%v", err)
++		}
++		if s.d.LangDir != "" || s.d.LangManifest != "" || len(*logs) != 1 {
++			t.Errorf("LangDir ＝ %q LangManifest ＝ %q 記錄 %v", s.d.LangDir, s.d.LangManifest, *logs)
++		}
++	})
++	t.Run("不是目錄", func(t *testing.T) {
++		s, _ := bindSession()
++		f := filepath.Join(t.TempDir(), "afile")
++		if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
++			t.Fatal(err)
++		}
++		if err := s.bindLang(f, "", ""); err != nil || s.d.LangDir != "" {
++			t.Errorf("err ＝ %v LangDir ＝ %q", err, s.d.LangDir)
++		}
++	})
++	t.Run("正規化與 manifest 雜湊", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		s, _ := bindSession()
++		messy := files + string(filepath.Separator) + ".." + string(filepath.Separator) + "files" + string(filepath.Separator)
++		if err := s.bindLang(messy, t.TempDir(), t.TempDir()); err != nil {
++			t.Fatal(err)
++		}
++		if s.d.LangDir != filepath.Clean(files) {
++			t.Errorf("LangDir ＝ %q，預期 %q", s.d.LangDir, filepath.Clean(files))
++		}
++		if s.d.LangManifest != helloSHA {
++			t.Errorf("LangManifest ＝ %s，預期 %s", s.d.LangManifest, helloSHA)
++		}
++		raw := sha256.Sum256([]byte("hello"))
++		if hex.EncodeToString(raw[:]) != helloSHA {
++			t.Fatal("測試常數 helloSHA 與 sha256(\"hello\") 不符")
++		}
++	})
++	t.Run("相對路徑轉成絕對路徑", func(t *testing.T) {
++		files := makePack(t, "")
++		t.Chdir(filepath.Dir(files))
++		s, _ := bindSession()
++		if err := s.bindLang("files", "", ""); err != nil {
++			t.Fatal(err)
++		}
++		if s.d.LangDir != filepath.Clean(files) || s.d.LangManifest != helloSHA {
++			t.Errorf("LangDir ＝ %q LangManifest ＝ %q", s.d.LangDir, s.d.LangManifest)
++		}
++	})
++	t.Run("缺 manifest 回錯", func(t *testing.T) {
++		files := makePack(t, "")
++		if err := os.Remove(filepath.Join(filepath.Dir(files), "manifest.json")); err != nil {
++			t.Fatal(err)
++		}
++		s, _ := bindSession()
++		err := s.bindLang(files, "", "")
++		if err == nil || !strings.Contains(err.Error(), "manifest.json") {
++			t.Fatalf("缺 manifest 應回錯並點名檔名：%v", err)
++		}
++		if s.d.LangDir != "" {
++			t.Errorf("回錯時不該綁定：LangDir ＝ %q", s.d.LangDir)
++		}
++	})
++}
++
++// 層重疊防呆：LangDir 與原版目錄或暫存層（SaveDir）正規化後相同就回錯（不論路徑怎麼拼），不綁定。
++func TestBindLangRefusesOverlappingLayers(t *testing.T) {
++	files := makePack(t, "")
++	unclean := files + string(filepath.Separator) + "." + string(filepath.Separator) + ".." + string(filepath.Separator) + "files"
++	other := t.TempDir()
++	cases := []struct {
++		name        string
++		root, saves string
++		wantErr     string
++	}{
++		{"與原版目錄相同", files, other, "原版目錄"},
++		{"與原版目錄相同（拼法不同）", unclean, other, "原版目錄"},
++		{"與暫存層相同", other, files, "暫存層"},
++		{"與暫存層相同（拼法不同）", other, unclean, "暫存層"},
++		{"沒有重疊", other, "", ""},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			s, _ := bindSession()
++			err := s.bindLang(files, c.root, c.saves)
++			if c.wantErr == "" {
++				if err != nil || s.d.LangDir != filepath.Clean(files) {
++					t.Fatalf("不該回錯：err ＝ %v LangDir ＝ %q", err, s.d.LangDir)
++				}
++				return
++			}
++			if err == nil || !strings.Contains(err.Error(), c.wantErr) || !strings.Contains(err.Error(), "同一個目錄") {
++				t.Fatalf("應回錯並點名 %s：%v", c.wantErr, err)
++			}
++			if s.d.LangDir != "" || s.d.LangManifest != "" {
++				t.Errorf("回錯時不該綁定：LangDir ＝ %q", s.d.LangDir)
++			}
++		})
++	}
++}
++
++// Open 層：LangDir 等於原版目錄或 SaveDir 時拒絕開啟（需原版）。
++func TestOpenRefusesLangDirEqualToRootOrSaveDir(t *testing.T) {
++	root := origRoot(t)
++	if _, err := Open(root, Options{LangDir: root}); err == nil || !strings.Contains(err.Error(), "同一個目錄") {
++		t.Errorf("LangDir 等於原版目錄應拒絕：%v", err)
++	}
++	files := makePack(t, "", "SP.MES")
++	if _, err := Open(root, Options{LangDir: files, SaveDir: files}); err == nil || !strings.Contains(err.Error(), "同一個目錄") {
++		t.Errorf("LangDir 等於 SaveDir 應拒絕：%v", err)
++	}
++}
++
++// 診斷的「語言層」區段（docs/spec/005 第 5 節）：沒有語言包時三項皆空；有時列出三項與各資料檔的命中層。
++func TestLangSection(t *testing.T) {
++	s, _ := bindSession()
++	if got, want := s.langSection(), "\n== 語言層 ==\nLangDir：\nmanifest SHA-256：\n開檔命中層：\n"; got != want {
++		t.Errorf("沒有語言包：\n%q\n預期 %q", got, want)
++	}
++	// 沒有語言包時，即使開過檔也不列命中層（三項皆空）。
++	s.d.OpenedLayers = map[string]dos.OpenedLayer{"CFONT.15": {First: "root", Last: "root"}}
++	if got := s.langSection(); strings.Contains(got, "CFONT.15") {
++		t.Errorf("沒有語言包時不該列命中層：%q", got)
++	}
++	s.d.LangDir, s.d.LangManifest = "/p/zh/files", helloSHA
++	s.d.OpenedLayers = map[string]dos.OpenedLayer{
++		"CFONT.15":    {First: "lang", Last: "lang"},
++		"ESPMES.MRG":  {First: "lang", Last: "scratch"},
++		"SHOPTAB.TBL": {First: "root", Last: "root"},
++	}
++	got := s.langSection()
++	for _, want := range []string{
++		"== 語言層 ==\nLangDir：/p/zh/files\n", "manifest SHA-256：" + helloSHA + "\n", "開檔命中層：\n",
++		"  CFONT.15  首次 lang  最近 lang\n", "  ESPMES.MRG  首次 lang  最近 scratch\n", "  SHOPTAB.TBL  首次 root  最近 root\n",
++		"  SP.MES  未開啟\n", "  COUNTRY.MES  未開啟\n",
++	} {
++		if !strings.Contains(got, want) {
++			t.Errorf("語言層區段缺 %q：\n%s", want, got)
++		}
++	}
++}
++
++// OpenedLayers 不被 TrimDiagnostics 清（Opened 會被清）：ESPMES.MRG 每兩遊戲小時開上百次，環或清除會洗掉只開一次的 CFONT.15。
++func TestTrimKeepsOpenedLayers(t *testing.T) {
++	m := machine.New()
++	d := dos.New(m, ".")
++	d.Opened = []string{"CFONT.15"}
++	d.OpenedLayers = map[string]dos.OpenedLayer{"CFONT.15": {First: "lang", Last: "lang"}}
++	TrimDiagnostics(m, d)
++	if len(d.Opened) != 0 {
++		t.Fatal("測試前置：Opened 應被清掉")
++	}
++	if got := d.OpenedLayers["CFONT.15"]; got.First != "lang" || got.Last != "lang" {
++		t.Errorf("OpenedLayers 被清了：%v", d.OpenedLayers)
++	}
++}
++
++func TestOpenLangDirMissingManifestFails(t *testing.T) {
++	root := origRoot(t)
++	files := makePack(t, "", "SP.MES")
++	if err := os.Remove(filepath.Join(filepath.Dir(files), "manifest.json")); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := Open(root, Options{LangDir: files}); err == nil || !strings.Contains(err.Error(), "manifest.json") {
++		t.Fatalf("缺 manifest 應拒絕啟動：%v", err)
++	}
++}
++
++func TestOpenNonexistentLangDirClearsToEmpty(t *testing.T) {
++	root := origRoot(t)
++	var logs []string
++	s, err := Open(root, Options{LangDir: filepath.Join(t.TempDir(), "nope", "files"), Log: func(f string, a ...any) { logs = append(logs, f) }})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if s.DOS().LangDir != "" || s.DOS().LangManifest != "" {
++		t.Errorf("生效值應清為空：LangDir ＝ %q LangManifest ＝ %q", s.DOS().LangDir, s.DOS().LangManifest)
++	}
++	found := false
++	for _, l := range logs {
++		found = found || strings.Contains(l, "語言層目錄")
++	}
++	if !found {
++		t.Errorf("應記一行：%v", logs)
++	}
++}
++
++// openWithClick 照收據 B（docs/re/008）：冷啟動，第 3500 萬道指令點新遊戲，跑到 9000 萬道指令。
++func openWithClick(t *testing.T, root string, opt Options) *Session {
++	t.Helper()
++	opt.Interval = NativeInterval
++	s, err := Open(root, opt)
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.RunSteps(35_000_000)
++	s.Input(Event{Kind: EvMouseButton, X: 312, Y: 171, Btn: 0, Down: true})
++	s.Input(Event{Kind: EvMouseButton, X: 312, Y: 171, Btn: 0, Down: false})
++	if st := s.RunSteps(90_000_000); st.Kind != StopSteps {
++		t.Fatalf("提前停機：%v", st)
++	}
++	return s
++}
++
++// 開檔層報告（需原版，冷啟動）：七個資料檔與 CFONT.15 的臨時語言包（內容與原版相同）放進 LangDir，
++// 冷啟動走到新遊戲第一畫面，開過的資料檔必須從語言層開啟。負對照：語言包少放 ESPMES.MRG，它必須落回原版。
++// 90M 步內遊戲只開 CFONT.15 與 ESPMES.MRG；其餘資料檔的逐檔開檔層由 dos 套件的單元測試涵蓋。
++func TestColdStartOpensDataFilesFromLangLayer(t *testing.T) {
++	root := origRoot(t)
++	files := makePack(t, root, langDataFiles...)
++	s := openWithClick(t, root, Options{LangDir: files, NoPacing: true})
++	d := s.DOS()
++	if d.LangDir != filepath.Clean(files) || d.LangManifest != helloSHA {
++		t.Fatalf("LangDir ＝ %q LangManifest ＝ %q", d.LangDir, d.LangManifest)
++	}
++	opened := 0
++	for _, n := range langDataFiles {
++		e, ok := d.OpenedLayers[n]
++		if !ok {
++			continue
++		}
++		opened++
++		if e.First != "lang" || e.Last != "lang" {
++			t.Errorf("%s 的命中層 ＝ %+v，預期 lang", n, e)
++		}
++	}
++	for _, must := range []string{"CFONT.15", "ESPMES.MRG"} {
++		if _, ok := d.OpenedLayers[must]; !ok {
++			t.Errorf("冷啟動 9000 萬步內應開過 %s：%v", must, d.OpenedLayers)
++		}
++	}
++	t.Logf("90M 步內開過的資料檔 %d 個", opened)
++	// 臨時語言包的內容與原版相同，畫面必須與收據 B 相同（identity 包不改變遊戲）。
++	const wantB = "853a695340271b1e2540702d6d5f1e78f3807e230c666a181e3985097879adaf"
++	if got := pngHash(t, s); got != wantB {
++		t.Errorf("identity 語言包的畫面 PNG 雜湊 %s，預期收據 B %s", got, wantB)
++	}
++
++	// 負對照：少放 ESPMES.MRG。
++	var rest []string
++	for _, n := range langDataFiles {
++		if n != "ESPMES.MRG" {
++			rest = append(rest, n)
++		}
++	}
++	s2 := openWithClick(t, root, Options{LangDir: makePack(t, root, rest...), NoPacing: true})
++	if e := s2.DOS().OpenedLayers["ESPMES.MRG"]; e.First != "root" || e.Last != "root" {
++		t.Errorf("語言包沒有 ESPMES.MRG，應落回原版：%+v", e)
++	}
++	if e := s2.DOS().OpenedLayers["CFONT.15"]; e.First != "lang" {
++		t.Errorf("CFONT.15 仍應來自語言層：%+v", e)
++	}
++}
++
++// 診斷（T1、T2、T3）的「語言層」區段：有語言包時帶三項與命中層。
++func TestDiagLangSectionWithPack(t *testing.T) {
++	root := origRoot(t)
++	files := makePack(t, root, "CFONT.15")
++	check := func(t *testing.T, text string) {
++		t.Helper()
++		hasInfoSections(t, text)
++		for _, want := range []string{
++			"LangDir：" + filepath.Clean(files) + "\n", "manifest SHA-256：" + helloSHA + "\n",
++			"  CFONT.15  首次 lang  最近 lang\n", "  ESPMES.MRG  未開啟\n",
++		} {
++			if !strings.Contains(text, want) {
++				t.Errorf("info.txt 的語言層區段缺 %q", want)
++			}
++		}
++	}
++	t.Run("T1", func(t *testing.T) {
++		s := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
++		s.RunSteps(5_000_000)
++		dir := filepath.Join(t.TempDir(), "crash")
++		if err := s.CrashDump(dir, "測試"); err != nil {
++			t.Fatal(err)
++		}
++		b, err := os.ReadFile(filepath.Join(dir, "info.txt"))
++		if err != nil {
++			t.Fatal(err)
++		}
++		check(t, string(b))
++	})
++	t.Run("T2", func(t *testing.T) {
++		h := newHangWith(t, Options{HangSeconds: 3, LangDir: files})
++		cs, ip := h.patchHere(0xEB, 0xFE)
++		h.run(t, 3.6)
++		h.checkOne(t, cs, ip)
++		b, err := os.ReadFile(filepath.Join(h.dirs[0], "info.txt"))
++		if err != nil {
++			t.Fatal(err)
++		}
++		check(t, string(b))
++	})
++	t.Run("T3", func(t *testing.T) {
++		var dirs []string
++		s := openDiag(t, Options{LangDir: files, DiagDir: filepath.Join(t.TempDir(), "crash"), OnDiag: func(dir, reason string) { dirs = append(dirs, dir) }})
++		s.RunSteps(2_000_000)
++		before := s.m.Steps
++		s.RequestDiag("按鍵")
++		s.RunSteps(before + 10_000)
++		if len(dirs) != 1 {
++			t.Fatalf("手動診斷：%v", dirs)
++		}
++		b, err := os.ReadFile(filepath.Join(dirs[0], "info.txt"))
++		if err != nil {
++			t.Fatal(err)
++		}
++		check(t, string(b))
++	})
++}
++
++// 語言包 Session 存下的狀態檔（診斷現場的 state.state）只能在同一語言層載入：不同的 Session 在任何狀態變更之前被拒。
++func TestSessionStateFileBindsToLangLayer(t *testing.T) {
++	root := origRoot(t)
++	files := makePack(t, root, "CFONT.15")
++	s := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
++	s.RunSteps(3_000_000)
++	dir := filepath.Join(t.TempDir(), "crash")
++	if err := s.CrashDump(dir, "狀態檔綁定"); err != nil {
++		t.Fatal(err)
++	}
++	path := filepath.Join(dir, "state.state")
++
++	plain := openDiag(t, Options{Interval: NativeInterval})
++	before := plain.m.Steps
++	err := state.Load(path, plain.m, plain.d)
++	if err == nil || !strings.Contains(err.Error(), filepath.Clean(files)) {
++		t.Fatalf("沒有語言包的 Session 應拒絕載入並點名 LangDir：%v", err)
++	}
++	if plain.m.Steps != before {
++		t.Error("拒絕之後機器被改動")
++	}
++	same := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
++	if err := state.Load(path, same.m, same.d); err != nil {
++		t.Fatalf("同一語言層的 Session 應載得進：%v", err)
++	}
++	if same.m.Steps != s.m.Steps {
++		t.Errorf("載入後步數 %d，預期 %d", same.m.Steps, s.m.Steps)
++	}
++	// 另一份 manifest（同一個 files 目錄，雜湊不同）也拒絕。
++	if err := os.WriteFile(filepath.Join(filepath.Dir(files), "manifest.json"), []byte("changed"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	other := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
++	if err := state.Load(path, other.m, other.d); err == nil {
++		t.Error("manifest 雜湊不同的 Session 應拒絕載入")
++	}
++}
++
++// 沒有語言包的診斷狀態檔，在沒有語言包的 Session 載入照舊（與現況相同）。
++func TestSessionStateFileWithoutLangLoadsAsBefore(t *testing.T) {
++	root := origRoot(t)
++	s := openDiag(t, Options{Interval: NativeInterval})
++	s.RunSteps(3_000_000)
++	dir := filepath.Join(t.TempDir(), "crash")
++	if err := s.CrashDump(dir, "無語言包"); err != nil {
++		t.Fatal(err)
++	}
++	s2, err := Open(root, Options{Interval: NativeInterval, NoPacing: true})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := state.Load(filepath.Join(dir, "state.state"), s2.m, s2.d); err != nil {
++		t.Fatal(err)
++	}
++	if s2.m.Steps != s.m.Steps {
++		t.Errorf("載入後步數 %d，預期 %d", s2.m.Steps, s.m.Steps)
++	}
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 13f9713..9d0bcec 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -42,6 +42,11 @@ const (
+ type Options struct {
+ 	// SaveDir 是可寫暫存層（dosgolem 的 d.Scratch）；空字串表示唯讀（寫入只記帳）。
+ 	SaveDir string
++	// LangDir 是語言層目錄（語言包的 files/，docs/spec/008 第 3.1 節）；空字串 ＝ 沒有語言層，行為與沒有這個欄位時相同。
++	// 解析順序是暫存層、語言層、原版目錄，語言層缺檔回退原版，以寫入模式開語言層的檔回存取被拒。
++	// Open 時綁定一次，執行中不變。L0 的暫時做法：LangDir 的上一層必須有 manifest.json（只讀位元組算雜湊，
++	// 不驗證內容），目錄不存在時當作空（見 bindLang）。
++	LangDir string
+ 	// Interval 是分頻 65536 時每個計時器中斷間隔幾道指令。0 ＝ DefaultInterval，
+ 	// NativeInterval ＝ 維持 dosgolem 預設。
+ 	Interval uint64
+@@ -253,6 +258,9 @@ func Open(root string, opt Options) (*Session, error) {
+ 		s.logf("%s", res)
+ 	}
+ 	s.d = dos.New(s.m, root)
++	if err := s.bindLang(opt.LangDir, root, opt.SaveDir); err != nil { // 語言層在 Install 之前綁定，之後不變
++		return nil, err
++	}
+ 	s.d.Install()
+ 	s.noDiag = opt.NoDiag
+ 	s.initDiag()
+diff --git a/cmd/probe/langdir.go b/cmd/probe/langdir.go
+new file mode 100644
+index 0000000..afb8659
+--- /dev/null
++++ b/cmd/probe/langdir.go
+@@ -0,0 +1,82 @@
++package main
++
++import (
++	"crypto/sha256"
++	"encoding/hex"
++	"fmt"
++	"os"
++	"path/filepath"
++	"sort"
++	"strings"
++
++	"github.com/wicanr2/dosgolem/internal/dos"
++)
++
++// normDir 把目錄正規化成 `filepath.Abs` 加 `filepath.Clean`。
++func normDir(p string) (string, error) {
++	abs, err := filepath.Abs(p)
++	if err != nil {
++		return "", err
++	}
++	return filepath.Clean(abs), nil
++}
++
++// bindLangDir 解析 -lang-dir（hr `docs/spec/008` §3.1，L0），回傳要設給 `DOS.LangDir`、`DOS.LangManifest` 的生效值。
++//
++// 規則與 `apps/hr/runtime` 的 `Session.bindLang`、`apps/hr/cmd/hrsoak` 各自實作同一組（通用工具不能 import 語言包建置碼）：
++//   - `LangDir` 正規化成 `filepath.Abs` 加 `filepath.Clean`；
++//   - 讀 `<LangDir>/../manifest.json` 的原始位元組，取 SHA-256（小寫十六進位）；檔案不存在就回錯，拒絕啟動。
++//
++// 與 `Session.bindLang` 不同的一點：`-lang-dir` 指向不存在的目錄（或不是目錄）時**回錯，不退成原版**。
++// `Session.Open` 清為空字串是為了前端不能因語言包消失而擋遊戲（`docs/spec/008` §3.1）；這個工具產生的是
++// A/B 與樣張收據，路徑打錯卻以原版跑完、退出碼 0，收據會看起來像語言包的結果。
++//
++// 另外拒絕 `LangDir` 與原版目錄（root）或暫存層（scratch，空字串不比）相同：整個原版目錄變成語言層，
++// 寫入模式開檔一律被拒，與原版目錄「寫入只記帳」的行為不同；暫存層與語言層同一目錄則寫入會落到語言層。
++// 這是設定錯誤的保險，正式路徑（`l10n-packs/<名稱>/files`）不會遇到。
++//
++// **不驗證 manifest 的內容**：這個工具不驗證語言包，載入的目錄由 `hrl10n verify` 先驗證（`docs/spec/008` 第 3.2 節）；
++// 不讀雜湊的話，這個工具存下的狀態檔記錄空雜湊，在 runtime Session 載入時被拒。
++func bindLangDir(dir, root, scratch string) (langDir, manifest string, err error) {
++	abs, err := normDir(dir)
++	if err != nil {
++		return "", "", fmt.Errorf("-lang-dir %q：%w", dir, err)
++	}
++	if st, err := os.Stat(abs); err != nil || !st.IsDir() {
++		return "", "", fmt.Errorf("-lang-dir 不存在或不是目錄，拒絕啟動（不退成原版）：%s", abs)
++	}
++	for _, other := range []struct{ name, path string }{{"-root", root}, {"-scratch", scratch}} {
++		if other.path == "" {
++			continue
++		}
++		o, err := normDir(other.path)
++		if err != nil {
++			return "", "", fmt.Errorf("%s %q：%w", other.name, other.path, err)
++		}
++		if o == abs {
++			return "", "", fmt.Errorf("-lang-dir 與 %s 是同一個目錄（%s），拒絕啟動", other.name, abs)
++		}
++	}
++	raw, err := os.ReadFile(filepath.Join(abs, "..", "manifest.json"))
++	if err != nil {
++		return "", "", fmt.Errorf("-lang-dir 的上一層缺 manifest.json，拒絕啟動：%w", err)
++	}
++	sum := sha256.Sum256(raw)
++	return abs, hex.EncodeToString(sum[:]), nil
++}
++
++// reportLangLayers 印語言層的生效值與各檔命中層（`DOS.OpenedLayers`，首次與最近一次）。只在給了 -lang-dir 時呼叫。
++func reportLangLayers(d *dos.DOS) {
++	fmt.Printf("\n語言層：LangDir＝%q  manifest SHA-256＝%s\n", d.LangDir, d.LangManifest)
++	names := make([]string, 0, len(d.OpenedLayers))
++	for n := range d.OpenedLayers {
++		names = append(names, n)
++	}
++	sort.Strings(names)
++	var b strings.Builder
++	for _, n := range names {
++		e := d.OpenedLayers[n]
++		fmt.Fprintf(&b, "  %s 首次 %s 最近 %s\n", n, e.First, e.Last)
++	}
++	fmt.Printf("開檔命中層（%d 個檔名）：\n%s", len(names), b.String())
++}
+diff --git a/cmd/probe/langdir_test.go b/cmd/probe/langdir_test.go
+new file mode 100644
+index 0000000..678d193
+--- /dev/null
++++ b/cmd/probe/langdir_test.go
+@@ -0,0 +1,112 @@
++package main
++
++import (
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++// helloSHA 是 manifest 內容 "hello" 的 SHA-256。apps/hr/runtime、apps/hr/cmd/hrsoak 的測試用同一個固定值，
++// 斷言三處（probe、hrsoak、Session）對同一個目錄算出相同的 LangManifest 與正規化的 LangDir。
++const helloSHA = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
++
++func makePack(t *testing.T) (filesDir string) {
++	t.Helper()
++	pack := t.TempDir()
++	filesDir = filepath.Join(pack, "files")
++	if err := os.MkdirAll(filesDir, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(pack, "manifest.json"), []byte("hello"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	return filesDir
++}
++
++func TestBindLangDir(t *testing.T) {
++	files := makePack(t)
++	root, scratch := t.TempDir(), t.TempDir()
++	messy := files + string(filepath.Separator) + ".." + string(filepath.Separator) + "files" + string(filepath.Separator)
++	dir, sum, err := bindLangDir(messy, root, scratch)
++	if err != nil {
++		t.Fatalf("err ＝ %v", err)
++	}
++	if dir != filepath.Clean(files) || sum != helloSHA {
++		t.Errorf("LangDir ＝ %q LangManifest ＝ %q，預期 %q 與 %s", dir, sum, filepath.Clean(files), helloSHA)
++	}
++
++	// 相對路徑轉成絕對路徑。
++	t.Chdir(filepath.Dir(files))
++	dir, sum, err = bindLangDir("files", root, "")
++	if err != nil || dir != filepath.Clean(files) || sum != helloSHA {
++		t.Errorf("相對路徑：LangDir ＝ %q LangManifest ＝ %q err ＝ %v", dir, sum, err)
++	}
++}
++
++// -lang-dir 不存在或不是目錄：回錯、拒絕啟動，不退成原版（這個工具產生的是收據）。
++func TestBindLangDirRefusesMissingOrNonDirectory(t *testing.T) {
++	root := t.TempDir()
++	missing := filepath.Join(t.TempDir(), "nope", "files")
++	if dir, sum, err := bindLangDir(missing, root, ""); err == nil || dir != "" || sum != "" || !strings.Contains(err.Error(), "拒絕啟動") {
++		t.Errorf("不存在的目錄：LangDir ＝ %q LangManifest ＝ %q err ＝ %v", dir, sum, err)
++	}
++	f := filepath.Join(t.TempDir(), "afile")
++	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	if _, _, err := bindLangDir(f, root, ""); err == nil {
++		t.Error("不是目錄也應回錯")
++	}
++}
++
++// 缺 manifest.json：拒絕啟動（回錯），不驗證內容。
++func TestBindLangDirRefusesMissingManifest(t *testing.T) {
++	files := makePack(t)
++	root := t.TempDir()
++	if err := os.Remove(filepath.Join(filepath.Dir(files), "manifest.json")); err != nil {
++		t.Fatal(err)
++	}
++	if _, _, err := bindLangDir(files, root, ""); err == nil || !strings.Contains(err.Error(), "manifest.json") {
++		t.Fatalf("缺 manifest 應回錯並點名檔名：%v", err)
++	}
++	// 內容不是 JSON 也不驗證：只取雜湊。
++	if err := os.WriteFile(filepath.Join(filepath.Dir(files), "manifest.json"), []byte("hello"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	if _, sum, err := bindLangDir(files, root, ""); err != nil || sum != helloSHA {
++		t.Fatalf("不驗證 manifest 內容：sum ＝ %q err ＝ %v", sum, err)
++	}
++}
++
++// 層重疊防呆：LangDir 與原版目錄或暫存層正規化後相同就拒絕（不論路徑怎麼拼）。
++func TestBindLangDirRefusesOverlappingLayers(t *testing.T) {
++	files := makePack(t)
++	unclean := files + string(filepath.Separator) + "." + string(filepath.Separator) + ".." + string(filepath.Separator) + "files"
++	other := t.TempDir()
++	cases := []struct {
++		name          string
++		root, scratch string
++		wantErr       string
++	}{
++		{"與 root 相同", files, other, "-root"},
++		{"與 root 相同（拼法不同）", unclean, other, "-root"},
++		{"與 scratch 相同", other, files, "-scratch"},
++		{"與 scratch 相同（拼法不同）", other, unclean, "-scratch"},
++		{"沒有重疊", other, "", ""},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			_, _, err := bindLangDir(files, c.root, c.scratch)
++			if c.wantErr == "" {
++				if err != nil {
++					t.Fatalf("不該回錯：%v", err)
++				}
++				return
++			}
++			if err == nil || !strings.Contains(err.Error(), c.wantErr) || !strings.Contains(err.Error(), "同一個目錄") {
++				t.Fatalf("應拒絕並點名 %s：%v", c.wantErr, err)
++			}
++		})
++	}
++}
+diff --git a/cmd/probe/main.go b/cmd/probe/main.go
+index 8a83e23..faf1821 100644
+--- a/cmd/probe/main.go
++++ b/cmd/probe/main.go
+@@ -46,6 +46,9 @@ func main() {
+ 	root := flag.String("root", ".", "原版素材目錄（配 -load-state 時不必再給，"+
+ 		"狀態檔裡存著；真的給了就以命令列為準）")
+ 	scratch := flag.String("scratch", "", "可寫的暫存層；存檔／目錄操作只落在這裡（docs/spec/009-scratch-writes）")
++	langDir := flag.String("lang-dir", "", "唯讀的語言層目錄（語言包的 files/）：解析順序暫存層、語言層、原版，缺檔回退原版，寫入模式開語言層的檔回存取被拒。"+
++		"同時讀 <目錄>/../manifest.json 的原始位元組取 SHA-256 記進狀態檔（檔案不存在就拒絕啟動，不驗證 manifest 內容）；"+
++		"配 -load-state 時狀態檔記錄的 LangDir 與 manifest 雜湊必須相同，否則拒絕載入")
+ 	steps := flag.Uint64("steps", 20_000_000,
+ 		"跑到第幾道指令為止（**絕對步數**，配 -load-state 時要大於檢查點的步數）")
+ 	trace := flag.Uint64("trace", 0, "最後幾道指令的軌跡（0 ＝ 不記）")
+@@ -364,6 +367,13 @@ func main() {
+ 	obsSetup(m) // 觀測用旗標的掛鉤（observe.go）
+ 	d := dos.New(m, *root)
+ 	d.Scratch = *scratch
++	if *langDir != "" { // 語言層在 Install 之前綁定，之後不變
++		dir, sum, err := bindLangDir(*langDir, *root, *scratch)
++		if err != nil {
++			die(err)
++		}
++		d.LangDir, d.LangManifest = dir, sum
++	}
+ 	d.Mouse.XScale = uint16(*xscale)
+ 	if *queue != "" {
+ 		for _, q := range strings.Split(*queue, ",") {
+@@ -1131,6 +1141,9 @@ func report(m *machine.Machine, d *dos.DOS, ring *ring, runErr error, limit uint
+ 	// **開過的檔不截斷**：「這個畫面用了哪些素材」是逆向時最常問的一句，
+ 	// 截在 30 個就正好把後面載進來的那些蓋掉（戰鬥畫面在第 30 個之後）。
+ 	fmt.Printf("\n開過的檔（%d）：%s\n", len(d.Opened), strings.Join(d.Opened, " "))
++	if d.LangDir != "" {
++		reportLangLayers(d)
++	}
+ 	if len(d.Allocs) > 0 {
+ 		fmt.Printf("\n記憶體配置（%d 次，最多列 20）：\n", len(d.Allocs))
+ 		for i, a := range d.Allocs {
+diff --git a/internal/dos/dos.go b/internal/dos/dos.go
+index 838f823..51eb5d4 100644
+--- a/internal/dos/dos.go
++++ b/internal/dos/dos.go
+@@ -164,6 +164,16 @@ type DOS struct {
+ 	// **原版素材目錄永遠不寫**。
+ 	Scratch string
+ 
++	// LangDir 是唯讀的語言層（hr `docs/spec/008` §3.1）：檔案解析順序是 Scratch、LangDir、Root，
++	// 語言層缺檔回退 Root；空字串＝沒有這一層，行為與現況完全相同。
++	// **只放被取代的檔**，以寫入模式開這裡的檔回「存取被拒」（AX ＝ 5），不複製進暫存層。
++	// 要在 `Install` 之前設定、之後不再改（字模 handle 常開，檔案換了而字模沒換會畫出無關的字）。
++	// 值是呼叫端正規化過的路徑（`filepath.Abs` 加 `filepath.Clean`），`SaveState` 原樣記進狀態檔。
++	LangDir string
++	// LangManifest 是語言包 `manifest.json` 檔案原始位元組的 SHA-256（小寫十六進位）。
++	// 不參與解析，只進狀態檔：`LoadState` 比對 LangDir 與它，不同就在任何狀態變更之前拒絕。
++	LangManifest string
++
+ 	// Now 是固定時刻，Mouse 是滑鼠狀態，Font 是 DOS/V 字型服務。
+ 	Now Time
+ 	// Date 是 `AH=2Ah` 回報的日期。零值（Year ＝ 0）維持固定的 1993-01-01（決定性路徑）；
+@@ -282,6 +292,16 @@ type DOS struct {
+ 	// 事後從序列裡找分界只能用猜的。掛在開檔那一刻就不必猜。
+ 	OnOpen func(name string)
+ 
++	// OpenedLayers 記每個檔名（大寫 basename）第一次與最近一次 `AH=3Dh` 開檔命中的層
++	//（`scratch`、`lang`、`root`，hr `docs/spec/008` §3.1）。**不是環狀緩衝，也不被
++	// TrimDiagnostics 清**：`ESPMES.MRG` 每 2 遊戲小時開 110 至 181 次，環會洗掉只開一次的 `CFONT.15`。
++	// 只涵蓋 `AH=3Dh`（含 `AH=6Ch` 開啟既有檔）；EXEC 與 overlay 載入（`AH=4Bh`）、字型服務的讀檔不記。
++	// 記的是**實際開啟的檔所在的層**：有暫存層時，以寫入模式開原版目錄的檔會先複製進暫存層、
++	// 開的是副本，層記 `scratch`（`Opened` 的 basename 也來自副本；語言層的檔寫入模式一律被拒，不開）。
++	OpenedLayers map[string]OpenedLayer
++	// OnOpenLayer 在每一次成功開檔、OnOpen 之後叫一次，參數是大寫 basename（與 OpenedLayers 的鍵相同）與命中的層。
++	OnOpenLayer func(name, layer string)
++
+ 	// Reads 是每一次成功的讀檔（`AH=3Fh`），依序。
+ 	//
+ 	// **「這個檔被讀進哪裡、讀了多長」是解資料格式的起點**，也是
+@@ -494,10 +514,15 @@ func (d *DOS) AllowFileWrites(names ...string) error {
+ 		if base == "." || base == "" || base != name || strings.ContainsAny(name, `\/:`) {
+ 			return fmt.Errorf("可寫檔名必須是單一basename：%q", name)
+ 		}
+-		path := d.resolve(base)
++		path, layer := d.resolve(base)
+ 		if path == "" {
+ 			return fmt.Errorf("可寫覆蓋層缺少檔案：%q", name)
+ 		}
++		if layer == LayerLang {
++			// 語言層唯讀（hr `docs/spec/008` §3.1）：`open` 對語言層的檔一律拒絕寫入，白名單收了也沒有用，
++			// 反而讓呼叫端以為它可寫。
++			return fmt.Errorf("可寫白名單不收語言層的檔：%q", name)
++		}
+ 		st, err := os.Stat(path)
+ 		if err != nil || !st.Mode().IsRegular() {
+ 			return fmt.Errorf("可寫覆蓋層不是一般檔案：%q", name)
+diff --git a/internal/dos/dosinfo.go b/internal/dos/dosinfo.go
+index c37bc03..952de80 100644
+--- a/internal/dos/dosinfo.go
++++ b/internal/dos/dosinfo.go
+@@ -161,7 +161,7 @@ func (d *DOS) createTemp(c *cpu.CPU) {
+ 	for {
+ 		name = fmt.Sprintf("TMP%05d", d.tempCount)
+ 		d.tempCount++
+-		if d.resolve(name) == "" {
++		if p, _ := d.resolve(name); p == "" {
+ 			break
+ 		}
+ 	}
+@@ -269,7 +269,8 @@ func splitPath(s string) []string {
+ //	    高半位元組 ＝ 檔案不存在時（0 失敗／1 建立）
+ func (d *DOS) extendedOpen(c *cpu.CPU) {
+ 	name := d.readCString(c.Seg[cpu.DS], c.R[cpu.SI], 128)
+-	exists := d.resolve(name) != ""
++	found, _ := d.resolve(name)
++	exists := found != ""
+ 	action := c.R[cpu.DX]
+ 
+ 	// `open`／`create` 都從 DS:DX 讀檔名，這裡先把 SI 借過去再還回來。
+diff --git a/internal/dos/exec.go b/internal/dos/exec.go
+index 15ed12c..e35f992 100644
+--- a/internal/dos/exec.go
++++ b/internal/dos/exec.go
+@@ -221,7 +221,7 @@ func (d *DOS) loadOverlay(c *cpu.CPU, name string, loadSeg, relocFactor uint16)
+ 
+ // readProgram 解析檔名並讀進來。失敗時已經設好 CF 與 AX。
+ func (d *DOS) readProgram(c *cpu.CPU, name string) ([]byte, string, bool) {
+-	path := d.resolve(name)
++	path, _ := d.resolve(name)
+ 	if path == "" {
+ 		d.Missing = append(d.Missing, name)
+ 		c.R[cpu.AX] = 2 // File not found
+@@ -366,7 +366,7 @@ func (d *DOS) closeHandlesOf(psp uint16) {
+ // spawnQueued 從監督佇列推出一支程式當新的疊底。
+ // 沒有父行程框可壓（結束時疊是空的）；命令列尾由 Args 直接給。
+ func (d *DOS) spawnQueued(c *cpu.CPU, q Queued) {
+-	path := d.resolve(q.Name)
++	path, _ := d.resolve(q.Name)
+ 	if path == "" {
+ 		d.Missing = append(d.Missing, q.Name)
+ 		return
+diff --git a/internal/dos/fileops.go b/internal/dos/fileops.go
+index 44b0672..4d8fd65 100644
+--- a/internal/dos/fileops.go
++++ b/internal/dos/fileops.go
+@@ -144,7 +144,7 @@ func (d *DOS) fileTime(c *cpu.CPU) {
+ // 程式以為自己建了新檔，實際上把舊的截斷了。
+ func (d *DOS) createNew(c *cpu.CPU) {
+ 	name := d.readCString(c.Seg[cpu.DS], c.R[cpu.DX], 128)
+-	if d.resolve(name) != "" {
++	if p, _ := d.resolve(name); p != "" {
+ 		d.fail(c, 80) // 檔案已存在
+ 		return
+ 	}
+@@ -184,15 +184,18 @@ func (d *DOS) renameFile(c *cpu.CPU) {
+ 		d.fail(c, 5) // 拒絕存取
+ 		return
+ 	}
+-	src := d.resolve(oldName)
++	src, layer := d.resolve(oldName)
+ 	if src == "" {
+ 		d.Missing = append(d.Missing, oldName)
+ 		d.fail(c, 2)
+ 		return
+ 	}
+ 	dst := filepath.Join(d.Scratch, strings.ToUpper(baseName(newName)))
+-	if !strings.HasPrefix(src, d.Scratch) {
+-		// 來源還在原版目錄：先複製進暫存層再改名，原版目錄不動。
++	// 判斷來源在哪一層用層別，不比對路徑字串：`-saves` 設成語言包的祖先目錄，
++	// 或前綴相同的兄弟目錄（`…/l10n-pack` 對 `…/l10n-packs/…`）時，字串前綴會把
++	// 語言層的檔當成暫存層的檔，走 os.Rename 把語言包的檔案搬走（hr `docs/spec/008` §3.1）。
++	if layer != LayerScratch {
++		// 來源還在原版目錄或語言層：先複製進暫存層再改名，原版目錄與語言包不動。
+ 		data, err := os.ReadFile(src)
+ 		if err != nil {
+ 			d.fail(c, 5)
+diff --git a/internal/dos/files.go b/internal/dos/files.go
+index c348242..1d0c729 100644
+--- a/internal/dos/files.go
++++ b/internal/dos/files.go
+@@ -46,19 +46,69 @@ type handle struct {
+ // 真 DOS 開到的是 `STEEDPIC`。不截的話這裡回「找不到檔」，而程式多半不檢查
+ // 開檔結果——KOL 就是一路跑進沒有映射的記憶體才停，**看起來像模擬器的 bug，
+ // 其實是檔名沒對上**。
+-func (d *DOS) resolve(name string) string {
++//
++// **解析順序：暫存層、語言層、原版目錄**（hr `docs/spec/008` §3.1），回傳路徑與命中的層。
++// 語言層缺檔就回退到原版目錄；`LangDir` 為空時沒有這一層，行為與沒有語言層時完全相同。
++// 判斷「這個檔在哪一層」一律用回傳的層別，**不要比對路徑字串**：
++// 層的目錄可以互為祖先或前綴相同（`…/l10n-pack` 與 `…/l10n-packs/…`），字串前綴會判錯。
++func (d *DOS) resolve(name string) (string, Layer) {
+ 	base := baseName(name)
+ 	if base == "" {
+-		return ""
++		return "", LayerNone
+ 	}
+-	// 暫存層蓋過原版目錄（`docs/spec/009` §2.2.1）：程式存過的東西
++	// 暫存層蓋過其他層（`docs/spec/009` §2.2.1）：程式存過的東西
+ 	// 下一次要讀得到自己寫的那一份，不是原版那一份。
+ 	if d.Scratch != "" {
+ 		if p := lookupDOS(d.Scratch, base); p != "" {
+-			return p
++			return p, LayerScratch
+ 		}
+ 	}
+-	return lookupDOS(d.Root, base)
++	if d.LangDir != "" {
++		if p := lookupDOS(d.LangDir, base); p != "" {
++			return p, LayerLang
++		}
++	}
++	if p := lookupDOS(d.Root, base); p != "" {
++		return p, LayerRoot
++	}
++	return "", LayerNone
++}
++
++// Layer 是 `resolve` 命中的層。
++type Layer string
++
++const (
++	// LayerNone 表示每一層都找不到。
++	LayerNone Layer = ""
++	// LayerScratch 是可寫的暫存層（`DOS.Scratch`）。
++	LayerScratch Layer = "scratch"
++	// LayerLang 是唯讀的語言層（`DOS.LangDir`）。
++	LayerLang Layer = "lang"
++	// LayerRoot 是原版目錄（`DOS.Root`）。
++	LayerRoot Layer = "root"
++)
++
++// OpenedLayer 是一個檔名第一次與最近一次開檔命中的層（`DOS.OpenedLayers`）。
++type OpenedLayer struct {
++	First, Last string // `scratch`、`lang`、`root`
++}
++
++// noteOpenLayer 記一次 `AH=3Dh` 開檔命中的層。鍵是大寫的 basename（DOS 檔名不分大小寫，
++// 各層的磁碟檔名大小寫可以不同，不正規化的話同一個檔會分成兩筆、首次與最近一次沒有意義）。
++func (d *DOS) noteOpenLayer(base string, layer Layer) {
++	key := strings.ToUpper(base)
++	if d.OpenedLayers == nil {
++		d.OpenedLayers = map[string]OpenedLayer{}
++	}
++	e, seen := d.OpenedLayers[key]
++	if !seen {
++		e.First = string(layer)
++	}
++	e.Last = string(layer)
++	d.OpenedLayers[key] = e
++	if d.OnOpenLayer != nil {
++		d.OnOpenLayer(key, string(layer))
++	}
+ }
+ 
+ // lookupDOS 在一個目錄裡找 basename，找不到再用 8.3 截斷過的名字找一次。
+@@ -165,7 +215,7 @@ func (d *DOS) open(c *cpu.CPU) {
+ 		clearCarry(c)
+ 		return
+ 	}
+-	path := d.resolve(name)
++	path, layer := d.resolve(name)
+ 	if path == "" {
+ 		d.Missing = append(d.Missing, name)
+ 		d.noteMissingAccess(c, name)
+@@ -173,10 +223,18 @@ func (d *DOS) open(c *cpu.CPU) {
+ 		setCarry(c)
+ 		return
+ 	}
++	writeAccess := al(c)&3 == 1 || al(c)&3 == 2
++	// 語言層唯讀（hr `docs/spec/008` §3.1）：寫入模式開語言層的檔回「存取被拒」，
++	// 不走 scratchCopy、不複製進暫存層、也不看 AllowFileWrites。複製進暫存層的話，
++	// 暫存層永遠優先，語言包就整個失效；遊戲對這些檔一律唯讀開檔，拒絕不改變正常路徑。
++	// 判斷用層別，不比對路徑。無論有沒有暫存層都拒絕（Root 的檔在沒有暫存層時不拒絕，那是既有行為）。
++	if writeAccess && layer == LayerLang {
++		d.fail(c, 5) // Access denied
++		return
++	}
+ 	// 兩條可寫的路：**有暫存層就寫時複製到暫存層**（原版目錄永遠不動），
+ 	// 沒有暫存層才回頭看 AllowFileWrites 的逐檔白名單（就地寫）。
+ 	// 順序不能反——白名單優先的話，設了暫存層的人還是會寫到原版目錄裡。
+-	writeAccess := al(c)&3 == 1 || al(c)&3 == 2
+ 	allowed := writeAccess && (d.Scratch != "" ||
+ 		d.writableFiles[strings.ToUpper(filepath.Base(path))])
+ 	var f *os.File
+@@ -184,6 +242,8 @@ func (d *DOS) open(c *cpu.CPU) {
+ 	if allowed && d.Scratch != "" {
+ 		path, err = d.scratchCopy(name, path)
+ 		if err == nil {
++			// 開的是暫存層的副本：OpenedLayers 記的層要等於實際開啟的檔所在的層（Opened 的 basename 也來自副本）。
++			layer = LayerScratch
+ 			f, err = os.OpenFile(path, os.O_RDWR, 0o644)
+ 		}
+ 	} else if allowed {
+@@ -215,6 +275,7 @@ func (d *DOS) open(c *cpu.CPU) {
+ 	if d.OnOpen != nil {
+ 		d.OnOpen(base)
+ 	}
++	d.noteOpenLayer(base, layer)
+ 	c.R[cpu.AX] = h
+ 	clearCarry(c)
+ }
+@@ -416,7 +477,7 @@ func (d *DOS) fileAttr(c *cpu.CPU) {
+ 		return
+ 	}
+ 	name := d.readCString(c.Seg[cpu.DS], c.R[cpu.DX], 128)
+-	if d.resolve(name) == "" && !isEMMDevice(name) {
++	if p, _ := d.resolve(name); p == "" && !isEMMDevice(name) {
+ 		d.Missing = append(d.Missing, name)
+ 		c.R[cpu.AX] = 2
+ 		setCarry(c)
+diff --git a/internal/dos/find.go b/internal/dos/find.go
+index cac118e..66abe0d 100644
+--- a/internal/dos/find.go
++++ b/internal/dos/find.go
+@@ -114,7 +114,8 @@ func (d *DOS) emitFind(c *cpu.CPU, id, idx uint16) {
+ 	clearCarry(c)
+ }
+ 
+-// searchFor 列出符合樣式的檔案。暫存層蓋過原版目錄（同名只留暫存層那一份）。
++// searchFor 列出符合樣式的檔案。目錄順序是原版目錄、語言層、暫存層，後者蓋過前者，
++// 同名只留最後那一層的一份，與 `resolve` 的優先序（暫存層、語言層、原版）一致。
+ //
+ // **順序要固定**：`os.ReadDir` 已經照名字排序，我們再排一次大寫後的名字，
+ // 讓「同一份輸入每次得到同一個順序」在不同檔案系統上都成立——
+@@ -123,7 +124,7 @@ func (d *DOS) searchFor(pattern string, searchAttr uint8) *findState {
+ 	pat := strings.ToUpper(baseName(pattern))
+ 	seen := map[string]string{}
+ 	attrs := map[string]uint8{}
+-	for _, dir := range []string{d.Root, d.Scratch} {
++	for _, dir := range []string{d.Root, d.LangDir, d.Scratch} {
+ 		if dir == "" {
+ 			continue
+ 		}
+diff --git a/internal/dos/font.go b/internal/dos/font.go
+index 3211cff..7e645fc 100644
+--- a/internal/dos/font.go
++++ b/internal/dos/font.go
+@@ -198,7 +198,7 @@ func fullIndex(ch, cl uint8) int {
+ func (d *DOS) fontBytes(name string, off, size int) []byte {
+ 	data, ok := d.Font.cache[name]
+ 	if !ok {
+-		if path := d.resolve(name); path != "" {
++		if path, _ := d.resolve(name); path != "" {
+ 			data, _ = os.ReadFile(path)
+ 		}
+ 		if d.Font.cache == nil {
+diff --git a/internal/dos/lang_test.go b/internal/dos/lang_test.go
+new file mode 100644
+index 0000000..ecf4b12
+--- /dev/null
++++ b/internal/dos/lang_test.go
+@@ -0,0 +1,1030 @@
++package dos
++
++import (
++	"bytes"
++	"encoding/gob"
++	"encoding/json"
++	"fmt"
++	"io"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++// 語言層（hr `docs/spec/008` §3.1，L0）的單元測試。全部用暫存目錄與合成檔案，不需要原版。
++
++// 開檔層報告的簽章在編譯期釘住：既有的 Opened、OnOpen 不變，新增 OpenedLayers、OnOpenLayer。
++func _() {
++	var d DOS
++	var _ []string = d.Opened
++	var _ func(name string) = d.OnOpen
++	var _ map[string]OpenedLayer = d.OpenedLayers
++	var _ func(name, layer string) = d.OnOpenLayer
++	var _ func(r io.Reader) error = d.PreflightState
++}
++
++// langFixture 是一組目錄：`l10n-packs/zh/manifest.json` 在 `files/`（語言層）之外，另有原版目錄與暫存層。
++type langFixture struct {
++	base, root, lang, scratch string
++}
++
++func newLangFixture(t *testing.T) *langFixture {
++	t.Helper()
++	base := t.TempDir()
++	f := &langFixture{
++		base:    base,
++		root:    filepath.Join(base, "root"),
++		lang:    filepath.Join(base, "l10n-packs", "zh", "files"),
++		scratch: filepath.Join(base, "scratch"),
++	}
++	for _, dir := range []string{f.root, f.lang, f.scratch} {
++		if err := os.MkdirAll(dir, 0o755); err != nil {
++			t.Fatal(err)
++		}
++	}
++	// manifest.json 放在 files/ 之外，searchFor 與目錄列舉看不到它。
++	if err := os.WriteFile(filepath.Join(base, "l10n-packs", "zh", "manifest.json"), []byte("{}"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	return f
++}
++
++func (f *langFixture) dir(layer string) string {
++	switch layer {
++	case "root":
++		return f.root
++	case "lang":
++		return f.lang
++	case "scratch":
++		return f.scratch
++	}
++	panic("沒有這一層：" + layer)
++}
++
++func (f *langFixture) put(t *testing.T, layer, name, body string) {
++	t.Helper()
++	if err := os.WriteFile(filepath.Join(f.dir(layer), name), []byte(body), 0o644); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func (f *langFixture) exists(layer, name string) bool {
++	_, err := os.Stat(filepath.Join(f.dir(layer), name))
++	return err == nil
++}
++
++// dos 造服務層：原版目錄一定有；語言層與暫存層依參數。
++func (f *langFixture) dos(t *testing.T, lang, scratch bool) (*machine.Machine, *DOS) {
++	t.Helper()
++	m := machine.New()
++	d := New(m, f.root)
++	if lang {
++		d.LangDir = f.lang
++	}
++	if scratch {
++		d.Scratch = f.scratch
++	}
++	d.Install()
++	d.freeSeg = 0x2000
++	return m, d
++}
++
++// langOpen 以 AH=3Dh 開檔（mode ＝ AL：0 唯讀、1 唯寫、2 讀寫）。
++func langOpen(m *machine.Machine, d *DOS, name string, mode uint16) (ax uint16, cf bool) {
++	c := m.CPU
++	putName(m, c, name)
++	int21(m, d, 0x3D00|mode)
++	return c.R[cpu.AX], c.Flags&cpu.CF != 0
++}
++
++func closeFile(m *machine.Machine, d *DOS, h uint16) {
++	m.CPU.R[cpu.BX] = h
++	int21(m, d, 0x3E00)
++}
++
++// readFile 開檔讀出內容再關檔；開不起來回 ok ＝ false。
++func readFile(m *machine.Machine, d *DOS, name string) (body string, ok bool) {
++	h, cf := langOpen(m, d, name, 0)
++	if cf {
++		return "", false
++	}
++	c := m.CPU
++	c.Seg[cpu.DS], c.R[cpu.DX], c.R[cpu.BX], c.R[cpu.CX] = 0x1000, 0x0300, h, 64
++	int21(m, d, 0x3F00)
++	n := int(c.R[cpu.AX])
++	buf := make([]byte, n)
++	for i := range buf {
++		buf[i] = m.Read8(cpu.Addr(0x1000, 0x0300) + uint32(i))
++	}
++	closeFile(m, d, h)
++	return string(buf), true
++}
++
++// ---- resolve 的順序 ----
++
++func TestResolveOrderScratchLangRoot(t *testing.T) {
++	cases := []struct {
++		name               string
++		root, lang, scr    bool
++		wantLayer          Layer
++		wantBody, wantFrom string
++	}{
++		{"只有原版", true, false, false, LayerRoot, "root", "root"},
++		{"原版與語言層：語言層蓋過原版", true, true, false, LayerLang, "lang", "lang"},
++		{"只有語言層", false, true, false, LayerLang, "lang", "lang"},
++		{"三層都有：暫存層蓋過語言層", true, true, true, LayerScratch, "scratch", "scratch"},
++		{"原版與暫存層", true, false, true, LayerScratch, "scratch", "scratch"},
++		{"語言層與暫存層", false, true, true, LayerScratch, "scratch", "scratch"},
++		{"都沒有", false, false, false, LayerNone, "", ""},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			f := newLangFixture(t)
++			for layer, on := range map[string]bool{"root": c.root, "lang": c.lang, "scratch": c.scr} {
++				if on {
++					f.put(t, layer, "X.DAT", layer)
++				}
++			}
++			_, d := f.dos(t, true, true)
++			p, layer := d.resolve("X.DAT")
++			if layer != c.wantLayer {
++				t.Fatalf("層別 %q，預期 %q（路徑 %q）", layer, c.wantLayer, p)
++			}
++			if c.wantFrom == "" {
++				if p != "" {
++					t.Fatalf("找不到時路徑應為空，得到 %q", p)
++				}
++				return
++			}
++			if filepath.Dir(p) != f.dir(c.wantFrom) {
++				t.Errorf("路徑 %q 不在 %s 層的目錄 %q", p, c.wantFrom, f.dir(c.wantFrom))
++			}
++			if b, _ := os.ReadFile(p); string(b) != c.wantBody {
++				t.Errorf("內容 %q，預期 %q", b, c.wantBody)
++			}
++		})
++	}
++}
++
++// 語言層缺檔時逐檔回退原版：語言包只放被取代的檔。
++func TestLangFallsBackToRootPerFile(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "A.MES", "root-a")
++	f.put(t, "root", "B.MES", "root-b")
++	f.put(t, "lang", "A.MES", "lang-a")
++	_, d := f.dos(t, true, false)
++	if p, l := d.resolve("A.MES"); l != LayerLang || filepath.Dir(p) != f.lang {
++		t.Errorf("A.MES：%q %q", p, l)
++	}
++	if p, l := d.resolve("B.MES"); l != LayerRoot || filepath.Dir(p) != f.root {
++		t.Errorf("B.MES 語言層沒有，應回退原版：%q %q", p, l)
++	}
++}
++
++// 大小寫不分、只認 basename、超過 8.3 的名字截斷：語言層沿用原版目錄的規則。
++func TestResolveLangCaseBasenameAnd83(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "CFONT.15", "root")
++	f.put(t, "lang", "cfont.15", "lang") // 玩家目錄的檔名是小寫
++	f.put(t, "root", "STEEDPIC.DAT", "root")
++	f.put(t, "lang", "STEEDPIC.DAT", "lang")
++	_, d := f.dos(t, true, false)
++	if p, l := d.resolve("CFONT.15"); l != LayerLang || filepath.Base(p) != "cfont.15" {
++		t.Errorf("大小寫不分：%q %q", p, l)
++	}
++	if p, l := d.resolve(`A:\JUNK\Cfont.15`); l != LayerLang || filepath.Dir(p) != f.lang {
++		t.Errorf("只認 basename：%q %q", p, l)
++	}
++	if p, l := d.resolve("steedpics.dat"); l != LayerLang || filepath.Base(p) != "STEEDPIC.DAT" {
++		t.Errorf("8.3 截斷：%q %q", p, l)
++	}
++	if p, l := d.resolve(`C:`); p != "" || l != LayerNone {
++		t.Errorf("空的 basename 應找不到：%q %q", p, l)
++	}
++}
++
++// LangDir 為空時行為與現況完全相同：語言層目錄裡的檔（即使存在）看不到。
++func TestEmptyLangDirEqualsLegacy(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "X.DAT", "root")
++	f.put(t, "lang", "X.DAT", "lang")
++	f.put(t, "lang", "ONLY.DAT", "lang")
++	m, d := f.dos(t, false, false)
++	if p, l := d.resolve("X.DAT"); l != LayerRoot || filepath.Dir(p) != f.root {
++		t.Errorf("沒有語言層時應在原版：%q %q", p, l)
++	}
++	if p, l := d.resolve("ONLY.DAT"); p != "" || l != LayerNone {
++		t.Errorf("語言層目錄不在解析路徑上：%q %q", p, l)
++	}
++	if body, ok := readFile(m, d, "X.DAT"); !ok || body != "root" {
++		t.Errorf("讀到 %q（ok ＝ %v）", body, ok)
++	}
++	if got := d.searchFor("*.DAT", 0).names; len(got) != 1 || got[0] != "X.DAT" {
++		t.Errorf("searchFor 只該看到原版的檔：%v", got)
++	}
++}
++
++// ---- 開檔、讀取與開檔層報告 ----
++
++func TestOpenReadsLangLayerAndReportsLayer(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "X.MES", "root")
++	f.put(t, "lang", "x.mes", "lang") // 磁碟上是小寫
++	f.put(t, "root", "Y.MES", "root-y")
++	m, d := f.dos(t, true, true)
++	var seq []string
++	d.OnOpen = func(name string) { seq = append(seq, "open:"+name) }
++	d.OnOpenLayer = func(name, layer string) { seq = append(seq, "layer:"+name+"="+layer) }
++
++	if body, ok := readFile(m, d, "X.MES"); !ok || body != "lang" {
++		t.Fatalf("X.MES 應讀到語言層的檔：%q ok ＝ %v", body, ok)
++	}
++	if got := d.OpenedLayers["X.MES"]; got != (OpenedLayer{First: "lang", Last: "lang"}) {
++		t.Errorf("OpenedLayers[X.MES] ＝ %+v", got)
++	}
++	if len(d.Opened) != 1 || d.Opened[0] != "x.mes" {
++		t.Errorf("Opened 維持原行為（磁碟上的 basename）：%v", d.Opened)
++	}
++
++	// 暫存層出現同名檔之後再開：最近一次變成 scratch，首次維持 lang。
++	f.put(t, "scratch", "X.MES", "scratch")
++	if body, _ := readFile(m, d, "X.MES"); body != "scratch" {
++		t.Fatalf("暫存層應蓋過語言層：%q", body)
++	}
++	if got := d.OpenedLayers["X.MES"]; got != (OpenedLayer{First: "lang", Last: "scratch"}) {
++		t.Errorf("OpenedLayers[X.MES] ＝ %+v，預期首次 lang、最近 scratch", got)
++	}
++	if body, ok := readFile(m, d, "Y.MES"); !ok || body != "root-y" {
++		t.Fatalf("Y.MES：%q ok ＝ %v", body, ok)
++	}
++	if got := d.OpenedLayers["Y.MES"]; got != (OpenedLayer{First: "root", Last: "root"}) {
++		t.Errorf("OpenedLayers[Y.MES] ＝ %+v", got)
++	}
++	want := []string{"open:x.mes", "layer:X.MES=lang", "open:X.MES", "layer:X.MES=scratch", "open:Y.MES", "layer:Y.MES=root"}
++	if strings.Join(seq, " ") != strings.Join(want, " ") {
++		t.Errorf("回呼順序（OnOpen 在前，OnOpenLayer 在後，鍵是大寫 basename）：\n got  %v\n want %v", seq, want)
++	}
++
++	// 開不起來的檔、EMM 字元裝置都不記層。
++	before := len(d.OpenedLayers)
++	if _, cf := langOpen(m, d, "NOPE.MES", 0); !cf {
++		t.Fatal("不存在的檔不該開得起來")
++	}
++	if _, cf := langOpen(m, d, "EMMXXXX0", 0); cf {
++		t.Fatal("EMM 字元裝置應開得起來")
++	}
++	if len(d.OpenedLayers) != before {
++		t.Errorf("失敗的開檔與字元裝置不該記層：%v", d.OpenedLayers)
++	}
++}
++
++// 七個資料檔與字模逐一從語言層開啟（語言層與原版目錄都有同名檔）。
++func TestEveryDataFileOpensFromLangLayer(t *testing.T) {
++	names := []string{"COUNTRY.MES", "SP.MES", "SYSTEM.MES", "UWASA.MES", "POWERMES.MES", "ESPMES.MRG", "SHOPTAB.TBL", "CFONT.15"}
++	f := newLangFixture(t)
++	for _, n := range names {
++		f.put(t, "root", n, "root")
++		f.put(t, "lang", n, "lang")
++	}
++	m, d := f.dos(t, true, false)
++	for _, n := range names {
++		if body, ok := readFile(m, d, n); !ok || body != "lang" {
++			t.Errorf("%s：%q ok ＝ %v", n, body, ok)
++		}
++		if got := d.OpenedLayers[n]; got != (OpenedLayer{First: "lang", Last: "lang"}) {
++			t.Errorf("OpenedLayers[%s] ＝ %+v", n, got)
++		}
++	}
++}
++
++// 唯讀開語言層的檔不複製進暫存層，也不更動它。
++func TestReadOnlyOpenOfLangFileDoesNotCopyToScratch(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "lang", "X.MES", "lang")
++	m, d := f.dos(t, true, true)
++	if body, ok := readFile(m, d, "X.MES"); !ok || body != "lang" {
++		t.Fatalf("%q ok ＝ %v", body, ok)
++	}
++	if f.exists("scratch", "X.MES") {
++		t.Error("唯讀開檔不該在暫存層留下副本")
++	}
++}
++
++// ---- 寫入模式：語言層唯讀 ----
++
++func TestOpenForWriteOnLangFileIsDenied(t *testing.T) {
++	for _, withScratch := range []bool{true, false} {
++		for _, mode := range []uint16{1, 2} {
++			t.Run(fmt.Sprintf("暫存層%v_模式%d", withScratch, mode), func(t *testing.T) {
++				f := newLangFixture(t)
++				f.put(t, "root", "X.DAT", "root")
++				f.put(t, "lang", "X.DAT", "lang")
++				m, d := f.dos(t, true, withScratch)
++				// 即使白名單收了這個檔名（例如原版目錄的同名檔），語言層的檔也不可寫。
++				d.writableFiles = map[string]bool{"X.DAT": true}
++				ax, cf := langOpen(m, d, "X.DAT", mode)
++				if !cf || ax != 5 {
++					t.Fatalf("寫入模式開語言層的檔：AX ＝ %d CF ＝ %v，預期 AX ＝ 5（存取被拒）", ax, cf)
++				}
++				if d.lastErr != 5 {
++					t.Errorf("最近一次錯誤碼 %d，預期 5", d.lastErr)
++				}
++				if f.exists("scratch", "X.DAT") {
++					t.Error("暫存層出現了語言層檔案的副本")
++				}
++				if b, _ := os.ReadFile(filepath.Join(f.lang, "X.DAT")); string(b) != "lang" {
++					t.Errorf("語言層的檔被改成 %q", b)
++				}
++				if len(d.handles) != 0 || len(d.Missing) != 0 || len(d.OpenedLayers) != 0 || len(d.Opened) != 0 {
++					t.Errorf("被拒的開檔不該配 handle、記 Missing、記開檔：handles ＝ %d Missing ＝ %v Opened ＝ %v", len(d.handles), d.Missing, d.Opened)
++				}
++			})
++		}
++	}
++}
++
++// 對照：原版目錄的檔寫入模式開檔維持原行為（寫時複製進暫存層）。
++func TestOpenForWriteOnRootFileStillCopiesToScratch(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "SAVE.DAT", "root")
++	f.put(t, "lang", "OTHER.DAT", "lang")
++	m, d := f.dos(t, true, true)
++	ax, cf := langOpen(m, d, "SAVE.DAT", 2)
++	if cf {
++		t.Fatalf("原版目錄的檔寫入模式開檔失敗：AX ＝ %d", ax)
++	}
++	closeFile(m, d, ax)
++	if !f.exists("scratch", "SAVE.DAT") {
++		t.Error("原版目錄的檔應寫時複製進暫存層")
++	}
++}
++
++// 暫存層與語言層都有同名檔：暫存層優先，寫入模式開檔成功、寫進暫存層，語言層的檔不動。
++// 拒絕的判斷看的是 resolve 命中的層，不是「檔名在語言層」。
++func TestWriteOpenSucceedsWhenScratchShadowsLangFile(t *testing.T) {
++	for _, mode := range []uint16{1, 2} {
++		t.Run(fmt.Sprintf("模式%d", mode), func(t *testing.T) {
++			f := newLangFixture(t)
++			f.put(t, "root", "X.DAT", "root")
++			f.put(t, "lang", "X.DAT", "lang")
++			f.put(t, "scratch", "X.DAT", "scratch")
++			m, d := f.dos(t, true, true)
++			h, cf := langOpen(m, d, "X.DAT", mode)
++			if cf {
++				t.Fatalf("暫存層有同名檔時，寫入模式開檔應成功：AX ＝ %d", h)
++			}
++			c := m.CPU
++			m.WriteBytes(cpu.Addr(0x1000, 0x0200), []byte("NEW"))
++			c.Seg[cpu.DS], c.R[cpu.DX], c.R[cpu.BX], c.R[cpu.CX] = 0x1000, 0x0200, h, 3
++			int21(m, d, 0x4000)
++			if c.Flags&cpu.CF != 0 || c.R[cpu.AX] != 3 {
++				t.Fatalf("寫入：AX ＝ %d CF ＝ %v", c.R[cpu.AX], c.Flags&cpu.CF != 0)
++			}
++			closeFile(m, d, h)
++			if b, _ := os.ReadFile(filepath.Join(f.scratch, "X.DAT")); string(b) != "NEWatch" {
++				t.Errorf("暫存層的檔 ＝ %q，預期 %q（寫在檔頭）", b, "NEWatch")
++			}
++			if b, _ := os.ReadFile(filepath.Join(f.lang, "X.DAT")); string(b) != "lang" {
++				t.Errorf("語言層的檔被改成 %q", b)
++			}
++			if got := d.OpenedLayers["X.DAT"]; got != (OpenedLayer{First: "scratch", Last: "scratch"}) {
++				t.Errorf("OpenedLayers[X.DAT] ＝ %+v", got)
++			}
++		})
++	}
++}
++
++// OpenedLayers 記的是實際開啟的檔所在的層：有暫存層時以寫入模式開原版目錄的檔，開的是暫存層的副本，記 scratch
++// （Opened 的 basename 也來自副本）。唯讀開原版目錄的檔仍記 root。
++func TestOpenedLayersRecordsScratchAfterCopyUp(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "save.dat", "root")
++	f.put(t, "root", "R.DAT", "root")
++	m, d := f.dos(t, true, true)
++	var seq []string
++	d.OnOpenLayer = func(name, layer string) { seq = append(seq, name+"="+layer) }
++	h, cf := langOpen(m, d, "SAVE.DAT", 2)
++	if cf {
++		t.Fatalf("寫入模式開原版目錄的檔失敗：AX ＝ %d", h)
++	}
++	closeFile(m, d, h)
++	if got := d.OpenedLayers["SAVE.DAT"]; got != (OpenedLayer{First: "scratch", Last: "scratch"}) {
++		t.Errorf("OpenedLayers[SAVE.DAT] ＝ %+v，預期 scratch（開的是暫存層副本）", got)
++	}
++	if len(d.Opened) != 1 || d.Opened[0] != "SAVE.DAT" {
++		t.Errorf("Opened ＝ %v，basename 應取自暫存層的副本（SAVE.DAT）", d.Opened)
++	}
++	if body, ok := readFile(m, d, "R.DAT"); !ok || body != "root" {
++		t.Fatalf("R.DAT：%q ok ＝ %v", body, ok)
++	}
++	if got := d.OpenedLayers["R.DAT"]; got != (OpenedLayer{First: "root", Last: "root"}) {
++		t.Errorf("唯讀開原版目錄的檔應記 root：%+v", got)
++	}
++	if strings.Join(seq, " ") != "SAVE.DAT=scratch R.DAT=root" {
++		t.Errorf("OnOpenLayer 回呼 %v", seq)
++	}
++}
++
++func TestAllowFileWritesRejectsLangLayerFile(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "R.DAT", "root")
++	f.put(t, "root", "X.DAT", "root")
++	f.put(t, "lang", "X.DAT", "lang")
++	f.put(t, "lang", "L.DAT", "lang")
++	_, d := f.dos(t, true, false)
++	if err := d.AllowFileWrites("R.DAT"); err != nil {
++		t.Errorf("原版目錄的檔應收進白名單：%v", err)
++	}
++	for _, n := range []string{"L.DAT", "X.DAT"} {
++		if err := d.AllowFileWrites(n); err == nil {
++			t.Errorf("%s 解析到語言層，白名單不該收", n)
++		}
++	}
++}
++
++// ---- 改名、刪除、建檔：維持與原版目錄的檔相同的語意 ----
++
++func renameVia(m *machine.Machine, d *DOS, oldName, newName string) (ax uint16, cf bool) {
++	c := m.CPU
++	putName(m, c, oldName)
++	c.Seg[cpu.ES], c.R[cpu.DI] = 0x1000, 0x0200
++	m.WriteBytes(cpu.Addr(0x1000, 0x0200), append([]byte(newName), 0))
++	int21(m, d, 0x5600)
++	return c.R[cpu.AX], c.Flags&cpu.CF != 0
++}
++
++// 來源在語言層時，改名一律走「複製進暫存層」，不 os.Rename 語言包的檔。判斷用層別：
++// `-saves` 設成語言包的祖先目錄，或前綴相同的兄弟目錄時，字串前綴會把語言層的檔當成暫存層的檔。
++func TestRenameFromLangLayerCopiesAndNeverMovesIt(t *testing.T) {
++	cases := []struct {
++		name    string
++		scratch func(f *langFixture) string
++	}{
++		{"暫存層是語言包的祖先目錄", func(f *langFixture) string { return f.base }},
++		{"暫存層與語言包目錄前綴相同", func(f *langFixture) string { return filepath.Join(f.base, "l10n-pack") }},
++		{"暫存層是獨立目錄", func(f *langFixture) string { return f.scratch }},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			f := newLangFixture(t)
++			f.put(t, "lang", "F.MES", "lang-body")
++			scratch := c.scratch(f)
++			if err := os.MkdirAll(scratch, 0o755); err != nil {
++				t.Fatal(err)
++			}
++			m := machine.New()
++			d := New(m, f.root)
++			d.LangDir, d.Scratch = f.lang, scratch
++			d.Install()
++			ax, cf := renameVia(m, d, "F.MES", "G.MES")
++			if cf {
++				t.Fatalf("改名失敗：AX ＝ %d", ax)
++			}
++			if !f.exists("lang", "F.MES") {
++				t.Fatal("語言包的檔被搬走了")
++			}
++			if b, err := os.ReadFile(filepath.Join(scratch, "G.MES")); err != nil || string(b) != "lang-body" {
++				t.Errorf("暫存層應有新名稱的副本：%q err ＝ %v", b, err)
++			}
++		})
++	}
++}
++
++// 暫存層的路徑是原版目錄路徑的字串前綴（原版目錄放在暫存層底下）時，原版的檔也不能被 os.Rename 搬走。
++func TestRenameFromRootLayerNeverMovesItEvenWhenScratchIsPrefix(t *testing.T) {
++	base := t.TempDir()
++	root := filepath.Join(base, "scratch", "orig")
++	if err := os.MkdirAll(root, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(root, "F.MES"), []byte("root-body"), 0o444); err != nil {
++		t.Fatal(err)
++	}
++	m := machine.New()
++	d := New(m, root)
++	d.Scratch = filepath.Join(base, "scratch")
++	d.Install()
++	if ax, cf := renameVia(m, d, "F.MES", "G.MES"); cf {
++		t.Fatalf("改名失敗：AX ＝ %d", ax)
++	}
++	if _, err := os.Stat(filepath.Join(root, "F.MES")); err != nil {
++		t.Fatal("原版目錄的檔被搬走了")
++	}
++}
++
++// 暫存層是未清理的相對路徑（例如 `-saves ./saves`）：resolve 回的路徑是 filepath.Join 清過的 `saves/NAME`，
++// 舊的字串前綴比對（`!strings.HasPrefix(src, d.Scratch)`）為假，把暫存層的檔當成原版的檔複製，舊檔仍在；
++// 層別判斷走 os.Rename，舊檔消失（AH=56h 的語意）。
++func TestRenameFromScratchLayerWithUncleanRelativeScratch(t *testing.T) {
++	t.Chdir(t.TempDir())
++	if err := os.MkdirAll("saves", 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join("saves", "F.SAV"), []byte("scratch-body"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	m := machine.New()
++	d := New(m, t.TempDir())
++	d.Scratch = "./saves"
++	d.Install()
++	if ax, cf := renameVia(m, d, "F.SAV", "G.SAV"); cf {
++		t.Fatalf("改名失敗：AX ＝ %d", ax)
++	}
++	if _, err := os.Stat(filepath.Join("saves", "F.SAV")); err == nil {
++		t.Error("暫存層的舊檔應消失（os.Rename），不該留著")
++	}
++	if b, err := os.ReadFile(filepath.Join("saves", "G.SAV")); err != nil || string(b) != "scratch-body" {
++		t.Errorf("新檔：%q err ＝ %v", b, err)
++	}
++}
++
++// 對照：來源在暫存層時照舊 os.Rename。
++func TestRenameFromScratchLayerStillRenames(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "scratch", "F.SAV", "scratch-body")
++	m, d := f.dos(t, true, true)
++	if ax, cf := renameVia(m, d, "F.SAV", "G.SAV"); cf {
++		t.Fatalf("改名失敗：AX ＝ %d", ax)
++	}
++	if f.exists("scratch", "F.SAV") || !f.exists("scratch", "G.SAV") {
++		t.Error("暫存層的檔應被改名")
++	}
++}
++
++// 刪除、createNew、fileAttr、extendedOpen、create 對語言層的檔與對原版目錄的檔結果相同
++// （遊戲不走這些路徑；語意記為已知差異，不拒絕）。
++func TestUnlinkCreateFamilyBehavesLikeRootFile(t *testing.T) {
++	scenario := func(layer string) []string {
++		f := newLangFixture(t)
++		f.put(t, layer, "X.MES", "body")
++		m, d := f.dos(t, true, true)
++		c := m.CPU
++		var out []string
++		rec := func(label string) {
++			out = append(out, fmt.Sprintf("%s CF=%v AX=%04X CX=%04X", label, c.Flags&cpu.CF != 0, c.R[cpu.AX], c.R[cpu.CX]))
++		}
++		// fileAttr 取屬性
++		putName(m, c, "X.MES")
++		c.R[cpu.CX] = 0
++		int21(m, d, 0x4300)
++		rec("attr")
++		putName(m, c, "NOPE.MES")
++		int21(m, d, 0x4300)
++		rec("attr-missing")
++		// createNew：檔案已存在就失敗
++		putName(m, c, "X.MES")
++		c.R[cpu.CX] = 0
++		int21(m, d, 0x5B00)
++		rec("createnew")
++		// extendedOpen：有就開
++		putName(m, c, "X.MES")
++		c.R[cpu.SI], c.R[cpu.BX], c.R[cpu.DX], c.R[cpu.CX] = c.R[cpu.DX], 0, 0x0001, 0
++		int21(m, d, 0x6C00)
++		rec("xopen")
++		if c.Flags&cpu.CF == 0 { // 成功時 AX 是 handle
++			closeFile(m, d, c.R[cpu.AX])
++		}
++		// unlink：只動暫存層，兩層的檔都還在
++		putName(m, c, "X.MES")
++		int21(m, d, 0x4100)
++		rec("unlink")
++		out = append(out, fmt.Sprintf("unlink-keeps-file=%v", f.exists(layer, "X.MES")))
++		// create：在暫存層建同名空檔，原層的檔不動，之後解析到暫存層
++		putName(m, c, "X.MES")
++		c.R[cpu.CX] = 0
++		int21(m, d, 0x3C00)
++		rec("create")
++		closeFile(m, d, c.R[cpu.AX])
++		b, _ := os.ReadFile(filepath.Join(f.scratch, "X.MES"))
++		out = append(out, fmt.Sprintf("scratch-len=%d", len(b)))
++		orig, _ := os.ReadFile(filepath.Join(f.dir(layer), "X.MES"))
++		out = append(out, "orig-body="+string(orig))
++		_, l := d.resolve("X.MES")
++		out = append(out, "layer-after-create="+string(l))
++		return out
++	}
++	root, lang := scenario("root"), scenario("lang")
++	if strings.Join(root, "\n") != strings.Join(lang, "\n") {
++		t.Errorf("語言層的檔與原版目錄的檔語意不同：\n--- root\n%s\n--- lang\n%s", strings.Join(root, "\n"), strings.Join(lang, "\n"))
++	}
++	for _, line := range []string{"attr CF=false AX=", "attr-missing CF=true AX=0002", "createnew CF=true AX=0050", "xopen CF=false", "unlink CF=false", "unlink-keeps-file=true", "scratch-len=0", "orig-body=body", "layer-after-create=scratch"} {
++		if !strings.Contains(strings.Join(lang, "\n"), line) {
++			t.Errorf("結果缺 %q：\n%s", line, strings.Join(lang, "\n"))
++		}
++	}
++}
++
++// extendedOpen 以寫入模式開語言層的既有檔，經 open 同樣被拒。
++func TestExtendedOpenForWriteOnLangFileIsDenied(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "lang", "X.MES", "lang")
++	m, d := f.dos(t, true, true)
++	c := m.CPU
++	putName(m, c, "X.MES")
++	c.R[cpu.SI], c.R[cpu.BX], c.R[cpu.DX], c.R[cpu.CX] = c.R[cpu.DX], 2, 0x0001, 0
++	int21(m, d, 0x6C00)
++	if c.Flags&cpu.CF == 0 || c.R[cpu.AX] != 5 {
++		t.Fatalf("AX ＝ %d CF ＝ %v，預期存取被拒", c.R[cpu.AX], c.Flags&cpu.CF != 0)
++	}
++	if f.exists("scratch", "X.MES") {
++		t.Error("暫存層不該出現副本")
++	}
++}
++
++// ---- searchFor ----
++
++func TestSearchForOrderRootLangScratch(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "A.TXT", "root")
++	f.put(t, "root", "B.TXT", "root")
++	f.put(t, "lang", "A.TXT", "lang")
++	f.put(t, "lang", "C.TXT", "lang")
++	f.put(t, "scratch", "A.TXT", "scratch")
++	f.put(t, "scratch", "D.TXT", "scratch")
++	_, d := f.dos(t, true, true)
++	st := d.searchFor("*.TXT", 0)
++	wantNames := []string{"A.TXT", "B.TXT", "C.TXT", "D.TXT"}
++	if strings.Join(st.names, " ") != strings.Join(wantNames, " ") {
++		t.Fatalf("名稱 %v，預期 %v", st.names, wantNames)
++	}
++	wantLayer := map[string]string{"A.TXT": "scratch", "B.TXT": "root", "C.TXT": "lang", "D.TXT": "scratch"}
++	for i, n := range st.names {
++		if got, want := filepath.Dir(st.paths[i]), f.dir(wantLayer[n]); got != want {
++			t.Errorf("%s 來自 %s，預期 %s（後者蓋過前者）", n, got, want)
++		}
++	}
++	// 暫存層沒有 A.TXT 時，語言層蓋過原版目錄。
++	if err := os.Remove(filepath.Join(f.scratch, "A.TXT")); err != nil {
++		t.Fatal(err)
++	}
++	st = d.searchFor("A.TXT", 0)
++	if len(st.paths) != 1 || filepath.Dir(st.paths[0]) != f.lang {
++		t.Errorf("A.TXT 應來自語言層：%v", st.paths)
++	}
++}
++
++// 沒有語言層時 searchFor 看不到語言層目錄裡的檔。
++func TestSearchForIgnoresLangDirWhenEmpty(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "A.TXT", "root")
++	f.put(t, "lang", "C.TXT", "lang")
++	_, d := f.dos(t, false, false)
++	if got := d.searchFor("*.TXT", 0).names; len(got) != 1 || got[0] != "A.TXT" {
++		t.Errorf("得到 %v", got)
++	}
++}
++
++// FindFirst／FindNext 走 searchFor：只在語言層的檔也列得出來。
++func TestFindFirstListsLangOnlyFile(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "lang", "C.TXT", "lang")
++	m, d := f.dos(t, true, false)
++	c := m.CPU
++	putName(m, c, "C.TXT")
++	c.R[cpu.CX] = 0
++	int21(m, d, 0x4E00)
++	if c.Flags&cpu.CF != 0 {
++		t.Fatalf("FindFirst 找不到語言層的檔：AX ＝ %d", c.R[cpu.AX])
++	}
++	base := cpu.Addr(d.dtaSeg, d.dtaOff)
++	var name []byte
++	for i := uint32(0); i < 13; i++ {
++		b := m.Read8(base + 0x1E + i)
++		if b == 0 {
++			break
++		}
++		name = append(name, b)
++	}
++	if string(name) != "C.TXT" {
++		t.Errorf("DTA 的檔名是 %q", name)
++	}
++}
++
++// manifest.json 在 files/ 之外：searchFor 與解析看不到它。
++func TestManifestOutsideFilesIsInvisible(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "lang", "A.MES", "lang")
++	_, d := f.dos(t, true, false)
++	for _, pat := range []string{"*.*", "MANIFEST.*", "MANIFEST.JSON"} {
++		for _, n := range d.searchFor(pat, 0).names {
++			if strings.HasPrefix(n, "MANIFEST") {
++				t.Errorf("searchFor(%q) 列出了 %s", pat, n)
++			}
++		}
++	}
++	if p, l := d.resolve("manifest.json"); p != "" || l != LayerNone {
++		t.Errorf("manifest.json 不該被解析到：%q %q", p, l)
++	}
++	// 正對照：放進 files/ 就看得到，所以上面的斷言偵測得出來。
++	f.put(t, "lang", "manifest.json", "{}")
++	found := false
++	for _, n := range d.searchFor("*.*", 0).names {
++		found = found || n == "MANIFEST.JSON"
++	}
++	if !found {
++		t.Error("正對照：manifest.json 放進語言層目錄後應列得出來")
++	}
++}
++
++// ---- 其他 resolve 呼叫者 ----
++
++// exec.go 的 readProgram（AH=4Bh）：同名的程式取語言層那一份。
++func TestExecLoadsProgramFromLangLayer(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "P.COM", string([]byte{0xB8, 0x01, 0x4C, 0xCD, 0x21})) // 離開碼 1
++	f.put(t, "lang", "P.COM", string([]byte{0xB8, 0x02, 0x4C, 0xCD, 0x21})) // 離開碼 2
++	m, d := f.dos(t, true, true)
++	execChild(m, d, "P.COM")
++	if m.CPU.Flags&cpu.CF != 0 {
++		t.Fatalf("EXEC 失敗：AX ＝ %d", m.CPU.R[cpu.AX])
++	}
++	if got := d.ExecLog[len(d.ExecLog)-1].Base; got != "P.COM" {
++		t.Errorf("ExecLog.Base ＝ %q", got)
++	}
++	for i := 0; i < 100 && len(d.procStack) > 0; i++ {
++		if err := m.Step(); err != nil {
++			t.Fatal(err)
++		}
++	}
++	call(m, d, 0x21, 0x4D00)
++	if ax := m.CPU.R[cpu.AX]; ax != 2 {
++		t.Errorf("離開碼 %d，預期 2（語言層那一份）", ax)
++	}
++	execChild(m, d, "NOPE.COM")
++	if m.CPU.Flags&cpu.CF == 0 || m.CPU.R[cpu.AX] != 2 {
++		t.Errorf("找不到的程式：AX ＝ %d CF ＝ %v", m.CPU.R[cpu.AX], m.CPU.Flags&cpu.CF != 0)
++	}
++}
++
++// exec.go 的 spawnQueued（監督佇列）：同名的程式取語言層那一份。
++func TestSpawnQueuedLoadsProgramFromLangLayer(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "Q.COM", string([]byte{0xB8, 0x03, 0x4C, 0xCD, 0x21}))
++	f.put(t, "lang", "Q.COM", string([]byte{0xB8, 0x05, 0x4C, 0xCD, 0x21}))
++	m, d := f.dos(t, true, false)
++	d.Enqueue("Q.COM", "")
++	call(m, d, 0x21, 0x4C00)
++	for i := 0; i < 100 && !d.Exited; i++ {
++		if err := m.Step(); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if !d.Exited || d.ExitCode != 5 {
++		t.Errorf("Exited ＝ %v ExitCode ＝ %d，預期語言層那一份（5）", d.Exited, d.ExitCode)
++	}
++}
++
++// dosinfo.go 的 createTemp（AH=5Ah）：流水號跳過語言層已有的名字。
++func TestCreateTempSkipsNamesInLangLayer(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "lang", "TMP00000", "lang")
++	m, d := f.dos(t, true, true)
++	c := m.CPU
++	c.Seg[cpu.DS], c.R[cpu.DX] = 0x1000, 0x0100
++	m.WriteBytes(cpu.Addr(0x1000, 0x0100), append([]byte(`C:\TMP\`), make([]byte, 40)...))
++	int21(m, d, 0x5A00)
++	if c.Flags&cpu.CF != 0 {
++		t.Fatalf("createTemp 失敗：AX ＝ %d", c.R[cpu.AX])
++	}
++	if got := d.readCString(0x1000, 0x0100, 128); got != `C:\TMP\TMP00001` {
++		t.Errorf("暫存檔名 %q，預期跳過語言層已有的 TMP00000", got)
++	}
++}
++
++// font.go 的 fontBytes：字型檔取語言層那一份。
++func TestFontBytesReadsLangLayerFile(t *testing.T) {
++	f := newLangFixture(t)
++	f.put(t, "root", "FNT.TST", "RRRR")
++	f.put(t, "lang", "FNT.TST", "LLLL")
++	_, d := f.dos(t, true, false)
++	if got := d.fontBytes("FNT.TST", 0, 4); string(got) != "LLLL" {
++		t.Errorf("字型檔內容 %q，預期語言層那一份", got)
++	}
++	_, d = f.dos(t, false, false)
++	if got := d.fontBytes("FNT.TST", 0, 4); string(got) != "RRRR" {
++		t.Errorf("沒有語言層時字型檔內容 %q", got)
++	}
++}
++
++// ---- 狀態檔 ----
++
++func encodeState(t *testing.T, v any) []byte {
++	t.Helper()
++	var b bytes.Buffer
++	if err := gob.NewEncoder(&b).Encode(v); err != nil {
++		t.Fatal(err)
++	}
++	return b.Bytes()
++}
++
++func dosDigestOf(t *testing.T, d *DOS) [32]byte {
++	t.Helper()
++	var b bytes.Buffer
++	if err := d.SaveState(&b); err != nil {
++		t.Fatal(err)
++	}
++	sum, err := StateDigest(&b)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return sum
++}
++
++func langDOS(t *testing.T, dir, manifest string) *DOS {
++	t.Helper()
++	return langDOSAt(t, t.TempDir(), dir, manifest)
++}
++
++// langDOSAt 與 langDOS 相同，但 Root 由呼叫端指定（要比較兩個 DOS 的狀態摘要時，Root 必須相同）。
++func langDOSAt(t *testing.T, root, dir, manifest string) *DOS {
++	t.Helper()
++	m := machine.New()
++	d := New(m, root)
++	d.LangDir, d.LangManifest = dir, manifest
++	d.Install()
++	d.freeSeg = 0x2000
++	return d
++}
++
++func TestSaveStateRecordsLangDirAndManifest(t *testing.T) {
++	d := langDOS(t, "/packs/zh/files", "abc123")
++	var b bytes.Buffer
++	if err := d.SaveState(&b); err != nil {
++		t.Fatal(err)
++	}
++	var s dosState
++	if err := gob.NewDecoder(&b).Decode(&s); err != nil {
++		t.Fatal(err)
++	}
++	if s.LangDir != "/packs/zh/files" || s.LangManifest != "abc123" {
++		t.Errorf("狀態檔記錄 LangDir ＝ %q LangManifest ＝ %q", s.LangDir, s.LangManifest)
++	}
++	if s.Version != dosStateVersion || dosStateVersion != 3 {
++		t.Errorf("dosStateVersion 不升（維持 3）：檔案 %d，常數 %d", s.Version, dosStateVersion)
++	}
++}
++
++func TestLoadStateComparesLangDirAndManifest(t *testing.T) {
++	cases := []struct {
++		name             string
++		saveDir, saveMan string
++		curDir, curMan   string
++		wantErr          bool
++		wantMentions     []string
++	}{
++		{"相同的語言包", "/p/zh/files", "h1", "/p/zh/files", "h1", false, nil},
++		{"都沒有語言包", "", "", "", "", false, nil},
++		{"LangDir 不同", "/p/zh/files", "h1", "/p/ja/files", "h1", true, []string{"/p/zh/files", "/p/ja/files"}},
++		{"manifest 不同", "/p/zh/files", "h1", "/p/zh/files", "h2", true, []string{"h1", "h2"}},
++		{"狀態檔有語言包、目前沒有", "/p/zh/files", "h1", "", "", true, []string{"/p/zh/files", "h1"}},
++		{"狀態檔沒有語言包、目前有", "", "", "/p/zh/files", "h1", true, []string{"/p/zh/files", "h1"}},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			saved := langDOS(t, c.saveDir, c.saveMan)
++			var b bytes.Buffer
++			if err := saved.SaveState(&b); err != nil {
++				t.Fatal(err)
++			}
++			cur := langDOS(t, c.curDir, c.curMan)
++			pre := cur.PreflightState(bytes.NewReader(b.Bytes()))
++			err := cur.LoadState(bytes.NewReader(b.Bytes()))
++			if (err != nil) != c.wantErr || (pre != nil) != c.wantErr {
++				t.Fatalf("LoadState 錯誤 ＝ %v，PreflightState 錯誤 ＝ %v，預期有錯 ＝ %v", err, pre, c.wantErr)
++			}
++			for _, want := range c.wantMentions {
++				if !strings.Contains(err.Error(), want) || !strings.Contains(pre.Error(), want) {
++					t.Errorf("錯誤訊息沒有點名 %q：\n%v\n%v", want, err, pre)
++				}
++			}
++		})
++	}
++}
++
++// 舊的狀態檔（沒有 LangDir、LangManifest 兩個欄位）視為空：沒有語言包的 Session 載得進，有語言包的拒絕。
++func TestOldStateFileWithoutLangFieldsIsTreatedAsEmpty(t *testing.T) {
++	type oldDOSState struct { // 舊檔版面：欄位名與型別同 dosState，缺這兩個欄位；gob 以欄位名配對
++		Magic   string
++		Version int
++		Drive   uint8
++		Dir     string
++		Root    string
++	}
++	raw := encodeState(t, oldDOSState{Magic: dosStateMagic, Version: dosStateVersion, Drive: 3, Dir: "OLD", Root: "/old/root"})
++	empty := langDOS(t, "", "")
++	if err := empty.LoadState(bytes.NewReader(raw)); err != nil {
++		t.Fatalf("沒有語言包的 Session 應載得進舊檔：%v", err)
++	}
++	if empty.Drive != 3 || empty.Dir != "OLD" {
++		t.Errorf("舊檔內容沒套用：Drive ＝ %d Dir ＝ %q", empty.Drive, empty.Dir)
++	}
++	withLang := langDOS(t, "/p/zh/files", "h1")
++	if err := withLang.LoadState(bytes.NewReader(raw)); err == nil {
++		t.Error("有語言包的 Session 不該載入舊檔（舊檔視為沒有語言包）")
++	}
++}
++
++// 語言層比對失敗：在關閉 handle、改欄位之前拒絕，DOS 的狀態摘要與開著的檔都不變。
++func TestLangMismatchRejectsBeforeAnyChange(t *testing.T) {
++	saved := langDOS(t, "/p/zh/files", "h1")
++	saved.Drive, saved.Dir = 3, "SAVED"
++	saved.Mouse.X = 77
++	var b bytes.Buffer
++	if err := saved.SaveState(&b); err != nil {
++		t.Fatal(err)
++	}
++
++	cur := langDOS(t, "/p/ja/files", "h2")
++	f := newLangFixture(t)
++	f.put(t, "root", "KEEP.DAT", "keep-me")
++	cur.Root = f.root
++	m := cur.M
++	if body, ok := readFile(m, cur, "KEEP.DAT"); !ok || body != "keep-me" {
++		t.Fatal("測試前置：讀不到 KEEP.DAT")
++	}
++	h, cf := langOpen(m, cur, "KEEP.DAT", 0) // 開著一個 handle
++	if cf {
++		t.Fatal("測試前置：開不起來")
++	}
++	before := dosDigestOf(t, cur)
++	handlesBefore := len(cur.handles)
++
++	if err := cur.PreflightState(bytes.NewReader(b.Bytes())); err == nil {
++		t.Fatal("PreflightState 應拒絕")
++	}
++	if got := dosDigestOf(t, cur); got != before {
++		t.Error("PreflightState 改動了 DOS 狀態")
++	}
++	if err := cur.LoadState(bytes.NewReader(b.Bytes())); err == nil {
++		t.Fatal("LoadState 應拒絕")
++	}
++	if got := dosDigestOf(t, cur); got != before {
++		t.Error("拒絕載入之後 DOS 狀態摘要變了")
++	}
++	if cur.Drive == 3 || cur.Dir == "SAVED" || cur.Mouse.X == 77 {
++		t.Errorf("拒絕之後欄位被改動：Drive ＝ %d Dir ＝ %q Mouse.X ＝ %d", cur.Drive, cur.Dir, cur.Mouse.X)
++	}
++	if len(cur.handles) != handlesBefore || cur.handles[h] == nil || cur.handles[h].f == nil {
++		t.Fatal("拒絕之後 handle 被關掉或被清掉")
++	}
++	if _, err := cur.handles[h].f.Stat(); err != nil {
++		t.Errorf("拒絕之後 handle 已關閉：%v", err)
++	}
++}
++
++// PreflightState 對壞資料也回錯，不動任何東西。
++func TestPreflightStateRejectsGarbage(t *testing.T) {
++	d := langDOS(t, "", "")
++	if err := d.PreflightState(bytes.NewReader([]byte("not a gob"))); err == nil {
++		t.Error("壞資料應回錯")
++	}
++	wrongMagic := encodeState(t, dosState{Magic: "NOPE", Version: dosStateVersion})
++	if err := d.PreflightState(bytes.NewReader(wrongMagic)); err == nil {
++		t.Error("魔術字不符應回錯")
++	}
++}
++
++// StateDigest：LangDir、LangManifest 為空時摘要用的 JSON 不含這兩個欄位（舊摘要逐位元不變）；非空時不同。
++func TestStateDigestOmitsEmptyLangFields(t *testing.T) {
++	plain := langDOS(t, "", "")
++	var b bytes.Buffer
++	if err := plain.SaveState(&b); err != nil {
++		t.Fatal(err)
++	}
++	var s dosState
++	if err := gob.NewDecoder(bytes.NewReader(b.Bytes())).Decode(&s); err != nil {
++		t.Fatal(err)
++	}
++	js, err := json.Marshal(s)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if strings.Contains(string(js), "LangDir") || strings.Contains(string(js), "LangManifest") {
++		t.Errorf("空語言層的摘要 JSON 不該含新欄位：%s", js)
++	}
++	// 摘要要因新欄位而不同：兩個 DOS 用同一個 Root、同樣的狀態，只有 LangDir 與 LangManifest 不同。
++	// （各用自己的 t.TempDir() 時 Root 本來就不同，摘要必然不同，與有沒有語言層無關，斷言會恆真。）
++	root := t.TempDir()
++	base := langDOSAt(t, root, "", "")
++	if dosDigestOf(t, langDOSAt(t, root, "", "")) != dosDigestOf(t, base) {
++		t.Fatal("控制組：同一個 Root、同樣設定的兩個 DOS，狀態摘要應相同，否則下面的差異不能歸因於語言層欄位")
++	}
++	for _, c := range []struct{ name, dir, manifest string }{
++		{"LangDir 與 LangManifest 都有", "/p/zh/files", "h1"},
++		{"只有 LangDir", "/p/zh/files", ""},
++		{"只有 LangManifest", "", "h1"},
++	} {
++		if dosDigestOf(t, langDOSAt(t, root, c.dir, c.manifest)) == dosDigestOf(t, base) {
++			t.Errorf("%s：同一個 Root，只有語言層欄位不同，DOS 狀態摘要必須不同", c.name)
++		}
++	}
++	s.LangDir = "/x"
++	js2, _ := json.Marshal(s)
++	if !strings.Contains(string(js2), `"LangDir":"/x"`) {
++		t.Errorf("非空的 LangDir 應進摘要：%s", js2)
++	}
++}
+diff --git a/internal/dos/state.go b/internal/dos/state.go
+index 6a569fe..d046c00 100644
+--- a/internal/dos/state.go
++++ b/internal/dos/state.go
+@@ -96,6 +96,15 @@ type dosState struct {
+ 	// 遊戲照樣把它當資料用（見 `docs/spec/004` §4.18）。
+ 	Root string
+ 
++	// LangDir 與 LangManifest 是語言層的生效值（`DOS.LangDir`、`DOS.LangManifest`，hr `docs/spec/008` §3.1）。
++	// 舊的狀態檔沒有這兩個欄位，gob 解碼時是空字串，等同沒有語言包，所以 dosStateVersion 不升。
++	// `omitempty`：dos.StateDigest 對整個 dosState 做 JSON，兩者為空時摘要必須與沒有這兩個欄位時逐位元相同
++	//（欄位型別一定要是字串；陣列型別不會被 omitempty 省略）。
++	// **LoadState 要求它們與目前的 Session 相同**：狀態檔裡 handle 的路徑是絕對路徑，載入時不經 resolve，
++	// 語言包 Session 存的狀態檔在別的語言層載入，會讓開著的檔（`CFONT.15`）與之後解析到的檔來自不同的層。
++	LangDir      string `json:",omitempty"`
++	LangManifest string `json:",omitempty"`
++
+ 	Handles []handleState
+ 	FreeSeg uint16
+ 
+@@ -126,6 +135,7 @@ func (d *DOS) SaveState(w io.Writer) error {
+ 	s := dosState{
+ 		Magic: dosStateMagic, Version: dosStateVersion,
+ 		Drive: d.Drive, Dir: d.Dir, Now: d.Now, Root: d.Root,
++		LangDir: d.LangDir, LangManifest: d.LangManifest,
+ 		FreeSeg: d.freeSeg,
+ 
+ 		CurPSP:   d.curPSP,
+@@ -180,15 +190,53 @@ func (d *DOS) SaveState(w io.Writer) error {
+ 	return gob.NewEncoder(w).Encode(&s)
+ }
+ 
+-// LoadState 把 DOS 這一層倒回存檔的狀態。**開著的檔案會重新開一次
+-// 並 seek 回原位**——存檔裡只有路徑與位置，不含檔案內容（原版素材唯讀）。
+-func (d *DOS) LoadState(r io.Reader) error {
++// decodeState 解出一段 DOS 狀態並檢查魔術字與版本。
++func decodeState(r io.Reader) (dosState, error) {
+ 	var s dosState
+ 	if err := gob.NewDecoder(r).Decode(&s); err != nil {
+-		return fmt.Errorf("dos: 讀不開狀態檔：%w", err)
++		return s, fmt.Errorf("dos: 讀不開狀態檔：%w", err)
+ 	}
+ 	if s.Magic != dosStateMagic || s.Version < dosStateMinVersion || s.Version > dosStateVersion {
+-		return fmt.Errorf("dos: 狀態檔不認得（%q v%d）", s.Magic, s.Version)
++		return s, fmt.Errorf("dos: 狀態檔不認得（%q v%d）", s.Magic, s.Version)
++	}
++	return s, nil
++}
++
++// checkLang 比對狀態檔記錄的語言層與目前的 Session（hr `docs/spec/008` §3.1）。
++// 不同就回錯，訊息點名狀態檔與目前的兩組值。`PreflightState` 與 `LoadState` 共用這一個函式。
++func (d *DOS) checkLang(s *dosState) error {
++	if s.LangDir == d.LangDir && s.LangManifest == d.LangManifest {
++		return nil
++	}
++	return fmt.Errorf("dos: 狀態檔的語言層與目前的 Session 不同（狀態檔 LangDir＝%q LangManifest＝%q，目前 LangDir＝%q LangManifest＝%q）；"+
++		"語言包 Session 存的狀態檔只能在同一個 LangDir 與同一份 manifest 載入",
++		s.LangDir, s.LangManifest, d.LangDir, d.LangManifest)
++}
++
++// PreflightState 讀一段 DOS 狀態，只做 LoadState 在套用任何東西之前的檢查：能解開、魔術字與版本、
++// 語言層（LangDir、LangManifest）與目前的 Session 相同。**不改動任何欄位也不動 handle。**
++// `internal/state.Load` 是串流讀取，機器那一段先於 DOS 那一段套用，所以它要先讀進記憶體、
++// 對 DOS 那一段預檢，通過了才套用機器段。直接呼叫 LoadState 的人（oracle）靠 LoadState 開頭的同一個檢查。
++func (d *DOS) PreflightState(r io.Reader) error {
++	s, err := decodeState(r)
++	if err != nil {
++		return err
++	}
++	return d.checkLang(&s)
++}
++
++// LoadState 把 DOS 這一層倒回存檔的狀態。**開著的檔案會重新開一次
++// 並 seek 回原位**——存檔裡只有路徑與位置，不含檔案內容（原版素材唯讀）。
++//
++// 語言層與目前的 Session 不同時，在關閉舊 handle、改任何欄位之前拒絕（`checkLang`）。
++// 之後 `os.Open` 失敗造成的半套用是既有行為，不在這個檢查的保證內。
++func (d *DOS) LoadState(r io.Reader) error {
++	s, err := decodeState(r)
++	if err != nil {
++		return err
++	}
++	if err := d.checkLang(&s); err != nil {
++		return err
+ 	}
+ 	for _, h := range d.handles {
+ 		h.f.Close()
+diff --git a/internal/dos/state_test.go b/internal/dos/state_test.go
+index c5a952b..9257b32 100644
+--- a/internal/dos/state_test.go
++++ b/internal/dos/state_test.go
+@@ -41,7 +41,7 @@ func TestStateKeepsRootSoLaterOpensStillFindFiles(t *testing.T) {
+ 	if d.Root != root {
+ 		t.Errorf("讀檔後素材目錄是 %q，要 %q", d.Root, root)
+ 	}
+-	if got := d.resolve(`C:KAODATA.GP`); got == "" {
++	if got, _ := d.resolve(`C:KAODATA.GP`); got == "" {
+ 		t.Error("讀檔後開不到 C:KAODATA.GP")
+ 	}
+ }
+diff --git a/internal/state/lang_test.go b/internal/state/lang_test.go
+new file mode 100644
+index 0000000..5706329
+--- /dev/null
++++ b/internal/state/lang_test.go
+@@ -0,0 +1,132 @@
++package state
++
++import (
++	"bytes"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++// 語言層（hr `docs/spec/008` §3.1，L0）：state.Load 先預檢再套用。不需要原版。
++
++func bootLang(t *testing.T, langDir, manifest string) (*machine.Machine, *dos.DOS) {
++	t.Helper()
++	m := machine.New()
++	if err := m.LoadCOM(tinyCOM); err != nil {
++		t.Fatal(err)
++	}
++	d := dos.New(m, ".")
++	d.LangDir, d.LangManifest = langDir, manifest
++	d.Install()
++	return m, d
++}
++
++func runSteps(t *testing.T, m *machine.Machine, n int) {
++	t.Helper()
++	for i := 0; i < n && !m.CPU.Halted; i++ {
++		if err := m.Step(); err != nil {
++			t.Fatal(err)
++		}
++	}
++}
++
++func machineDigest(t *testing.T, m *machine.Machine) [32]byte {
++	t.Helper()
++	var b bytes.Buffer
++	if err := m.SaveState(&b); err != nil {
++		t.Fatal(err)
++	}
++	sum, err := machine.StateDigest(&b)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return sum
++}
++
++func dosDigest(t *testing.T, d *dos.DOS) [32]byte {
++	t.Helper()
++	var b bytes.Buffer
++	if err := d.SaveState(&b); err != nil {
++		t.Fatal(err)
++	}
++	sum, err := dos.StateDigest(&b)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return sum
++}
++
++// 語言層相同的 Session 載得進；不同的明確拒絕、錯誤訊息點名兩組值，而且**機器記憶體與 DOS 狀態摘要都不變**
++// （機器段在檔案裡先於 DOS 段，不預檢的話機器段早已被覆寫）。
++func TestLoadChecksLangLayerBeforeAnyChange(t *testing.T) {
++	m, d := bootLang(t, "/p/zh/files", "h1")
++	runSteps(t, m, 5000)
++	path := filepath.Join(t.TempDir(), "s.gz")
++	if err := Save(path, m, d); err != nil {
++		t.Fatal(err)
++	}
++	savedMachine := machineDigest(t, m)
++
++	cases := []struct {
++		name         string
++		dir, man     string
++		wantErr      bool
++		wantMentions []string
++	}{
++		{"相同的語言包", "/p/zh/files", "h1", false, nil},
++		{"LangDir 不同", "/p/ja/files", "h1", true, []string{"/p/zh/files", "/p/ja/files"}},
++		{"manifest 不同", "/p/zh/files", "h2", true, []string{"h1", "h2"}},
++		{"目前沒有語言包", "", "", true, []string{"/p/zh/files", "h1"}},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			m2, d2 := bootLang(t, c.dir, c.man)
++			runSteps(t, m2, 100) // 與存檔時的狀態不同，才看得出有沒有被覆寫
++			mBefore, dBefore := machineDigest(t, m2), dosDigest(t, d2)
++			if mBefore == savedMachine {
++				t.Fatal("測試前置：m2 與存檔的機器狀態應不同")
++			}
++			err := Load(path, m2, d2)
++			if (err != nil) != c.wantErr {
++				t.Fatalf("Load 錯誤 ＝ %v，預期有錯 ＝ %v", err, c.wantErr)
++			}
++			if c.wantErr {
++				for _, want := range c.wantMentions {
++					if !strings.Contains(err.Error(), want) {
++						t.Errorf("錯誤訊息沒有點名 %q：%v", want, err)
++					}
++				}
++				if got := machineDigest(t, m2); got != mBefore {
++					t.Error("拒絕載入之後機器狀態摘要變了（機器段在預檢之前被套用）")
++				}
++				if got := dosDigest(t, d2); got != dBefore {
++					t.Error("拒絕載入之後 DOS 狀態摘要變了")
++				}
++				return
++			}
++			if got := machineDigest(t, m2); got != savedMachine {
++				t.Error("相同語言層的載入應還原成存檔時的機器狀態")
++			}
++		})
++	}
++}
++
++// 沒有語言包的存檔與 Session（與現況相同）照舊載得進。
++func TestLoadWithoutLangStillWorks(t *testing.T) {
++	m, d := bootLang(t, "", "")
++	runSteps(t, m, 5000)
++	path := filepath.Join(t.TempDir(), "s.gz")
++	if err := Save(path, m, d); err != nil {
++		t.Fatal(err)
++	}
++	m2, d2 := bootLang(t, "", "")
++	if err := Load(path, m2, d2); err != nil {
++		t.Fatal(err)
++	}
++	if machineDigest(t, m2) != machineDigest(t, m) {
++		t.Error("載入後機器狀態與存檔時不同")
++	}
++}
+diff --git a/internal/state/state.go b/internal/state/state.go
+index 2df8d61..c5d1953 100644
+--- a/internal/state/state.go
++++ b/internal/state/state.go
+@@ -75,6 +75,11 @@ func Save(path string, m *machine.Machine, d *dos.DOS) error {
+ //
+ // 呼叫之前機器要建好、`dos.Install()` 要跑過——中斷處理常式掛在 Go 這端，
+ // 不在存檔裡。
++//
++// **先預檢再套用**（hr `docs/spec/008` §3.1）：檔案是串流，機器段在 DOS 段之前，若照順序套用，
++// DOS 段的語言層比對失敗時機器記憶體早已被覆寫。所以先把兩段都讀進記憶體，
++// 對 DOS 段預檢（`dos.PreflightState`：能解開、語言層與目前的 Session 相同），通過了才
++// 套用機器段與 DOS 段。預檢失敗時 m 與 d 都不動。
+ func Load(path string, m *machine.Machine, d *dos.DOS) error {
+ 	f, err := os.Open(path)
+ 	if err != nil {
+@@ -86,20 +91,29 @@ func Load(path string, m *machine.Machine, d *dos.DOS) error {
+ 		return fmt.Errorf("state: %s 不是 gzip：%w", path, err)
+ 	}
+ 	defer zr.Close()
+-	ms, err := readSection(zr)
++	mb, err := readBytes(zr)
+ 	if err != nil {
+ 		return err
+ 	}
+-	if err := m.LoadState(ms); err != nil {
++	db, err := readBytes(zr)
++	if err != nil {
+ 		return err
+ 	}
+-	// 機器那一段可能沒被讀完（gob 只取它要的），剩下的丟掉才對得到下一段。
+-	if _, err := io.Copy(io.Discard, ms); err != nil {
++	if err := d.PreflightState(bytes.NewReader(db)); err != nil {
+ 		return err
+ 	}
+-	ds, err := readSection(zr)
+-	if err != nil {
++	// 各段是獨立的 reader：機器那一段 gob 只取它要的，剩下的不影響 DOS 段。
++	if err := m.LoadState(bytes.NewReader(mb)); err != nil {
+ 		return err
+ 	}
+-	return d.LoadState(ds)
++	return d.LoadState(bytes.NewReader(db))
++}
++
++// readBytes 把一段「8 bytes 長度 ＋ 內容」整段讀進記憶體。
++func readBytes(r io.Reader) ([]byte, error) {
++	sec, err := readSection(r)
++	if err != nil {
++		return nil, err
++	}
++	return io.ReadAll(sec)
+ }
+-- 
+2.43.0
+
