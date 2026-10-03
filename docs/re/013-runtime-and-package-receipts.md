@@ -116,6 +116,21 @@
 
 驗收：兩組各三個包的外洩掃描命中 0；macOS 只驗結構。AppImage 在 Xvfb 內啟動並點新遊戲，不帶 `HR_HD_DIR`：含 HD 的包新遊戲畫面為 HD（`pkg-hd-v011-appimage-newgame.png`），不含 HD 的包為原版畫面（`pkg-v011-appimage-newgame.png`）。Windows zip 在 Wine 加 Xvfb 內啟動，不帶 `-hd`：兩個包都顯示標題畫面，含 HD 的包 zip 內有 `hd/` 檔案 627 個，不含的 0 個（`pkg-hd-v011-wine-title.png`、`pkg-v011-wine-title.png`）。驗收時主機負載平均約 30 至 46（14 核，另有其他專案的行程），dosgolem 的速度守門把計時器間隔降到 150000，所以只證明能啟動並顯示畫面，不代表速度。
 
+### 4.4 加入音樂與音效、F1 至 F4 與 theme 切換之後的發行包（2026-10-04）
+
+版本字串 `5441a9c-dgaaaf999`（本 repo 的 commit `5441a9c`，dosgolem 分支 `hr` 的 commit `aaaf999`；兩邊工作樹皆乾淨）。與 4.3 相比，`hr` 分支多了 `docs/spec/006`（F1 功能說明、F2 theme、F4 語言、固定 1280x800 邏輯畫面、內嵌字型子集）與 `docs/spec/007`（音樂與音效）的實作（`docs/re/019`、`docs/re/026`）。不含 HD 的包，沒有重建含 HD 的包，也沒有建立 Release。
+
+| 產物 | 大小（bytes） | SHA-256 |
+|---|---|---|
+| `HighReward-5441a9c-dgaaaf999-x86_64.AppImage` | 4766200 | `35ef7232fd2aa782f7e2badd8448076809a401a369f613c1617b271a38bc3fc4` |
+| `HighReward-5441a9c-dgaaaf999-win64.zip` | 4279763 | `e0dfc308b1cef40111e813dbca65e55e75e7b2980dae1a104730e99942845a98` |
+| `HighReward-5441a9c-dgaaaf999-macos.zip` | 8091672 | `005d7f80868dbf39553307efb4845e9dd91726c6fb8039790ebd9497c9fb91c9` |
+
+- 外洩掃描：三個包都以原版檔案雜湊與檔名比對，加音訊判準（`.wav` 等副檔名、`RIFF…WAVE` 與 `MThd` 檔頭、與清冊 `.MID`／`.PCM` 同名的檔），命中 0（`workplace/out/package-all-0004.log`）。
+- 第三方授權檔：加入 `golang.org/x/image`、`golang.org/x/text` 與介面字型的 OFL 全文；`tools/package.sh` 的 `make_notices` 在字型授權檔缺檔時失敗，並斷言含 "SIL OPEN FONT LICENSE" 與 "Adobe"、不含 "GNU General Public License"、含 x/image 與 x/text。
+- 驗收（日誌 `workplace/out/verify-pkg-0004.log`）：AppImage 在 Xvfb 內冷開機，點新遊戲，截圖（`pkg-appimage-newgame.png`）顯示地圖畫面與開場對白，結束碼 0；Windows zip 以 Wine 啟動並顯示標題畫面（`pkg-wine-title.png`），結束碼 0，Wine 與軟體繪圖下跑不到 18.2 Hz（降頻訊息，既有現象）；macOS universal `.app` 結構檢查通過（x86_64 與 arm64，沒有 `xmllint` 而略過 plist 格式檢查），**沒有實機驗證**。
+- 沒有驗證：真實音訊裝置的輸出（Linux 的 ALSA 後端在容器內無裝置，前端靜音運行）、Windows 與 macOS 的聲音後端（只有 Windows 編譯）、F1 至 F4 在 Windows 與 macOS 的執行、HD 前端的新版本。
+
 ## 5. 未涵蓋與已知限制
 
 - 沒有聲音：音樂路徑需要 `SOUND` 環境變數與 `ctmidi.drv`，音效需要 Sound Blaster 模擬（`docs/re/010`）。
