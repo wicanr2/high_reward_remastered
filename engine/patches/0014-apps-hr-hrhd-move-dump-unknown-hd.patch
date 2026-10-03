@@ -1,0 +1,199 @@
+From 54581c92231957ff162e58aa9b26388b5c1163c3 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 10:32:13 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/hrhd:=20-move=20=E8=88=87=20-dump-unkno?=
+ =?UTF-8?q?wn=EF=BC=88=E6=B8=B8=E6=A8=99=E7=AD=89=E5=9F=B7=E8=A1=8C?=
+ =?UTF-8?q?=E6=9C=9F=E5=9C=96=E7=9A=84=E5=8F=96=E6=A8=A3=EF=BC=89=EF=BC=9B?=
+ =?UTF-8?q?hd:=20=E8=A8=98=E9=8C=84=E6=A8=A1=E5=BC=8F=E4=BF=9D=E7=95=99?=
+ =?UTF-8?q?=E6=9C=AA=E8=AD=98=E5=88=A5=E6=88=B3=E8=A8=98=E7=9A=84=E6=9C=9F?=
+ =?UTF-8?q?=E6=9C=9B=E5=83=8F=E7=B4=A0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrhd/dump.go | 49 ++++++++++++++++++++++++++++++++++++++++
+ apps/hr/cmd/hrhd/main.go | 48 ++++++++++++++++++++++++++++++---------
+ apps/hr/hd/capture.go    |  5 ++--
+ 3 files changed, 89 insertions(+), 13 deletions(-)
+ create mode 100644 apps/hr/cmd/hrhd/dump.go
+
+diff --git a/apps/hr/cmd/hrhd/dump.go b/apps/hr/cmd/hrhd/dump.go
+new file mode 100644
+index 0000000..e2fda28
+--- /dev/null
++++ b/apps/hr/cmd/hrhd/dump.go
+@@ -0,0 +1,49 @@
++package main
++
++import (
++	"fmt"
++	"image"
++	"image/color"
++	"image/png"
++	"os"
++	"path/filepath"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++)
++
++// dumpUnknown 把記錄模式收集的未識別戳記存成調色盤 PNG（索引 0 至 15 是顏色，索引 16 是透明），
++// 給美術處理當輸入（游標等執行期才產生、不在檔案內的圖）。pal 是參考調色盤（hd/palettes.tsv 的 MAIN）。
++// 輸出是原版美術的衍生物，只放 workplace/。
++func dumpUnknown(dir string, list []*hd.UnknownEntry, pal *[16][3]uint8) error {
++	if err := os.MkdirAll(dir, 0o755); err != nil {
++		return err
++	}
++	var p color.Palette
++	for i := 0; i < 16; i++ {
++		if pal != nil {
++			p = append(p, color.RGBA{pal[i][0], pal[i][1], pal[i][2], 255})
++		} else {
++			p = append(p, color.RGBA{uint8(i * 17), uint8(i * 17), uint8(i * 17), 255})
++		}
++	}
++	p = append(p, color.RGBA{0, 0, 0, 0})
++	for _, u := range list {
++		if len(u.E) != u.W*u.H {
++			continue
++		}
++		img := image.NewPaletted(image.Rect(0, 0, u.W, u.H), p)
++		copy(img.Pix, u.E)
++		name := filepath.Join(dir, fmt.Sprintf("%s_%s_%dx%d.png", u.Hash[:12], u.Kind, u.W, u.H))
++		f, err := os.Create(name)
++		if err != nil {
++			return err
++		}
++		if err := png.Encode(f, img); err != nil {
++			f.Close()
++			return err
++		}
++		f.Close()
++		fmt.Println("輸出", name)
++	}
++	return nil
++}
+diff --git a/apps/hr/cmd/hrhd/main.go b/apps/hr/cmd/hrhd/main.go
+index 9bfe639..d165a53 100644
+--- a/apps/hr/cmd/hrhd/main.go
++++ b/apps/hr/cmd/hrhd/main.go
+@@ -9,6 +9,7 @@ import (
+ 	"image"
+ 	"image/png"
+ 	"os"
++	"sort"
+ 	"strings"
+ 	"time"
+ 
+@@ -37,6 +38,9 @@ func main() {
+ 	fadeSlice := flag.Uint64("fade-slice", 100_000, "-fade-scan 的取樣間隔（步）")
+ 	var clicks clickList
+ 	flag.Var(&clicks, "click", "在『相對步數』按下並放開左鍵：`步數:X:Y`（X、Y 是 640x480 畫面座標），可重複")
++	var moves clickList
++	flag.Var(&moves, "move", "在『相對步數』把滑鼠移到：`步數:X:Y`（640x480 畫面座標），可重複")
++	dumpDir := flag.String("dump-unknown", "", "把未識別戳記（例如游標）的索引色存成調色盤 PNG 到這個目錄（需要 -hd 以取得 MAIN 調色盤）")
+ 	flag.Parse()
+ 
+ 	var assets *hd.Assets
+@@ -68,16 +72,30 @@ func main() {
+ 	type ck struct {
+ 		at   uint64
+ 		x, y int
++		move bool
+ 	}
+ 	var cks []ck
+-	for _, c := range clicks {
+-		var at uint64
+-		var x, y int
+-		if _, err := fmt.Sscanf(c, "%d:%d:%d", &at, &x, &y); err != nil {
+-			fmt.Fprintln(os.Stderr, "-click 要寫成 步數:X:Y：", err)
+-			os.Exit(2)
++	parse := func(list clickList, move bool, name string) {
++		for _, c := range list {
++			var at uint64
++			var x, y int
++			if _, err := fmt.Sscanf(c, "%d:%d:%d", &at, &x, &y); err != nil {
++				fmt.Fprintln(os.Stderr, name+" 要寫成 步數:X:Y：", err)
++				os.Exit(2)
++			}
++			cks = append(cks, ck{start + at, x, y, move})
++		}
++	}
++	parse(clicks, false, "-click")
++	parse(moves, true, "-move")
++	sort.SliceStable(cks, func(i, j int) bool { return cks[i].at < cks[j].at })
++	fire := func(c ck) {
++		if c.move {
++			s.Input(hrrt.MouseMoveEvent(c.x, c.y-40))
++			return
+ 		}
+-		cks = append(cks, ck{start + at, x, y})
++		s.Input(hrrt.MouseButtonEvent(c.x, c.y-40, 0, true))
++		s.Input(hrrt.MouseButtonEvent(c.x, c.y-40, 0, false))
+ 	}
+ 	if *fade {
+ 		if assets == nil {
+@@ -86,8 +104,7 @@ func main() {
+ 		}
+ 		fadeScan(s, assets, target, *fadeSlice, func(steps uint64) {
+ 			for len(cks) > 0 && steps >= cks[0].at {
+-				s.Input(hrrt.MouseButtonEvent(cks[0].x, cks[0].y-40, 0, true))
+-				s.Input(hrrt.MouseButtonEvent(cks[0].x, cks[0].y-40, 0, false))
++				fire(cks[0])
+ 				cks = cks[1:]
+ 			}
+ 		})
+@@ -99,8 +116,7 @@ func main() {
+ 			fmt.Fprintln(os.Stderr, "提前停機：", st.Msg)
+ 			os.Exit(1)
+ 		}
+-		s.Input(hrrt.MouseButtonEvent(c.x, c.y-40, 0, true))
+-		s.Input(hrrt.MouseButtonEvent(c.x, c.y-40, 0, false))
++		fire(c)
+ 	}
+ 	if st := s.RunSteps(target); st.Kind != hrrt.StopSteps {
+ 		fmt.Fprintln(os.Stderr, "提前停機：", st.Msg)
+@@ -147,6 +163,16 @@ func main() {
+ 		for _, u := range ov.UnknownList() {
+ 			fmt.Printf("%s\t%s\t%dx%d\tn=%d\t%04X:%04X\t(%d,%d)\n", u.Hash[:12], u.Kind, u.W, u.H, u.Count, u.Site>>16, u.Site&0xFFFF, u.X, u.Y)
+ 		}
++		if *dumpDir != "" {
++			var pal *[16][3]uint8
++			if assets != nil {
++				pal = assets.Palette("MAIN")
++			}
++			if err := dumpUnknown(*dumpDir, ov.UnknownList(), pal); err != nil {
++				fmt.Fprintln(os.Stderr, err)
++				os.Exit(1)
++			}
++		}
+ 	}
+ 	if assets != nil && len(assets.Errors) > 0 {
+ 		fmt.Println("# 清冊錯誤：")
+diff --git a/apps/hr/hd/capture.go b/apps/hr/hd/capture.go
+index 91c4302..8e47c40 100644
+--- a/apps/hr/hd/capture.go
++++ b/apps/hr/hd/capture.go
+@@ -55,7 +55,8 @@ type UnknownEntry struct {
+ 	W, H  int
+ 	Count uint64
+ 	Site  uint32
+-	X, Y  int // 第一次出現的位置
++	X, Y  int    // 第一次出現的位置
++	E     []byte // 第一次出現的期望像素（記錄模式；Transparent ＝ 透明），供美術處理取樣
+ }
+ 
+ type pending struct {
+@@ -312,7 +313,7 @@ func (o *Overlay) finish(m *machine.Machine, p *pending) {
+ 			if o.Record {
+ 				u := o.unknown[st.Hash]
+ 				if u == nil {
+-					u = &UnknownEntry{Hash: st.Hash, Kind: st.Kind, W: st.W, H: st.H, Site: st.Site, X: st.X, Y: st.Y}
++					u = &UnknownEntry{Hash: st.Hash, Kind: st.Kind, W: st.W, H: st.H, Site: st.Site, X: st.X, Y: st.Y, E: st.E}
+ 					o.unknown[st.Hash] = u
+ 				}
+ 				u.Count++
+-- 
+2.43.0
+

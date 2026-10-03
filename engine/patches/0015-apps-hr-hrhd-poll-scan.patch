@@ -1,0 +1,130 @@
+From e386c435c3984273aaaf75b6b8fc9c88d3c679d0 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 10:33:46 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/hrhd:=20-poll-scan=EF=BC=88=E6=8B=89?=
+ =?UTF-8?q?=E5=8F=96=E5=BC=8F=E5=BF=AB=E7=85=A7=E7=9A=84=E6=B8=B8=E6=A8=99?=
+ =?UTF-8?q?=E5=AE=8C=E6=95=B4=E6=AF=94=E4=BE=8B=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrhd/main.go |  4 ++
+ apps/hr/cmd/hrhd/poll.go | 82 ++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 86 insertions(+)
+ create mode 100644 apps/hr/cmd/hrhd/poll.go
+
+diff --git a/apps/hr/cmd/hrhd/main.go b/apps/hr/cmd/hrhd/main.go
+index d165a53..a6c5215 100644
+--- a/apps/hr/cmd/hrhd/main.go
++++ b/apps/hr/cmd/hrhd/main.go
+@@ -41,6 +41,7 @@ func main() {
+ 	var moves clickList
+ 	flag.Var(&moves, "move", "在『相對步數』把滑鼠移到：`步數:X:Y`（640x480 畫面座標），可重複")
+ 	dumpDir := flag.String("dump-unknown", "", "把未識別戳記（例如游標）的索引色存成調色盤 PNG 到這個目錄（需要 -hd 以取得 MAIN 調色盤）")
++	pollN := flag.Int("poll-scan", 0, "額外取 N 個拉取式快照，統計游標矩形完整的比例（docs/spec/004 第 7 節「快照完整」）")
+ 	flag.Parse()
+ 
+ 	var assets *hd.Assets
+@@ -136,6 +137,9 @@ func main() {
+ 		s.RunSteps(s.Machine().Steps + 50_000)
+ 	}
+ 	f := s.Frame()
++	if *pollN > 0 && s.Overlay() != nil {
++		pollScan(s, *pollN)
++	}
+ 	fmt.Printf("步數 %d（本次 %d），耗時 %.1fs（%.1f M步/s）\n", s.Machine().Steps, s.Machine().Steps-start, el.Seconds(), float64(s.Machine().Steps-start)/1e6/el.Seconds())
+ 	ov := s.Overlay()
+ 	if ov == nil {
+diff --git a/apps/hr/cmd/hrhd/poll.go b/apps/hr/cmd/hrhd/poll.go
+new file mode 100644
+index 0000000..38ae2c2
+--- /dev/null
++++ b/apps/hr/cmd/hrhd/poll.go
+@@ -0,0 +1,82 @@
++package main
++
++import (
++	"fmt"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++// pollScan 取 n 個拉取式快照（RequestFrame，輪詢點產生），統計最新的游標戳記是否整個不透明區都與 VRAM 相符
++// （docs/spec/004 第 7 節「快照完整」：輪詢路徑應大於 95%）。
++func pollScan(s *hrrt.Session, n int) {
++	var vf hd.Verifier
++	full, total, noCursor := 0, 0, 0
++	var hist [4]int // 游標相符：0、(0,50%)、[50%,100%)、100%
++	for i := 0; i < n; i++ {
++		var seq uint64
++		if f := s.Frame(); f != nil {
++			seq = f.Seq
++		}
++		s.RequestFrame()
++		for k := 0; k < 400; k++ {
++			if f := s.Frame(); f != nil && f.Seq != seq {
++				break
++			}
++			if st := s.RunSteps(s.Machine().Steps + 20_000); st.Kind != hrrt.StopSteps {
++				fmt.Println("提前停機：", st.Msg)
++				return
++			}
++		}
++		f := s.Frame()
++		if f == nil || f.Seq == seq {
++			continue
++		}
++		idx := -1
++		for j := len(f.Stamps) - 1; j >= 0; j-- {
++			if f.Stamps[j].Site == hd.CursorSite {
++				idx = j
++				break
++			}
++		}
++		if idx < 0 {
++			noCursor++
++			continue
++		}
++		masks := vf.Run(f.Stamps, f.Px, f.W, f.H)
++		opaque := 0
++		for _, e := range f.Stamps[idx].E {
++			if e != hd.Transparent {
++				opaque++
++			}
++		}
++		st := f.Stamps[idx]
++		raw := 0
++		for j := 0; j < st.H; j++ {
++			for i := 0; i < st.W; i++ {
++				e := st.E[j*st.W+i]
++				if e != hd.Transparent && st.X+i < f.W && st.Y+j < f.H && f.Px[(st.Y+j)*f.W+st.X+i] == e {
++					raw++
++				}
++			}
++		}
++		switch {
++		case raw == opaque:
++			hist[3]++
++		case raw*2 >= opaque:
++			hist[2]++
++		case raw > 0:
++			hist[1]++
++		default:
++			hist[0]++
++		}
++		total++
++		if masks[idx].Count() == opaque {
++			full++
++		}
++		// 讓下一個快照落在不同的位置：多跑一段不固定長度的指令
++		s.RunSteps(s.Machine().Steps + 37_001 + uint64(i%7)*911)
++	}
++	fmt.Printf("游標原始相符分布：0%% %d，(0,50%%) %d，[50%%,100%%) %d，100%% %d\n", hist[0], hist[1], hist[2], hist[3])
++	fmt.Printf("快照完整：%d 個快照中游標矩形完整 %d 個（%.1f%%），沒有游標戳記 %d 個\n", total, full, 100*float64(full)/float64(max(total, 1)), noCursor)
++}
+-- 
+2.43.0
+
