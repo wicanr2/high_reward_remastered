@@ -97,3 +97,11 @@
 - 在 private repo 建立 Release `v0.1.0-hd`（預發行，目標 commit `9d4f0f0`）：三個含 HD 的包與 `SHA256SUMS.txt`（`docs/re/013` 第 4.2 節）。HD 素材 595 張全部 `accepted` 後重建，版本 `9d4f0f0-dg8eb277d-hd`。
 - 使用者授權把 Buck Rogers 分支整合進 fork 的 `hr` 分支。從公開 repo 以 URL 抓 `buck-rogers-cht-output-overlay`（tip `beca734`，354 個提交、459 個檔案，與 `hr` 的共同祖先 `d9c0c27`），打標籤 `hr-pre-buckrogers` 後合併，合併提交 `50ffc62`。衝突三處：`internal/dos/int21.go` 的 `AH=2Ah`（保留 `d.Date`，沒設才用 `virtualDate()`）、`internal/machine/state.go` 的 `SaveState`（保留 hr 的 CPU 欄位並加 Buck Rogers 的 VGA 與時脈欄位）、`docs/spec/000-index.md`（兩邊條目都留）。根模組現在需要 ebiten 與 `golang.org/x/sys`，離線建置要用含模組快取的映像（`DOSGOLEM_GO_IMAGE=eob-remake-go:1.26.7-ebiten2.9.9`，`tools/go.sh` 轉送 `GOPROXY`、`GOSUMDB`、`GOTOOLCHAIN`，模組快取從該映像複製到 `workplace/gomodcache`）。
 - 驗證：`go build ./...` 通過；`go test ./internal/... ./apps/hr/...` 全部通過（hr 的收據 A、B 畫面雜湊、堆疊補丁、`internal/cpu` 386 形式都在內）；`apps/hr/play` 的前端仍能建置。沒有推送。
+
+### 遊玩機器人、記憶體成長缺陷、v0.1.1-hd（2026-10-03，續八）
+
+- 使用者要求以「真的遊玩兩小時」安排當機測試。寫了遊玩機器人 `hrbot`（fork 的 `apps/hr/cmd/hrbot`，容器腳本 `tools/bot.sh`）：停在滑鼠輪詢點，以呼叫鏈當畫面簽章，依簽章是否新出現決定點擊或按鍵，帶人類節奏（遊戲時間按 tick 除以 18.2065 算），並記錄開檔、最低 SP、凍結。每組參數各跑修補（堆疊 32 KB）與未修補（原版 4 KB）兩份，兩份用同一種子，可以直接比較。
+- 第一次長跑被 OOM 殺掉（exit 137）。pprof 指向 `Machine.Out8` 的 `PortLog`：`Session.idleForTrim()` 在 `Stdin` 非空時不修剪，機器人與真人在畫面上有未消化按鍵時都會觸發。修成只看滑鼠按鍵是否按住，測試 `TestIdleForTrimIgnoresPendingKeys`。此缺陷在已發行的 `v0.1.0-hd`。
+- 前端新增異常停機的現場存檔（`crash/<時間>/`）與每分鐘的 `play.log` 遙測。engine 補丁 0019、0020 同步。
+- 一輪 trial3 停滯：同參數的 trial6 正常跑完，無法重現，歸因主機資源被其他專案的行程佔滿（主機負載平均 30 至 46，14 核）。沒有找到程式缺陷，不當作缺陷處理。
+- 重建三平台包，版本 `034771b-dg49d5eed`（含 HD 與不含 HD 各一組），驗收與雜湊見 `docs/re/013` 第 4.3 節。遊玩測試的結果另寫 `docs/re/016`。

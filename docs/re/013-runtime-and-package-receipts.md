@@ -89,6 +89,33 @@
 
 原版目錄的尋找順序：`-orig`、環境變數 `HR_ORIG`、`.AppImage` 旁的 `original`、執行檔旁的 `original`、macOS 的 `Contents/Resources/original`、目前目錄的 `original`、使用者資料目錄記住的上次路徑。
 
+### 4.3 合併 Buck Rogers 與修正長跑記憶體成長之後的發行包（2026-10-03）
+
+版本字串 `034771b-dg49d5eed`（本 repo 的 commit `034771b`，dosgolem 分支 `hr` 的 commit `49d5eed`；兩邊工作樹皆乾淨，沒有 `dirty`）。與 4.1、4.2 相比，`hr` 分支多了：
+
+- 合併兄弟分支 `buck-rogers-cht-output-overlay`（merge `50ffc62`，使用者 2026-10-03 授權）。
+- 修正診斷紀錄在鍵盤佇列非空時不修剪的缺陷：`Session.idleForTrim()` 改成只看滑鼠按鍵是否按住。舊版在畫面上有未消化按鍵時，`Machine.PortLog` 等紀錄無上限成長，遊玩機器人長跑時行程被 OOM 殺掉（exit 137，pprof 指向 `Machine.Out8`）。這個缺陷也在已發行的 `v0.1.0-hd` 裡。測試 `TestIdleForTrimIgnoresPendingKeys`。
+- 前端在異常停機時把現場存到使用者資料目錄的 `crash/<時間>/`（`info.txt`、`screen.png`、`state.state`），並每分鐘在 `play.log` 追加一行遙測（步數、tick、最低 SP、降速紀錄）。
+- `Session.RunToPoll`、`Session.SnapshotNow`、`CrashDump` 與遊玩機器人 `apps/hr/cmd/hrbot`（`tools/bot.sh`，見 `docs/re/016`）。
+
+不含 HD 的包（`dist-all/`）：
+
+| 產物 | 大小（bytes） | SHA-256 |
+|---|---|---|
+| `HighReward-034771b-dg49d5eed-x86_64.AppImage` | 4,364,792 | `684197f52c39ddce4ce115e8280b06e232be2419cd87334f3ecb7950587c14a9` |
+| `HighReward-034771b-dg49d5eed-win64.zip` | 3,799,523 | `b992855fbdadee578e46ddeeb25dbfaea8e50ce7cd958bc1150e6fdc245713fb` |
+| `HighReward-034771b-dg49d5eed-macos.zip` | 7,336,513 | `4cb4ee225240f3d8a885586cc46a4ccbbe3cfada34f2b668d345d757c47a67b5` |
+
+含 HD 的包（`dist-all/with-hd/`，`HR_WITH_HD=1`）：
+
+| 產物 | 大小（bytes） | SHA-256 |
+|---|---|---|
+| `HighReward-034771b-dg49d5eed-hd-x86_64.AppImage` | 30,497,272 | `45d4ddfb11b73608c6d2f20410fb9bdee56f3fced04be0068df34d06c78c96b2` |
+| `HighReward-034771b-dg49d5eed-hd-win64.zip` | 30,110,423 | `1900b677d54c83d70dc66239827c4099c79d1c84dd8725393aef7820257e1f47` |
+| `HighReward-034771b-dg49d5eed-hd-macos.zip` | 33,642,377 | `28aafb83c9e8bb33083127321432dc97091ae46a1457a661f50791c884c9d732` |
+
+驗收：兩組各三個包的外洩掃描命中 0；macOS 只驗結構。AppImage 在 Xvfb 內啟動並點新遊戲，不帶 `HR_HD_DIR`：含 HD 的包新遊戲畫面為 HD（`pkg-hd-v011-appimage-newgame.png`），不含 HD 的包為原版畫面（`pkg-v011-appimage-newgame.png`）。Windows zip 在 Wine 加 Xvfb 內啟動，不帶 `-hd`：兩個包都顯示標題畫面，含 HD 的包 zip 內有 `hd/` 檔案 627 個，不含的 0 個（`pkg-hd-v011-wine-title.png`、`pkg-v011-wine-title.png`）。驗收時主機負載平均約 30 至 46（14 核，另有其他專案的行程），dosgolem 的速度守門把計時器間隔降到 150000，所以只證明能啟動並顯示畫面，不代表速度。
+
 ## 5. 未涵蓋與已知限制
 
 - 沒有聲音：音樂路徑需要 `SOUND` 環境變數與 `ctmidi.drv`，音效需要 Sound Blaster 模擬（`docs/re/010`）。
