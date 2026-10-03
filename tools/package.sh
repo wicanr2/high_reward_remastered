@@ -66,19 +66,22 @@ make_notices() { # $1 輸出檔
     echo "本程式靜態連結下列第三方軟體。授權全文如下。"
     for d in github.com/hajimehoshi/ebiten/v2@v2.9.9 github.com/ebitengine/purego@v0.9.0 \
              github.com/ebitengine/hideconsole@v1.0.0 github.com/ebitengine/oto/v3@v3.4.0 github.com/jezek/xgb@v1.1.1 \
-             golang.org/x/sys@v0.36.0 golang.org/x/sync@v0.17.0; do
+             golang.org/x/sys@v0.36.0 golang.org/x/sync@v0.17.0 golang.org/x/image@v0.31.0 golang.org/x/text@v0.29.0; do
       echo; echo "================================================================"; echo "$d"; echo "================================================================"
       cat "$M/$d/LICENSE"
     done
     # 介面字型子集（docs/spec/006 第 6 節）：字型內嵌的版權與授權說明加 OFL 全文，由 tools/gen_ui_fonts.sh 產生
-    if [ -f /w/dosgolem/apps/hr/play/fonts/OFL.txt ]; then
-      echo; echo "================================================================"; echo "Noto Sans CJK 子集（介面字型）"; echo "================================================================"
-      cat /w/dosgolem/apps/hr/play/fonts/OFL.txt
-    fi
+    test -f /w/dosgolem/apps/hr/play/fonts/OFL.txt || { echo "缺字型授權檔 fonts/OFL.txt（docs/spec/006 第 6 節，缺檔即失敗）" >&2; exit 1; }
+    echo; echo "================================================================"; echo "Noto Sans CJK 子集（介面字型）"; echo "================================================================"
+    cat /w/dosgolem/apps/hr/play/fonts/OFL.txt
     echo; echo "================================================================"; echo "Go 標準函式庫與執行期"; echo "================================================================"
     cat "$(go env GOROOT)/LICENSE"
   ' > "$1"
   test -s "$1" || { echo "第三方授權檔是空的" >&2; exit 1; }
+  # docs/spec/006 第 6 節的驗收：含 OFL 全文與字型版權人（Adobe），不含 GPL 文字；含 x/image 與 x/text 的授權
+  grep -q "SIL OPEN FONT LICENSE" "$1" && grep -q "Adobe" "$1" || { echo "THIRD_PARTY_NOTICES 缺 OFL 全文或字型版權聲明" >&2; exit 1; }
+  if grep -q "GNU General Public License" "$1"; then echo "THIRD_PARTY_NOTICES 夾帶了 GPL 文字" >&2; exit 1; fi
+  grep -q "golang.org/x/image@" "$1" && grep -q "golang.org/x/text@" "$1" || { echo "THIRD_PARTY_NOTICES 缺 x/image 或 x/text" >&2; exit 1; }
 }
 
 stage_common() { # $1 目的目錄
