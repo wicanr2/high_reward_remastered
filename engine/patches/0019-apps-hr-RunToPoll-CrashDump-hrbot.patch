@@ -1,0 +1,986 @@
+From 4c386cbfae72b56b2cb557af258060f97f554e93 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 16:26:25 +0800
+Subject: [PATCH 19/20] =?UTF-8?q?apps/hr:=20=E9=8D=B5=E7=9B=A4=E4=BD=87?=
+ =?UTF-8?q?=E5=88=97=E9=9D=9E=E7=A9=BA=E4=B8=8D=E5=86=8D=E6=93=8B=E8=A8=BA?=
+ =?UTF-8?q?=E6=96=B7=E7=B4=80=E9=8C=84=E7=9A=84=E6=B8=85=E9=99=A4=EF=BC=88?=
+ =?UTF-8?q?=E9=95=B7=E6=99=82=E9=96=93=E9=81=8A=E7=8E=A9=E7=9A=84=E8=A8=98?=
+ =?UTF-8?q?=E6=86=B6=E9=AB=94=E7=BC=BA=E9=99=B7=EF=BC=89=E3=80=81RunToPoll?=
+ =?UTF-8?q?=E3=80=81CrashDump=E3=80=81=E5=89=8D=E7=AB=AF=E5=81=9C=E6=A9=9F?=
+ =?UTF-8?q?=E7=8F=BE=E5=A0=B4=E8=88=87=E9=81=8A=E7=8E=A9=E9=81=99=E6=B8=AC?=
+ =?UTF-8?q?=E3=80=81hrbot=20=E9=81=8A=E7=8E=A9=E6=A9=9F=E5=99=A8=E4=BA=BA?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- runtime: idleForTrim 只看滑鼠按住。遊戲在不讀鍵盤的畫面不取走按鍵，Stdin 一直非空，舊條件讓 PortLog 等無上限紀錄不再被清，約每秒長 80 MB。
+- runtime: RunToPoll（停在滑鼠輪詢指令剛執行完）、輸入環與 CrashDump（info.txt、screen.png、state.state）。
+- play: 異常停機時存現場到 crash/，每分鐘在 play.log 追加最低 SP 等遙測（docs/spec/003 第 3.1 節）。
+- cmd/hrbot: 走真實輸入路徑、人類節奏、線上學習的遊玩機器人，遊戲時間跑到指定時數並偵測當機。
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrbot/main.go       | 629 ++++++++++++++++++++++++++++++++
+ apps/hr/play/game.go            |  39 +-
+ apps/hr/play/main.go            |   4 +-
+ apps/hr/runtime/crash.go        |  47 +++
+ apps/hr/runtime/session.go      |  47 ++-
+ apps/hr/runtime/session_test.go |  60 +++
+ apps/hr/runtime/trim.go         |   2 +-
+ 7 files changed, 824 insertions(+), 4 deletions(-)
+ create mode 100644 apps/hr/cmd/hrbot/main.go
+ create mode 100644 apps/hr/runtime/crash.go
+
+diff --git a/apps/hr/cmd/hrbot/main.go b/apps/hr/cmd/hrbot/main.go
+new file mode 100644
+index 0000000..c0c3c2d
+--- /dev/null
++++ b/apps/hr/cmd/hrbot/main.go
+@@ -0,0 +1,629 @@
++// Command hrbot 是《高報酬戰將》的遊玩機器人（hr 專案的 docs/re/016）：
++// 走執行層的真實輸入路徑（Session.Input：移動、按下、放開，與前端同一條），以人類節奏點擊，
++// 線上學習哪些位置有反應，把遊戲時間（計時器 tick ÷ 18.2065）跑到指定時數，偵測當機。
++//
++// 不是隨機長跑：每個動作之間有人類的移動與思考時間，遊戲遇到的畫面由機器人實際點出來；
++// 結束遊戲（結束碼 1）就像玩家重開一樣重新啟動並讀檔；全程不還原任何狀態，不改記憶體。
++// ⚠ 本專案不含任何原版檔案，-orig 由玩家自備；輸出的截圖與狀態檔是原版內容的衍生物，只放 workplace/。
++package main
++
++import (
++	"encoding/json"
++	"flag"
++	"fmt"
++	"hash/fnv"
++	"math/rand"
++	"os"
++	"path/filepath"
++	"runtime"
++	"runtime/pprof"
++	"sort"
++	"strings"
++	"time"
++
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++var tickHz = 1193182.0 / 65536.0
++
++type act struct {
++	Kind byte // L 左鍵、R 右鍵、K 按鍵
++	X, Y int  // 遊戲區座標（0..639、0..399）
++	Key  string
++}
++
++func (a act) String() string {
++	if a.Kind == 'K' {
++		return "K:" + a.Key
++	}
++	return fmt.Sprintf("%c:%d,%d", a.Kind, a.X, a.Y)
++}
++
++var keyTable = map[string]dos.Key{
++	"Enter": {ASCII: 0x0D, Scan: 0x1C},
++	"Esc":   {ASCII: 0x1B, Scan: 0x01},
++	"Space": {ASCII: 0x20, Scan: 0x39},
++}
++var keyNames = []string{"Enter", "Esc", "Space"}
++
++type options struct {
++	orig, out          string
++	hours              float64
++	seed               int64
++	interval           uint64
++	noPatch            bool
++	thinkMin, thinkMax int
++	shotMinutes        float64
++	ckptMinutes        float64
++	freezeSeconds      float64
++	maxActions         int
++	heapProfile        string
++}
++
++type knowledge struct {
++	tried   map[string]map[act]int // sig -> 動作 -> 嘗試次數
++	changed map[string]map[act]int // sig -> 動作 -> 讓 sig 改變的次數
++	banned  map[string]map[act]bool
++	visits  map[string]int
++	hot     map[[2]int]int // 16 像素格 -> 在任何畫面讓 sig 改變的次數
++}
++
++type pendingAct struct {
++	sig string
++	a   act
++}
++
++type bot struct {
++	opt  options
++	rnd  *rand.Rand
++	s    *hrrt.Session
++	k    knowledge
++	out  string
++	log  *os.File
++	last *pendingAct
++
++	opens map[string]int // 檔案名稱 -> open 次數（畫面種類的代理：BSTAGE.MRG 表示進了戰鬥）
++
++	base      uint64 // 先前各次啟動累計的 tick
++	gameTicks uint64 // 累計遊戲 tick（base ＋ 目前 Session 的 Ticks）
++	restarts  int
++	quits     int
++	actionsN  int
++	minSP     uint16
++	sigsEver  map[string]bool
++	sameSig   int // 目前連續幾個動作 sig 沒變
++	maxSame   int
++	freezes   []string // 疑似凍結事件（遊戲超過 freeze-seconds 沒輪詢滑鼠）
++	crashInfo string
++	frozen    bool
++	ckpts     []string
++}
++
++func main() {
++	var o options
++	flag.StringVar(&o.orig, "orig", "/orig/orig", "原版檔案目錄（唯讀）")
++	flag.StringVar(&o.out, "out", "/out/bot", "輸出目錄")
++	flag.Float64Var(&o.hours, "game-hours", 2, "要玩的遊戲時間（小時，計時器 tick ÷ 18.2065）")
++	flag.Int64Var(&o.seed, "seed", 1, "亂數種子（同程式、同種子可重現）")
++	flag.Uint64Var(&o.interval, "interval", hrrt.DefaultInterval, "計時器間隔（道指令／tick，分頻 65536），預設同前端")
++	flag.BoolVar(&o.noPatch, "no-stack-patch", false, "關掉堆疊補丁（對照：看原版堆疊會不會在遊玩中溢位）")
++	flag.IntVar(&o.thinkMin, "think-min", 18, "每個動作之後的思考時間下限（tick，約 1 秒）")
++	flag.IntVar(&o.thinkMax, "think-max", 55, "思考時間上限（tick，約 3 秒）")
++	flag.Float64Var(&o.shotMinutes, "shot-minutes", 5, "每幾遊戲分鐘存一張截圖")
++	flag.Float64Var(&o.ckptMinutes, "ckpt-minutes", 5, "每幾遊戲分鐘存一個狀態檔（只留最近 3 個，供重現）")
++	flag.Float64Var(&o.freezeSeconds, "freeze-seconds", 60, "遊戲超過幾秒沒輪詢滑鼠就記為疑似凍結")
++	flag.IntVar(&o.maxActions, "max-actions", 0, "動作數上限（0 ＝ 不限，測試用）")
++	flag.StringVar(&o.heapProfile, "heap-profile", "", "結束時寫出 heap profile（診斷記憶體成長用）")
++	flag.Parse()
++	if err := run(o); err != nil {
++		fmt.Fprintln(os.Stderr, "hrbot:", err)
++		os.Exit(2)
++	}
++}
++
++func run(o options) error {
++	for _, d := range []string{"shots", "ckpt", "saves"} {
++		if err := os.MkdirAll(filepath.Join(o.out, d), 0o755); err != nil {
++			return err
++		}
++	}
++	lf, err := os.Create(filepath.Join(o.out, "actions.jsonl"))
++	if err != nil {
++		return err
++	}
++	defer lf.Close()
++	b := &bot{opt: o, rnd: rand.New(rand.NewSource(o.seed)), out: o.out, log: lf, opens: map[string]int{}, minSP: 0xFFFF, sigsEver: map[string]bool{}}
++	b.k = knowledge{tried: map[string]map[act]int{}, changed: map[string]map[act]int{}, banned: map[string]map[act]bool{}, visits: map[string]int{}, hot: map[[2]int]int{}}
++	timeline, err := os.Create(filepath.Join(o.out, "timeline.tsv"))
++	if err != nil {
++		return err
++	}
++	defer timeline.Close()
++	fmt.Fprintln(timeline, "game_min\tsteps\tactions\tminSP\tsigs\trestarts\tquits\tfreeze\topen_BSTAGE\topen_BC32\topen_FACE\topen_GAMEFILE\tmaxSameSig\twall_s")
++	target := uint64(o.hours * 3600 * tickHz)
++	nextShot := uint64(o.shotMinutes * 60 * tickHz)
++	nextCkpt := uint64(o.ckptMinutes * 60 * tickHz)
++	nextMinute := uint64(60 * tickHz)
++	wall0 := time.Now()
++	status := "completed"
++loop:
++	for b.gameTicks < target {
++		if o.maxActions > 0 && b.actionsN >= o.maxActions {
++			status = "max-actions"
++			break
++		}
++		if b.s == nil {
++			if st, err := b.startGame(); err != nil {
++				return err
++			} else if st != nil {
++				status = b.handleStop(st)
++				if status != "" {
++					break loop
++				}
++				continue
++			}
++		}
++		if st := b.step(); st != nil {
++			if s := b.handleStop(st); s != "" {
++				status = s
++				break
++			}
++			continue
++		}
++		if b.frozen {
++			status = "frozen"
++			break
++		}
++		for b.gameTicks >= nextMinute {
++			b.minuteReport(timeline, time.Since(wall0))
++			nextMinute += uint64(60 * tickHz)
++		}
++		if b.gameTicks >= nextShot {
++			b.shot(fmt.Sprintf("t%05d", b.gameTicks/uint64(tickHz)))
++			nextShot += uint64(o.shotMinutes * 60 * tickHz)
++		}
++		if b.gameTicks >= nextCkpt {
++			b.checkpoint()
++			nextCkpt += uint64(o.ckptMinutes * 60 * tickHz)
++		}
++	}
++	b.minuteReport(timeline, time.Since(wall0))
++	if o.heapProfile != "" {
++		if f, err := os.Create(o.heapProfile); err == nil {
++			runtime.GC()
++			_ = pprof.WriteHeapProfile(f)
++			f.Close()
++		}
++	}
++	b.summary(status, time.Since(wall0))
++	fmt.Printf("結束：%s，遊戲時間 %.2f 小時，動作 %d，重開 %d，結束遊戲 %d，不同畫面 %d，最低 SP %04X，疑似凍結 %d，耗時 %.0f 秒\n",
++		status, float64(b.gameTicks)/tickHz/3600, b.actionsN, b.restarts, b.quits, len(b.sigsEver), b.minSP, len(b.freezes), time.Since(wall0).Seconds())
++	if strings.HasPrefix(status, "crash") || status == "frozen" {
++		os.Exit(1)
++	}
++	return nil
++}
++
++// handleStop 處理停機：玩家結束或片尾就記下並重開（回傳空字串），其他是當機（存現場並回傳狀態）。
++func (b *bot) handleStop(st *hrrt.Stop) string {
++	if st.Normal() {
++		b.quits++
++		if b.last != nil {
++			if b.k.banned[b.last.sig] == nil {
++				b.k.banned[b.last.sig] = map[act]bool{}
++			}
++			b.k.banned[b.last.sig][b.last.a] = true
++		}
++		b.logEvent("quit", st.Msg)
++		b.endSession()
++		return ""
++	}
++	b.crash(st)
++	return "crash:" + stopName(st.Kind)
++}
++
++func stopName(k hrrt.StopKind) string {
++	switch k {
++	case hrrt.StopStackOverflow:
++		return "stack-overflow"
++	case hrrt.StopCPUError:
++		return "cpu-error"
++	case hrrt.StopOutOfRange:
++		return "out-of-range"
++	case hrrt.StopHalted:
++		return "halted"
++	case hrrt.StopDivide:
++		return "divide"
++	case hrrt.StopExitOther:
++		return "exit-other"
++	}
++	return fmt.Sprint(int(k))
++}
++
++// startGame 開一個新的 Session（等於玩家重新啟動程式），走到標題選單，讀檔或開新遊戲。
++func (b *bot) startGame() (*hrrt.Stop, error) {
++	s, err := hrrt.Open(b.opt.orig, hrrt.Options{SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch})
++	if err != nil {
++		return nil, err
++	}
++	b.s = s
++	b.restarts++
++	b.last = nil
++	polled, st := b.toPoll(240)
++	if st != nil {
++		return st, nil
++	}
++	if !polled {
++		return nil, fmt.Errorf("標題選單沒有出現")
++	}
++	if st := b.runTicks(60); st != nil { // 選單畫完
++		return st, nil
++	}
++	// 有存檔就讀最近存的槽，沒有就開新遊戲（標題選單座標：docs/re/008、012；640x480 座標的 y 減 40）
++	if slot := b.latestSave(); slot >= 0 {
++		if st := b.click(act{Kind: 'L', X: 312, Y: 228 - 40}); st != nil {
++			return st, nil
++		}
++		if st := b.runTicks(90); st != nil {
++			return st, nil
++		}
++		if st := b.click(act{Kind: 'L', X: 312, Y: 307 + 17*slot - 40}); st != nil {
++			return st, nil
++		}
++		b.logEvent("boot", fmt.Sprintf("讀存檔槽 %d", slot))
++	} else {
++		if st := b.click(act{Kind: 'L', X: 312, Y: 211 - 40}); st != nil {
++			return st, nil
++		}
++		b.logEvent("boot", "新遊戲")
++	}
++	return b.runTicks(120), nil
++}
++
++func (b *bot) latestSave() int {
++	best, bestT := -1, time.Time{}
++	for k := 0; k < 5; k++ {
++		p := filepath.Join(b.out, "saves", fmt.Sprintf("GAMEFILE.%03d", k))
++		if st, err := os.Stat(p); err == nil && st.ModTime().After(bestT) {
++			best, bestT = k, st.ModTime()
++		}
++	}
++	return best
++}
++
++func (b *bot) endSession() {
++	if b.s != nil {
++		b.base += b.s.Machine().Ticks
++	}
++	b.s = nil
++}
++
++// runTicks 讓遊戲跑 n 個計時器 tick 的時間。
++func (b *bot) runTicks(n int) *hrrt.Stop {
++	m := b.s.Machine()
++	st := b.s.RunSteps(m.Steps + uint64(n)*b.opt.interval)
++	b.account()
++	if st.Kind == hrrt.StopSteps {
++		return nil
++	}
++	return st
++}
++
++// toPoll 最多跑 maxTicks 個 tick，停在下一次滑鼠輪詢剛執行完（遊戲回到等輸入的迴圈）。
++func (b *bot) toPoll(maxTicks int) (bool, *hrrt.Stop) {
++	st, polled := b.s.RunToPoll(uint64(maxTicks) * b.opt.interval)
++	b.account()
++	if st != nil && st.Kind != hrrt.StopSteps {
++		return false, st
++	}
++	return polled, nil
++}
++
++// account 把這次 Session 的 tick 併進累計時間，更新最低 SP 與檔案開啟計數。
++func (b *bot) account() {
++	m := b.s.Machine()
++	b.gameTicks = b.base + m.Ticks
++	if sp := b.s.Stats().MinSP; sp < b.minSP {
++		b.minSP = sp
++	}
++	d := b.s.DOS()
++	for _, op := range d.FileOps {
++		if op.Op == "open" && !op.Failed {
++			b.opens[strings.ToUpper(op.Name)]++
++		}
++	}
++	d.FileOps = nil
++}
++
++func (b *bot) rtick(lo, hi int) int { return lo + b.rnd.Intn(hi-lo+1) }
++
++func (b *bot) click(a act) *hrrt.Stop {
++	btn := 0
++	if a.Kind == 'R' {
++		btn = 1
++	}
++	b.s.Input(hrrt.MouseMoveEvent(a.X, a.Y))
++	if st := b.runTicks(b.rtick(4, 12)); st != nil { // 人類移動滑鼠到目標
++		return st
++	}
++	b.s.Input(hrrt.MouseButtonEvent(a.X, a.Y, btn, true))
++	if st := b.runTicks(b.rtick(2, 4)); st != nil {
++		return st
++	}
++	b.s.Input(hrrt.MouseButtonEvent(a.X, a.Y, btn, false))
++	return b.runTicks(2)
++}
++
++func (b *bot) press(name string) *hrrt.Stop {
++	b.s.Input(hrrt.Event{Kind: hrrt.EvKey, Key: keyTable[name]})
++	return b.runTicks(2)
++}
++
++// chain 沿 BP 鏈走呼叫框，回傳由內到外的返回位址（overlay 區只留偏移）。與 hrexplore 的畫面身分同一個定義。
++func (b *bot) chain() string {
++	m := b.s.Machine()
++	c := m.CPU
++	bp := c.R[cpu.BP]
++	var out []string
++	for i := 0; i < 12; i++ {
++		lin := cpu.Linear(c.Seg[cpu.SS], bp)
++		ip, cs := m.Read16(lin+2), m.Read16(lin+4)
++		if cs >= 0x5400 {
++			out = append(out, fmt.Sprintf("ovr:%04X", ip))
++		} else {
++			out = append(out, fmt.Sprintf("%04X:%04X", cs, ip))
++		}
++		next := m.Read16(lin)
++		if next <= bp || next > 0xFFF0 {
++			break
++		}
++		bp = next
++	}
++	return strings.Join(out, "<") + fmt.Sprintf("@%04X", c.R[cpu.SP])
++}
++
++func (b *bot) screenHash() uint64 {
++	_, _, px := b.s.Machine().Planar()
++	h := fnv.New64a()
++	h.Write(px)
++	return h.Sum64()
++}
++
++// step 做一個遊戲動作：等到閒置輪詢點、認出畫面、學習上一個動作的結果、選動作、執行。
++func (b *bot) step() *hrrt.Stop {
++	freezeTicks := int(b.opt.freezeSeconds * tickHz)
++	polled, st := b.toPoll(freezeTicks)
++	if st != nil {
++		return st
++	}
++	if !polled {
++		return b.noPoll()
++	}
++	sig := b.chain()
++	b.learn(sig)
++	a := b.choose(sig)
++	b.last = &pendingAct{sig: sig, a: a}
++	b.recordTry(sig, a)
++	b.actionsN++
++	if len(b.log.Name()) > 0 {
++		j, _ := json.Marshal(map[string]any{"n": b.actionsN, "tick": b.gameTicks, "sig": sig, "act": a.String(), "sp": b.s.Stats().MinSP})
++		b.log.Write(append(j, '\n'))
++	}
++	var stop *hrrt.Stop
++	if a.Kind == 'K' {
++		stop = b.press(a.Key)
++	} else {
++		stop = b.click(a)
++	}
++	if stop != nil {
++		return stop
++	}
++	return b.runTicks(b.rtick(b.opt.thinkMin, b.opt.thinkMax)) // 思考時間
++}
++
++// noPoll 處理「超過 freeze-seconds 沒輪詢滑鼠」：記疑似凍結，每遊戲分鐘取一次畫面雜湊，
++// 輪詢恢復就繼續；10 分鐘沒恢復且畫面雜湊都沒變，判為凍結。
++func (b *bot) noPoll() *hrrt.Stop {
++	startTick := b.gameTicks
++	desc := fmt.Sprintf("遊戲時間 %.1f 分，動作 %d 之後沒有輪詢滑鼠，畫面 %s", float64(b.gameTicks)/tickHz/60, b.actionsN, b.chain())
++	b.shot(fmt.Sprintf("nopoll%04d", len(b.freezes)+1))
++	same := 0
++	h0 := b.screenHash()
++	for i := 0; i < 10; i++ {
++		polled, st := b.toPoll(int(60 * tickHz))
++		if st != nil {
++			return st
++		}
++		if polled {
++			b.freezes = append(b.freezes, fmt.Sprintf("%s；%.0f 秒後恢復", desc, float64(b.gameTicks-startTick)/tickHz))
++			b.logEvent("nopoll-recovered", b.freezes[len(b.freezes)-1])
++			return nil
++		}
++		if h := b.screenHash(); h == h0 {
++			same++
++		} else {
++			h0, same = h, 0
++		}
++	}
++	b.freezes = append(b.freezes, desc+"；10 分鐘沒有恢復")
++	if same >= 8 {
++		b.frozen = true
++		b.crashInfo = "凍結：10 遊戲分鐘沒有輪詢滑鼠且畫面不變（" + desc + "）"
++		b.dump("frozen")
++	}
++	return nil
++}
++
++func (b *bot) learn(sig string) {
++	b.sigsEver[sig] = true
++	b.k.visits[sig]++
++	if b.last == nil {
++		return
++	}
++	if sig != b.last.sig {
++		b.sameSig = 0
++		if b.k.changed[b.last.sig] == nil {
++			b.k.changed[b.last.sig] = map[act]int{}
++		}
++		b.k.changed[b.last.sig][b.last.a]++
++		if b.last.a.Kind != 'K' {
++			b.k.hot[[2]int{b.last.a.X / 16, b.last.a.Y / 16}]++
++		}
++	} else {
++		b.sameSig++
++		if b.sameSig > b.maxSame {
++			b.maxSame = b.sameSig
++		}
++	}
++}
++
++func (b *bot) recordTry(sig string, a act) {
++	if b.k.tried[sig] == nil {
++		b.k.tried[sig] = map[act]int{}
++	}
++	b.k.tried[sig][a]++
++}
++
++// choose 選下一個動作：偏好讓畫面改變過的動作，其次未試過的動作；有被禁止（會結束遊戲）的就避開。
++func (b *bot) choose(sig string) act {
++	tried, chg, ban := b.k.tried[sig], b.k.changed[sig], b.k.banned[sig]
++	ok := func(a act) bool { return !ban[a] }
++	r := b.rnd.Float64()
++	if b.sameSig > 25 { // 一直沒反應：改探索
++		r = 1
++	}
++	if len(chg) > 0 && r < 0.45 {
++		var cands []act
++		for a := range chg {
++			if ok(a) {
++				cands = append(cands, a)
++			}
++		}
++		if len(cands) > 0 {
++			sort.Slice(cands, func(i, j int) bool { return cands[i].String() < cands[j].String() })
++			return cands[b.rnd.Intn(len(cands))]
++		}
++	}
++	if r < 0.55 {
++		name := keyNames[b.rnd.Intn(len(keyNames))]
++		if a := (act{Kind: 'K', Key: name}); ok(a) {
++			return a
++		}
++	}
++	var a act
++	for i := 0; i < 16; i++ {
++		a = b.randomClick()
++		if ok(a) && tried[a] == 0 {
++			return a
++		}
++	}
++	for !ok(a) {
++		a = b.randomClick()
++	}
++	return a
++}
++
++func (b *bot) randomClick() act {
++	kind := byte('L')
++	if b.rnd.Intn(10) == 0 {
++		kind = 'R'
++	}
++	var x, y int
++	if len(b.k.hot) > 0 && b.rnd.Float64() < 0.5 {
++		cells := make([][2]int, 0, len(b.k.hot))
++		for c := range b.k.hot {
++			cells = append(cells, c)
++		}
++		sort.Slice(cells, func(i, j int) bool {
++			if cells[i][0] != cells[j][0] {
++				return cells[i][0] < cells[j][0]
++			}
++			return cells[i][1] < cells[j][1]
++		})
++		c := cells[b.rnd.Intn(len(cells))]
++		x, y = c[0]*16+b.rnd.Intn(16), c[1]*16+b.rnd.Intn(16)
++	} else {
++		x, y = b.rnd.Intn(640), b.rnd.Intn(400)
++	}
++	if x > 639 {
++		x = 639
++	}
++	if y > 399 {
++		y = 399
++	}
++	return act{Kind: kind, X: x, Y: y}
++}
++
++func (b *bot) logEvent(kind, msg string) {
++	j, _ := json.Marshal(map[string]any{"event": kind, "tick": b.gameTicks, "msg": msg, "n": b.actionsN})
++	b.log.Write(append(j, '\n'))
++}
++
++func (b *bot) shot(name string) {
++	if b.s == nil {
++		return
++	}
++	png, err := b.s.ScreenPNG()
++	if err != nil {
++		return
++	}
++	_ = os.WriteFile(filepath.Join(b.out, "shots", name+".png"), png, 0o644)
++}
++
++func (b *bot) checkpoint() {
++	if b.s == nil {
++		return
++	}
++	p := filepath.Join(b.out, "ckpt", fmt.Sprintf("t%05d.state", b.gameTicks/uint64(tickHz)))
++	if err := state.Save(p, b.s.Machine(), b.s.DOS()); err != nil {
++		return
++	}
++	b.ckpts = append(b.ckpts, p)
++	for len(b.ckpts) > 3 {
++		_ = os.Remove(b.ckpts[0])
++		b.ckpts = b.ckpts[1:]
++	}
++}
++
++// crash 存現場（狀態檔、截圖、停機原因、最近動作），之後結束這次測試。
++func (b *bot) crash(st *hrrt.Stop) {
++	b.crashInfo = fmt.Sprintf("%s：%s", stopName(st.Kind), st.Msg)
++	b.logEvent("crash", b.crashInfo)
++	b.dump("crash")
++}
++
++func (b *bot) dump(tag string) {
++	dir := filepath.Join(b.out, tag)
++	_ = os.MkdirAll(dir, 0o755)
++	if b.s != nil {
++		if err := b.s.CrashDump(dir, b.crashInfo); err != nil {
++			fmt.Fprintln(os.Stderr, "存現場失敗：", err)
++		}
++	}
++	_ = os.WriteFile(filepath.Join(dir, "bot-info.txt"), []byte(fmt.Sprintf("%s\n遊戲時間 %.2f 分，動作 %d，重開 %d，結束遊戲 %d\n最後動作 %v\n", b.crashInfo, float64(b.gameTicks)/tickHz/60, b.actionsN, b.restarts, b.quits, b.last)), 0o644)
++}
++
++func (b *bot) minuteReport(w *os.File, wall time.Duration) {
++	var steps uint64
++	if b.s != nil {
++		steps = b.s.Machine().Steps
++	}
++	fmt.Fprintf(w, "%.1f\t%d\t%d\t%04X\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.0f\n", float64(b.gameTicks)/tickHz/60, steps, b.actionsN, b.minSP, len(b.sigsEver), b.restarts, b.quits, len(b.freezes),
++		b.opens["BSTAGE.MRG"], b.opens["BC32.MRG"], b.opens["FACE.MRG"], b.opens["GAMEFILE.000"]+b.opens["GAMEFILE.001"]+b.opens["GAMEFILE.002"]+b.opens["GAMEFILE.003"]+b.opens["GAMEFILE.004"], b.maxSame, wall.Seconds())
++}
++
++func (b *bot) summary(status string, wall time.Duration) {
++	opens := map[string]int{}
++	for k, v := range b.opens {
++		opens[k] = v
++	}
++	j, _ := json.MarshalIndent(map[string]any{
++		"status": status, "game_hours": float64(b.gameTicks) / tickHz / 3600, "actions": b.actionsN, "restarts": b.restarts, "quits": b.quits,
++		"unique_screens": len(b.sigsEver), "min_sp": fmt.Sprintf("%04X", b.minSP), "max_same_sig_streak": b.maxSame, "suspect_freezes": b.freezes,
++		"crash": b.crashInfo, "no_stack_patch": b.opt.noPatch, "seed": b.opt.seed, "interval": b.opt.interval, "wall_seconds": wall.Seconds(), "file_opens": opens,
++	}, "", "  ")
++	_ = os.WriteFile(filepath.Join(b.out, "summary.json"), j, 0o644)
++}
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index 8db4104..37fe790 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -38,6 +38,8 @@ type game struct {
+ 	fullscr bool
+ 
+ 	stop    *hrrt.Stop
++	crashDir string // 異常停機時存下的現場目錄（docs/spec/003 第 3.1 節）
++	lastLog  time.Time
+ 	stopCh  chan *hrrt.Stop
+ 	started time.Time
+ }
+@@ -57,6 +59,9 @@ func (g *game) Update() error {
+ 	select {
+ 	case st := <-g.stopCh:
+ 		g.stop = st
++		if st != nil && !st.Normal() {
++			g.dumpCrash(st)
++		}
+ 		if st != nil && st.Normal() {
+ 			return ebiten.Termination
+ 		}
+@@ -78,6 +83,10 @@ func (g *game) Update() error {
+ 	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+ 		g.screenshot()
+ 	}
++	if g.stop == nil && time.Since(g.lastLog) >= time.Minute {
++		g.logTelemetry("tick")
++		g.lastLog = time.Now()
++	}
+ 	if g.stop != nil {
+ 		return nil
+ 	}
+@@ -129,7 +138,11 @@ func (g *game) Draw(screen *ebiten.Image) {
+ 	sc := g.scale
+ 	screen.DrawImage(g.img.SubImage(image.Rect(0, topBlank*sc, 640*sc, (topBlank+gameH)*sc)).(*ebiten.Image), op)
+ 	if g.stop != nil && !g.stop.Normal() {
+-		ebitenutil.DebugPrintAt(screen, "Stopped: "+stopKindName(g.stop.Kind)+" (details in the log). Close the window.", 4, 4)
++		msg := "Stopped: " + stopKindName(g.stop.Kind) + " (details in the log). Close the window."
++		if g.crashDir != "" {
++			msg += "\nCrash dump: " + g.crashDir
++		}
++		ebitenutil.DebugPrintAt(screen, msg, 4, 4)
+ 	}
+ 	if g.help {
+ 		st := g.s.Stats()
+@@ -195,3 +208,27 @@ func stopKindName(k hrrt.StopKind) string {
+ 	}
+ 	return "stopped"
+ }
++
++// dumpCrash 在異常停機時把現場（狀態檔、畫面、最近輸入、最低 SP）存到使用者資料目錄的 crash/。
++func (g *game) dumpCrash(st *hrrt.Stop) {
++	dir := filepath.Join(g.dataDir, "crash", time.Now().Format("20060102-150405"))
++	if err := g.s.CrashDump(dir, stopKindName(st.Kind)+"："+st.Msg); err != nil {
++		fmt.Fprintln(os.Stderr, "存停機現場失敗：", err)
++		return
++	}
++	g.crashDir = dir
++	fmt.Fprintln(os.Stderr, "停機現場已存到", dir)
++	g.logTelemetry("stop:" + stopKindName(st.Kind))
++}
++
++// logTelemetry 每分鐘與結束時在使用者資料目錄的 play.log 追加一行：長時間遊玩後可以看最低 SP 與降速紀錄。
++func (g *game) logTelemetry(tag string) {
++	st := g.s.Stats()
++	f, err := os.OpenFile(filepath.Join(g.dataDir, "play.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
++	if err != nil {
++		return
++	}
++	defer f.Close()
++	fmt.Fprintf(f, "%s\t%s\tsteps=%d\tticks=%d\tsim=%.0fs\twall=%.0fs\tinterval=%d\tlowered=%v\tminSP=%04X\tstackTop=%04X\n",
++		time.Now().Format(time.RFC3339), tag, st.Steps, st.Ticks, st.SimSeconds, time.Since(g.started).Seconds(), st.Interval, st.Lowered, st.MinSP, st.StackTop)
++}
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index 6719185..316f22d 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -91,7 +91,9 @@ func main() {
+ 	}
+ 	g := newGame(s, dd, *linear, hv)
+ 	g.fullscr = *full
+-	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
++	err = ebiten.RunGame(g)
++	g.logTelemetry("exit")
++	if err != nil && err != ebiten.Termination {
+ 		fmt.Fprintln(os.Stderr, err)
+ 		os.Exit(1)
+ 	}
+diff --git a/apps/hr/runtime/crash.go b/apps/hr/runtime/crash.go
+new file mode 100644
+index 0000000..3364b20
+--- /dev/null
++++ b/apps/hr/runtime/crash.go
+@@ -0,0 +1,47 @@
++package runtime
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"time"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// CrashDump 把停機現場存進 dir（docs/spec/003 第 3.1 節）：info.txt（原因、步數、最低 SP、最近輸入）、
++// state.state（dosgolem 狀態檔，可用 hrhd 或探針載入重現）、screen.png（停機當下的畫面）。
++// 只能在 Run、RunSteps 沒有執行時呼叫。輸出含原版內容的衍生物，不要提交或散布。
++func (s *Session) CrashDump(dir, reason string) error {
++	if err := os.MkdirAll(dir, 0o755); err != nil {
++		return err
++	}
++	var b strings.Builder
++	st := s.Stats()
++	fmt.Fprintf(&b, "時間 %s\n原因 %s\n步數 %d\ntick %d（遊戲時間 %.1f 分）\n計時器間隔 %d\n最低 SP %04X，堆疊頂端 %04X\n堆疊補丁 %v\n",
++		time.Now().Format(time.RFC3339), reason, s.m.Steps, s.m.Ticks, float64(s.m.Ticks)/TickHz/60, st.Interval, st.MinSP, st.StackTop, s.patchRes.String())
++	fmt.Fprintf(&b, "CS:IP %04X:%04X  SS:SP %04X:%04X\n", s.m.CPU.Seg[cpu.CS], s.m.CPU.IP, s.m.CPU.Seg[cpu.SS], s.m.CPU.R[cpu.SP])
++	s.mu.Lock()
++	recent := append([]Event(nil), s.recent...)
++	s.mu.Unlock()
++	fmt.Fprintf(&b, "最近 %d 筆輸入（舊到新）：\n", len(recent))
++	for _, ev := range recent {
++		switch ev.Kind {
++		case EvMouseMove:
++			fmt.Fprintf(&b, "  移動 (%d,%d)\n", ev.X, ev.Y)
++		case EvMouseButton:
++			fmt.Fprintf(&b, "  按鍵%d %v (%d,%d)\n", ev.Btn, ev.Down, ev.X, ev.Y)
++		case EvKey:
++			fmt.Fprintf(&b, "  鍵 ascii=%02X scan=%02X\n", ev.Key.ASCII, ev.Key.Scan)
++		}
++	}
++	if err := os.WriteFile(filepath.Join(dir, "info.txt"), []byte(b.String()), 0o644); err != nil {
++		return err
++	}
++	if png, err := s.ScreenPNG(); err == nil {
++		_ = os.WriteFile(filepath.Join(dir, "screen.png"), png, 0o644)
++	}
++	return state.Save(filepath.Join(dir, "state.state"), s.m, s.d)
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 9fa8a2a..787cc28 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -34,6 +34,7 @@ const (
+ 	TickHz float64 = 1193182.0 / 65536.0
+ 
+ 	trimEvery  = 2_000_000
++	recentMax  = 64
+ 	batchSteps = 2048
+ )
+ 
+@@ -178,6 +179,13 @@ type Session struct {
+ 	interval       uint64
+ 	lowered        bool
+ 	lastDiv        int
++
++	// RunToPoll 用：stepBatch 在滑鼠輪詢指令剛執行完時是否要中途返回。
++	pollStop bool
++	pollHit  bool
++
++	// recent 是最近的輸入事件（停機現場用，最多 recentMax 筆）。
++	recent []Event
+ }
+ 
+ // Open 驗證原版、載入 MAIN.EXE、套用補丁並安裝 DOS 服務。
+@@ -260,6 +268,10 @@ func (s *Session) PatchResult() patch.Result { return s.patchRes }
+ func (s *Session) Input(ev Event) {
+ 	s.mu.Lock()
+ 	s.inbox = append(s.inbox, ev)
++	s.recent = append(s.recent, ev)
++	if len(s.recent) > recentMax {
++		s.recent = s.recent[len(s.recent)-recentMax:]
++	}
+ 	s.mu.Unlock()
+ }
+ 
+@@ -318,8 +330,11 @@ func (s *Session) drainInput() {
+ 	}
+ }
+ 
++// idleForTrim 回報現在能不能清診斷紀錄。只有滑鼠按住時不行（釋放條件看輪詢數，清掉輪詢紀錄會讓按鍵放不開）。
++// 鍵盤佇列非空不擋：遊戲在不讀鍵盤的畫面不會取走按鍵，Stdin 會一直非空，若因此不清紀錄，
++// PortLog 等無上限紀錄約每秒長 80 MB，幾分鐘就用盡記憶體（遊玩機器人在試跑中遇到，docs/re/016）。
+ func (s *Session) idleForTrim() bool {
+-	return !s.held[0] && !s.held[1] && len(s.d.Stdin) == 0
++	return !s.held[0] && !s.held[1]
+ }
+ 
+ // stepBatch 執行至多 n 道指令，回傳停機原因（nil ＝ 還沒停）。
+@@ -376,6 +391,10 @@ func (s *Session) stepBatch(n int) *Stop {
+ 				s.snapshot()
+ 			}
+ 			s.lastSnapPollAt = time.Now()
++			if s.pollStop {
++				s.pollHit = true
++				return nil
++			}
+ 		}
+ 	}
+ 	return nil
+@@ -501,3 +520,29 @@ func (s *Session) adapt(elapsed time.Duration, ticks uint64) {
+ // SnapshotNow 立刻產生一個快照（批次邊界，不等滑鼠輪詢點）。只能在模擬迴圈沒有跑的時候呼叫
+ // （RunSteps 回傳之後）；無頭驗收用，例如淡入淡出中遊戲不輪詢滑鼠的區段。
+ func (s *Session) SnapshotNow() { s.snapshot() }
++
++// RunToPoll 執行到下一次滑鼠輪詢指令剛執行完（遊戲回到等輸入的迴圈）、或跑滿 max 道指令、或停機。
++// 回傳 (停機原因, 是否停在輪詢點)；沒有停機時第一個值是 nil。遊玩機器人用它取得「閒置畫面」的精確時刻
++// （與 hrexplore 的畫面身分同一個取樣點）。
++func (s *Session) RunToPoll(max uint64) (*Stop, bool) {
++	end := s.m.Steps + max
++	s.pollStop, s.pollHit = true, false
++	defer func() { s.pollStop, s.pollHit = false, false }()
++	for s.m.Steps < end {
++		s.drainInput()
++		n := batchSteps
++		if rest := end - s.m.Steps; rest < uint64(n) {
++			n = int(rest)
++		}
++		if st := s.stepBatch(n); st != nil {
++			s.afterBatch(true)
++			return st, false
++		}
++		s.afterBatch(false)
++		if s.pollHit {
++			return nil, true
++		}
++	}
++	s.afterBatch(true)
++	return nil, false
++}
+diff --git a/apps/hr/runtime/session_test.go b/apps/hr/runtime/session_test.go
+index 14506d4..459f66d 100644
+--- a/apps/hr/runtime/session_test.go
++++ b/apps/hr/runtime/session_test.go
+@@ -245,3 +245,63 @@ func TestSaveGoesToScratchAndLeavesOriginalAlone(t *testing.T) {
+ 		t.Fatal("原版目錄的存檔檔案被改動")
+ 	}
+ }
++
++// RunToPoll 停在滑鼠輪詢指令剛執行完；CrashDump 存出 info、screen、state。
++func TestRunToPollAndCrashDump(t *testing.T) {
++	root := origRoot(t)
++	s, err := Open(root, Options{Interval: NativeInterval})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if st := s.RunSteps(35_000_000); st.Kind != StopSteps {
++		t.Fatal(st.Msg)
++	}
++	st, polled := s.RunToPoll(50_000_000)
++	if st != nil || !polled {
++		t.Fatalf("RunToPoll：stop=%v polled=%v", st, polled)
++	}
++	n := len(s.DOS().Mouse.Polls)
++	st, polled = s.RunToPoll(50_000_000)
++	if st != nil || !polled || len(s.DOS().Mouse.Polls) == n {
++		t.Fatalf("第二次 RunToPoll 應再停在下一次輪詢：polled=%v", polled)
++	}
++	s.Input(MouseMoveEvent(10, 10))
++	dir := t.TempDir()
++	if err := s.CrashDump(dir, "測試"); err != nil {
++		t.Fatal(err)
++	}
++	for _, f := range []string{"info.txt", "screen.png", "state.state"} {
++		if fi, err := os.Stat(filepath.Join(dir, f)); err != nil || fi.Size() == 0 {
++			t.Fatalf("%s 沒有寫出：%v", f, err)
++		}
++	}
++	b, _ := os.ReadFile(filepath.Join(dir, "info.txt"))
++	if !strings.Contains(string(b), "移動 (10,10)") || !strings.Contains(string(b), "原因 測試") {
++		t.Fatalf("info.txt 內容不對：\n%s", b)
++	}
++}
++
++// 鍵盤佇列非空（遊戲在不讀鍵盤的畫面不取走按鍵）不能擋住診斷紀錄的清除，否則 PortLog 等無上限成長。
++func TestIdleForTrimIgnoresPendingKeys(t *testing.T) {
++	root := origRoot(t)
++	s, err := Open(root, Options{Interval: NativeInterval})
++	if err != nil {
++		t.Fatal(err)
++	}
++	s.d.Stdin = append(s.d.Stdin, 0x7F)
++	if !s.idleForTrim() {
++		t.Fatal("鍵盤佇列非空時應可清診斷紀錄")
++	}
++	s.held[0] = true
++	if s.idleForTrim() {
++		t.Fatal("滑鼠按住時不可清診斷紀錄")
++	}
++	s.held[0] = false
++	// 長跑：佇列裡一直有鍵，PortLog 仍被定期清掉（每 2,000,000 道一次）
++	if st := s.RunSteps(40_000_000); st.Kind != StopSteps {
++		t.Fatal(st.Msg)
++	}
++	if n := len(s.m.PortLog); n > 3_000_000 {
++		t.Fatalf("PortLog 長到 %d 筆，沒有被清", n)
++	}
++}
+diff --git a/apps/hr/runtime/trim.go b/apps/hr/runtime/trim.go
+index ec93ee5..c43b9aa 100644
+--- a/apps/hr/runtime/trim.go
++++ b/apps/hr/runtime/trim.go
+@@ -8,7 +8,7 @@ import (
+ // TrimDiagnostics 清掉 dosgolem 為觀測而記下的無上限紀錄。長時間執行不清，約 10 億道指令
+ // 就會用盡記憶體（docs/re/011）。回傳被清掉的滑鼠輪詢數。
+ //
+-// 呼叫端要在滑鼠按住、鍵盤佇列非空時避免呼叫：按住的釋放條件看輪詢數。
++// 呼叫端要在滑鼠按住時避免呼叫：按住的釋放條件看輪詢數。鍵盤佇列非空不需要避免。
+ func TrimDiagnostics(m *machine.Machine, d *dos.DOS) (polls int) {
+ 	polls = len(d.Mouse.Polls)
+ 	d.Mouse.Polls, d.Mouse.Sets, d.Mouse.Events, d.Mouse.PressReads = nil, nil, nil, nil
+-- 
+2.43.0
+

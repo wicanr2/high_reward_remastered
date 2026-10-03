@@ -1,0 +1,128 @@
+From 49d5eed8232d4612470588bac8f987fd910978f0 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 16:37:22 +0800
+Subject: [PATCH 20/20] =?UTF-8?q?apps/hr/hrbot:=20=E7=84=A1=E8=BC=AA?=
+ =?UTF-8?q?=E8=A9=A2=E6=99=82=2010=20=E9=81=8A=E6=88=B2=E7=A7=92=E5=B0=B1?=
+ =?UTF-8?q?=E6=8C=89=E9=8D=B5=E6=88=96=E9=BB=9E=E6=93=8A=EF=BC=88=E7=AD=89?=
+ =?UTF-8?q?=E9=8D=B5=E7=9B=A4=E7=9A=84=E7=95=AB=E9=9D=A2=EF=BC=89=EF=BC=8C?=
+ =?UTF-8?q?=E9=80=A3=E7=BA=8C=E8=B6=85=E9=81=8E=E9=96=80=E6=AA=BB=E6=89=8D?=
+ =?UTF-8?q?=E9=80=B2=E5=87=8D=E7=B5=90=E8=A7=80=E5=AF=9F=EF=BC=9B=E8=A7=80?=
+ =?UTF-8?q?=E5=AF=9F=E6=9C=9F=E9=96=93=E6=AF=8F=E5=88=86=E9=90=98=E8=BC=AA?=
+ =?UTF-8?q?=E6=B5=81=E6=8C=89=20Enter=E3=80=81Esc=E3=80=81=E9=BB=9E?=
+ =?UTF-8?q?=E4=B8=AD=E5=A4=AE?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrbot/main.go | 62 ++++++++++++++++++++++++++++-----------
+ 1 file changed, 45 insertions(+), 17 deletions(-)
+
+diff --git a/apps/hr/cmd/hrbot/main.go b/apps/hr/cmd/hrbot/main.go
+index c0c3c2d..371e129 100644
+--- a/apps/hr/cmd/hrbot/main.go
++++ b/apps/hr/cmd/hrbot/main.go
+@@ -87,19 +87,21 @@ type bot struct {
+ 
+ 	opens map[string]int // 檔案名稱 -> open 次數（畫面種類的代理：BSTAGE.MRG 表示進了戰鬥）
+ 
+-	base      uint64 // 先前各次啟動累計的 tick
+-	gameTicks uint64 // 累計遊戲 tick（base ＋ 目前 Session 的 Ticks）
+-	restarts  int
+-	quits     int
+-	actionsN  int
+-	minSP     uint16
+-	sigsEver  map[string]bool
+-	sameSig   int // 目前連續幾個動作 sig 沒變
+-	maxSame   int
+-	freezes   []string // 疑似凍結事件（遊戲超過 freeze-seconds 沒輪詢滑鼠）
+-	crashInfo string
+-	frozen    bool
+-	ckpts     []string
++	base         uint64 // 先前各次啟動累計的 tick
++	gameTicks    uint64 // 累計遊戲 tick（base ＋ 目前 Session 的 Ticks）
++	restarts     int
++	quits        int
++	actionsN     int
++	minSP        uint16
++	sigsEver     map[string]bool
++	sameSig      int // 目前連續幾個動作 sig 沒變
++	maxSame      int
++	freezes      []string // 疑似凍結事件（遊戲超過 freeze-seconds 沒輪詢滑鼠）
++	crashInfo    string
++	frozen       bool
++	noPollStreak int
++	noPollStart  uint64
++	ckpts        []string
+ }
+ 
+ func main() {
+@@ -191,6 +193,7 @@ loop:
+ 		}
+ 	}
+ 	b.minuteReport(timeline, time.Since(wall0))
++	b.shot("final")
+ 	if o.heapProfile != "" {
+ 		if f, err := os.Create(o.heapProfile); err == nil {
+ 			runtime.GC()
+@@ -394,15 +397,26 @@ func (b *bot) screenHash() uint64 {
+ 
+ // step 做一個遊戲動作：等到閒置輪詢點、認出畫面、學習上一個動作的結果、選動作、執行。
+ func (b *bot) step() *hrrt.Stop {
+-	freezeTicks := int(b.opt.freezeSeconds * tickHz)
+-	polled, st := b.toPoll(freezeTicks)
++	// 遊戲不一定一直輪詢滑鼠（等鍵盤、動畫、載入）。10 遊戲秒沒輪詢，人類會按鍵或點一下，機器人也照做；
++	// 連續超過 freeze-seconds 都沒有輪詢才進凍結觀察。
++	polled, st := b.toPoll(int(10 * tickHz))
+ 	if st != nil {
+ 		return st
+ 	}
++	var sig string
+ 	if !polled {
+-		return b.noPoll()
++		if b.noPollStreak == 0 {
++			b.noPollStart = b.gameTicks
++		}
++		b.noPollStreak++
++		if float64(b.gameTicks-b.noPollStart)/tickHz >= b.opt.freezeSeconds {
++			return b.noPoll()
++		}
++		sig = "nopoll:" + b.chain()
++	} else {
++		b.noPollStreak = 0
++		sig = b.chain()
+ 	}
+-	sig := b.chain()
+ 	b.learn(sig)
+ 	a := b.choose(sig)
+ 	b.last = &pendingAct{sig: sig, a: a}
+@@ -433,11 +447,25 @@ func (b *bot) noPoll() *hrrt.Stop {
+ 	same := 0
+ 	h0 := b.screenHash()
+ 	for i := 0; i < 10; i++ {
++		// 人類看到畫面不動會按鍵、點一下：每分鐘輪流按 Enter、Esc、點畫面中央，確認遊戲真的沒有反應。
++		var st *hrrt.Stop
++		switch i % 3 {
++		case 0:
++			st = b.press("Enter")
++		case 1:
++			st = b.press("Esc")
++		default:
++			st = b.click(act{Kind: 'L', X: 320, Y: 200})
++		}
++		if st != nil {
++			return st
++		}
+ 		polled, st := b.toPoll(int(60 * tickHz))
+ 		if st != nil {
+ 			return st
+ 		}
+ 		if polled {
++			b.noPollStreak = 0
+ 			b.freezes = append(b.freezes, fmt.Sprintf("%s；%.0f 秒後恢復", desc, float64(b.gameTicks-startTick)/tickHz))
+ 			b.logEvent("nopoll-recovered", b.freezes[len(b.freezes)-1])
+ 			return nil
+-- 
+2.43.0
+
