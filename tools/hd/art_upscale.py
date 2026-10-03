@@ -1,6 +1,6 @@
 """批次產生 HD 圖（演算法 v2，art_lib 管線）。與 upscale.py（基準 v1）介面相同，另依圖像類別選參數。
 
-用法：python3 art_upscale.py <輸入根目錄> <輸出根目錄> [S] [--only 子字串] [--list]
+用法：python3 art_upscale.py <輸入根目錄> <輸出根目錄> [S] [--only 子字串,子字串] [--skip 子字串,子字串] [--list]
 輸入根目錄是 tools/img 的輸出；輸出維持相同的相對路徑。類別由相對路徑決定（route），
 類別參數表是 PRESETS；各類別的取捨見 workplace/hd-work/METHOD.md。
 取代 upscale.py 的方式：把呼叫 upscale.py 的地方改成呼叫本檔，輸出根目錄改成新目錄，
@@ -81,10 +81,15 @@ def options(rel):
 def main():
     args = sys.argv[1:]
     only = None
+    skip = None
     lst = False
     if "--only" in args:
         i = args.index("--only")
         only = args[i + 1]
+        del args[i:i + 2]
+    if "--skip" in args:
+        i = args.index("--skip")
+        skip = args[i + 1]
         del args[i:i + 2]
     if "--list" in args:
         lst = True
@@ -100,6 +105,8 @@ def main():
             p = os.path.join(root, f)
             rel = os.path.relpath(p, src)
             if only and not any(s in rel for s in only.split(",")):
+                continue
+            if skip and any(s in rel for s in skip.split(",")):
                 continue
             if lst:
                 print(route(rel), rel)

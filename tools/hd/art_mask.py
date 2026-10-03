@@ -12,7 +12,7 @@ import art_lib
 
 out, z, crop, path = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4]
 d = art_lib.load(path)
-C, dith = art_lib.periodic_dedither(d["idx"], d["rgb"])
+C, dith = art_lib.periodic_dedither(d["idx"], d["rgb"], max_colors=int(sys.argv[5]) if len(sys.argv) > 5 else 2)
 H, W = d["idx"].shape
 x, y, w, h = (0, 0, W, H) if crop == "all" else [int(v) for v in crop.split(",")]
 w, h = min(w, W - x), min(h, H - y)

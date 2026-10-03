@@ -56,7 +56,7 @@ def _shift(w, dy, dx):
 WINDOWS = ((4, 4), (2, 4), (4, 2), (3, 3))
 
 
-def periodic_dedither(idx, rgb, windows=WINDOWS, grow_iter=4):
+def periodic_dedither(idx, rgb, windows=WINDOWS, grow_iter=4, max_colors=2):
     """週期為 2 的有序抖色（棋盤、25%、75%）去抖色。
 
     視窗 (h,w) 內 P(x,y)==P(x+2,y) 且 P(x,y)==P(x,y+2) 成立（h 或 w 為 2 的方向沒有該方向的條件）時，
@@ -87,6 +87,9 @@ def periodic_dedither(idx, rgb, windows=WINDOWS, grow_iter=4):
         a, b = idx[:nh, :nw], idx[:nh, 1:nw + 1]
         c, d = idx[1:nh + 1, :nw], idx[1:nh + 1, 1:nw + 1]
         nonflat = ~((a == b) & (a == c) & (a == d))
+        # 圖樣的相異顏色數：棋盤與稀疏點型是 2 色；3 色以上的週期圖樣常是線條夾著抖色（例如黑線與點線相間），不當成抖色
+        ncol = 1 + (b != a) + ((c != a) & (c != b)) + ((d != a) & (d != b) & (d != c))
+        wok = wok & (ncol <= max_colors)
         vstripe = (a == c) & (b == d) & (a != b)
         hstripe = (a == b) & (c == d) & (a != c)
         if (wh, ww) == (4, 4):
@@ -323,7 +326,7 @@ def process(path, S, opt):
     C = d["rgb"]
     if int(opt.get("per", 1)):
         wins = WINDOWS if opt.get("wins", "all") == "all" else WINDOWS[:3]
-        C, _ = periodic_dedither(d["idx"], d["rgb"], windows=wins)
+        C, _ = periodic_dedither(d["idx"], d["rgb"], windows=wins, max_colors=int(opt.get("mc", 2)))
     if float(opt.get("bil", 0)) > 0:
         C = bilateral_denoise(C, d["valid"], sigma_s=float(opt.get("bs", 1.5)), sigma_r=float(opt["bil"]),
                               passes=int(opt.get("bp", 1)), guide_sigma=float(opt.get("gs", 0.0)),

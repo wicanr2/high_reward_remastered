@@ -1,0 +1,169 @@
+From 160f55cd40f444fcd867f01665723e52b22d65da Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 08:27:35 +0800
+Subject: [PATCH 11/11] =?UTF-8?q?apps/hr/runtime:=20Frame=20=E6=94=B9?=
+ =?UTF-8?q?=E7=82=BA=E5=83=8F=E7=B4=A0=E5=80=BC=E5=8A=A0=20DAC=EF=BC=8C?=
+ =?UTF-8?q?=E6=8B=89=E5=8F=96=E5=BC=8F=E5=BF=AB=E7=85=A7?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/play/game.go            |  8 +++-----
+ apps/hr/play/png.go             |  8 +++-----
+ apps/hr/runtime/session.go      | 34 +++++++++++++++++++++++++++------
+ apps/hr/runtime/session_test.go |  3 ++-
+ 4 files changed, 36 insertions(+), 17 deletions(-)
+
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index a6d6e06..a367678 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -101,13 +101,11 @@ func (g *game) Update() error {
+ }
+ 
+ func (g *game) Draw(screen *ebiten.Image) {
++	g.s.RequestFrame()
+ 	if f := g.s.Frame(); f != nil && f.Seq != g.lastSq {
+ 		g.lastSq = f.Seq
+-		px := g.rgba
+-		for i, j := 0, 0; i < len(f.RGB) && j < len(px); i, j = i+3, j+4 {
+-			px[j], px[j+1], px[j+2], px[j+3] = f.RGB[i], f.RGB[i+1], f.RGB[i+2], 0xFF
+-		}
+-		g.img.WritePixels(px)
++		f.RGBA(g.rgba)
++		g.img.WritePixels(g.rgba)
+ 	}
+ 	op := &ebiten.DrawImageOptions{}
+ 	if g.linear {
+diff --git a/apps/hr/play/png.go b/apps/hr/play/png.go
+index a6acb02..89d39a4 100644
+--- a/apps/hr/play/png.go
++++ b/apps/hr/play/png.go
+@@ -2,7 +2,6 @@ package main
+ 
+ import (
+ 	"image"
+-	"image/color"
+ 	"image/png"
+ 	"os"
+ 
+@@ -11,12 +10,11 @@ import (
+ 
+ // writeFramePNG 把快照（遊戲區 640x400）存成 PNG。
+ func writeFramePNG(path string, f *hrrt.Frame) error {
++	rgba := make([]byte, f.W*f.H*4)
++	f.RGBA(rgba)
+ 	img := image.NewRGBA(image.Rect(0, 0, 640, 400))
+ 	for y := 0; y < 400; y++ {
+-		for x := 0; x < 640; x++ {
+-			i := ((y+40)*f.W + x) * 3
+-			img.Set(x, y, color.RGBA{f.RGB[i], f.RGB[i+1], f.RGB[i+2], 255})
+-		}
++		copy(img.Pix[y*img.Stride:y*img.Stride+640*4], rgba[((y+40)*f.W)*4:((y+40)*f.W+640)*4])
+ 	}
+ 	out, err := os.Create(path)
+ 	if err != nil {
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 0392e12..8031e38 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -82,15 +82,27 @@ func (s *Stop) Error() string { return s.Msg }
+ // Normal 回報這是不是正常結束（玩家結束或進片尾）。
+ func (s *Stop) Normal() bool { return s != nil && (s.Kind == StopQuit || s.Kind == StopEnding) }
+ 
+-// Frame 是 Run 在滑鼠輪詢點產生的畫面快照，建立後不再修改。
++// Frame 是 Run 在滑鼠輪詢點產生的畫面快照，建立後不再修改（docs/spec/003 第 3 節、004 第 5.1 節）。
++// 只複製像素值與調色盤；轉成 RGB 由使用者在自己的執行緒做（RGBA），不佔模擬迴圈的時間。
+ type Frame struct {
+ 	W, H  int
+-	RGB   []uint8 // W*H*3
++	Px    []uint8       // W*H 個像素值，0 至 15（Machine.Planar）
++	Map   [16]uint8     // 像素值到 DAC 索引（EGA 屬性暫存器，VGA.DACIndex）
++	DAC   [256][3]uint8 // 8 位元 RGB
+ 	Steps uint64
+ 	Ticks uint64
+ 	Seq   uint64
+ }
+ 
++// RGBA 把畫面轉成每像素 4 bytes 的 RGBA（alpha 255）寫進 dst（長度至少 W*H*4）。
++func (f *Frame) RGBA(dst []byte) {
++	for i, p := range f.Px {
++		c := f.DAC[f.Map[p&0x0F]]
++		j := i * 4
++		dst[j], dst[j+1], dst[j+2], dst[j+3] = c[0], c[1], c[2], 0xFF
++	}
++}
++
+ // Stats 是 Run 定期更新的統計。
+ type Stats struct {
+ 	Steps      uint64
+@@ -139,6 +151,7 @@ type Session struct {
+ 	inbox  []Event
+ 	stats  Stats
+ 	frame  atomic.Pointer[Frame]
++	want   atomic.Bool
+ 	frmSeq uint64
+ 
+ 	// 以下欄位只由持有機器的迴圈（Run 或 RunSteps）使用。
+@@ -334,7 +347,7 @@ func (s *Session) stepBatch(n int) *Stop {
+ 		//（批次邊界取樣時游標完整的比例只有 8% 至 9%，這裡是 158/159，docs/spec/004 第 5.1 節）。
+ 		if np := len(d.Mouse.Polls); np != s.lastPolls {
+ 			s.lastPolls = np
+-			if time.Since(s.lastSnap) >= 8*time.Millisecond {
++			if s.want.Load() {
+ 				s.snapshot()
+ 			}
+ 			s.lastSnapPollAt = time.Now()
+@@ -366,15 +379,24 @@ func (s *Session) afterBatch(force bool) {
+ }
+ 
+ func (s *Session) snapshot() {
+-	w, h, rgb := s.m.PlanarRGB()
+-	if rgb == nil {
++	w, h, px := s.m.Planar()
++	if px == nil {
+ 		return
+ 	}
++	f := &Frame{W: w, H: h, Px: px, DAC: s.m.Palette(), Steps: s.m.Steps, Ticks: s.m.Ticks}
++	for i := range f.Map {
++		f.Map[i] = s.m.VGA.DACIndex(uint8(i))
++	}
+ 	s.frmSeq++
++	f.Seq = s.frmSeq
+ 	s.lastSnap = time.Now()
+-	s.frame.Store(&Frame{W: w, H: h, RGB: rgb, Steps: s.m.Steps, Ticks: s.m.Ticks, Seq: s.frmSeq})
++	s.want.Store(false)
++	s.frame.Store(f)
+ }
+ 
++// RequestFrame 要求在下一次滑鼠輪詢指令剛執行完時產生新快照（拉取式：快照次數不超過前端的繪製率）。
++func (s *Session) RequestFrame() { s.want.Store(true) }
++
+ // RunSteps 同步執行到絕對步數 total（不計時）。回傳的 Stop 在跑滿時 Kind ＝ StopSteps。
+ func (s *Session) RunSteps(total uint64) *Stop {
+ 	for s.m.Steps < total {
+diff --git a/apps/hr/runtime/session_test.go b/apps/hr/runtime/session_test.go
+index cb9adcd..14506d4 100644
+--- a/apps/hr/runtime/session_test.go
++++ b/apps/hr/runtime/session_test.go
+@@ -168,13 +168,14 @@ func TestRunProducesFrameAndStopsOnCancel(t *testing.T) {
+ 		t.Fatal(err)
+ 	}
+ 	s.RunSteps(36_000_000)
++	s.RequestFrame()
+ 	ctx, cancel := context.WithTimeout(context.Background(), 400*time.Millisecond)
+ 	defer cancel()
+ 	if st := s.Run(ctx); st != nil {
+ 		t.Fatalf("取消時應回 nil，得到 %v", st)
+ 	}
+ 	f := s.Frame()
+-	if f == nil || f.W != 640 || f.H != 480 || len(f.RGB) != 640*480*3 {
++	if f == nil || f.W != 640 || f.H != 480 || len(f.Px) != 640*480 {
+ 		t.Fatalf("快照不正確：%+v", f)
+ 	}
+ }
+-- 
+2.43.0
+
