@@ -1,0 +1,88 @@
+From 8118664b223f757aad896cd001cda929dd96f56a Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 11:03:04 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/hd:=20=E7=AC=AC=202b=20=E6=AD=A5?=
+ =?UTF-8?q?=E5=8A=A0=E9=9D=A2=E7=A9=8D=E4=B8=8A=E9=99=90=20FlatMaxArea?=
+ =?UTF-8?q?=EF=BC=88=E7=AC=AC=E5=85=AB=E8=BC=AA=E5=AF=A9=E6=9F=A5=EF=BC=9A?=
+ =?UTF-8?q?=E5=A4=A7=E6=88=B3=E8=A8=98=E7=9A=84=E6=B4=AA=E6=B0=B4=E5=A1=AB?=
+ =?UTF-8?q?=E5=85=85=E5=A4=AA=E8=B2=B4=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/hd/verify.go      |  6 +++++-
+ apps/hr/hd/verify_test.go | 38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 1 deletion(-)
+
+diff --git a/apps/hr/hd/verify.go b/apps/hr/hd/verify.go
+index 849ee30..73a4cc8 100644
+--- a/apps/hr/hd/verify.go
++++ b/apps/hr/hd/verify.go
+@@ -149,7 +149,7 @@ func (v *Verifier) one(s *Stamp, px []uint8, pxW, pxH int, vm Mask) {
+ 	default:
+ 		v.Slow++
+ 		v.neighborhood(s, vm, O, M)
+-		if !v.KeepFlat {
++		if !v.KeepFlat && s.W*s.H <= FlatMaxArea {
+ 			v.FlatDropped += v.dropFlat(s, vm)
+ 		}
+ 	}
+@@ -313,3 +313,7 @@ func (v *Verifier) dropFlat(s *Stamp, vm Mask) int {
+ 	}
+ 	return dropped
+ }
++
++// FlatMaxArea 是第 2b 步處理的戳記面積上限（像素）。背景類的大戳記（`GMAP`、`BSTAGE`）不做：
++// 洪水填充的成本高（審查實測驗證階段多 4 至 7 ms），移除的又多是 4 個像素以下的碎點，視覺上沒有好處。
++const FlatMaxArea = 16384
+diff --git a/apps/hr/hd/verify_test.go b/apps/hr/hd/verify_test.go
+index 8e69859..6651a61 100644
+--- a/apps/hr/hd/verify_test.go
++++ b/apps/hr/hd/verify_test.go
+@@ -405,3 +405,41 @@ func TestVerifyFlatDropsGhost(t *testing.T) {
+ 		t.Fatal("FlatDropped 應大於 0")
+ 	}
+ }
++
++// 面積超過 FlatMaxArea 的戳記不做第 2b 步（單色連通區保留）。
++func TestVerifyFlatSkipsLargeStamps(t *testing.T) {
++	const pxW, pxH = 400, 200
++	px := make([]uint8, pxW*pxH)
++	s := &Stamp{W: 200, H: 100, X: 0, Y: 0, E: make([]byte, 200*100), Seq: 1}
++	if s.W*s.H <= FlatMaxArea {
++		t.Fatal("測試戳記要大於 FlatMaxArea")
++	}
++	for i := range s.E {
++		s.E[i] = 3
++	}
++	// 左半相符、右半被別的東西蓋住：留下單色的相符區
++	for j := 0; j < 100; j++ {
++		for i := 0; i < 100; i++ {
++			px[j*pxW+i] = 3
++		}
++	}
++	var vf Verifier
++	m := vf.Run([]*Stamp{s}, px, pxW, pxH)
++	if vf.FlatDropped != 0 || m[0].Count() == 0 {
++		t.Fatalf("大戳記不該做第 2b 步：移除 %d，通過 %d", vf.FlatDropped, m[0].Count())
++	}
++	// 同樣的內容縮小到上限內就會被移除
++	small := &Stamp{W: 100, H: 100, X: 0, Y: 0, E: make([]byte, 100*100), Seq: 1}
++	for i := range small.E {
++		small.E[i] = 3
++	}
++	for j := 0; j < 100; j++ {
++		for i := 50; i < 100; i++ {
++			px[j*pxW+i] = 0
++		}
++	}
++	m = vf.Run([]*Stamp{small}, px, pxW, pxH)
++	if vf.FlatDropped == 0 || m[0].Count() != 0 {
++		t.Fatalf("小戳記的單色區應被移除：移除 %d，通過 %d", vf.FlatDropped, m[0].Count())
++	}
++}
+-- 
+2.43.0
+
