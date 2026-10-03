@@ -270,6 +270,6 @@ unsharp（sigma 1.0、量 0.6）後，把結果夾在原像素 3x3 鄰域的最�
 
 - 契約檢查：`tools/hd/validate.py` 對 615 張原版解碼圖與 3 張游標（`CURSOR/`，執行期才產生，由 `hrhd -dump-unknown` 取樣）違規 0 張。
 - 清冊與載入：`hd/catalog.tsv` 595 列（616 個項目，內容相同的合併），`TestAllCatalogAssetsLoad` 全部載入成功（PNG 存在、尺寸為清冊的 2 倍、參考調色盤存在，`docs/re/014`）。
-- 合成圖：使用者 2026-10-03 看過六個畫面的並排對照與四張局部放大（`workplace/out/hd/composites/`，不進版控），回覆「可以」。這是對合成圖的確認，逐張素材的驗收（`docs/re/015` 第 5 節的保真度表）仍以 `provenance.tsv` 的 `status` 欄為準：目前全部是 `candidate`。
+- 合成圖與驗收：使用者 2026-10-03 看過六個畫面的並排對照與四張局部放大（`workplace/out/hd/composites/`，不進版控），回覆「可以」，隨後表示「HD 我都接受」。`hd/provenance.tsv` 的 595 列全部是 `accepted`（`accepted_by`、`accepted_date` 兩欄記錄）。使用者沒有逐張審過，是看過代表畫面後的整體接受。
 - 涵蓋範圍：精靈、頭像、戰鬥舞台背景、標題地圖、游標。大地形底圖（`PXZ`）、文字與框線不替換（`docs/spec/004` 第 1 節）。
 - 重跑：`tools/hd/art_upscale.py` 與 `workplace/re-img/out`（原版解碼圖，不進版控）。

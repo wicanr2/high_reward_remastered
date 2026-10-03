@@ -86,3 +86,8 @@
 
 - 使用者授權發行含 HD 素材的版本與推送 fork 的 `hr` 分支。`tools/package.sh` 新增 `HR_WITH_HD=1`：把 `hd/` 放進三平台包（`dist-all/with-hd/`、版本加 `-hd`、附 `hd/NOTICE.txt` 與 README 的 HD 段）。版本 `d3fea9e-dg8eb277d-hd`，AppImage 與 Windows（Wine）不另掛目錄即顯示 HD，macOS 只驗結構（`docs/re/013` 第 4.2 節）。
 - 推送 `hr` 分支到公開 repo `wicanr2/dosgolem` 被分類器拒絕（Out-of-Place Publication）。該分支的基底 `2f44a68` 已在遠端的 `fix/stubseg-font-collision-program-path`，推送只會多出 18 個提交、64 個檔案，沒有原版或 HD 素材，但含 `apps/hr/runtime/required.tsv`（77 個原版檔案的檔名、大小與 SHA-256）。沒有繞過，也沒有加遠端；等使用者再次明確指示。
+
+### HD 素材整體接受（2026-10-03，續六）
+
+- 使用者表示「HD 我都接受」。`hd/provenance.tsv` 的 595 列由 `candidate` 改為 `accepted`，新增 `accepted_by`、`accepted_date` 兩欄；`packaging/HD_NOTICE.txt`、AGENTS.md、`docs/re/014`、`docs/re/015` 同步。這是看過代表畫面（六個合成畫面與四張局部放大）後的整體接受，不是逐張審查。
+- 使用者另外授權在 private repo 建立 Release（含 HD 的發行包）、把 Buck Rogers 分支整合進目前的 `hr` 分支（之後由使用者處理 dosgolem main 的合併），並要求安排「真的遊玩兩小時」的當機測試。含 HD 的包因 `provenance.tsv` 與 NOTICE 改變而重建。
