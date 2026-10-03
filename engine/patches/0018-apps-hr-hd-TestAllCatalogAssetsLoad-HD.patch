@@ -1,0 +1,60 @@
+From 8eb277d13f0bb8cc751737434154bc897960c48a Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 11:11:06 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/hd:=20TestAllCatalogAssetsLoad=EF=BC=88?=
+ =?UTF-8?q?=E6=B8=85=E5=86=8A=E5=85=A8=E9=83=A8=20HD=20=E5=9C=96=E8=BC=89?=
+ =?UTF-8?q?=E5=85=A5=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/hd/compose_test.go | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/apps/hr/hd/compose_test.go b/apps/hr/hd/compose_test.go
+index 740cd4e..a469bb3 100644
+--- a/apps/hr/hd/compose_test.go
++++ b/apps/hr/hd/compose_test.go
+@@ -370,3 +370,37 @@ func TestComposeWorkersEqual(t *testing.T) {
+ 		}
+ 	}
+ }
++
++// 清冊中每個有 HD 路徑的項目都能載入：PNG 存在、尺寸等於清冊尺寸乘倍率、參考調色盤存在。
++// 清冊目錄用 HR_HD（預設 /orig/hd-stage，容器內 workplace 的掛載點）；沒有就 skip（HD 素材不在本儲存庫）。
++func TestAllCatalogAssetsLoad(t *testing.T) {
++	dir := os.Getenv("HR_HD")
++	if dir == "" {
++		dir = "/orig/hd-stage"
++	}
++	if _, err := os.Stat(filepath.Join(dir, "catalog.tsv")); err != nil {
++		t.Skipf("沒有清冊：%v", err)
++	}
++	a, err := LoadAssets(dir, 2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	withHD, missing := 0, 0
++	for h, e := range a.cat {
++		if e.HD == "" {
++			missing++
++			continue
++		}
++		withHD++
++		if a.Get(h) == nil {
++			t.Errorf("%s（%s）載入失敗", e.ID, e.HD)
++		}
++	}
++	for _, msg := range a.Errors {
++		t.Log(msg)
++	}
++	t.Logf("清冊 %d 列，有 HD 路徑 %d，尚無 HD %d", len(a.cat), withHD, missing)
++	if withHD == 0 {
++		t.Fatal("清冊沒有任何 HD 路徑")
++	}
++}
+-- 
+2.43.0
+
