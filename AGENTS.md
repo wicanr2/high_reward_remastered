@@ -7,7 +7,7 @@
 | 項 | 工作 | 現況（2026-10-03） |
 |---|---|---|
 | 1 | 取得 jsdos 版原版 | 完成，見 `docs/re/001-source-intake.md` |
-| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中：`MAIN.EXE` 在 dosgolem 內可到標題、新遊戲、讀檔、存檔（暫存層）、戰鬥佈陣等畫面（`docs/re/008`、`docs/re/012`）；執行層、前端與三平台打包已實作（`docs/spec/003` READY，`docs/re/013`）；沒有聲音，不播片頭片尾 |
+| 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中：`MAIN.EXE` 在 dosgolem 內可到標題、新遊戲、讀檔、存檔（暫存層）、戰鬥佈陣等畫面（`docs/re/008`、`docs/re/012`）；執行層、前端與三平台打包已實作（`docs/spec/003` READY，`docs/re/013`）；音樂與音效已實作（近似音色，見 M11，真實音訊裝置未驗），不播片頭片尾 |
 | 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 進行中：找到並重現一個堆疊溢位當機（`docs/re/011`），修補規格 READY 並已實作（`docs/spec/002`，在記憶體內把 `_stklen` 由 0x1000 改成 0x8000，收據 `docs/re/013`）；遊玩機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各 2 個種子、每組 2 遊戲小時，沒有當機與凍結，原版堆疊最深用到約一半，未走到溢位路徑（`docs/re/016`）；停機與 hang 時的診斷紀錄（暫存器、呼叫鏈、最近呼叫與中斷、最後呼叫的 routine、畫面與狀態檔，前端 Ctrl+D 手動觸發）已實作並用機器人模擬 routine 掛起驗過（`docs/spec/005`、`docs/re/017`）；是否即使用者說的當機：未確認 |
 | 4 | HD 化遊戲圖片 | 進行中：圖像格式已全部解碼（`docs/re/006`），繪圖原語已逆向（`docs/re/009` DRAFT），替換機制規格 READY 並已實作掛鉤、驗證、合成與前端（`docs/spec/004`，收據 `docs/re/014`）；美術 v2 素材 595 張在 `hd/`（`provenance.tsv` 狀態 accepted，`docs/re/015`）；使用者 2026-10-03 看過六個畫面的合成圖後整體接受 |
 
@@ -179,12 +179,12 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | M4 | 長跑，定位停機點並分類 | 進行中：隨機輸入與介面探索兩條線已建（`docs/re/011`、`docs/re/012`）；覆蓋不足（overlay 讀取起點 17 至 20 個，共 139 個）；遊玩機器人已建並跑完 2 組 2 遊戲小時（`docs/re/016`）；計時器擾動、音效路徑未量，戰鬥進行只在機器人的截圖裡出現過（種子 2 兩張） |
 | M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 進行中：堆疊溢位已定位，規格 `docs/spec/002` READY 並已實作；是否即使用者說的當機未確認，其他停機點未找到 |
 | M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 進行中：格式解碼完成；繪圖原語逆向（`docs/re/009` DRAFT）；替換機制規格 `docs/spec/004` READY，掛鉤、驗證、合成與前端已實作（`docs/re/014`）；美術 v2 素材已進 `hd/`，使用者整體接受（全部 accepted）；HD 化完成 |
-| M7 | 三平台前端、打包與發行前驗證 | 進行中：規格 `docs/spec/003` READY，執行層、前端、三平台打包腳本已實作；Linux 與 Windows（Wine）已驗，macOS 只驗結構；HD 前端在 Linux（Xvfb）與 Windows（Wine，標題畫面）驗過，macOS 沒有；三平台發行包已用含 HD 前端的版本重建（`docs/re/013` 第 4.1 節），另有含 HD 素材的包在 `dist-all/with-hd/`（第 4.2 節，只供私人流通）；2026-10-03 修正長跑記憶體成長缺陷（`Session.idleForTrim`）後的最新包見第 4.3 節（`v0.1.0-hd` 含該缺陷，已由 `v0.1.1-hd` 取代）；聲音、片頭片尾未做（`docs/re/013`、`docs/re/014`） |
+| M7 | 三平台前端、打包與發行前驗證 | 進行中：規格 `docs/spec/003` READY，執行層、前端、三平台打包腳本已實作；Linux 與 Windows（Wine）已驗，macOS 只驗結構；HD 前端在 Linux（Xvfb）與 Windows（Wine，標題畫面）驗過，macOS 沒有；三平台發行包已用含 HD 前端的版本重建（`docs/re/013` 第 4.1 節），另有含 HD 素材的包在 `dist-all/with-hd/`（第 4.2 節，只供私人流通）；2026-10-03 修正長跑記憶體成長缺陷（`Session.idleForTrim`）後的最新包見第 4.3 節（`v0.1.0-hd` 含該缺陷，已由 `v0.1.1-hd` 取代）；片頭片尾未做（`docs/re/013`、`docs/re/014`），聲音見 M11 |
 
 | M8 | AI theme：codex 以原版為底重新繪製（`hd-ai/`） | 暫停（2026-10-03）：第一次 codex 試作被權限分類器擋下（原版美術外送），等使用者放行。放行後的步驟：試作代表圖、使用者過目、全量、契約檢查（尺寸、遮罩、羽化帶）、逐張 provenance；成品先是 candidate，使用者確認才 accepted。輸入準備腳本 `tools/ai/prep_inputs.sh` 已寫好（Docker 內，不外送） |
-| M9 | 前端 F1 功能說明、F2 切換 theme（原版、HD、AI）、F3 聲音開關、F4 切換介面語言 | 進行中：規格 `docs/spec/006`（READY 第七版，2026-10-04，七輪審查，與 `docs/spec/007` 同一提交升 READY）；靜態普查完成（`docs/re/021`：`MAIN.EXE` 的讀鍵呼叫點都不使用鍵值，保留 F2、F3、F4 不影響遊戲，強推論）；草稿實作（theme 預載與釋放、prefs、i18n、字型子集）在 fork 工作樹，未提交，部分行為落後於規格第七版。F3 是本專案為聲音開關選的鍵，使用者沒有指定；同步修訂 `docs/spec/003` 的保留鍵表 |
+| M9 | 前端 F1 功能說明、F2 切換 theme（原版、HD、AI）、F3 聲音開關、F4 切換介面語言 | 進行中：規格 `docs/spec/006`（READY 第七版，2026-10-04，七輪審查，與 `docs/spec/007` 同一提交升 READY）；靜態普查完成（`docs/re/021`：`MAIN.EXE` 的讀鍵呼叫點都不使用鍵值，保留 F2、F3、F4 不影響遊戲，強推論）；實作已提交 fork 的 `hr` 分支（`c9c8ec3` hd 與 runtime、`aaaf999` play，補丁 `engine/patches/0026`、`0028`）：hd 與 runtime 40 與 15 項測試、play 132 項測試（含 `-race`）、突變驗證、`gui-lang` 與 `gui-theme` 端對端（HD 差異像素 87.8%，門檻 50%）通過；未驗：真實雙核容器內的 `Lowered`（此容器的 Xvfb 軟體繪圖本身跑不到 18.2 Hz，斷言無效）、預載時間與 RSS 收據、macOS 與 Windows 的執行、`-scale 1`、`-linear`、全螢幕。F3 是本專案為聲音開關選的鍵，使用者沒有指定；`docs/spec/003` 的保留鍵表已同步。遊戲內文字的 F4 語意見 M10 |
 | M10 | 遊戲內文字多語系（繁體、簡體、韓文、英文、日文） | 進行中：文字管線與字型路徑的證據完成（`docs/re/020`）；規格 `docs/spec/008`（DRAFT 第五版，處理第四輪兩位審查者的全部意見：行寬單一規則，F1 狀態判定，前端接線納入 L1；READY 範圍 L0 與 L1；待冷啟動證據 `docs/re/025` 與窄範圍差異確認，只涵蓋檔案類文字的語言層、譯文清冊與字模管線；硬編碼字串與存檔段 4073 另立規格 009）；譯文與字模的權利處理待使用者決定；不散布改過的原版檔案 |
-| M11 | 原版音樂與音效播放 | 進行中：規格 `docs/spec/007`（READY 第五版（2026-10-04，五輪審查，與 `docs/spec/006` 同一提交升 READY）；最終驗證收據在 `docs/re/019` 第 10 節）；證據 `docs/re/018`、收據 `docs/re/019`（27 個 MID 離線驗收通過，機器人 2 遊戲小時 x 2 種子 completed）；實作在 fork 工作樹，未提交。聽感由使用者試聽（`workplace/out/music/wav/`），音色是本專案自寫的 FM 近似，沒有原版錄音可對拍；真實音訊裝置、macOS、GOLD 與 ALCOHOL 路徑、存檔 A/B 未驗 |
+| M11 | 原版音樂與音效播放 | 進行中：規格 `docs/spec/007`（READY 第五版（2026-10-04，五輪審查，與 `docs/spec/006` 同一提交升 READY）；最終驗證收據在 `docs/re/019` 第 10 節）；證據 `docs/re/018`、收據 `docs/re/019`（27 個 MID 離線驗收通過，機器人 2 遊戲小時 x 2 種子 completed）；實作已提交 fork 的 `hr` 分支（`adeb3e4`，補丁 `engine/patches/0027`）。聽感由使用者試聽（`workplace/out/music/wav/`），音色是本專案自寫的 FM 近似，沒有原版錄音可對拍；真實音訊裝置、macOS、GOLD 與 ALCOHOL 路徑、存檔 A/B 未驗 |
 
 M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。M8 至 M11 彼此獨立，F2 的 AI theme 要等 M8 有成品才有東西可切。
 

@@ -44,7 +44,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 | 項目 | 現況 | 證據 |
 |---|---|---|
-| 執行 `MAIN.EXE` | dosgolem 內可到標題、新遊戲、讀檔、存檔、系統選單與戰鬥佈陣。沒有聲音，不播片頭與片尾，只執行主程式 | `docs/re/008`、`docs/re/012` |
+| 執行 `MAIN.EXE` | dosgolem 內可到標題、新遊戲、讀檔、存檔、系統選單與戰鬥佈陣。不播片頭與片尾，只執行主程式。音樂與音效依規格 007 播放：攔截遊戲的聲音常式，前端以自寫的 FM 合成器播 `.MID`、以 8 kHz 播 `SOUND_E.PCM`，音色是近似（原版沒附 `CTMIDI.DRV`，沒有原版錄音可對拍）；沒有音訊裝置時靜音運行；真實音訊裝置與 macOS 的輸出未驗證 | `docs/re/008`、`docs/re/012`、`docs/spec/007`、`docs/re/019` |
 | 當機 | 重現並修補一個堆疊溢位。這是否就是玩家回報的當機，未確認 | `docs/re/011`、`docs/spec/002` |
 | 當機與 hang 的診斷紀錄 | 遊戲停機、疑似 hang（遊戲碼的服務中斷靜默 30 遊戲秒）或按 Ctrl+D 時，存一份診斷：暫存器、呼叫鏈、最近的呼叫與服務中斷、最後呼叫的 routine、畫面與狀態檔。模擬 hang 的收據見報告 | `docs/spec/005`、`docs/re/017` |
 | 自動遊玩測試 | 機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各兩個種子，每組 2 遊戲小時：沒有當機與凍結，原版堆疊最深用到約一半。沒有走到 `docs/re/011` 的溢位路徑，不等於人類遊玩，也不能排除該溢位 | `docs/re/016` |
@@ -115,7 +115,7 @@ HD 圖由演算法放大並去除抖色，處理方法見 `docs/re/015-hd-art-me
 2. 把原版（內含 `MAIN.EXE` 的資料夾內容）放進程式旁的 `original` 資料夾，或用 `hr-play -orig <資料夾>` 指定。Linux AppImage 把 `original` 放在 `.AppImage` 旁。macOS 放進 `HighReward.app/Contents/Resources/original`。
 3. 執行 `hr-play`，用滑鼠操作遊戲。找到 `hd/` 目錄會自動啟用 HD，`-no-hd` 可看原版畫面。
 
-按鍵：F1 說明與統計，F11 或 Alt+Enter 全螢幕，F12 存截圖，Ctrl+Q 結束，Ctrl+D 手動存一份診斷（遊戲 hang 住時用）。使用者資料目錄的 `high_reward/`（Linux 在 `~/.config`，macOS 在 `~/Library/Application Support`，Windows 在 `%AppData%`）存放 `saves`、`screenshots`、`crash`（停機、hang 與 Ctrl+D 的診斷，每份含 `info.txt`、畫面與狀態檔，回報當機時提供這個目錄，不要貼到公開的 issue）與每分鐘一行的 `play.log`。原版資料夾不會被修改。
+按鍵（保留給程式，不送進遊戲；完整清單與修飾鍵組合見 `docs/spec/006` 第 2 節）：F1 功能說明與統計，F2 切換 theme（原版、HD、AI 重繪，只列出可用的），F3 聲音開關，F4 切換介面語言（繁體中文、簡體中文、韓文、英文、日文；遊戲內文字不隨之改變，見 `docs/spec/008`），F11 或 Alt+Enter 全螢幕，F12 存截圖，Ctrl+Q 結束，Ctrl+D 手動存一份診斷（遊戲 hang 住時用）。macOS 筆電的 F1 至 F4 預設是亮度與系統功能，要按 Fn。使用者資料目錄的 `high_reward/`（Linux 在 `~/.config`，macOS 在 `~/Library/Application Support`，Windows 在 `%AppData%`）存放 `saves`、`screenshots`、`crash`（停機、hang 與 Ctrl+D 的診斷，每份含 `info.txt`、畫面與狀態檔，回報當機時提供這個目錄，不要貼到公開的 issue）與每分鐘一行的 `play.log`。原版資料夾不會被修改。
 
 macOS 版沒有簽章，首次開啟請右鍵選「打開」。
 
@@ -133,6 +133,8 @@ macOS 版沒有簽章，首次開啟請右鍵選「打開」。
 | `tools/bot.sh run <名稱>` | 執行遊玩機器人；`-hang-routine SEG:OFF` 模擬某個 routine 進入後不返回 |
 | `tools/play.sh test-diag` | 診斷功能的測試 |
 | `tools/play.sh gui-diag` | Xvfb 內啟動視窗、按 Ctrl+D，確認診斷產生 |
+| `tools/play.sh test-hd` | `apps/hr/hd` 的測試（含 `-race`） |
+| `tools/play.sh gui-lang`、`gui-theme` | Xvfb 內按 F4 循環語言、按 F2 切 theme，比對截圖 |
 
 原版缺失時，依賴它的測試會明確 skip，不使用替代品。
 
