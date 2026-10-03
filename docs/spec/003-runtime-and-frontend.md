@@ -23,7 +23,7 @@
 
 | 介面 | 作用 |
 |---|---|
-| `Open(root, saveDir string, opt Options) (*Session, error)` | 驗證映像（第 2 節）、載入、套用 `docs/spec/002` 的堆疊補丁、`d.Install()`；`saveDir` 設為 `d.Scratch`（第 5 節） |
+| `Open(root string, opt Options) (*Session, error)` | 驗證映像（第 2 節）、載入、套用 `docs/spec/002` 的堆疊補丁、`d.Install()`；`Options.SaveDir` 設為 `d.Scratch`（空字串為唯讀，第 5 節） |
 | `Run(ctx)` | 模擬迴圈（第 4 節）。回傳停機原因（第 3.1 節） |
 | `Frame() *Frame`、`RequestFrame()` | 最近一個快照：`640x480` 的像素值（`Machine.Planar`，0 至 15）、AC 到 DAC 的對應表、DAC 與模擬步數；`Frame.RGBA` 在使用者的執行緒轉成 RGBA。快照是拉取式：前端每次繪製前呼叫 `RequestFrame`，模擬 goroutine 在下一次滑鼠輪詢指令剛執行完時產生（審查實測 `PlanarRGB` 一次 1.8 至 3.3 ms，推送式每 8 ms 一次會吃掉兩到四成的單核）。快照由模擬 goroutine 逐指令檢查 `d.Mouse.Polls` 的長度，在輪詢指令剛執行完的那一刻產生（遊戲回到等輸入的迴圈）：批次邊界或 tick 邊界取樣時游標矩形完整繪出的比例只有 8% 至 9%（審查實測），輪詢指令剛執行完是 158／159。滑鼠 100 毫秒內沒有輪詢（動畫、載入）時，退回牆鐘 100 毫秒的快照。前端執行緒取用快照，不碰機器 |
 | `ScreenPNG() []byte` | 目前畫面的調色盤 PNG（`Machine.Planar` 與 `VGA.DACIndex`，標準庫 `image/png` 預設壓縮），與 `probe -dump-screen-png` 同編碼，供無頭驗收比對雜湊 |
@@ -52,7 +52,7 @@
 
 ## 5. 存檔與檔案
 
-原版把存檔寫在遊戲目錄的 `GAMEFILE.000` 至 `.004`，並更新 `FNAME.DAT`（遊戲以 `fopen "wt+"` 建立）。前端不寫原版目錄：`saveDir`（預設在使用者資料目錄的 `high_reward/saves`）是 dosgolem 的暫存層（`d.Scratch`，dosgolem `docs/spec/009-scratch-writes`），寫入時複製到暫存層再寫。已實測（`docs/re/012` 第 2 節）：讀取槽 0，開系統選單，存入槽 2，暫存層出現 `GAMEFILE.002`（31839 bytes）與 `fname.dat`（158 bytes），原版檔案 MD5 不變；重開後選單的槽 2 列顯示新日期。
+原版把存檔寫在遊戲目錄的 `GAMEFILE.000` 至 `.004`，並更新 `FNAME.DAT`（遊戲以 `fopen "wt+"` 建立）。前端不寫原版目錄：`Options.SaveDir`（前端預設在使用者資料目錄的 `high_reward/saves`）是 dosgolem 的暫存層（`d.Scratch`，dosgolem `docs/spec/009-scratch-writes`），寫入時複製到暫存層再寫。已實測（`docs/re/012` 第 2 節）：讀取槽 0，開系統選單，存入槽 2，暫存層出現 `GAMEFILE.002`（31839 bytes）與 `fname.dat`（158 bytes），原版檔案 MD5 不變；重開後選單的槽 2 列顯示新日期。
 
 限制與要求：
 
