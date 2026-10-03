@@ -29,14 +29,26 @@
 
 ### 效能（成對、同行程、150 對、每塊 1M 步，`HR_BENCH_OVERHEAD=1`）
 
-「聲音」欄是前端預設組合（診斷加 HD 掛鉤）加聲音掛鉤（跟隨型 Sink、不保留資料）對同組合不加聲音掛鉤的使用者 CPU 時間比（修剪平均 ± 標準誤）。有 Sink 時遊戲不再重複讀 MID，所以比值是「掛鉤成本減去省下的重複讀檔」的淨值，不是純掛鉤成本。
+重跑：`HR_BENCH_OVERHEAD=1 HR_TEST_RUN='DiagOverheadPaired' tools/play.sh test-diag`（日誌 `workplace/out/test-overhead-sound.log`，2026-10-03，約 6 分鐘；主機負載平均約 19，成對交替量測抵消大部分負載差異）。所有場景為前端預設組合（診斷加 HD 掛鉤），比值是使用者 CPU 時間的修剪平均 ± 標準誤。
 
-| 場景 | 診斷開 ÷ NoDiag（對照，`docs/spec/005`） | 聲音掛鉤 ÷ 無聲音掛鉤 |
-|---|---:|---:|
-| 冷啟動（HD 掛鉤） | 0.985 ± 0.007 | 0.862 ± 0.006 |
-| 戰鬥佈陣（HD 掛鉤） | 0.985 ± 0.006 | 0.934 ± 0.005 |
+兩種 Sink 回答不同的問題：
 
-另一次量測（Sink 的 `Playing()` 恆為假，遊戲路徑與無 Sink 相同，且 Sink 保留每份 20 KB 的複本）冷啟動比值為 1.090 ± 0.004，超過閘門 1.05。這個情境只出現在 Sink 一直回報「沒在播」時（等於原版旗標 0 的重複讀檔路徑），成本主要是每 14.7K 步一次的 `MusicStart` 複製 20000 bytes 與保留複本造成的 GC 壓力；玩家路徑不會遇到，不計入閘門，但記在這裡，因為它是 `Playing()` 實作出錯時的退化樣子。
+- 跟隨型 Sink（像真的引擎，`discard`）：有 Sink 時遊戲不再重複讀 MID，所以比值是「掛鉤成本減去省下的重複讀檔」的淨值，量不到純掛鉤成本。
+- 恆假 Sink（`Playing()` 恆為假，`discard`）：遊戲走和無 Sink 相同的路徑（照舊重複讀 MID），沒有省下的 I/O 來抵銷，所以比值是不被抵銷的掛鉤成本（每步的 `Insn()` 檢查、`MusicStart` 的 20000 位元組複製、`Playing()` 的 AX 改寫）。
+
+| 場景 | 診斷開 ÷ NoDiag（對照，`docs/spec/005`） | 聲音掛鉤 ÷ 無聲音掛鉤（跟隨型） | 聲音掛鉤 ÷ 無聲音掛鉤（恆假，不被抵銷） |
+|---|---:|---:|---:|
+| 冷啟動（HD 掛鉤） | 1.004 ± 0.008（無 HD 掛鉤）、1.024 ± 0.007（HD 掛鉤） | 0.857 ± 0.006 | 1.007 ± 0.007 |
+| 戰鬥佈陣（HD 掛鉤） | 0.998 ± 0.007（無 HD 掛鉤）、0.998 ± 0.007（HD 掛鉤） | 0.946 ± 0.004 | 0.993 ± 0.004 |
+
+全部在閘門 1.05 之內。不被抵銷的掛鉤成本約為零（冷啟動 +0.7%、戰鬥佈陣 −0.7%，都在誤差內）。
+
+### MID 緩衝的位址與複製路徑
+
+`MusicStart` 複製的 MID 緩衝在線性位址 `0xD5000`（EMS 頁框區，高於 `A0000`）。`SoundStats.MidAddr` 記最近一次複製的位址，`SlowCopies` 記走逐位元組 `Read8` 的次數。`TestSoundHooksDoNotChangeTheGame` 在冷啟動 90M 步的結果：`MidAddr=0xd5000`、`Starts=4774`、`SlowCopies=0`。
+
+- 複製的條件是「範圍不與 VGA 視窗 `A0000–AFFFF` 相交」就用區塊複製（`copy` 自 `Mem`），否則逐位元組 `Read8`。`Read8` 對 `0xD5000` 沒有特殊語意（只對 HMA、平面模式的 VGA 視窗與讀取監看特殊處理），EMS 映射又是把頁資料複製進頁框位址（`internal/dos/ems.go` 的 `WriteBytes`），所以區塊複製與 `Read8` 結果相同；第一次 `MusicStart` 的位元組通過「以 `SCOUT.MID` 開頭」的檢查（`TestSoundHooksDoNotChangeTheGame`）。
+- 逐位元組複製的成本：20000 次 `Read8`，每次 `MusicStart` 約 190 微秒（由效能量測推得：恆假 Sink 冷啟動比值 1.09 時，每 1M 步一塊約 48 次 `MusicStart`，額外約 9 毫秒）。改為區塊複製後恆假 Sink 冷啟動比值降到 1.007 ± 0.007。
 
 ## 3. 離線轉檔（`tools/dosgolem.sh music`）
 
@@ -151,3 +163,7 @@
 | `TestEngineConcurrentThenQuiescentStateMatchesLastCommand` | 並行命令洪流結束、讀取者停止後，最後一個音樂命令決定 `Playing()` |
 
 另有改動：`MusicStart` 的 20000 位元組複製在常規記憶體（`A0000` 以下）改為區塊複製；`pullSource` 的看門狗改用單調時鐘；`patches.go` 檔頭補流程紀錄；`hrmusic` 失敗訊息與判準一致。
+
+### 9.4 runtime 的 Sound 測試全跑
+
+重跑：`HR_TEST_RUN='Sound|SaveDiffDetector' tools/play.sh test-diag`（日誌 `workplace/out/test-runtime-sound-all.log`，2026-10-03，約 119 秒，不帶 `-race`：帶 `-race` 時 90M 步的測試超過 `go test` 預設的 10 分鐘逾時；並行相關的測試已在 `apps/hr/sound` 與 `apps/hr/play` 以 `-race` 跑過）。13 個測試全部通過：`TestSaveDiffDetectorSelfTest`、`TestSoundDoesNotChangeSaves`、`TestSoundPostDecodesArguments`、`TestSoundStatusPatchesAXOnly`、`TestSoundHooksIgnoreNonEntries`、`TestSoundDisabledWhenFlagNonzero`、`TestSoundHooksFailClosedOnBytes`、`TestSoundHooksDoNotChangeTheGame`、`TestSoundPlayingSuppressesReload`、`TestSoundNaturalEndReplays`、`TestSoundPlayMusicPathFromState`、`TestSoundStateFilesAreClean`、`TestSoundEngineSessionIntegration`。

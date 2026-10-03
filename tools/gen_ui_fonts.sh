@@ -24,21 +24,36 @@ got="$(sha256sum "$TTC" | cut -d' ' -f1)"
 [ "$got" = "$WANT_SHA" ] || { echo "TTC 的 SHA-256 是 $got，應為 $WANT_SHA" >&2; exit 1; }
 mkdir -p "$FONTDIR"
 
-# 1. 字元表
-HR_GEN_CHARSET=/src/apps/hr/play/fonts "$ROOT/tools/play.sh" gen-charset
+# 映像：yuan-analysis:1 是另一個專案的映像（歸屬未驗證）；唯讀使用，但要鎖定映像 ID，換了就失敗
+WANT_IMG="sha256:f9ea24396753f49d4c215763aa8726755041f0b523f93c9bdbffd76b8e358fca"
+IMG="yuan-analysis:1"
+gotimg="$(docker image inspect "$IMG" --format '{{.Id}}')" || { echo "找不到映像 $IMG" >&2; exit 1; }
+[ "$gotimg" = "$WANT_IMG" ] || { echo "映像 $IMG 的 ID 是 $gotimg，應為 $WANT_IMG" >&2; exit 1; }
+
+# 1. 字元表。play.sh 的容器指令以管線結尾（go test | tail），沒有 pipefail，測試失敗時整條仍回 0；
+# 所以這裡檢查輸出含 PASS，並檢查五份字元表的時間戳比開始時間新，否則失敗（避免拿舊字元表切子集）。
+START_TS="$(date +%s)"
+sleep 1
+GEN_LOG="$(HR_GEN_CHARSET=/src/apps/hr/play/fonts "$ROOT/tools/play.sh" gen-charset 2>&1)" || { echo "$GEN_LOG" >&2; echo "gen-charset 失敗" >&2; exit 1; }
+echo "$GEN_LOG" | tail -12
+echo "$GEN_LOG" | grep -q '^PASS' || { echo "gen-charset 的輸出沒有 PASS（TestGenCharsets 沒跑或失敗）" >&2; exit 1; }
+for l in zh-TW zh-CN ko en ja; do
+  ts="$(stat -c %Y "$FONTDIR/charset-$l.txt" 2>/dev/null || echo 0)"
+  [ "$ts" -ge "$START_TS" ] || { echo "charset-$l.txt 的時間戳沒有更新（$ts < $START_TS）" >&2; exit 1; }
+done
 
 # fontTools 版本必須是 4.66.1（子集行為隨版本變）；SOURCE.txt 記錄它
 WANT_FT="4.66.1"
 FTV="$(timeout 2m docker run --rm --name "hr-ftver-$$" --network none --memory 256m --cpus 1 --pids-limit 32 \
   --log-opt max-size=10m --log-opt max-file=3 -u "$(id -u):$(id -g)" -e HOME=/tmp \
-  yuan-analysis:1 python3 -c 'import fontTools; print(fontTools.version)')"
+  "$IMG" python3 -c 'import fontTools; print(fontTools.version)')"
 [ "$FTV" = "$WANT_FT" ] || { echo "fontTools 是 $FTV，應為 $WANT_FT" >&2; exit 1; }
 
 # 2 到 4. 子集
 timeout 10m docker run --rm --name "hr-fonts-$$" --network none --memory 1g --cpus 1 --pids-limit 64 \
   --log-opt max-size=10m --log-opt max-file=3 -u "$(id -u):$(id -g)" \
   -v "$(dirname "$TTC"):/fonts:ro" -v "$FONTDIR:/out" -e HOME=/tmp -e TTCNAME="$(basename "$TTC")" \
-  yuan-analysis:1 sh -c '
+  "$IMG" sh -c '
 set -e
 echo "fontTools $(python3 -c "import fontTools; print(fontTools.version)")"
 sha256sum "/fonts/$TTCNAME"
@@ -74,7 +89,7 @@ done
   echo "來源：$(basename "$TTC")（Debian 套件 fonts-noto-cjk，Noto Sans CJK Regular，SIL Open Font License 1.1）"
   echo "SHA-256：$WANT_SHA"
   echo "字面：zh-TW 與 en ＝ 3（TC）、zh-CN ＝ 2（SC）、ko ＝ 1（KR）、ja ＝ 0（JP）"
-  echo "工具：fontTools $FTV（容器 yuan-analysis:1）pyftsubset，--layout-features= --drop-tables+=GSUB,GPOS --no-hinting --notdef-outline --name-IDs=0,7,13,14 --legacy-kern --recalc-bounds"
+  echo "工具：fontTools $FTV（容器映像 $IMG，ID $gotimg）pyftsubset，--layout-features= --drop-tables+=GSUB,GPOS --no-hinting --notdef-outline --name-IDs=0,7,13,14 --legacy-kern --recalc-bounds"
   echo "字元表：charset-<語言>.txt（由 apps/hr/play 的 TestGenCharsets 產生）"
 } > "$FONTDIR/SOURCE.txt"
 echo "完成：$(ls "$FONTDIR"/ui-*.otf | wc -l) 份子集，總大小 $(cat "$FONTDIR"/ui-*.otf | wc -c) bytes"
@@ -87,7 +102,7 @@ start="$(grep -n '^License: SIL-1.1' "$DOC" | tail -1 | cut -d: -f1)"
 [ -n "$start" ] || { echo "$DOC 找不到 License: SIL-1.1 段" >&2; exit 1; }
 timeout 5m docker run -i --rm --name "hr-fontlic-$$" --network none --memory 256m --cpus 1 --pids-limit 32 \
   --log-opt max-size=10m --log-opt max-file=3 -u "$(id -u):$(id -g)" \
-  -v "$FONTDIR:/out" -e HOME=/tmp yuan-analysis:1 python3 - <<'PY'
+  -v "$FONTDIR:/out" -e HOME=/tmp "$IMG" python3 - <<'PY'
 from fontTools.ttLib import TTFont
 names = {}
 for l in ("zh-TW", "zh-CN", "ko", "ja", "en"):

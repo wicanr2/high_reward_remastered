@@ -1,7 +1,7 @@
 # 006 前端：F1 功能說明、F2 切換 theme、F3 聲音開關、F4 切換介面語言
 
-狀態：DRAFT（2026-10-03，第四版）
-審查：審查 A（唯讀）審第一版（報告 `workplace/spec-review/006-review-A.md`，不進版控）：阻擋 B1 至 B5、建議 S1 至 S13。重審（`006-rereview.md`）審第二版：新阻擋 2 個與 R1 至 R10。第三輪（`006-rereview2.md`）審第三版：阻擋 B1（字型腳本斷言與產物不符、授權檔夾帶 GPL 段）與 B2（`Compose` 快照測試仍可能空轉）、建議 R1 至 R13。第四版處理全部，對照見第 14 節。修正後需要第四輪重審（範圍：B1、B2 與 R1 至 R6 的修訂段落）才能升 READY。
+狀態：DRAFT（2026-10-03，第五版）
+審查：審查 A（唯讀）審第一版（報告 `workplace/spec-review/006-review-A.md`，不進版控）：阻擋 B1 至 B5、建議 S1 至 S13。重審（`006-rereview.md`）審第二版：新阻擋 2 個與 R1 至 R10。第三輪（`006-rereview2.md`）審第三版：阻擋 B1（字型腳本斷言與產物不符、授權檔夾帶 GPL 段）與 B2（`Compose` 快照測試仍可能空轉）、建議 R1 至 R13。第四版處理全部。第四輪（`006-rereview3.md`）審第四版：阻擋 B1（`HoldAdapt` 的計數式語意擋不住降頻，需視窗規則）與 B2（`hdView` 世代測試沒有決定性控制點與負對照）、建議 R1 至 R13。第五版處理全部，對照見第 14 節。修正後需要第五輪重審（範圍：B1、B2、R1 至 R3 的修訂段落與第 2 節的跨規格修訂清單）才能升 READY。
 流程：工作樹已有本規格部分功能的實作草稿（`hd/theme.go`、`play/prefs.go`、`i18n.go`、字型子集與產生腳本，與 `docs/spec/007` 的聲音接線）。這些檔案是草稿，未提交到 fork 的 `hr` 分支，部分行為落後於本規格（偏好設定的補丁式合併、`updatePrefs`、`hdView` 的世代、`Composer.A` 原子指標等）。升 READY 後以本規格為準改程式，測試也要改成斷言規格的行為。
 範圍：`apps/hr/play`（前端）與 `apps/hr/hd`（素材預載、釋放、檢查）。涵蓋 F1 說明的內容與語言、F2 在原版與各 HD theme 之間循環、F3 聲音開關（功能見 `docs/spec/007`）、F4 在五種語言之間循環（只切換前端介面文字）、偏好設定、字型內嵌。不含：遊戲內文字（對白、選單、數值表）的多語系，那是里程碑 M10（`docs/spec/008`）；AI theme 的素材本身（M8）；音樂與音效的合成（`docs/spec/007`）。
 關聯：`docs/spec/003-runtime-and-frontend`（保留鍵第 7 節、縮放第 6 節）、`docs/spec/004-hd-overlay`（Composer、清冊第 3.3 節、素材契約第 6 節）、`docs/spec/005-hang-diagnostics`（Ctrl+D、F1 的最近診斷列）、`docs/spec/007-music-sfx-playback`（F3、`-mute`）、`docs/spec/008-ingame-text-localization`（F4 與遊戲內語言，第 3.8 節）、`docs/re/021-mainexe-keyboard-census.md`（遊戲是否讀 F2、F3、F4）。
@@ -14,7 +14,7 @@
 | 項目 | 內容 |
 |---|---|
 | 程式基準 | dosgolem 分支 `hr`，基準提交 `223ed99`；`apps/hr/play`（獨立模組，ebiten v2.9.9）。目前 F1 說明是 `ebitenutil.DebugPrintAt`，只有 ASCII（confirmed，`game.go`） |
-| 文字繪製 | `github.com/hajimehoshi/ebiten/v2/text`（v1，已標 Deprecated 但 v2.9.9 仍在）加 `golang.org/x/image/font/opentype`（x/image v0.31.0，`ziphash` `h1:mLChjE2MV6g1S7oqbXC0/UcKijjm5fnJLUYKIYrLESA=`；其相依 x/text v0.29.0，`h1:1neNs90w9YzJ9BocxfsQNHKuAT4pkghyXc4nhZ6sJvk=`）。兩者的 `.mod`、`.zip`、`.ziphash` 與 `LICENSE` 都在建置映像 `eob-remake-go:1.26.7-ebiten2.9.9` 的 `/go/pkg/mod`（`golang.org/x/image@v0.31.0`、`golang.org/x/text@v0.29.0`，2026-10-03 在容器內 `ls` 確認），也在 `workplace/gomodcache`。`tools/play.sh` 用映像內的模組快取（`GOFLAGS=-mod=mod GOPROXY=off`），不掛 `workplace/gomodcache`；補進 `go.mod`／`go.sum` 後提交並重產 `engine/patches/`。`text/v2` 需要 `go-text/typesetting`，不在任何快取，離線不可建置（confirmed）。`x/image` 的 sfnt 對 CID 型 CFF 的原始碼支援見審查報告，實際能否畫出由第 10 節的字形墨跡測試驗證 |
+| 文字繪製 | `github.com/hajimehoshi/ebiten/v2/text`（v1，已標 Deprecated 但 v2.9.9 仍在）加 `golang.org/x/image/font/opentype`（x/image v0.31.0，`ziphash` `h1:mLChjE2MV6g1S7oqbXC0/UcKijjm5fnJLUYKIYrLESA=`；其相依 x/text v0.29.0，`h1:1neNs90w9YzJ9BocxfsQNHKuAT4pkghyXc4nhZ6sJvk=`）。兩者的 `.mod`、`.zip`、`.ziphash` 與 `LICENSE` 都在建置映像 `eob-remake-go:1.26.7-ebiten2.9.9` 的 `/go/pkg/mod`（`golang.org/x/image@v0.31.0`、`golang.org/x/text@v0.29.0`，2026-10-03 在容器內 `ls` 確認），也在 `workplace/gomodcache`。`tools/play.sh` 用映像內的模組快取（`GOFLAGS=-mod=mod GOPROXY=off`），不掛 `workplace/gomodcache`；補進 `go.mod`／`go.sum` 後提交並重產 `engine/patches/`。`text/v2` 需要 `go-text/typesetting`，不在任何快取，離線不可建置（confirmed）。`x/image` 的 sfnt 能實際畫出五份子集的 CID 型 CFF 字形：字形墨跡測試（`apps/hr/play/fonts_test.go`，2026-10-03）對 205、206、212、101、232 個字元全部 `Glyph` 回 ok 且有墨跡，缺字回 `ok＝false`（`docs/re/022`） |
 | 字型 | Noto Sans CJK Regular。檔案 `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`，SHA-256 `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a`，19,484,784 bytes，Debian 套件 `fonts-noto-cjk 1:20230817+repack1-3`，字型內部版本 2.004，授權 SIL OFL 1.1（confirmed）。TTC 內 10 個字面，全部是 CFF（`OTTO`）：0 ＝ Sans JP、1 ＝ Sans KR、2 ＝ Sans SC、3 ＝ Sans TC、4 ＝ Sans HK、5 到 9 ＝ Sans Mono CJK，Mono 不使用。10 個字面的 `hhea` 都是 ascender 1160、descender −288、unitsPerEm 1000，所以 `Metrics().Height` 不能用來辨認選對面（見第 10 節） |
 | 子集工具 | `tools/gen_ui_fonts.sh`（第 6 節）；fontTools 4.66.1 的 `pyftsubset`（容器 `yuan-analysis:1`，映像識別 `sha256:f9ea24396753f49d…`）。腳本核對 TTC 的 SHA-256 與字面名稱，fontTools 版本不是 4.66.1 即失敗 |
 | 輸入雜湊 | `hd/catalog.tsv` SHA-256 `34d076c868717aab71dfdc0124aad9c5fa1d1a22d46c333445ffa1c8cf964033`，`hd/palettes.tsv` `7eb992cbc6823b57510f41f3d5267c507f243c7d132c8ef1b965fbd0368983d5`。現有 `hd/` 通過新規則：595 列、595 個 PNG 都存在且尺寸為 2w x 2h，24 個調色盤名稱都在 `palettes.tsv`，沒有重複雜湊，沒有空 `hd` 欄的列 |
@@ -43,8 +43,22 @@
   | Alt 加 F4 | 不處理（Windows 與多數 Linux 視窗管理員以此關閉視窗） | 否 |
 
   **Ctrl 按住時 F1 不處理是行為變更**：現行 F1 沒有 Ctrl 判斷（`game.go`），與 F2 至 F4 一致化。F3 排除 Alt 是 `docs/spec/007` 草稿原有的行為，本表統一定案，`docs/spec/007` 第 5.4 節引用本表。
-- `keys.go` 移除 F2、F3、F4 三列，更新檔頭註解。**單一負責者**：本規格升 READY 的同一提交修訂 `docs/spec/003` 第 7 節的保留鍵表與差異表（F1 至 F4、F11、F12、Alt+Enter、Ctrl+Q、Ctrl+D 的完整清單）、第 6 節的縮放句（「縮放模式預設最近鄰，可改為線性」改為 `-linear` 只影響 `original` 的 2 倍步驟）、`docs/spec/005` 的 F1 說明句（改為使用內嵌字型，不再限 ASCII）、`docs/spec/004` 關於 `Frame` 戳記含 HD 圖指標的句子（戳記不含素材指標，素材在合成時以雜湊取得，這也是 theme 能在合成時切換的前提）。`docs/spec/007` 不另改 003。同一提交修訂 `README.md` 的按鍵說明與 `packaging/README.dist.txt` 的按鍵行。macOS 筆電的 F1 至 F4 預設是亮度與系統功能，要按 Fn；發行包說明要提。
-- **遊戲是否讀 F2、F3、F4**（`docs/re/021-mainexe-keyboard-census.md`，靜態普查，2026-10-03）：`MAIN.EXE` 全部 77 個 `int 21h` 中讀鍵的只有 4 個（confirmed），分屬 getch、`_kbhit`、清鍵盤緩衝三個函式；沒有 `int 16h`、INT 09h 掛接、埠 60h 讀取（confirmed，限已解碼指令與原始位元組樣式）；三個函式的呼叫點共 7 處（getch 5 處在錯誤訊息之後，清緩衝 2 處在結束序列，`_kbhit` 0 處），沒有任何一處使用鍵值（confirmed）。結論：F2、F3、F4 不會改變 `MAIN.EXE` 的行為，遊戲在正常遊玩路徑上不讀鍵盤（強推論，旁證 `docs/re/016` 記錄遊戲在不讀鍵盤的畫面不取走按鍵）。保留這三個鍵的唯一可觀察差異是 5 個錯誤等待畫面少了三個可關閉畫面的鍵。涵蓋限制：純靜態、無動態收據（可在 dosgolem 對四個 `int 21h` 位址計數驗證，遊玩中預期為 0）；`OP.EXE`、`END.EXE` 的用法未分析（目前不跑，若日後跑完整 `HR.BAT`，影響：未知）。**停止線**：動態計數在遊玩中命中非零，或日後納入 `OP.EXE`、`END.EXE` 時發現它們使用這三個鍵，改選別的鍵並回到 DRAFT。
+- Shift 或 Meta 按住時，F1 至 F4 視為無修飾鍵（`reservedKeyAction` 只有 `ctrl`、`alt` 兩個參數）。
+- `keys.go` 移除 F2、F3、F4 三列，更新檔頭註解。**跨規格修訂清單與分工**（本規格升 READY 的同一提交；`docs/spec/007` 升 READY 的同一提交處理它自己的格）：
+
+  | 位置 | 修訂 | 負責 |
+  |---|---|---|
+  | `docs/spec/003` 第 6 節縮放句 | 「縮放模式預設最近鄰，可改為線性」改為 `-linear` 只影響 `original` 的 2 倍步驟 | 006 |
+  | `docs/spec/003` 第 7 節保留鍵表 | 列出完整保留鍵：F1 至 F4、F11、F12、Alt+Enter、Ctrl+Q、Ctrl+D，加修飾鍵組合表的引用 | 006 |
+  | `docs/spec/003` 第 10 節差異表（「與原版 DOS 的差異」一格） | 「鍵盤保留鍵」改為指向本規格第 2 節 | 006 |
+  | `docs/spec/003` 第 9 節與同一格的「聲音（無）」 | 聲音由 `docs/spec/007` 負責 | 007 |
+  | `docs/spec/004` 第 91 行（戳記欄位列的「是否有 HD」）與第 104 行（`Frame` 戳記含 HD 圖指標） | 實際 `Stamp` 沒有素材資訊（`stamp.go`），素材在合成時以雜湊取得，這也是 theme 能在合成時切換的前提；兩處一併改 | 006 |
+  | `docs/spec/005` 第 176 行（F1 說明用 `DebugPrint`、字串必須是 ASCII） | 改為使用內嵌字型，不再限 ASCII | 006 |
+  | `docs/spec/005` 第 177 行（保留鍵集合列舉） | 改為引用本規格第 2 節的完整清單 | 006 |
+  | `README.md` 的按鍵說明、`packaging/README.dist.txt` 的按鍵行 | 同步 | 006 |
+
+  macOS 筆電的 F1 至 F4 預設是亮度與系統功能，要按 Fn；發行包說明要提。
+- **遊戲是否讀 F2、F3、F4**（`docs/re/021-mainexe-keyboard-census.md`，靜態普查，2026-10-03）：`MAIN.EXE` 全部 77 個 `int 21h` 中讀鍵的只有 4 個（confirmed），分屬 getch、`_kbhit`、清鍵盤緩衝三個函式；沒有 `int 16h`、INT 09h 掛接、埠 60h 讀取（confirmed，限已解碼指令與原始位元組樣式）；三個函式的呼叫點共 7 處（getch 5 處、清緩衝 2 處、`_kbhit` 0 處），沒有任何一處使用鍵值（confirmed）；這 7 處的情境是 5 個錯誤等待與 2 個結束序列的清緩衝（強推論，其中兩個錯誤訊息字串沒有解碼）。結論：F2、F3、F4 不會改變 `MAIN.EXE` 的行為，遊戲在正常遊玩路徑上不讀鍵盤（強推論，旁證 `docs/re/016` 記錄遊戲在不讀鍵盤的畫面不取走按鍵）。保留這三個鍵的唯一可觀察差異是 5 個錯誤等待畫面少了三個可關閉畫面的鍵。涵蓋限制：純靜態、無動態收據（可在 dosgolem 對四個 `int 21h` 位址計數驗證，遊玩中預期為 0）；`OP.EXE`、`END.EXE` 的用法未分析（目前不跑，若日後跑完整 `HR.BAT`，影響：未知）。**停止線**：動態計數在遊玩中命中非零，或日後納入 `OP.EXE`、`END.EXE` 時發現它們使用這三個鍵，改選別的鍵並回到 DRAFT。
 
 ## 3. F1 功能說明
 
@@ -103,41 +117,44 @@
   5. 啟動預設：`-theme`，其次偏好設定，其次**第一個可用的 HD theme**（有 `hd/` 時是 `hd`，只有 `hd-ai/` 時是 `ai`），都沒有時 `original`。
 - **檢查的內容**：
   - 基底 theme 只在 TSV 層錯誤時拒絕。逐圖問題（PNG 缺檔、尺寸不符、調色盤缺名）維持現行行為：該圖退回基底層（原版像素放大），其餘圖照常。理由：現行 `Assets.Get` 對這些問題逐圖降級；改成「一張壞就整個 HD 關閉」是未經決定的行為變更。
-  - 衍生 theme 的 `CheckTheme(base, assets, S)` 對**每一列**檢查：`hash` 存在於基底清冊且 `w`、`h` 相同；引用的 `pal` 名稱存在於該 theme 自己的 `palettes.tsv`。`hd` 欄**非空**的列另檢查 PNG 存在且尺寸 S×w 乘 S×h（只讀檔頭，內容契約由發行前的驗收工具 `tools/hd` 負責）；`hd` 欄**為空**的列只略過 PNG 檢查（`tools/hd/catalog.py` 產生的清冊列出全部雜湊，沒有 HD 圖的列 `hd` 欄為空，`docs/spec/004` 第 3.3 節；草稿 `theme.go` 的行為與此一致）。允許只涵蓋部分雜湊；有任何一項不符就拒絕整個衍生 theme，記一行錯誤，其餘 theme 照常。比對以 `hash` 為鍵的集合，不依列序，也不比 `id`、`kind`、`pal` 欄的內容。`palettes.tsv` 不需與基底一致，合成用該 theme 自己的調色盤。
-  - **兩條路徑的嚴格度不同是決定**：啟動時的預設 HD theme 沿用延遲解碼、不預載（開啟快）；切換（F2）時的預載若全部失敗就拒絕切換。啟動後若全部 PNG 都缺，畫面是基底層（原版放大），由下面的錯誤輸出規則通報。
-  - **逐圖錯誤的輸出**：`Assets.Errors`（每雜湊最多一筆，上限 595 筆）目前只有 `cmd/hrhd` 讀取，前端不讀，所以現行逐圖降級沒有任何輸出。規定：前端在預載完成時、以及遊戲執行中每 60 秒檢查一次 `Errors` 的筆數，筆數增加時記一行（筆數與第一筆原因），不逐筆記。
+  - 衍生 theme 用 `hd.CheckTheme(base *Assets, dir string, s int) error`（簽名與草稿 `theme.go` 一致，內部自己 `LoadAssets(dir)`；`base` 為 nil 時回明確錯誤，不 panic）。它對**每一列**檢查：`hash` 存在於基底清冊且 `w`、`h` 相同；引用的 `pal` 名稱存在於該 theme 自己的 `palettes.tsv`。`hd` 欄**非空**的列另檢查 PNG 存在且尺寸 S×w 乘 S×h（只讀檔頭，內容契約由發行前的驗收工具 `tools/hd` 負責）；`hd` 欄**為空**的列只略過 PNG 檢查（`tools/hd/catalog.py` 產生的清冊列出全部雜湊，沒有 HD 圖的列 `hd` 欄為空，`docs/spec/004` 第 3.3 節；草稿 `theme.go` 的行為與此一致）。允許只涵蓋部分雜湊；有任何一項不符就拒絕整個衍生 theme，記一行錯誤，其餘 theme 照常。比對以 `hash` 為鍵的集合，不依列序，也不比 `id`、`kind`、`pal` 欄的內容。`palettes.tsv` 不需與基底一致，合成用該 theme 自己的調色盤。
+  - **兩條路徑的嚴格度不同是決定**：啟動時的預設 HD theme 沿用延遲解碼、不預載（開啟快）；切換（F2）時的預載若解碼成功數為 0 就拒絕切換。啟動後若全部 PNG 都缺，畫面是基底層（原版放大），由下面的錯誤輸出規則通報。
+  - **逐圖錯誤的輸出**：`Assets.Errors`（每雜湊最多一筆，上限 595 筆）目前只有 `cmd/hrhd` 讀取，前端不讀，所以現行逐圖降級沒有任何輸出。`Errors` 由合成執行緒在 `a.mu` 下 `append`，`Release` 會把它設為 nil，因此前端**不直接讀欄位**，改用帶鎖的 `Assets.ErrorCount()` 與 `Assets.FirstError()`。規定：前端在預載完成時、以及遊戲執行中每 60 秒檢查一次 `ErrorCount()`，筆數增加時記一行（筆數與第一筆原因），不逐筆記。增加的基準每個 `Assets` 各存一份，`Release` 時重設（否則筆數倒退後的下一次增加會被吞掉）。
 - 辨識（`Overlay`）與 theme 無關，所以切換 theme 不需重開 `Session`。
 - `status` 欄：執行期的 theme 載入不看 `hd/provenance.tsv` 的 `status`（`AGENTS.md` 第 8 節規定新素材先是 `candidate`）。AI theme 的候選圖在 F2 會直接顯示，這是**決定**：它是使用者過目新素材的方式；發行包不含 `hd-ai/`（`tools/package.sh` 的 `stage_hd` 只複製 `hd/`，confirmed）。
-- F2：依序 `original → hd → ai → original`（略過不可用的）循環。只有 `original` 可用時 F2 顯示提示「沒有其他 theme」，不改變狀態。
+- F2：依序 `original → hd → ai → original`（略過不可用的）循環。只有 `original` 可用時 F2 顯示提示「沒有其他 theme」，不改變狀態。**被拒的 theme 不再卡住循環**：預載被拒（解碼成功數為 0，含全部失敗與 `Preload` 回 `(0, 0)`，例如清冊的 `hd` 欄全空）時，該 theme 在本次執行標為不可用並記一行，`nextTheme` 略過它；逾時的 theme 不立即標記，允許再試一次，第二次逾時才標為不可用。
 - `-theme original|hd|ai`、`-no-hd`：`-theme` 的值未知或該 theme 不可用，退回預設並記一行，不致命。`-no-hd` 是「不開 HD 掛鉤」：`HDHooks` 關、不建立 `hdView`、F2 沒有其他 theme，與 `-theme original` 不同（後者保留掛鉤與 `hdView`，F2 仍可切）。
 
-**預載狀態機**（純邏輯，注入載入器與時鐘即可測試）：
+**切換狀態機**（純邏輯，注入載入器與時鐘即可測試）：
 
 | 狀態 | 進入 | 離開 |
 |---|---|---|
-| idle | 初始；載入結束 | F2 且目標是 HD theme 且尚未常駐 |
-| loading(g) | 啟動背景 goroutine（世代 g）對目標 `Assets` 執行 `Assets.Preload(ctx, progress)`，進度顯示在 toast 行 | 成功（成功數 > 0）；全失敗；取消；逾時（60 秒，`ctx` 取消） |
-| cancelling | 逾時或取消後，goroutine 尚未回來 | goroutine 回傳 |
+| idle | 初始；任何路徑結束 | F2 且目標是尚未常駐的 HD theme → loading；F2 且目標已常駐 → applying；F2 且目標是 `original` → 立即切換（見下） |
+| loading(g) | 啟動背景 goroutine（世代 g）對目標 `Assets` 執行 `Assets.Preload(ctx, progress)`，進度顯示在 toast 行 | 成功數大於 0 → applying；成功數為 0 → 標為不可用 → idle；逾時（60 秒，`ctx` 取消）→ cancelling；程式結束時取消 → cancelling |
+| cancelling | 逾時或程式結束取消後，goroutine 尚未回來 | goroutine 回傳 → idle |
+| applying | 目標素材就緒，`hdView.SetAssets(target)` 已呼叫，目前 theme 已更新為目標；等該世代第一張新畫面或 2 秒 | 顯示來源換成 `imgHD` → idle |
 
-- loading 與 cancelling 期間再按 F2：忽略，toast 顯示「載入中」，不排隊。
-- 結果只由 goroutine 回報、以世代比對丟棄過期結果。**`Release` 只在 goroutine 自己回傳之後、且該 `Assets` 沒有其他載入進行時，由該 goroutine 呼叫**（不在 UI 執行緒呼叫：`Release` 取 `a.mu`，合成執行緒正在 `Get` 解碼時會等一次 PNG 解碼）。取消、逾時、全失敗都釋放目標素材，部分解碼的快取（最多約 194 MiB）不留著；逾時後再按 F2 重新開始載入，從頭解碼。
-- 成功時切換；有部分失敗照常切換，失敗的圖退回基底層，數量記一行。解碼成功數為 0 時拒絕切換並提示失敗。
+- loading、cancelling、applying 期間再按 F2：忽略，不排隊，toast 顯示「載入中」。取消沒有使用者動作，只有逾時與程式結束兩個來源。
+- 結果只由 goroutine 回報、以世代比對丟棄過期結果。部分解碼的快取（最多約 194 MiB）不留著：取消、逾時、全失敗時由該 goroutine 在回傳後 `Release` 目標素材；逾時後再按 F2 重新開始載入，從頭解碼。
+- **每個 `Assets` 的常駐狀態與序列化**：absent、loading、resident、releasing 四態，受該 `Assets` 的一把互斥鎖保護；`Preload` 與 `Release` 對同一個 `Assets` 串行。`hd → original → hd` 兩次 F2 之間，切走時的背景 `Release`（含 `runtime.GC()` 與 `debug.FreeOSMemory()`）可能還在進行，此時新的預載要等 releasing 結束才開始（toast 顯示「載入中」），不會讓新預載解碼的項目被舊的 `Release` 清掉。`Release` 不在 UI 執行緒呼叫（它取 `a.mu`，合成執行緒正在 `Get` 解碼時會等一次 PNG 解碼）。
+- 成功時切換；有部分失敗照常切換，失敗的圖退回基底層，數量記一行。
 - 時間：`docs/re/014` 實測全部載入約 1.65 秒（強推論，目標機器未量，量測見第 10 節）。`Get` 持鎖解碼，所以預載只對「目前沒有被合成使用」的 `Assets` 進行：從 `original` 切到 `hd` 時，`hd` 的 `Assets` 同時是 `Session` 的 `HDAssets`，但 `Overlay` 只讀清冊、不碰解碼快取，預載它安全。
-- **預載與模擬降頻**：`Session.adapt` 每 2 秒檢查，tick 落後 5% 以上就把間隔降為 90% 且不再調回（confirmed，`session.go`）。預載是單核解碼，與模擬、合成、UI、音訊同時進行，雙核機器（`tools/play.sh` 預設 `--cpus 2`）上可能觸發永久降頻，改變遊戲相對於計時器的速度。規定：`Session` 提供 `HoldAdapt() (release func())`（計數式，不為零時 `adapt` 不評估落後也不降頻），預載期間持有，結束（含取消、逾時）釋放；`runtime` 測試守住「持有時不降頻、放開後會降」。收據量測雙核下 F2 前後的 `Lowered` 與 `interval`。
+- **預載與模擬降頻**：`Session.Run` 每 2 秒呼叫一次 `adapt`，隨後無條件把視窗基準（`lastCheck`、`checkTicks`）重設為現在；`adapt` 判斷整個視窗內的 tick 數，落後 5% 以上就把間隔降為 90% 且 `lowered` 永久為真（confirmed，`session.go`）。預載是單核解碼，與模擬、合成、UI、音訊同時進行，雙核機器（`tools/play.sh` 預設 `--cpus 2`）上可能觸發永久降頻，改變遊戲相對於計時器的速度。只讓 `adapt` 在持有時返回不夠（預載在視窗中途結束時，評估點落在持有之後，視窗仍含競爭期）。規定：`Session.HoldAdapt() (release func())`，計數用 atomic，`release` 冪等。**視窗規則**：任何與持有時間相交的視窗（含放開當下所在的視窗）只重設基準、不評估。實作上 `release()` 設一個 atomic 旗標，`Run` 的檢查寫成「持有數大於 0 或旗標被清除一次」時只重設基準。決策抽成可注入時鐘的純函式，測試以時間序列驅動（第 10 節）。預載期間持有，結束（含取消、逾時）釋放。收據量測雙核下 F2 前後的 `Lowered` 與 `interval`；另有對照：同一容器、同樣時間長度，以 `-theme hd` 啟動、不按 F2，若 `Lowered` 為真，代表 `hdView` 的持續合成本身就會降頻，F2 前後不變的斷言無效（`hdView` 的 `Workers` 預設 `min(GOMAXPROCS, 8)`）。
 
 **切換的序列與畫面**：
-1. 目標是 HD theme：預載成功後，`hdView.SetAssets(target)` 並恢復（若暫停中），然後**等 `hdView` 發佈該世代的第一張新畫面（最多 2 秒）才把顯示來源換成 `imgHD`**；2 秒內沒有新畫面（遊戲停機）仍然換，顯示最後一張合成畫面或基底層。因此切換瞬間不會閃出黑色或舊 theme 的內容。
+1. 目標是 HD theme（狀態 applying）：預載成功或目標已常駐後，`hdView.SetAssets(target)`。**內部順序固定：先設 `Composer` 的素材，再在 `mu` 下遞增 `epoch` 並清 `ready`**。反過來時，`run` 若在兩步之間讀到新 `epoch` 並快照到舊素材，會把舊 theme 的畫面當成新世代的第一張發佈，造成切換閃爍。目前 theme 在此刻就更新為目標，之後顯示來源換成 `imgHD` 只是呈現。然後**等 `hdView` 發佈該世代的第一張新畫面（最多 2 秒）才把顯示來源換成 `imgHD`**。停機時 `SetAssets` 仍讓 `run` 用目前 `Frame` 重合成，新畫面照樣出現；2 秒到期只會發生在 `Frame()` 為 nil（`Session` 尚無畫面）或 `Compose` 超過 2 秒。逾時仍換，此時 `imgHD` 可能是黑色或舊 theme 的內容，列為已知差異。
 2. 目標是 `original`：顯示來源立刻換成 `imgOrig`，`hdView` 暫停（下面），目前 HD theme 的 `Assets` 在背景 `Release`。
 3. 從 HD theme 切到另一個 HD theme：新 theme 套用（序列 1）之後，舊 theme 在背景 `Release`。常駐只有目前 theme，換手瞬間最多兩份。
 
-**`Release` 與記憶體預算**：每個 HD theme 解碼後約 194 MiB（595 張，原版像素合計 12,709,184 乘 4 位元組乘 4 ＝ 203,346,944 bytes ＝ 193.9 MiB；`docs/re/014` 另記全部載入約 262 MB 含不在清冊的字型圖）。`Assets.Release()` 清空解碼快取，保留清冊與調色盤，之後 `Get` 重新延遲解碼。`Release` 之後在背景呼叫 `runtime.GC()` 與 `debug.FreeOSMemory()`（Go 的堆積目標約為上次 GC 後存活量的兩倍，只丟參照不會立刻還給系統；強推論，未量測）。**通過標準**（收據量測後可調整，調整要記在 `docs/re`）：`Release` 加 `FreeOSMemory` 完成後 RSS 不高於預載前 RSS 加 64 MiB；換手瞬間的峰值 RSS 不高於 600 MiB；超過時用 `debug.SetMemoryLimit` 收斂，並記錄採用的值。切回已釋放的 theme 要重新預載。
+**`Release` 與記憶體預算**：每個 HD theme 解碼後約 194 MiB（595 張，原版像素合計 12,709,184 乘 4 位元組乘 4 ＝ 203,346,944 bytes ＝ 193.9 MiB；`docs/re/014` 另記全部載入約 262 MB 含不在清冊的字型圖）。`Assets.Release()` 清空解碼快取與 `Errors`，保留清冊與調色盤，之後 `Get` 重新延遲解碼。`Release` 之後在背景呼叫 `runtime.GC()` 與 `debug.FreeOSMemory()`（Go 的堆積目標約為上次 GC 後存活量的兩倍，只丟參照不會立刻還給系統；強推論，未量測）。**通過標準**（收據量測後可調整，調整要記在 `docs/re`）：`Release` 加 `FreeOSMemory` 完成後 RSS 不高於預載前 RSS 加 64 MiB；換手瞬間的峰值 RSS 不高於 600 MiB。預設不設 `debug.SetMemoryLimit`；要用時下限必須高於換手瞬間的存活量（兩份 theme 約 388 MiB 加基底與遊戲）再加餘裕，限制過低會讓 GC 吃滿 CPU 而拖慢模擬並觸發降頻；採用時收據記錄量到的 `Lowered`。切回已釋放的 theme 要重新預載。
 
 **換素材與暫停的併發**：
-- `Composer.A` 改為 `atomic.Pointer[Assets]`，提供 `SetAssets(*Assets)`；`Compose` 在**取任何素材之前**載入一次，整幀只用這個快照（草稿的快照在 `compose_draw.go` 的基底放大與驗證之後，實質相同，因為 `Composer.A` 在 `Compose` 內只有這一處讀取）。換素材可由任何執行緒呼叫 `SetAssets`，不需請求通道與確認機制。`Release` 即使在還有一次 `Compose` 持有舊素材時呼叫也安全（`drawStamp` 只讀不可變的 `as.Img`，`Get` 會重新延遲解碼，只是讓記憶體短暫回來）。
+- `Composer.A` 改為 `atomic.Pointer[Assets]`，提供 `SetAssets(*Assets)`；`Compose` 在**取任何素材之前**載入一次，整幀只用這個快照（草稿的快照在 `compose_draw.go` 的基底放大與驗證之後，實質相同，因為 `Composer.A` 在 `Compose` 內只有這一處讀取）。換素材可由任何執行緒呼叫 `SetAssets`，不需請求通道與確認機制。`Release` 即使在還有一次 `Compose` 持有舊素材時呼叫也安全（`drawStamp` 只讀不可變的 `as.Img`，`Get` 會重新延遲解碼）；重新解碼的項目留在快取直到下一次 `Release`，上限是那一幀用到的圖，遠小於 194 MiB。第 10 節有 `-race` 的並行測試。
 - `hdView` 對畫面來源只依賴介面 `frameSource{ Frame() *hrrt.Frame }`（`*hrrt.Session` 實作），測試用假來源，不需原版。
 - **暫停、恢復與世代**：`hdView` 持有 `epoch`（受 `mu` 保護）。`Pause()`、`Resume()`、`SetAssets()` 都在 `mu` 下遞增 `epoch`、清掉 `ready`／`readySeq`，`Resume()` 與 `SetAssets()` 另外讓 `run` 重設 `last`（用目前 `Frame` 立刻重合成，即使 `Session` 沒有新 `Seq`）。`run` 在每次 `Compose` 前讀 `epoch`，完成後持 `mu` 檢查 `epoch` 未變且未暫停才發佈，否則丟棄結果。暫停中 `run` 不合成。
+- **測試控制點**：`Assets` 提供匯出的測試輔助 `SetGetHook(f func(hash string))`（文件註明僅供測試，正式為 nil）；`Get` 在進入時、查快取之前呼叫它。這個鉤子讓 `Compose` 決定性地停在戳記迴圈中（鉤子送出訊號並阻塞到測試放行），`hd` 與 `play` 兩個套件的測試都用它（`play` 的 `hdView` 持有具體的 `*hd.Composer`，不另開 compose 縫隙）。`hdView` 的未匯出欄位 `skipEpochCheck`（只有測試設定）讓 `run` 發佈時不比對 `epoch`，作為世代檢查的負對照。
 - F12 與 `writePNG`：`ready` 為空（清空中）時，HD theme 下的 F12 退回存原版快照（640x400）並記一行，不寫舊畫面或全黑 PNG。
-- 提示：切換後在 toast 行顯示 2 秒「Theme: HD」之類（該語言的文字）。
+- 提示：切換完成（顯示來源已換）後在 toast 行顯示 2 秒「Theme: HD」之類（該語言的文字），並記一行日誌 `theme ready: <代號>`（測試用的完成訊號，在顯示來源換成目標之後才記）。toast 與載入進度同一行：使用者操作的提示（切換、語言、聲音）優先，壓過進度 2 秒，之後進度恢復顯示。
 
 ## 5. F4 與介面語言
 
@@ -154,16 +171,18 @@
 - 字串表：`i18n.go`，鍵到五種語言的文字。測試要求每個鍵都有五種語言、非空，且格式動詞（`%d`、`%s`、`%.0f`）的順序與個數在五種語言一致。
 - 字型子集：每個語言一份（`zh-TW` 用 TC 字面（`--font-number=3`）、`zh-CN` 用 SC（2）、`ko` 用 KR（1）、`ja` 用 JP（0）、`en` 用 TC 的拉丁字母）。字元表由字串表產生：`apps/hr/play` 的 `TestGenCharsets`（`HR_GEN_CHARSET=<目錄>`）把每個語言的字元倒成 `fonts/charset-<lang>.txt` 入版控，加 ASCII 可印字元、`…`、`?`；不用正規式從 Go 原始碼抓字串。
 - **`pyftsubset` 旗標**（fontTools 4.66.1，2026-10-03 在容器內實跑確認）：`--layout-features=`（清空字形替換與定位特性）、`--drop-tables+=GSUB,GPOS`（只用前一旗標，輸出仍留下空殼的 GSUB 72 bytes 與 GPOS 32 bytes；加上此旗標後兩表不存在；`x/image` 沒有 shaping，用不到）、`--no-hinting`、`--notdef-outline`、`--name-IDs=0,7,13,14`（**取代**預設集合 0 至 6：保留版權、商標、授權說明、授權網址；`x/image` 的 `initialize` 不解析 `name` 表，丟掉 1 至 6 可行，這是決定）、`--legacy-kern`、`--recalc-bounds`。預設 `name_IDs` 不含 13、14，不加旗標會被丟掉。輸出 OTF。實測子集的表為 BASE、CFF、OS/2、VORG、cmap、head、hhea、hmtx、maxp、name、post、vhea、vmtx（沒有 GSUB、GPOS、kern）。
-- **產生腳本 `tools/gen_ui_fonts.sh`**（容器內，掛載前確認來源存在，因為來源不存在時 dockerd 會以 root 建空目錄）：核對 TTC 的 SHA-256；核對指定字面的 name table 名稱（選到 Mono 字面會讓拉丁字母變等寬）；**fontTools 版本不是 4.66.1 即失敗**；每份子集斷言沒有 GSUB、GPOS 表，name ID 0、7、13、14 都存在；`SOURCE.txt` 記錄來源、雜湊、fontTools 版本、旗標。輸出入版控並以 `go:embed` 內嵌：`apps/hr/play/fonts/ui-<lang>.otf`、`charset-<lang>.txt`、`SOURCE.txt`、`OFL.txt`。字元表改了而字型沒有重產（字型過期）時，第 10 節的「每個字元都有字形」測試會失敗。
-- **`OFL.txt`**：字型內嵌的版權與授權說明（name ID 0、13、14，OFL 第 2 條要求每份複本帶版權聲明與授權），加 OFL 1.1 全文。全文取自 Debian 套件 `fonts-noto-cjk` 的 `copyright` 檔 `License: SIL-1.1` 段，**只取該段**：Debian 的段落以空白開頭的行延續，遇到不以空白開頭的行（下一段，例如 `debian/*` 的 `License: GPL-3+`）即停；腳本末端斷言 `OFL.txt` 含 "SIL OPEN FONT LICENSE Version 1.1" 且不含 "GNU General Public License"（第三輪審查發現前一版夾帶 GPL-3+ 段共 12 行；修正後 `OFL.txt` 為 97 行，2026-10-03 實跑確認）。通知文字取自字型內嵌的 name ID 0（「© 2014-2021 Adobe」，與 Debian 彙總檔的「Google 2010-2012」不同，以字型內嵌為準）；子集是修改版，OFL 允許。「Noto 沒有 Reserved Font Name」的等級是強推論：Debian 的 `copyright` 與 TTC 全檔（ASCII 與 UTF-16BE 都找過）沒有宣告 Reserved Font Name（"reserved" 只出現在 OFL 全文內），上游 `LICENSE` 離線無法查；升 READY 前查上游（停止線）。
-- **發行包的授權聲明**：`tools/package.sh` 的 `make_notices` 現在沒有 `x/image`、`x/text`，字型授權檔用 `if [ -f … ]` 包住（缺檔會靜默略過）。本規格實作時：加入 `oto`、`x/image`、`x/text` 與 `/w/dosgolem/apps/hr/play/fonts/OFL.txt`（掛 `$ROOT/workplace:/w`），字型授權檔缺檔改為失敗。驗收（`tools/pkg/verify_*.sh` 目前沒有任何 "SIL"、"Adobe" 或 `THIRD_PARTY` 的斷言，是全新的工作）：包內的 `THIRD_PARTY_NOTICES.txt` 含 "SIL OPEN FONT LICENSE" 與 "Adobe"，且不含 "GNU General Public License"。
+- **產生腳本 `tools/gen_ui_fonts.sh`**（容器內，掛載前確認來源存在，因為來源不存在時 dockerd 會以 root 建空目錄）：核對 TTC 的 SHA-256；核對指定字面的 name table 名稱（選到 Mono 字面會讓拉丁字母變等寬）；**fontTools 版本不是 4.66.1 即失敗**；每份子集斷言沒有 GSUB、GPOS 表，name ID 0、7、13、14 都存在；`SOURCE.txt` 記錄來源、雜湊、fontTools 版本、旗標。**穩健度**：`play.sh gen-charset` 的容器指令以管線結尾（`go test … | tail`），沒有 pipefail，測試失敗時管線仍回 0；腳本因此要檢查輸出含 `PASS`，並檢查五份 `charset-*.txt` 的時間戳比腳本開始時間新，否則失敗（避免拿舊字元表切子集）。`yuan-analysis:1` 是另一個專案的映像（歸屬未驗證），唯讀的 `docker run` 不改映像，但可重現性依賴本專案管不到的映像：腳本比對映像 ID（`sha256:f9ea24396753f49d…` 的完整值寫在腳本與 `SOURCE.txt`），不符即失敗。`play.sh` 的前置檢查要求 `workplace/orig` 存在，與字型產生無關（已知限制，沒有原版時整條腳本不能跑，除非 `play.sh` 的檢查改為只對需要原版的子命令生效）。輸出入版控並以 `go:embed` 內嵌：`apps/hr/play/fonts/ui-<lang>.otf`、`charset-<lang>.txt`、`SOURCE.txt`、`OFL.txt`。字元表改了而字型沒有重產（字型過期）時，第 10 節的「每個字元都有字形」測試會失敗。
+- **`OFL.txt`**：字型內嵌的版權與授權說明（name ID 0、13、14，OFL 第 2 條要求每份複本帶版權聲明與授權），加 OFL 1.1 全文。全文取自 Debian 套件 `fonts-noto-cjk` 的 `copyright` 檔 `License: SIL-1.1` 段，**只取該段**：Debian 的段落以空白開頭的行延續，遇到不以空白開頭的行（下一段，例如 `debian/*` 的 `License: GPL-3+`）即停；腳本末端斷言 `OFL.txt` 含 "SIL OPEN FONT LICENSE Version 1.1" 且不含 "GNU General Public License"（第三輪審查發現前一版夾帶 GPL-3+ 段共 12 行；修正後 `OFL.txt` 為 97 行，2026-10-03 實跑確認）。通知文字取自字型內嵌的 name ID 0（「© 2014-2021 Adobe」，與 Debian 彙總檔的「Google 2010-2012」不同，以字型內嵌為準）；子集是修改版，OFL 允許。「Noto 沒有 Reserved Font Name」的等級是強推論：Debian 的 `copyright` 與 TTC 全檔（ASCII 與 UTF-16BE 都找過）沒有宣告 Reserved Font Name（"reserved" 只出現在 OFL 全文內）；上游 `notofonts/noto-cjk` 的 `Sans/LICENSE` 首句是 "This Font Software is licensed under the SIL Open Font License, Version 1.1"，沒有宣告 Reserved Font Name（2026-10-03 以 WebFetch 讀取，是摘要結果，原檔未保存）。發行前以原檔再核對一次（停止線）。
+- **證據留存**：字型方案的容器實跑結果（fontTools 版本、五份子集的表清單與 SHA-256、`OFL.txt` 的行數與 SHA-256、建置映像內 `x/image` 與 `x/text` 的 `ls`、字形墨跡測試結果）記在 `docs/re/022-ui-font-subset-receipts.md`。
+- **發行包的授權聲明**：`tools/package.sh` 的 `make_notices` 已含 `oto`，現在沒有 `x/image`、`x/text`，字型授權檔用 `if [ -f … ]` 包住（缺檔會靜默略過）。本規格實作時：加入 `x/image`、`x/text` 與 `/w/dosgolem/apps/hr/play/fonts/OFL.txt`（掛 `$ROOT/workplace:/w`），字型授權檔缺檔改為失敗。驗收（`tools/pkg/verify_*.sh` 目前沒有任何 "SIL"、"Adobe" 或 `THIRD_PARTY` 的斷言，是全新的工作）：包內的 `THIRD_PARTY_NOTICES.txt` 含 "SIL OPEN FONT LICENSE" 與 "Adobe"，且不含 "GNU General Public License"。
 
 ## 7. 偏好設定
 
 - 檔案 `<資料目錄>/prefs.json`：`{"version":1,"theme":"hd","lang":"zh-TW","sound":true}`。
 - **只寫被切換的欄位，以補丁合併**：F2 改 `theme`、F3 改 `sound`、F4 改 `lang`。每次切換提交一個欄位補丁；背景寫入者合併**待套用的補丁**（同欄位後者覆蓋、不同欄位保留，所以 F2 後立刻 F4 兩個欄位都會寫入），然後讀目前的檔案、套用補丁、原子寫回。旗標與環境變數啟動（例如 `-theme original`、`-mute`、`HR_MUTE`）的值不進補丁，不會被持久化。兩個執行個體同時運行時，讀檔、改欄位、改名之間沒有檔案鎖，窗口縮小到一次寫入，但不是零：列為已知差異。
 - 讀取：逐欄位寬鬆解析（每個欄位單獨解碼，型別錯誤只讓該欄位用預設，不讓整份失敗）。未知欄位忽略，寫回時**保留**。值已知但目前不可用（例如 `"ai"` 而沒有 `hd-ai/`）：用預設，不覆寫檔案內容。
-- **版本與損壞**：`version` 缺或不是數字、或檔案不是合法 JSON，視為損壞：第一次寫入前把原檔改名為 `prefs.json.bad`（覆蓋舊的 `.bad`），再寫新檔，記一行。`version` 是數字但不是 1（例如新版寫的 2）：已知欄位照常讀取；寫回時**原樣保留 `version` 的值與所有未知欄位**，只改被切換的欄位。
+- **補丁的提交時機**：切換完成（顯示來源已換、語言與聲音狀態已生效）才提交，不在按鍵當下。預載被拒或逾時時不得寫入 `theme`。
+- **版本與損壞**：頂層不是 JSON 物件（陣列、`null`、字串）、不是合法 JSON，或 `version` 缺或不是數字，視為損壞：**每次寫入時**對剛讀到的位元組判斷（不是啟動時留下的旗標；否則兩個執行個體時，晚到的那個會把對方剛寫好的有效檔改名成 `.bad`），損壞就先把原檔改名為 `prefs.json.bad`（覆蓋舊的 `.bad`），再寫新檔，記一行。`version` 是數字但不是 1（例如新版寫的 2）：已知欄位照常讀取；寫回時**原樣保留 `version` 的值與所有未知欄位**，只改被切換的欄位。
 - 優先序（theme、lang、sound 一致）：命令列旗標、環境變數（目前只有 `HR_MUTE`，`docs/spec/007` 第 5.4 節）、偏好設定、預設。
 - 寫入：`os.CreateTemp` 建唯一的暫存檔再 `os.Rename`；在背景 goroutine 寫，不阻塞 UI 執行緒；失敗只記一行。**結束時 flush**：所有結束路徑（Ctrl+Q、視窗關閉、停機後離開、`os.Exit(1)` 的錯誤路徑）都經同一個 `quit()`，它等最後一次寫完，最多 1 秒（`Close()` 內部帶逾時，草稿的無上限等待要改）。信號終止不保證（已知差異）。啟動時清理自己留下的 `.prefs-*.tmp`（崩潰殘留，盡力而為）。`dataDir()` 在 `UserConfigDir` 失敗時退到 `os.TempDir()`，此時偏好設定不跨次保留（已知差異）。
 
@@ -174,15 +193,17 @@
 | 基底 theme 的清冊或調色盤 TSV 缺檔或格式錯誤 | 該 theme 不可用，記一行；沒有其他 theme 時 `HDAssets` 為 nil，F2 只有 `original` |
 | 基底 theme 的個別 PNG 缺檔、尺寸不符、調色盤缺名 | 該圖退回基底層，其餘照常（現行行為，不變）；`Errors` 筆數增加時依第 4 節規則記一行 |
 | 衍生 theme 的檢查不符（雜湊不在基底、尺寸不符、調色盤缺名、非空 `hd` 欄的圖檔缺或尺寸不符） | 拒絕該 theme，其餘照常，F2 略過它，記一行 |
-| 預載全部解碼失敗 | 拒絕切換，提示失敗，留在原 theme，goroutine 回傳後 `Release` 目標素材 |
-| 預載逾時（60 秒）或取消 | 丟棄結果，留在原 theme，提示逾時，記一行，goroutine 回傳後 `Release` 目標素材 |
+| 預載解碼成功數為 0（含全部失敗與 `Preload` 回 `(0, 0)`，例如清冊 `hd` 欄全空） | 拒絕切換，提示失敗，留在原 theme，goroutine 回傳後 `Release` 目標素材；該 theme 在本次執行標為不可用並記一行，`nextTheme` 略過它 |
+| 預載逾時（60 秒）或程式結束取消 | 丟棄結果，留在原 theme，提示逾時，記一行，goroutine 回傳後 `Release` 目標素材；逾時的 theme 允許再試一次，第二次逾時才標為不可用 |
+| 切換等不到新畫面（2 秒，`Frame()` 為 nil 或 `Compose` 過慢） | 仍把顯示來源換成目標；`imgHD` 可能是黑色或舊內容（已知差異） |
+| applying 狀態時按 F2 | 忽略，不排隊 |
 | 預載部分失敗 | 照常切換，失敗的圖退回基底層，記一行（失敗數） |
 | 預載期間 `Session` 落後 | `HoldAdapt` 持有中不降頻；放開後恢復原判斷 |
 | 字型缺字 | 字串表內不得有缺字（測試保證）；動態字串以 `?` 取代 |
 | 字型載入失敗 | 退回 ASCII 英文的 F1，功能照常 |
 | 偏好設定檔損壞 | 改名為 `prefs.json.bad`，用預設，寫新檔 |
 | 偏好設定的值不可用 | 該欄位用預設，不覆寫檔案內容 |
-| 載入中或 cancelling 時按 F2 | 忽略，不排隊 |
+| loading 或 cancelling 時按 F2 | 忽略，不排隊 |
 | 載入 theme 期間切換語言或聲音 | 照常生效，載入進度提示改用新語言 |
 | HD theme 下 F12 而 `ready` 為空 | 存原版快照，記一行 |
 | 旗標值未知（`-theme`、`-lang`） | 退回預設，記一行，不致命 |
@@ -193,56 +214,67 @@
 
 ## 10. 測試
 
-測試縫隙（命名的介面與函式變數，讓測試不依賴 ebiten、GPU 與原版）：`frameSource`（`Frame()`）、`inputSink`（記錄對遊戲的 `Input`／`AppendInputChars` 呼叫）、`assetLoader`（`Preload(ctx, progress)`、`Release()`，並可注入慢速載入）、`clock`（時間來源）、字型載入函式變數、`Assets.onGet`（測試掛鉤，第一次 `Get` 時執行回呼）。純函式：`pickThemes(avail)`、`nextTheme(cur, avail)`、`nextLang`、`resolveStartup(flags, env, prefs, available)`、`reservedKeyAction(key, ctrl, alt)`、`panelLines(lang, face, info)`、`applyPrefsPatch(old, patches)`。
+測試縫隙（命名的介面與函式變數，讓測試不依賴 ebiten、GPU 與原版）：
+- `frameSource`（`Frame()`）；`inputSink`（記錄對遊戲的 `Input`／`AppendInputChars` 呼叫）；`pressDuration func(ebiten.Key) int`（取代 `inpututil.KeyPressDuration`，ebiten 全域狀態在單元測試設不了按鍵）；
+- `gameSession`：`game` 依賴的最小介面（`Stats`、`RequestFrame`、`RequestDiag`、`CrashDump`、`Input`、`Frame`），`*hrrt.Session` 實作，讓 `Layout` 與按鍵處理的測試不需要真的 `Session`，`newGame` 不在建構時啟動 `Run`；
+- `assetLoader`（`Preload(ctx, progress)`、`Release()`，可注入慢速載入）；`clock`（時間來源）；
+- `savePrefs` 寫入函式變數（可注入卡住的寫入）；字型載入函式變數（可注入壞字型）；
+- `Assets.SetGetHook`（`hd` 套件匯出的測試輔助，`Get` 進入時、查快取之前呼叫）；`Composer` 的未匯出欄位 `rereadPerStamp` 與 `hdView` 的未匯出欄位 `skipEpochCheck`（只有測試設定，負對照用）。
+
+純函式：`pickThemes(avail)`、`nextTheme(cur, avail, rejected)`、`nextLang`、`resolveStartup(flags, env, prefs, available)`、`reservedKeyAction(key, ctrl, alt)`、`panelLines(lang, face, info)`、`applyPrefsPatch(old, patches)`、`adaptWindow`（`Session` 的降頻決策，可注入時鐘，見下）。
 
 | 承諾 | 測試 |
 |---|---|
-| theme 循環順序、略過不可用者；只有 `original` 時 F2 不動作 | 單元：`nextTheme` |
+| theme 循環順序、略過不可用者與被拒者；只有 `original` 時 F2 不動作 | 單元：`nextTheme` |
 | 基底選法：`hd/` 優先；只有 `hd-ai/` 時它是基底且不經 `CheckTheme`；`hd/` TSV 壞時 `hd-ai/` 成為基底；啟動預設為第一個可用 HD theme | 單元：`pickThemes`、`resolveStartup` |
 | 語言循環順序與解析 | 單元（已有） |
 | 字串表五語言齊全、無空字串、格式動詞一致 | 單元（已有） |
-| 字型涵蓋：每個語言的每個字元都有字形；子集由 `opentype.Parse` 載入；name ID 0、7、13、14 存在；子集沒有 GSUB、GPOS | 單元（解析內嵌字型，以 `sfnt` 讀表目錄） |
-| **字形墨跡**：對字元表每個非空白字元，`face.Glyph` 回傳 ok 且遮罩有墨跡（`opentype` 解析與 `GlyphIndex` 不會執行 CFF charstring，只有 `LoadGlyph` 會，所以解析成功不代表畫得出來） | 單元（純 Go） |
-| **選對字面**：`GlyphAdvance('i')` 不等於 `GlyphAdvance('W')`（`en` 與 `zh-TW` 子集；選到 Mono 面會相等）。`Metrics().Height` 約 31.86 只守住 `hhea` 沒被改壞，不用來辨認字面（10 個面的 `hhea` 全相同） | 單元 |
-| `Kern` 對常見字對（拉丁、CJK 各取數對）恆為 0（子集沒有 GPOS 與 `kern` 表） | 單元 |
+| 字型涵蓋：每個語言的每個字元都有字形（`GlyphIndex` 不為 0）；子集由 `opentype.Parse` 載入；name ID 0、7、13、14 存在；子集沒有 GSUB、GPOS、kern（測試自己解析檔頭的表目錄：`numTables` 在偏移 4，每筆 16 位元組從偏移 12 起，因為 `sfnt.Font` 沒有公開表目錄） | 單元（已有，`fonts_test.go`） |
+| **字形墨跡**：對字元表每個非空白字元，`face.Glyph` 回 ok 且遮罩有墨跡（解析與 `GlyphIndex` 不會執行 CFF charstring，只有 `Glyph` 會）。控制組：空白（含 U+3000）ok 但沒有墨跡；不在子集內的字元 `GlyphIndex ＝ 0` 且 `Glyph` 回 `ok＝false` | 單元（已有，五份子集全部通過，2026-10-03） |
+| **選對字面**：`GlyphAdvance('i')` 不等於 `GlyphAdvance('W')`（選到 Mono 面會相等）。`Metrics().Height` 約 31.86 只守住 `hhea` 沒被改壞（10 個面的 `hhea` 全相同，不能用來辨認字面） | 單元（已有） |
+| `Kern` 對常見字對恆為 0（子集沒有 GPOS 與 kern 表） | 單元（已有） |
 | F1 面板邊界：五種語言各自量全部行，斷言行數乘行距不超過 768；每行寬度不超過 1248，**以兩種獨立方法**：`font.MeasureString` 與 `font.BoundString` 的墨跡右緣（路徑、停機提示、theme 載入提示用極端長度輸入） | 單元：`panelLines`（不需 GPU） |
-| 疊加層位置：F1 面板、停機提示、toast 行的矩形互不相交 | 單元 |
-| 偏好設定：往返、損壞（改名 `.bad`）、`version` 不是 1（原樣保留 version 與未知欄位）、逐欄位型別錯誤、不可用值不覆寫、補丁合併（F2 補丁後接 F4 補丁，兩欄位都寫入；同欄位後者覆蓋）、旗標值不被持久化、原子寫入無暫存檔殘留、啟動清理殘留、`Close()` 逾時（注入卡住的寫入，最多等 1 秒）、結束路徑都經 `quit()` | 單元（暫存目錄；草稿的測試斷言舊行為，升 READY 後反過來） |
-| 優先序與旗標：旗標、環境變數、偏好設定、預設；`-no-hd` 與 `-theme original` 的差別；`-hd` 不選 theme；未知旗標值退回預設 | 單元：`resolveStartup` |
-| `CheckTheme`：雜湊不在基底、尺寸不符、調色盤缺名、非空 `hd` 欄的 PNG 缺檔或尺寸不符被拒絕；部分涵蓋與列序不同被接受；**空 `hd` 欄的列**：`pal` 存在時接受、`pal` 不存在時拒絕（只略過 PNG 檢查）；`base` 為 nil 的呼叫是程式錯誤（panic 或回錯，測試固定其一） | 單元（暫存目錄的假 theme，不含原版素材） |
-| 基底 theme 逐圖缺漏：維持逐圖退回基底層，不整個拒絕；TSV 層錯誤才拒絕；`Errors` 增加時依規則記一行（注入記錄器，不逐筆） | 單元（假素材） |
-| 保留鍵：F2、F3、F4 不在 `specialKeys` 表內；F1 至 F4 與無修飾、Ctrl、Alt、Ctrl 加 Alt 的組合逐一斷言 `reservedKeyAction` 的結果 | 單元 |
-| **F1 至 F12 的枚舉**：對每個功能鍵，列出「會被轉成遊戲事件」的集合（`inputSink` 記錄），斷言不含 F1 至 F4 | 單元（比 `Input` 呼叫計數有鑑別力：計數為零恆成立） |
-| 邏輯畫面固定：`Layout` 在每個 theme 狀態下恆為 1280x800，游標換算恆為 `x/2`、`y/2` | 單元（不用反射檢查欄位不存在） |
-| **`Compose` 快照（決定性）**：假畫面至少兩個戳記，假素材 A、B 的顏色不同。`Assets.onGet` 在第一個戳記的第一次 `Get` 時同步呼叫 `Composer.SetAssets(B)`；斷言整幀輸出逐位元等於只用 A 的結果。**負對照**：測試專用的內部模式 `rereadPerStamp`（`Composer` 的未匯出欄位，只有測試設定）讓 `Compose` 每個戳記以 `c.A.Load()` 重讀，此時第二個戳記取到 B，輸出必須不同，否則判測試無效（`c.A.Load()` 是合法的原子讀取，所以 `-race` 不會先報競爭而掩蓋鑑別力）。另加統計式輔助：`GOMAXPROCS` 至少 2，另一個 goroutine 持續在 A 與 B 之間 `SetAssets`，N 幀輸出每幀必須逐位元等於全 A 或全 B，且 A 幀與 B 幀都至少出現一次，否則判無效 | `go test -race`（`tools/play.sh test-hd`），假素材，不需原版與 `hd/`，不 skip |
-| **`hdView` 世代**：假 `frameSource` 與可控的慢速 `Compose`；`Compose` 進行中呼叫 `Pause()`，`Compose` 完成後 `ready` 仍為空（舊畫面被丟棄）；`Resume()` 後即使 `frameSource` 沒有新 `Seq` 也重合成並發佈；`SetAssets()` 同理；暫停中 `writePNG` 的行為（存原版快照，記一行）；負對照：移除世代檢查時第一項必須失敗 | 單元（`-race`） |
-| `Preload`：成功、部分失敗、全部失敗、取消、逾時世代丟棄（注入慢速載入與 `clock`）、`Release` 後快取為空、`hd` 欄空的列不計入分母；**狀態機**：loading 與 cancelling 時 F2 被忽略；`Release` 只在 goroutine 回傳後呼叫，且不在 UI 執行緒；cancelling 期間新載入不會被舊 goroutine 的 `Release` 清掉 | 單元（假 `assetLoader`） |
-| **`HoldAdapt`**：持有時 `adapt` 不降頻（`Lowered` 保持假）；放開後同樣的落後會降頻（正對照）；預載結束（含取消與逾時）一定釋放 | `apps/hr/runtime` 單元（不需原版的部分）加前端單元 |
+| 疊加層位置：F1 面板、停機提示、toast 行的矩形互不相交；使用者提示壓過載入進度 2 秒 | 單元 |
+| 偏好設定：往返、損壞（含頂層不是物件）改名 `.bad` 且判斷用每次寫入時剛讀到的位元組（兩個執行個體的晚到者不覆蓋對方剛寫的有效檔）、`version` 不是 1（原樣保留 version 與未知欄位）、逐欄位型別錯誤、不可用值不覆寫、補丁合併（F2 補丁後接 F4 補丁，兩欄位都寫入；同欄位後者覆蓋）、旗標值不被持久化、預載被拒時不提交 `theme` 補丁、原子寫入無暫存檔殘留、啟動清理殘留、`Close()` 逾時（經 `savePrefs` 注入卡住的寫入，最多等 1 秒） | 單元（暫存目錄；草稿的測試斷言舊行為，升 READY 後反過來） |
+| 所有結束路徑都經 `quit()` | 靜態檢查（`grep`）：`os.Exit` 只出現在 `quit()` 與偏好設定尚未建立前的 `fail` 路徑（單元測試驗不了這件事） |
+| 優先序與旗標：旗標、環境變數、偏好設定、預設；`-no-hd` 與 `-theme original` 的差別；`-hd` 不選 theme；未知旗標值退回預設。`sound` 欄位的優先序由 `docs/spec/007` 的 `resolveMute` 13 種組合承擔 | 單元：`resolveStartup` |
+| `CheckTheme(base *Assets, dir string, s int) error`：雜湊不在基底、尺寸不符、調色盤缺名、非空 `hd` 欄的 PNG 缺檔或尺寸不符被拒絕；部分涵蓋與列序不同被接受；**空 `hd` 欄的列**：`pal` 存在時接受、`pal` 不存在時拒絕（只略過 PNG 檢查）；`base` 為 nil 回明確錯誤，不 panic | 單元（暫存目錄的假 theme，不含原版素材） |
+| 基底 theme 逐圖缺漏：維持逐圖退回基底層，不整個拒絕；TSV 層錯誤才拒絕 | 單元（假素材） |
+| `Assets.ErrorCount()`／`FirstError()` 帶鎖：並行 `Get`（合成執行緒 `append`）與前端讀取在 `-race` 下無競爭；`Release` 後基準重設，筆數倒退後的下一次增加仍會被偵測；前端依規則記一行（注入記錄器，不逐筆） | 單元（`-race`，假素材） |
+| 保留鍵：F2、F3、F4 不在 `specialKeys` 表內；F1 至 F4 與無修飾、Ctrl、Alt、Ctrl 加 Alt 的組合逐一斷言 `reservedKeyAction` 的結果；Shift、Meta 視為無修飾 | 單元 |
+| **F1 至 F12 的枚舉**：經注入的 `pressDuration` 逐鍵模擬按下，列出「會被轉成遊戲事件」的集合（`inputSink` 記錄），斷言不含 F1 至 F4；控制組：模擬按下 Enter 或方向鍵時集合非空（偵測器不是恆空） | 單元（比 `Input` 呼叫計數有鑑別力：計數為零恆成立） |
+| 邏輯畫面固定：`Layout` 在每個 theme 狀態下恆為 1280x800，游標換算恆為 `x/2`、`y/2` | 單元（用 `gameSession` 假實作，不用反射檢查欄位不存在） |
+| **`Compose` 快照（決定性）**：假畫面至少兩個戳記，假素材 A、B 的顏色不同，素材以 `writeTheme` 這類暫存目錄函式建出（真 PNG，不含原版）。`Assets.SetGetHook` 在第一個戳記的第一次 `Get` 時（進入 `Get`、查快取之前）同步呼叫 `Composer.SetAssets(B)`；斷言整幀輸出逐位元等於只用 A 的結果。**負對照**：`rereadPerStamp` 模式讓 `Compose` 每個戳記以 `c.A.Load()` 重讀，此時第二個戳記取到 B，輸出必須不同，否則判測試無效（`c.A.Load()` 是合法的原子讀取，所以 `-race` 不會先報競爭而掩蓋鑑別力）。統計式輔助：`GOMAXPROCS` 至少 2，固定 N 不小於 200 幀，切換者每幀與合成者以通道交握（不跑自由競速），每幀輸出必須逐位元等於全 A 或全 B，且兩種都至少出現一次，否則判無效 | `go test -race`（`tools/play.sh test-hd`），不需原版與 `hd/`，不 skip |
+| **`Release` 與 `Compose` 並行**：一個 goroutine 連續 `Compose` 假畫面，另一個連續 `Release`（素材是真 PNG，讓 `Get` 能重新解碼），每幀輸出逐位元等於參考輸出 | `-race` 單元 |
+| **`hdView` 世代（決定性）**：假 `frameSource`，假畫面含通過驗證的戳記（建法見 `hd/compose_test.go` 的 `TestComposeStamps`）。`SetGetHook` 在第一次 `Get` 送出 `inCompose` 訊號並阻塞到測試放行，讓 `Compose` 決定性地停在迴圈中；此時呼叫 `Pause()`，放行後 `ready` 仍為空（舊畫面被丟棄）；`Resume()` 後即使 `frameSource` 沒有新 `Seq` 也重合成並發佈；`SetAssets()` 同理；暫停中 `writePNG` 存原版快照並記一行。**負對照**：`skipEpochCheck` 模式下第一項必須失敗，否則判測試無效。**順序測試**：`SetAssets` 先設 `Composer` 素材再遞增 `epoch`（鉤子在兩步之間插入一次 `run` 的快照，不得發佈舊素材的畫面） | `-race` 單元 |
+| `Preload` 與切換狀態機：成功、部分失敗、成功數為 0（含 `(0, 0)`）、逾時世代丟棄（注入慢速載入與 `clock`）、`Release` 後快取為空、`hd` 欄空的列不計入分母；loading、cancelling、applying 時 F2 被忽略；成功數為 0 的 theme 被標為不可用且 `nextTheme` 略過；逾時的 theme 可再試一次；applying 期間目標改變不會讓顯示來源被錯換；`Release` 只在 goroutine 回傳後呼叫且不在 UI 執行緒；`hd → original → hd` 兩次 F2 之間背景 `Release` 與新預載串行（新預載解碼的項目不被舊 `Release` 清掉）；程式結束時取消 | 單元（假 `assetLoader`） |
+| **`HoldAdapt` 視窗規則**：`adaptWindow` 以時間序列驅動（注入時鐘，不需原版：`machine.New()` 加 `Session` 字面值，`interval` 要大於 `MinInterval`、`logf` 非 nil）。持有 [0.5, 2.15] 秒、視窗 2 秒、同樣的落後：視窗 [0, 2.0] 與 [2.0, 4.0] 都不降頻（含放開當下所在的視窗），[4.0, 6.0] 降頻（正對照）；`release` 冪等；計數為 atomic（`-race`）；預載結束（含取消與逾時）一定釋放。只在持有時直接呼叫 `adapt` 的測試抓不到視窗跨界，不夠 | `apps/hr/runtime` 單元加前端單元 |
 | 記憶體：預載前後、`Release` 後與換手峰值的 RSS，對第 4 節的通過標準 | 收據量測，記在 `docs/re` |
-| **遊戲不讀 F2、F3、F4 的動態旁證**：dosgolem 對 `MAIN.EXE` 的四個讀鍵 `int 21h`（執行期 `0110:9648`、`0110:9665`、`1ACA:0017`、`1ACA:001F`）計數，冷啟動到新遊戲與機器人遊玩期間預期為 0（結束序列才有 `1ACA:…` 命中） | `probe` 的 `-call-args` 或 `OnCall` 計數；需原版，缺檔 skip |
-| **端對端**：Xvfb、`--cpus 2` 的容器。以環境變數 `HR_TEST_FREEZE_UI=1` 啟動：統計欄位固定為常數、toast 與載入進度不繪製、F1 面板底色不透明（這只影響測試時的畫面，一般使用不設定，不進文件）。先量原版標題畫面兩張間隔數秒的截圖雜湊是否相同（游標與動畫），不同就裁掉動態區。按 F4 循環，五張 F1 截圖（只比對面板區域）兩兩雜湊不同，第六次回到起點與第一張相同。以 `-theme original` 啟動取得基準標題截圖；按 F2 後以標準錯誤的一行日誌（`theme ready: hd`）為完成訊號（不用固定等待），再截圖；**正向檢查**：HD 區域與最近鄰放大的原版相比，差異像素比例超過收據量到的門檻（先記錄比例，門檻在收據定案）；再按 F2 回 `original`，與基準相同。同時斷言 `Stats.Lowered` 在 F2 前後不變 | `tools/play.sh gui-lang`、`gui-theme`（`gui-theme` 另掛 `-v hd:/hd:ro` 與 `-hd /hd`，先 `test -f hd/catalog.tsv`；Xvfb 軟體繪圖下 HD 較慢） |
+| **遊戲不讀 F2、F3、F4 的動態旁證**：dosgolem 在讀鍵函式入口（`0110:9623` getch、`0110:964F` `_kbhit`、`1ACA:000B` 清緩衝，位址見 `docs/re/021` 第 4.1 節）計數；冷啟動到新遊戲與機器人遊玩期間預期為 0。**正對照**：另跑一次走到遊戲結束序列，清緩衝入口的命中必須大於 0（否則判計數方法無效）。`OnCall` 掛函式入口是既有用法，掛 `int 21h` 所在的函式中段位址是否支援未驗證，所以掛入口 | `probe` 的 `-call-args` 或 `OnCall` 計數；需原版，缺檔 skip |
+| **端對端**：Xvfb、`--cpus 2` 的容器。以環境變數 `HR_TEST_FREEZE_UI=1` 啟動：統計欄位固定為常數、toast 與載入進度不繪製、F1 面板底色不透明（這只影響測試時的畫面，一般使用不設定，不進文件）。先量原版標題畫面兩張間隔數秒的截圖雜湊是否相同（游標與動畫），不同就裁掉動態區。按 F4 循環，五張 F1 截圖（只比對面板區域）兩兩雜湊不同，第六次回到起點與第一張相同。以 `-theme original` 啟動取得基準標題截圖；按 F2 後以標準錯誤的日誌 `theme ready: hd` 為完成訊號（第 4 節定義：顯示來源換成目標之後才記；不用固定等待），再截圖；**正向檢查**：HD 區域與最近鄰放大的原版相比，差異像素比例超過收據量到的門檻（先記錄比例，門檻在收據定案）；再按 F2 回 `original`，與基準相同。`Lowered` 的觀察來源：標準錯誤的降頻日誌（`session.go` 的「跑不到」字樣）與 `play.log` 的 `lowered=` 欄（每分鐘一行），不讀 F1 面板（凍結後讀不到）。斷言 `Lowered` 在 F2 前後不變，**並有對照**：同一容器、同樣時間長度，以 `-theme hd` 啟動、不按 F2，若 `Lowered` 為真，代表 `hdView` 的持續合成本身會降頻，F2 前後不變的斷言無效 | `tools/play.sh gui-lang`、`gui-theme`（`gui-theme` 另掛 `-v hd:/hd:ro` 與 `-hd /hd`，先 `test -f hd/catalog.tsv`；Xvfb 軟體繪圖下 HD 較慢） |
 | 字型載入失敗時退回 ASCII 的 F1 | 單元（字型載入函式變數注入壞字型） |
 | `THIRD_PARTY_NOTICES.txt` 含 OFL 與 Adobe 版權，且不含 GNU General Public License；字型授權檔缺檔時 `package.sh` 失敗 | `tools/pkg/verify_*.sh` |
-| `OFL.txt` 產生腳本的斷言（版本、無 GSUB／GPOS、name ID、無 GPL 文字） | `tools/gen_ui_fonts.sh` 的實跑收據（2026-10-03 已通過一次） |
+| `OFL.txt` 產生腳本的斷言（版本、映像 ID、無 GSUB／GPOS、name ID、無 GPL 文字、字元表時間戳與 `PASS`） | `tools/gen_ui_fonts.sh` 的實跑收據（`docs/re/022`） |
 | `apps/hr/hd` 的測試入口 | 新增 `tools/play.sh test-hd`（`-race`，需 cgo） |
 
 ## 11. 原版 oracle 與已知差異
 
-沒有原版對應物。已知差異：F2、F3、F4 不再送進遊戲（`MAIN.EXE` 靜態普查未發現使用，見第 2 節；5 個錯誤等待畫面少了三個可關閉畫面的鍵）；Ctrl 按住時 F1 不再處理（行為變更）；遊戲內文字不隨 F4 改變（M10）；AI theme 要等 M8 有成品才可選，且候選圖會直接顯示（決定）；`original` theme 改由前端放大 2 倍，濾鏡由 `-linear` 控制（預設最近鄰）；`-scale 1` 時介面文字縮小難辨；回退字型在 1280x800 邏輯畫面上顯示得比舊版小；停機提示從 (4,4) 移到左下；啟動錯誤視窗不翻譯；`hd/` 的 TSV 壞掉時 `hd-ai/` 成為基底而只過寬鬆載入；啟動預設的 HD theme 不預載，切換時才預載（兩者嚴格度不同）；兩個執行個體同時改偏好設定仍有小窗口；信號終止不保證偏好設定 flush；五種語言翻譯未經母語者審閱。
+沒有原版對應物。已知差異：F2、F3、F4 不再送進遊戲（`MAIN.EXE` 靜態普查未發現使用，見第 2 節；5 個錯誤等待畫面少了三個可關閉畫面的鍵）；Ctrl 或 Alt 按住時 F1 不再處理（行為變更，現行 F1 沒有任何修飾判斷）；Shift 或 Meta 按住時 F1 至 F4 視為無修飾；`-scale 3` 的最後濾鏡步驟與舊版不同（第 4 節）；toast 與載入進度同一行，使用者提示壓過進度 2 秒；切換等不到新畫面（2 秒）時顯示來源仍會換；遊戲內文字不隨 F4 改變（M10）；AI theme 要等 M8 有成品才可選，且候選圖會直接顯示（決定）；`original` theme 改由前端放大 2 倍，濾鏡由 `-linear` 控制（預設最近鄰）；`-scale 1` 時介面文字縮小難辨；回退字型在 1280x800 邏輯畫面上顯示得比舊版小；停機提示從 (4,4) 移到左下；啟動錯誤視窗不翻譯；`hd/` 的 TSV 壞掉時 `hd-ai/` 成為基底而只過寬鬆載入；啟動預設的 HD theme 不預載，切換時才預載（兩者嚴格度不同）；兩個執行個體同時改偏好設定仍有小窗口；信號終止不保證偏好設定 flush；五種語言翻譯未經母語者審閱。
 
 ## 12. 停止線與權利邊界
 
-- 停止線：任何一語言的字串表有缺字（測試失敗）；動態計數發現遊戲讀 F2、F3 或 F4，或日後納入 `OP.EXE`、`END.EXE` 時發現它們使用這三個鍵；需要把 HD 或 AI 素材放進發行包（先問使用者，`AGENTS.md` 第 2 節）；衍生 theme 的檢查規則需要放寬到第 4 節之外；上游查出 Noto 有 Reserved Font Name 且子集改名義務成立；預載在雙核容器內仍造成 `Lowered`。
+- 停止線：任何一語言的字串表有缺字（測試失敗）；動態計數發現遊戲讀 F2、F3 或 F4，或日後納入 `OP.EXE`、`END.EXE` 時發現它們使用這三個鍵；需要把 HD 或 AI 素材放進發行包（先問使用者，`AGENTS.md` 第 2 節）；衍生 theme 的檢查規則需要放寬到第 4 節之外；發行前以原檔核對時發現 Noto 有 Reserved Font Name 且子集改名義務成立；預載在雙核容器內仍造成 `Lowered`（對照組 `-theme hd` 不按 F2 的 `Lowered` 為假時才成立）；字形墨跡測試失敗（字型方案要換）。
 - 內嵌字型是 OFL，可散布，授權檔隨發行包；不使用原版字型（`CFONT.15`）。
 - HD 與 AI theme 的素材是原版美術的衍生物，發行包預設不含（`AGENTS.md` 第 2 節）；本規格不改變這個邊界。
 - 截圖（F1 的五種語言、theme 切換）含原版畫面，只放 `workplace/`；放 `docs/images/` 要先問（`AGENTS.md` 第 2 節的截圖例外，新增前先問）。
 
 ## 13. 升 READY 前的待辦
 
-1. ~~靜態普查遊戲是否使用 F2、F3、F4~~：已完成（第 2 節，`docs/re/021`）。剩動態計數旁證（第 10 節）。
-2. 第四輪重審（範圍：B1、B2 與 R1 至 R6 的修訂段落）。
-3. 收據：預載時間在本機的分布、預載前後與峰值 RSS、雙核容器內 F2 前後的 `Lowered`、F1 重畫成本與字形快取、原版標題畫面靜態性、差異像素門檻。
-4. 查上游 Noto 的 Reserved Font Name。
+1. ~~靜態普查遊戲是否使用 F2、F3、F4~~：已完成（第 2 節，`docs/re/021`）。剩動態計數旁證（第 10 節，含正對照）。
+2. ~~字形墨跡雛形~~：已完成（五份子集全部字元畫得出，`docs/re/022`）。
+3. ~~查上游 Noto 的 Reserved Font Name~~：上游 `LICENSE` 未宣告（WebFetch 摘要，第 6 節）；發行前以原檔核對一次。
+4. 第五輪重審（範圍：B1、B2、R1 至 R3 的修訂段落與第 2 節的跨規格修訂清單）。
+5. 收據：預載時間在本機的分布、預載前後與峰值 RSS、雙核容器內 F2 前後的 `Lowered`（含 `-theme hd` 不按 F2 的對照）、F1 重畫成本與字形快取、原版標題畫面靜態性、差異像素門檻。
 
 ## 14. 審查意見的取捨
 
@@ -269,3 +301,23 @@
 | 第三輪 R12 | 測試縫隙全部命名，第 164 列改枚舉，第 159 列只用 `Layout` |
 | 第一版 S8 | 靜態普查已完成（`docs/re/021`）；動態計數旁證列入測試表與停止線 |
 | F3 | 使用者沒有指定聲音開關的鍵，選 F3 因為 F1、F2、F4 已定、相鄰；使用者可改，改了只動第 2 節與 `docs/spec/007` 第 5.4 節 |
+
+### 第四輪重審（第四版）的處理
+
+| 項 | 處理 |
+|---|---|
+| B1 `HoldAdapt` 擋不住降頻 | 採納：改為視窗規則（與持有時間相交的視窗只重設基準、不評估），決策抽成可注入時鐘的函式 `adaptWindow`，第 10 節以時間序列測試（跨界案例與正對照）；計數 atomic、`release` 冪等 |
+| B2 `hdView` 世代測試無控制點 | 採納：`Assets.SetGetHook`（`Get` 進入時、查快取之前）當決定性控制點，`skipEpochCheck` 負對照，`SetAssets` 與 `epoch` 的順序測試 |
+| R1 被拒 theme 卡住 F2 循環、`(0, 0)` | 採納：成功數為 0（含 `(0, 0)`）標為不可用，`nextTheme` 略過；逾時可再試一次；失敗模式表補列 |
+| R2 切換序列的狀態與順序 | 採納：新增 applying 狀態；`hdView.SetAssets` 先設素材再遞增 `epoch`；2 秒逾時的理由改寫並列為已知差異 |
+| R3 `Errors` 的併發與基準 | 採納：帶鎖的 `ErrorCount()`、`FirstError()`，基準每個 `Assets` 一份，`Release` 時重設；`-race` 測試 |
+| R4 `Release` 與 `Compose` 並行 | 採納：測試列與措辭修正 |
+| R5 狀態機與真正的並行 | 採納：每個 `Assets` 四態常駐狀態並串行化 `Preload` 與 `Release`；取消只有逾時與程式結束兩個來源 |
+| R6 降頻的其他來源、記憶體收斂副作用 | 採納：`-theme hd` 不按 F2 的對照；`SetMemoryLimit` 預設不設，下限規則 |
+| R7 端對端 | 採納：`Lowered` 的觀察來源、`theme ready` 的定義 |
+| R8 測試縫隙 | 採納：`pressDuration`、`gameSession`、`savePrefs`、表目錄自行解析、墨跡測試控制組（已實作）、`CheckTheme` 簽名與 nil、`SetGetHook` 觸發點、N 不小於 200 與通道交握 |
+| R9 偏好設定細節 | 採納：補丁在切換完成後提交、損壞判斷用每次寫入時剛讀到的位元組、頂層非物件視為損壞 |
+| R10 跨規格修訂 | 採納：第 2 節改為分工表（006 與 007 依格分工）；`003` 第 10 節與第 107 行已先改 |
+| R11 證據留存與腳本 | 採納：`docs/re/022` 收據、腳本 pipefail 與 `PASS` 與時間戳檢查、映像 ID 比對、`oto` 已含 |
+| R12 已知差異與失敗模式 | 採納：第 11 節與第 8 節補列 |
+| R13 | 字形墨跡雛形與 Noto 上游已做；其餘收據在實作後 |

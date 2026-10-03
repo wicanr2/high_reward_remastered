@@ -46,7 +46,7 @@
 
 | 位址 | 剛執行完的指令 | 動作 |
 |---|---|---|
-| `192B:0010` 開始 | `push bp` | 從 `[3E24:01CE]:[3E24:01CC]` 起複製 `MidWindow ＝ 0x4E20` bytes（遊戲 `fread` 的上限，`docs/re/010` 第 2.1 節；常規記憶體內以區塊複製，不經逐位元組的 `Read8`），呼叫 `Sink.MusicStart(複本)` |
+| `192B:0010` 開始 | `push bp` | 從 `[3E24:01CE]:[3E24:01CC]` 起複製 `MidWindow ＝ 0x4E20` bytes（遊戲 `fread` 的上限，`docs/re/010` 第 2.1 節）。緩衝實測在 `0xD5000`（EMS 頁框區，EMS 映射把頁資料複製進該位址，內容就是 `Mem` 本身）；範圍不與 VGA 視窗 `A0000–AFFFF` 相交時以區塊複製，否則才逐位元組 `Read8`（讀取監看與 VGA latch 有副作用）。`SoundStats.SlowCopies` 記逐位元組的次數，`MidAddr` 記最近一次的位址，供診斷。呼叫 `Sink.MusicStart(複本)` |
 | `192B:0061` 停止 | `push bp` | 寫 `2BCC:0223 ＝ 0FFh`，呼叫 `Sink.MusicStop()` |
 | `192B:00A0` 淡出 | `push bp` | 讀 `SS:SP+6` 的低位元組為係數 `n`，呼叫 `Sink.MusicFade(n)` |
 | `192B:011F` 音效 | `push bp` | 讀 `SS:SP+6` 的 16 位元為 `id`；`0x32 ≤ id ≤ 0x3B` 時讀執行期 `3E24:0008` 的切片表（每次呼叫都讀）取 `start`、`end`，`end > start` 時呼叫 `Sink.SFX(id, start, end)`；否則計入 `BadSFX` 並忽略 |
@@ -180,7 +180,7 @@
 | 前端（Linux） | Xvfb 內（無音訊裝置）冷啟動遊戲、點新遊戲：日誌有「音訊裝置不可用，靜音運行」，遊戲進入新遊戲畫面，前端不結束（`tools/play.sh gui`）。`tools/pkg/verify_appimage.sh` 也跑一次 | `tools/play.sh` | `gui` 已有；AppImage 待補 |
 | 前端（Windows、macOS） | Windows：Wine 內冷啟動，前端不結束（無裝置時 oto 建 `nullContext`，沒有「靜音」日誌，判準是前端不結束且遊戲進入新遊戲畫面）。macOS：只驗結構，音訊路徑完全未驗，列為已知差異 | `tools/pkg/verify_wine.sh`、`verify_macos.sh` | 待補 |
 | 機器人 | `hrbot -sound`（`NullSink`），重做 `docs/re/016` 的 2 遊戲小時 × 2 種子（走玩家實際的遊戲路徑），`T2` 零報警。實測（`docs/re/019` 第 5 節）：兩個種子都 completed，疑似凍結 0、T2 零轉儲、最長靜默 3.40 與 1.89 遊戲秒、`sound.disabled` 空、`bad_sfx` 0。`NullSink` 不含 `Engine` 的狀態機，所以這個測試覆蓋掛鉤與遊戲路徑，不覆蓋引擎狀態轉移 | `tools/bot.sh` | 已有 |
-| 效能 | 沿用 `docs/spec/005` 第 9 節的做法：同行程成對、150 對、修剪平均不超過 1.05，量「前端預設組合（診斷加 HD 掛鉤）加聲音掛鉤」相對「同組合不加」。跟隨型 Sink 省下重複讀檔，比值是淨值，量不到純掛鉤成本；所以另量 `Playing()` 恆假且不保留資料（`discard`）的情境，那才是不被抵銷的掛鉤成本。數字見 `docs/re/019` 第 2 節 | `apps/hr/runtime/overhead_test.go` | 見 `docs/re/019` |
+| 效能 | 沿用 `docs/spec/005` 第 9 節的做法：同行程成對、150 對、修剪平均不超過 1.05，量「前端預設組合（診斷加 HD 掛鉤）加聲音掛鉤」相對「同組合不加」。跟隨型 Sink 省下重複讀檔，比值是淨值，量不到純掛鉤成本；所以另量 `Playing()` 恆假且不保留資料（`discard`）的情境，那才是不被抵銷的掛鉤成本。實測（`docs/re/019` 第 2 節，150 對）：跟隨型冷啟動 0.857 ± 0.006、戰鬥佈陣 0.946 ± 0.004；恆假型冷啟動 1.007 ± 0.007、戰鬥佈陣 0.993 ± 0.004；全部在閘門內 | `apps/hr/runtime/overhead_test.go` | 已有 |
 | 外洩掃描 | `tools/pkg/leakscan.py` 加入副檔名 `.wav`、`.mid`、`.pcm`、檔頭 `RIFF`／`WAVE`／`MThd`，以及與清冊 `.MID`／`.PCM` 同名（去掉副檔名）的檔；含 HD 的包同樣不得含音訊。控制組：假 `SCOUT.wav` 與改了副檔名的 `MThd` 檔共 4 項命中，`README.txt` 無命中 | `tools/pkg/leakscan.py` | 已有 |
 | 恆真 Sink 與 T2 | 恆真 Sink（`HangSeconds ＝ 30`）下，診斷 `OnDiag` 在 `0274` 忙等迴圈恰好觸發一次 | `apps/hr/runtime` | 待補（第 6 節標為推論） |
 | 不限速裝置 | `asound.conf` 設 `pcm.!default` 為 `null` 外掛，觀察引擎是否被以 CPU 速度拉、遊戲是否退回重載 | `tools/play.sh` | 待補（第 5.2 節標為假說） |
@@ -275,7 +275,7 @@
 | X2 交接機制敘述與測試 | 採納：第 5.2、5.3 節改寫（`Player.Close` 是空操作，靠世代）；新增決定性的世代單元測試（不靜音、讀長於曲長、目前世代對照）；停滯測試改為不靜音並消除競態；前端測試改 `-race`；突變驗證記收據 |
 | X3 與 READY 的 `docs/spec/003` 矛盾 | 採納：第 3 節末寫明同一提交修訂 `003` 第 7、9、10 節（保留鍵表由 `006` 負責）；F3 靜態普查已完成（`docs/re/021`） |
 | X4 第三版新增測試沒有收據 | 採納：重跑並存日誌（`workplace/out/test-sound-race.log`、`test-play-race.log`、`test-sound-engine-session.log`），逐項記入 `docs/re/019` 第 9 節 |
-| T1 效能閘門量不到掛鉤成本 | 採納：加量 `Playing()` 恆假且 `discard` 的情境；`MusicStart` 的複製改為區塊複製（常規記憶體）；數字見 `docs/re/019` |
+| T1 效能閘門量不到掛鉤成本 | 採納：加量 `Playing()` 恆假且 `discard` 的情境（冷啟動 1.007、戰鬥佈陣 0.993，閘門內）；量測過程發現 MID 緩衝在 `0xD5000`（EMS 頁框區），原本逐位元組 `Read8` 的複製成本約 190 微秒，改為「不與 VGA 視窗相交即區塊複製」；數字見 `docs/re/019` 第 2 節 |
 | T2 SFX 不遞增世代的測試 | 採納：`TestEngineSFXDoesNotBumpEpoch`、並行後狀態一致測試 |
 | T3 位元組檢查範圍與「已驗證」措辭 | 採納：第 1 節與第 3 節改寫，資料偏移靠 `docs/re/010`（強推論），強保證用 `-verify` |
 | T4 音色表檔頭與家族數 | 採納：`patches.go` 檔頭補流程紀錄；第 5.1 節家族數改 16 族 |
