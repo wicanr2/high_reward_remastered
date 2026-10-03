@@ -1,7 +1,7 @@
 # 014 HD 疊層的實作與驗收收據
 
 日期：2026-10-03
-範圍：`docs/spec/004-hd-overlay`（READY，第六版）的實作與驗收。不含 HD 素材的驗收（使用者目視）與 `hd/` 目錄的建立。
+範圍：`docs/spec/004-hd-overlay`（READY，第六版）的實作與驗收。不含逐張 HD 素材的驗收；`hd/` 目錄與合成圖確認見第 9 節。
 輸入：`MAIN.EXE`（SHA-256 `08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e`）；清冊與調色盤表由 `tools/hd/catalog.py` 產生（`workplace/hd-work/catalog.tsv` 592 種不同內容、`palettes.tsv` 24 種）；HD 圖是美術 v2 基準（`workplace/hd-work/x2-v2`，615 張，`METHOD.md`）。
 工具：`workplace/dosgolem` 分支 `hr`，實作 commit `65706a9`（掛鉤、驗證、合成、前端）與 `6a0ff0d`（平行合成、淡入掃描、`SnapshotNow`），基底 `160f55c`；備份 `engine/patches/0012`、`0013`。驗收工具 `apps/hr/cmd/hrhd`（`tools/dosgolem.sh hd …`）。Go 1.24（容器 `golang:1.24-bookworm`，前端用 `eob-remake-go:1.26.7-ebiten2.9.9`）。
 推論等級：confirmed（可由指令重跑）、強推論、假說、未知。HD 輸出 PNG 是原版美術的衍生物，只放 `workplace/out/hd/`，不進版控。
@@ -101,9 +101,9 @@
 ## 7. 沒有驗證的項目
 
 - 規格第 7 節：「被蓋住與還原」（`SPOINT_021`、`SPOINT_014` 的實際重播）、「游標」掃描 100 個位置、100 毫秒退回路徑、「3x3 等價」的 6 個情境數字：本實作沒有在這些情境重播。演算法與逐像素定義的等價由單元測試證明；情境的數字是審查者的實測。
-- 「目視」：使用者尚未看過。HD 素材尚未驗收，`hd/` 未建立，發行包不含 HD 素材。
+- 「目視」：使用者 2026-10-03 看過六個畫面的合成圖並回覆「可以」（第 9 節）；逐張素材沒有逐一審過，`hd/provenance.tsv` 的狀態全部是 `candidate`。發行包不含 HD 素材。
 - `2378:1155`、`2E92:0414`（排除）、旗標非 0 與 x 非 8 的倍數的路徑（略過並計數）：未觸發或未驗證。
-- 游標的 HD 圖是工具直接處理的結果，沒有人工修整，使用者尚未看過。
+- 游標的 HD 圖是工具直接處理的結果，沒有人工修整；標題畫面的游標在使用者看過的合成圖內。
 - macOS 上的 HD 前端：沒有實機。Windows 的 HD 前端只在 Wine 加 Xvfb 內驗過標題畫面（見第 5 節），沒有實機。
 - 長時間遊玩下戳記佇列、HD 圖快取的記憶體用量：未量。
 
@@ -119,3 +119,14 @@ tools/dosgolem.sh hd -hd /orig/hd-stage -state /out/explore2/nodes/n00071.state 
 tools/dosgolem.sh hd -hd /orig/hd-stage -fade-scan -fade-slice 5000 -steps 44000000 -click 35000000:312:211
 tools/dosgolem.sh go test ./apps/hr/...
 ```
+
+## 9. 合成圖確認與 `hd/`（2026-10-03）
+
+使用者要求先看合成圖再決定。產生的對照圖在 `workplace/out/hd/composites/`（不進版控）：標題、讀取畫面、新遊戲第一與第二個對話框、兩個戰鬥佈陣畫面各一組並排對照（左原版、右 HD），另有頭像、戰鬥單位、地圖圖示、標題選單與游標的 4 張局部放大。產生方式：`tools/dosgolem.sh hd -hd /orig/hd-stage … -png`（有 HD 與 `-nohd` 各一次，`hrhd`），再用 `tools/hd/pair_compare.py`、`tools/hd/zoom_compare.py` 並排。從狀態檔載入的畫面，原有精靈沒有戳記（載入不經過繪圖函式），HD 欄會等於原版，所以兩個這類畫面（節點 79、91）剔除，改用點擊後會整個重畫的節點 71、95。
+
+涵蓋範圍：精靈、頭像、戰鬥舞台背景、標題地圖、游標；新遊戲畫面的大地形底圖（`PXZ`）、文字與框線沒有替換。使用者看過後回覆「可以」，並依先前的授權：
+
+- `hd/` 建立：`catalog.tsv`（595 列）、`palettes.tsv`（24 種）、`x2/`（清冊引用的 595 張 PNG，27 MB）、`provenance.tsv`（每列的雜湊、`id`、檔案、狀態 `candidate`、處理者、工具、日期、方法紀錄 `docs/re/015`）。
+- 清冊引用的 HD 圖：`workplace/hd-work/x2-v2` 的 618 張中，595 張被清冊引用（616 個項目，內容相同的合併）；其餘 23 張是內容重複項目的檔案與字型總表等，不執行期使用，留在 `workplace`。
+- `hd/` 內容與 `workplace/hd-stage` 相同（清冊、調色盤表）；前端與 `hrhd` 用的路徑結構（`hd/catalog.tsv`、`hd/palettes.tsv`、`hd/x2/…`）不變，所以 `hd/` 可直接當 `-hd` 或 `HR_HD` 的目錄。
+- 發行包預設不帶 `hd/`（`AGENTS.md` 第 2 節），三個包沒有改動。
