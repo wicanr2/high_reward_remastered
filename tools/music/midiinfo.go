@@ -22,6 +22,9 @@ type track struct {
 	active       map[int]int // channel<<8|note -> 開啟數
 	poly, maxPol int
 	bends        int
+	vels         map[int]int // 力度 -> 次數
+	cc7          []int       // 控制器 7 的值（依序）
+	texts        map[string]int // meta 04 樂器名與 meta 01 文字的次數
 	endAbs       uint64
 	channels     map[int]int
 	programs     map[int][]int // channel -> program changes in order
@@ -87,7 +90,7 @@ func analyze(path string) {
 			p += 8 + ln
 			continue
 		}
-		t := &track{channels: map[int]int{}, programs: map[int][]int{}, ccs: map[int]int{}, metas: map[int]int{}, drums: map[int]int{}, active: map[int]int{}}
+		t := &track{channels: map[int]int{}, programs: map[int][]int{}, ccs: map[int]int{}, metas: map[int]int{}, drums: map[int]int{}, active: map[int]int{}, vels: map[int]int{}, texts: map[string]int{}}
 		q := 0
 		var abs uint64
 		var run byte
@@ -138,6 +141,8 @@ func analyze(path string) {
 					if len(d) == 3 {
 						t.tempos = append(t.tempos, int(d[0])<<16|int(d[1])<<8|int(d[2]))
 					}
+				case 0x01, 0x04:
+					t.texts[fmt.Sprintf("meta%02X:%q", mt, string(d))]++
 				case 0x03:
 					t.name = string(d)
 				case 0x06, 0x07:
@@ -171,6 +176,9 @@ func analyze(path string) {
 					switch st >> 4 {
 					case 0xb:
 						t.ccs[int(body[q])]++
+						if body[q] == 7 {
+							t.cc7 = append(t.cc7, int(body[q+1]))
+						}
 					case 0xe:
 						t.bends++
 					case 0x8:
@@ -189,6 +197,7 @@ func analyze(path string) {
 					}
 					if body[q+1] != 0 {
 						t.notes++
+						t.vels[int(body[q+1])]++
 						n := int(body[q])
 						if ch == 9 {
 							t.drums[n]++
@@ -277,6 +286,21 @@ func analyze(path string) {
 			ds = append(ds, fmt.Sprintf("%d×%d", n, t.drums[n]))
 		}
 		fmt.Printf("    音高 %d..%d 最大同時發聲 %d 彎音 %d 鼓 %s\n", t.lo, t.hi, t.maxPol, t.bends, strings.Join(ds, " "))
+		var vk []int
+		for v := range t.vels {
+			vk = append(vk, v)
+		}
+		sort.Ints(vk)
+		var vs []string
+		for _, v := range vk {
+			vs = append(vs, fmt.Sprintf("%d×%d", v, t.vels[v]))
+		}
+		var tk []string
+		for k, n := range t.texts {
+			tk = append(tk, fmt.Sprintf("%s×%d", k, n))
+		}
+		sort.Strings(tk)
+		fmt.Printf("    力度 %s | CC7 值 %v | 文字 %s\n", strings.Join(vs, " "), t.cc7, strings.Join(tk, " "))
 		p += 8 + ln
 		ti++
 	}
