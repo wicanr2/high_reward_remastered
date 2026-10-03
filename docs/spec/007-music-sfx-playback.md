@@ -1,7 +1,7 @@
 # 007 原版音樂與音效播放
 
-狀態：DRAFT（2026-10-03，第四版）
-審查：三輪唯讀審查（報告在 `workplace/spec-review/007-review-A.md`、`007-review-B.md`、`007-rereview.md`、`007-rereview2.md`，不進版控）。第三輪（`007-rereview2.md`）阻擋 X1 至 X4、建議 T1 至 T13，處理對照在第 12 節。修正後需要第四輪重審才能升 READY。
+狀態：DRAFT（2026-10-03，第五版）
+審查：四輪唯讀審查（報告在 `workplace/spec-review/007-review-A.md`、`007-review-B.md`、`007-rereview.md`、`007-rereview2.md`、`007-rereview3.md`，不進版控）。第四輪（`007-rereview3.md`）沒有設計層阻擋，阻擋 W1（與 READY 的 `docs/spec/003` 的修訂清單與順序）、必做 V1 至 V5（測試偶發失敗路徑、突變驗證原則、收據缺口、六處文字、延遲範圍），可後補 V6 至 V8；處理對照在第 12 節。修正後只需窄範圍對照確認，不需完整重審。
 流程：工作樹已有實作草稿（`apps/hr/sound`、`runtime/sound.go`、`play/audio*.go`、`cmd/hrmusic`），未提交到 fork 的 `hr` 分支；升 READY 時以本規格為準重審。升 READY 的同一提交修訂 `docs/spec/003`（見第 3 節末）。
 範圍：讓 `apps/hr/play` 前端播出原版的背景音樂（`.MID`）與音效（`SOUND_E.PCM`）。做法是在 `apps/hr/runtime` 觀察聲音常式的呼叫，把事件交給一個與 ebiten 無關的合成與混音套件，前端再把它接到音訊裝置。不含：模擬 `CTMIDI.DRV`、Sound Blaster DSP 與 8237 DMA、`OP.EXE` 與 `END.EXE` 的聲音、貼近原版音色的保證。
 關聯：`docs/re/018-music-content-and-hooks.md`（證據）、`docs/re/010-music-subsystem-DRAFT.md`（遊戲端聲音子系統）、`docs/re/019-music-sfx-implementation-receipts.md`（實作收據）、`docs/re/021-mainexe-keyboard-census.md`（遊戲不讀 F3）、`docs/spec/003-runtime-and-frontend`（保留鍵、前端、聲音）、`docs/spec/005-hang-diagnostics`（診斷、效能閘門）、`docs/spec/006-frontend-help-theme-language`（F1 說明、偏好設定、保留鍵組合表）。
@@ -46,7 +46,7 @@
 
 | 位址 | 剛執行完的指令 | 動作 |
 |---|---|---|
-| `192B:0010` 開始 | `push bp` | 從 `[3E24:01CE]:[3E24:01CC]` 起複製 `MidWindow ＝ 0x4E20` bytes（遊戲 `fread` 的上限，`docs/re/010` 第 2.1 節）。緩衝實測在 `0xD5000`（EMS 頁框區，EMS 映射把頁資料複製進該位址，內容就是 `Mem` 本身）；範圍不與 VGA 視窗 `A0000–AFFFF` 相交時以區塊複製，否則才逐位元組 `Read8`（讀取監看與 VGA latch 有副作用）。`SoundStats.SlowCopies` 記逐位元組的次數，`MidAddr` 記最近一次的位址，供診斷。呼叫 `Sink.MusicStart(複本)` |
+| `192B:0010` 開始 | `push bp` | 從 `[3E24:01CE]:[3E24:01CC]` 起複製 `MidWindow ＝ 0x4E20` bytes（遊戲 `fread` 的上限，`docs/re/010` 第 2.1 節）。緩衝實測在 `0xD5000`（EMS 頁框區，EMS 映射把頁資料複製進該位址，內容就是 `Mem` 本身）；範圍不與 VGA 視窗 `A0000–AFFFF` 相交時以區塊複製（略過讀取監看，是刻意的差異：掛鉤的觀察不該觸發客體的觀測點）；相交時略過這次 `MusicStart` 並計數（平面模式下讀視窗有 VGA latch 副作用，`Peek` 對視窗只回 0，資料不對）。`SoundStats.SkippedStarts` 記略過次數（實測為 0），`MidAddr` 記最近一次的位址，供診斷。所有掛鉤的觀察讀取（旗標、MID 遠指標、切片表、堆疊引數）一律用 `Machine.Peek8`／`Peek16`，沒有任何副作用。呼叫 `Sink.MusicStart(複本)` |
 | `192B:0061` 停止 | `push bp` | 寫 `2BCC:0223 ＝ 0FFh`，呼叫 `Sink.MusicStop()` |
 | `192B:00A0` 淡出 | `push bp` | 讀 `SS:SP+6` 的低位元組為係數 `n`，呼叫 `Sink.MusicFade(n)` |
 | `192B:011F` 音效 | `push bp` | 讀 `SS:SP+6` 的 16 位元為 `id`；`0x32 ≤ id ≤ 0x3B` 時讀執行期 `3E24:0008` 的切片表（每次呼叫都讀）取 `start`、`end`，`end > start` 時呼叫 `Sink.SFX(id, start, end)`；否則計入 `BadSFX` 並忽略 |
@@ -57,7 +57,7 @@
 - **旗標防護**：每次觀察前讀 `3E24:01B8`；不為 0（有人注入了驅動環境，函式本體會碰硬體）就永久停用掛鉤並記一行，之後不做任何動作，避免半套行為。
 - **`MidWindow` 與有效長度**：遊戲的 MID 緩衝在短檔之後殘留前一首較長曲子的位元組（`fread` 只寫檔案長度）。runtime 一律交出 `0x4E20` bytes 的複本（複本讓接收端不受之後 `059B` 覆寫緩衝影響，淡出期間舊曲不會變成新曲的位元組）。有效長度由接收端依 SMF 結構決定：`MThd` 的 8 加長度欄，加上宣告軌數個 `MTrk` 的（8 加長度欄），其後忽略（`sound.Song.Size`）。超過複本長度或截斷視為解析失敗。
 - **`MusicStop` 的語意**：旗標為 0 時 `192B:0061` 本體會跳過清曲號的那一行。有驅動時（旗標不為 0）原版的停止常式會把 `2BCC:0223` 清為 `0FFh`。觀察點補寫這個值，讓行為與有驅動時一致。已知呼叫者：`0511`（先停止，再把曲號還原，不受影響）、`7B3A:0636`（停止後接 `059B(4)`，`059B` 會重設曲號）、`76B6:055F`（結束路徑）。這依呼叫者清單成立（`docs/re/010` 第 2.2 節，強推論）。`1975:038C`（結束或錯誤出口，`docs/re/010`）是 `PlayMusic` 與重播節拍之外的第三個「淡出後等 `0274`」迴圈；`Playing()` 在淡出後為假，所以不卡。
-- **與 `docs/spec/003` 的關係**：`003` 是 READY，第 7 節保留鍵表沒有 F3，第 9 節寫「聲音不在本規格範圍」，第 10 節差異表寫「聲音（無）」。本規格升 READY 的同一提交修訂 `003` 的這三處：第 7 節的保留鍵表由 `docs/spec/006` 第 2 節負責（含 F3），第 9 節改為「聲音由 `docs/spec/007` 負責」，第 10 節差異表的「聲音（無）」改為指向本規格。F3 的遊戲讀鍵普查已完成（`docs/re/021`：`MAIN.EXE` 不使用 F2、F3、F4，強推論）。
+- **與 `docs/spec/003` 的關係與升 READY 的順序**：`003` 是 READY，第 7 節保留鍵表沒有 F3，第 9 節寫「聲音不在本規格範圍」，第 10 節差異表寫「聲音（無）」。**`docs/spec/006` 與本規格在同一個提交升 READY**，該提交同時修訂 `003`，不留下一個 READY 規格與另一份規格不一致的區間。分工（同一格內依詞語分工，先後無關）：`006` 負責第 6 節縮放句、第 7 節保留鍵表（含 F3）、第 10 節差異表的「鍵盤保留鍵」、第 11 節「鍵盤路徑的普查與保留鍵衝突」（`docs/spec/006` 第 2 節的分工表）；本規格負責 `003` 的第 1 節檔頭（第 3 行「聲音、鍵盤普查…不在本規格內」）與排除項（第 11 行）、第 9 節（改為「聲音由 `docs/spec/007` 負責」）、第 10 節差異表的「聲音（無）」、第 11 節未解清單的「音樂與音效」（第 116 行），以及 `README.md`（第 47 行「沒有聲音」）與 `packaging/README.dist.txt`（第 28 行「沒有音樂與音效」）。`AGENTS.md` 第 1、12、13 節的「沒有聲音」「未開始」在實作合併時同步。F3 的遊戲讀鍵普查已完成（`docs/re/021`：`MAIN.EXE` 不使用 F2、F3、F4，強推論）。
 
 ## 4. 語意
 
@@ -108,13 +108,13 @@
 - **Linux**：`apps/hr/play/audio_linux.go` 用 `purego` 在執行期 `dlopen("libasound.so.2")`，呼叫 `snd_pcm_open("default", PLAYBACK)`、`snd_pcm_set_params`（`S16_LE`、interleaved、2 聲道、44100 Hz、軟體重取樣、延遲 100 毫秒）、`snd_pcm_writei`，欠載時 `snd_pcm_recover`。開不了庫、開不了裝置、開啟逾時或寫入持續失敗，就退回牆鐘拉取執行緒。連結期沒有 ALSA 相依，AppImage 在沒有 `libasound` 的系統上照常啟動並靜音。Xvfb 容器內實測：載入了 `libasound.so.2`，`snd_pcm_open` 回報 `Unknown PCM default`，前端印出「音訊裝置不可用，靜音運行」並照常進入遊戲（`docs/re/019` 第 4 節）。
 - **Windows、macOS**：`apps/hr/play/audio_other.go`（`//go:build !linux`）用 `oto/v3`：`NewContext` 回傳的 `ready` 通道等最多 3 秒，之後讀 `Context.Err()`；有錯誤或逾時就退回牆鐘拉取執行緒；執行中另有一個 goroutine 每秒檢查 `Err()`，出錯時通知接手（`Player.Close` 是空操作，接手靠 `pullSource` 世代，舊 reader 之後只拿靜音，見 5.2）。**`Player.SetBufferSize` 設為 100 毫秒（17640 位元組）**：oto 的 `Player` 預設另有 0.5 秒的預讀緩衝（`oto/v3@v3.4.0/internal/mux/mux.go`，44100 × 2 × 2 ÷ 2 ＝ 88,200 位元組），不設的話點擊音會晚約 0.5 到 0.6 秒。oto 後端沒有單元測試（Linux 容器跑不到 `!linux` 檔案）；修正只靠讀碼（強推論）。
 - **Windows 沒有音訊裝置時的行為不同**：oto 在兩個後端都找不到裝置時建立 `nullContext`，`Err()` 為 nil，不會出現「無音訊裝置，靜音」那行日誌，播放被丟進黑洞，拉取者仍在以音訊速度拉（因此「正在播放」的時鐘照常）。所以前端驗收的日誌判準分平台（第 8 節）。（讀 `oto/v3@v3.4.0/driver_windows.go` 核對，強推論；Wine 內是否真回 `errDeviceNotFound` 未實跑。）
-- 延遲（假說，容器沒有裝置，未實測）：Linux 裝置端 100 毫秒，估計點擊音延遲約 0.1 至 0.15 秒。Windows 與 macOS 的 `Player` 預讀 100 毫秒與裝置緩衝 100 毫秒是串聯，估計上限約 0.2 秒加一個混音區塊（約 23 毫秒）。
+- 延遲（假說，容器沒有裝置，未實測）：Linux 裝置端 100 毫秒，估計點擊音延遲約 0.1 至 0.15 秒。Windows 與 macOS：`Player` 預讀緩衝與裝置緩衝串聯，而 oto 在緩衝低於 `bufferSize` 時一次向來源要一整個 `bufferSize`（`oto/v3@v3.4.0/internal/mux/mux.go` 的 `readSourceToBuffer`），所以 `Player` 的水位在約 1 至 2 倍 `bufferSize`（100 至 200 毫秒）之間擺動；新命令還要等下一次拉取（最多約 100 毫秒），再加裝置端 100 毫秒。較合理的範圍是約 0.2 至 0.3 秒加一個混音區塊（約 23 毫秒），依據是 `mux.go` 的讀取方式。
 
 ### 5.4 前端行為
 
 - F3 切換聲音開關（同時控制音樂與音效），預設開，寫入偏好設定（`docs/spec/006` 第 7 節的 `sound` 欄位，以補丁合併）。F3 的選用理由：使用者指定 F1、F2、F4，聲音開關沒有指定鍵，F3 與它們相鄰；遊戲不讀 F3（`docs/re/021`，靜態普查，強推論）。F3 與修飾鍵的組合依 `docs/spec/006` 第 2 節的表（Ctrl 或 Alt 按住時不處理）。
 - 命令列 `-mute`，環境變數 `HR_MUTE`。啟動靜音狀態由純函式 `resolveMute(flagGiven, flagVal, env, prefSound)` 決定，優先序：旗標、環境變數、偏好設定、預設（開）。旗標以 `flag.Visit` 判斷是否明確給過，所以 `-mute=false` 能壓過環境變數與偏好設定；`HR_MUTE` 的 `1`、`true`（不分大小寫）靜音，`0`、`false` 明確不靜音（能壓過偏好設定的 `sound:false`），其他值視為沒設。靜音開始時仍建立拉取者。偏好設定的 `sound` 欄位讀取已接上；F3 切換後寫入偏好設定要等 `docs/spec/006` 的補丁式寫入實作（升 READY 後）。
-- 前端開啟時把 `SOUND_E.PCM` 讀進記憶體交給引擎；檔案缺失或與 `required.tsv` 的大小不符時，音效關閉，音樂不受影響。
+- 前端開啟時把 `SOUND_E.PCM` 讀進記憶體交給引擎；`required.tsv` 已含該檔，缺失或大小不符時 `Session.Open` 拒絕啟動；`loadOriginalPCM` 的「音效關閉、音樂不受影響」降級只在測試或檔案於兩步之間被改動時到達。
 - 切換提示文字與 F1 說明（`docs/spec/006`）列出 F3 與目前聲音狀態。
 
 ## 6. 失敗模式
@@ -128,7 +128,7 @@
 | MID 解析失敗 | 忽略該次 `MusicStart`；遊戲退回重複讀檔的現況（第 4 節第 6 點）；日誌只印行程前 5 行 |
 | `SFX` 的 `id` 在 `0x32` 到 `0x3B` 之外，或切片表值使 `end ≤ start`、`end` 超出 PCM | 忽略並計數，不崩潰 |
 | 命令佇列滿 | 丟棄命令並記一行；丟棄 `MusicStart` 時狀態字改回未播放；丟棄 `MusicStop`／`MusicFade` 時舊曲多唱到下一個音樂命令（第 5.1 節） |
-| `SOUND_E.PCM` 缺失或大小不符 | 音效關閉 |
+| `SOUND_E.PCM` 缺失或大小不符 | `required.tsv` 已含該檔，`Session.Open` 拒絕啟動（`docs/spec/003` 第 2 節），所以正常啟動流程到不了降級；前端 `loadOriginalPCM` 的「音效關閉」降級只在測試或檔案於兩步之間被改動時到達，音樂不受影響 |
 | 診斷或檢查點存下的狀態檔 | 不含聲音狀態（掛鉤不寫 `3E24:01BA`）；無 Sink 的工具載入後不會卡住（第 8 節測試）。停止之後到下一次 `059B` 之間存下的狀態檔帶 `2BCC:0223 ＝ 0FFh`（有驅動時原版自己會寫的值） |
 | 注入了錯誤的 Sink（`Playing()` 在淡出後仍為真） | 遊戲卡在 `PlayMusic` 的等待迴圈。`docs/spec/005` 的 T2 預期會報警（推論：T2 的正對照是 `jmp $` 等 hang，沒有針對 `0274` 忙等迴圈的實測，第 8 節待補） |
 
@@ -138,8 +138,8 @@
 |---|---|---|
 | 啟動到標題 | `PlayMusic(16)`：`SCOUT.MID` | 冷啟動測試：第一次 `MusicStart` 的位元組是 `SCOUT.MID`，DOS 層開檔次數與掛鉤次數一致（第 8 節） |
 | 標題畫面循環 | 曲末後遊戲自己重播同一首 | 跟隨型 Sink 測試與 Engine 加 Session 整合測試（連續三次 `MusicStart`，第 8 節） |
-| 標題畫面的點擊音 | `PlaySFX(0x32)`（`1043:03B6`） | 單元測試驗證引數解碼；實機路徑的收據待補（冷啟動路徑到新遊戲沒有觸發，`docs/re/019` 第 7 節） |
-| 換曲（`PlayMusic(14)` 等） | `00A0` → `0274` 迴圈 → `059B` → `0010` | 用 `soak-s0` 狀態檔（第 8 節）；未跑之前不稱已支援 |
+| 標題畫面的點擊音 | `PlaySFX(0x32)`（`1043:03B6`） | 單元測試驗證引數解碼；機器人 `-sound` 長跑中真遊戲流程觸發了 `sfx` 1020 與 516 次、`bad_sfx` ＝ 0（`docs/re/019` 第 5 節，`NullSink`，id 解碼落在 `0x32` 至 `0x3B`）；逐 id 與真 `Engine` 切片的收據待補（冷啟動路徑到新遊戲沒有觸發，`docs/re/019` 第 7 節） |
+| 換曲（`PlayMusic(14)` 等） | `00A0` → `0274` 迴圈 → `059B` → `0010` | 以 `soak-s0` 狀態檔（目前曲號 14）用 `fakeSink` 驗事件順序已通過（第 8 節）；真 `Engine` 的換曲路徑待補，未補之前不稱已支援 |
 | 短曲 `GOLD.MID`（`0511`） | `MusicStop` 接 `MusicStart` | 未驗證 |
 | `ALCOHOL.MID`（`7B3A:0488`，0 byte） | 重播上一首（緩衝殘留） | 未驗證，強推論 |
 
@@ -149,7 +149,7 @@
 
 ## 8. 測試與驗收
 
-驗收原則：判準來自 SMF 本身、獨立工具或獨立公式，不依賴合成器的內部參數；每個偵測都有正對照或壞輸入。「已有」表示實作草稿已有該測試且通過，日誌與命令記在 `docs/re/019`；「待補」表示尚無。**每個宣稱擋下某個錯誤的測試，收據要記突變驗證**（拿掉被測修正，該測試必須失敗，之後還原）。
+驗收原則：判準來自 SMF 本身、獨立工具或獨立公式，不依賴合成器的內部參數；每個偵測都有正對照或壞輸入。「已有」表示實作草稿已有該測試且通過，日誌與命令記在 `docs/re/019`；「待補」表示尚無。**突變驗證**（拿掉被測修正，對應測試必須失敗，之後還原並核對雜湊）：收據涵蓋五項，Z1 修正、`pullReader.Read` 的世代檢查、SFX 不遞增世代、`send` 丟棄 `cStart` 時回復狀態、裝置回報 `died` 時的接手；看門狗停滯分支、開啟逾時、CAS 的世代比較以逐行推演為據，補突變列為待補。
 
 | 測試 | 內容 | 位置 | 狀態 |
 |---|---|---|---|
@@ -164,23 +164,23 @@
 | 音符語意 | 力度 0 的 note-on 視為 note-off；同音高重疊的兩個 note-off 釋放兩個聲部 | 同上 | 已有 |
 | 引擎 | 生命週期、淡出與排隊、閒置淡出空操作、**曲末後（尾音還在唱）的淡出空操作且新曲立刻成為目前曲**（`TestEngineFadeAfterNaturalEndIsNoop`，負對照：拿掉 `cFade` 的 `SongDone` 分支該測試失敗）、淡出與停止丟棄佇列、世代 CAS 不清除較新狀態、**SFX 不遞增世代**（`TestEngineSFXDoesNotBumpEpoch`：播放中呼叫 SFX，曲末後 `Playing()` 仍須變假）、並行命令洪流結束後狀態與最後一個命令一致、佇列滿時被丟棄的 `MusicStart` 不留下播放中狀態、壞 MID 忽略、靜音照常推進、`Read` 零配置、並行 `-race`、音效切片對獨立線性內插、淡出長度 | 同上 | 已有 |
 | `NullSink` | 以客體 tick 為時鐘；淡出後為假；壞資料忽略 | 同上 | 已有 |
-| 掛鉤解碼 | 對空機器呼叫觀察函式：引數位置與寬度、複本、尾端緩衝截短、切片表值錯誤與範圍外 `id`、停止補寫曲號、狀態讀取只改 AX 且不寫 `3E24:01BA`、非掛鉤位址不動作、旗標不為 0 停用 | `apps/hr/runtime/sound_test.go` | 已有 |
+| 掛鉤解碼 | 對空機器呼叫觀察函式：引數位置與寬度、複本、尾端緩衝截短、緩衝與 VGA 視窗相交時略過並計數（`A000:F000`、`A000:0000`、`9FFF:FFF0`），緊貼視窗但不相交（`9B1E:0000`、`B000:0000`）仍複製、切片表值錯誤與範圍外 `id`、停止補寫曲號、狀態讀取只改 AX 且不寫 `3E24:01BA`、非掛鉤位址不動作、旗標不為 0 停用 | `apps/hr/runtime/sound_test.go` | 已有 |
 | 失敗即關閉 | 10 個檢查點各自被改動後 `newSoundHooks` 失敗並點名 | 同上（需原版，缺檔 skip） | 已有 |
 | 同狀態 A/B | `Playing()` 恆為假的 Sink 與無 Sink，同一輸入 90M 步後畫面、CPU、記憶體逐位元相同（路徑上無停止呼叫；有停止呼叫時此測試 skip，skip 條件記在收據） | 同上 | 已有 |
 | 重載抑制與正對照 | 30M 步：`Playing()` 恆假（反對照）反覆重載（1706 次，與 `docs/re/010` 第 5 節 E0b 的獨立收據相同）；跟隨型 Sink 只有開機一次；恆真（卡住的驅動，正對照）一次都沒有，`CS:IP` 停在 `192B:0274` 內；**DOS 層實際開 `SCOUT.MID` 的次數等於掛鉤看到的 `MusicStart` 次數**（獨立 oracle） | 同上 | 已有 |
 | 自然結束重播 | 跟隨型 Sink 在開機後令 `Playing()` 變假，遊戲在有限步數內再次 `MusicStart`，位元組仍是 `SCOUT.MID` | 同上 | 已有 |
-| Engine 加 Session 整合 | 真 `Engine`，以模擬速率餵取樣（每個遊戲秒餵 44100 框，靜音）：開機的 `SCOUT.MID` 連續三次 `MusicStart`，每次資料都以 `SCOUT.MID` 開頭。第 1 至 2 次相隔驗證「曲末後遊戲自行重播」；**第 2 至 3 次相隔才驗證 Z1**（開機時引擎沒有目前曲，第一首立即出聲，假淡出只影響第二首起的出聲時間）：兩個相隔都要在曲長正負 0.35 遊戲秒內（每批 1M 步約 0.18 遊戲秒的量化）。突變驗證：拿掉 Z1 修正時第 2 至 3 次相隔變成曲長加約 0.71 秒，測試必須失敗 | 同上 | 已有（突變驗證結果見 `docs/re/019` 第 9 節） |
+| Engine 加 Session 整合 | 真 `Engine`，以模擬速率餵取樣（每個遊戲秒餵 44100 框，靜音）：開機的 `SCOUT.MID` 連續三次 `MusicStart`，每次資料都以 `SCOUT.MID` 開頭。第 1 至 2 次相隔驗證「曲末後遊戲自行重播」；**第 2 至 3 次相隔才驗證 Z1**（開機時引擎沒有目前曲，第一首立即出聲，假淡出只影響第二首起的出聲時間）：兩個相隔都要在曲長正負 0.35 遊戲秒內（每批 1M 步約 0.18 遊戲秒的量化）。突變驗證：拿掉 Z1 修正時第 2 至 3 次相隔比未突變多約 0.71 秒（37.18 對 36.47，曲長 36.38），測試必須失敗 | 同上 | 已有（突變驗證結果見 `docs/re/019` 第 9 節） |
 | 換曲路徑 | 載入 `workplace/out/soak-s0/ck-001500000000.state`（目前曲號 14）：音樂事件順序 `fade`、`start`，資料是 `NATIONAL.MID`，之後不重載 | 同上（缺狀態檔 skip） | 已有 |
 | 短曲與 `ALCOHOL.MID` 路徑 | `GOLD.MID`（`192B:0511`，`MusicStop` 接 `MusicStart`）與 `ALCOHOL.MID`（`7B3A:0488`）：找到觸發它們的狀態後驗事件順序與曲號還原 | 同上 | 待補 |
 | 狀態檔乾淨 | Sink 開啟下存狀態，`3E24:01BA ＝ 0`；無 Sink 載入後 10M 步內仍有開檔（不卡在 `PlayMusic` 的等待迴圈） | 同上 | 已有 |
 | 存檔 A/B | 同狀態同輸入，Sink 與無 Sink 各存一次，`GAMEFILE.00x` 與 `fname.dat` 雜湊相同（存檔流程見 `docs/re/012`）。實測（`docs/re/019` 第 8 節）：Playing 恆假的 Sink 對無 Sink，讀槽 0、存槽 2，`GAMEFILE.002` 與 `FNAME.DAT` 逐位元相同；該路徑 `Stops ＝ 0`，停止掛鉤的寫入與跟隨型 Sink 的路徑未驗（跟隨型 Sink 讓遊戲少讀 MID，tick 與指令軌跡改變，存檔可能因時間欄位而不同，不比較） | `apps/hr/runtime/sound_save_test.go` | 部分（一條路徑） |
-| 離線轉檔 | `hrmusic -check`：27 個檔逐檔核對：曲長對獨立工具（`midisum`）在 0.2% 加 2 毫秒內；音符數相等；轉檔長度介於曲長與曲長加 2.5 秒；`Steals ＝ 0`；沒有絕對值超過 0.99 的取樣；峰值介於 0.05 與 0.99；音符起音後 300 毫秒的窗至少 95% 聽得到；SMF 算出的活動音符數與窗 RMS 的相關至少 0.2；最後一個音符結束 2.5 秒後的窗都靜音；**真檔基頻抽查**（每個旋律通道單獨渲染，對最多 12 個夠長且不重疊的音符，窗放在音符中段，調和累加 S(m) ＝ Σ|X(h·f)|÷h（h ＝ 1 到 5）：期望音高的 S 至少是 ±12 個半音內最大值的 70%，通過率至少 90%）；**偵測器自測**（同一抽查餵壞渲染器：每個音符播固定 440 Hz 正弦、起訖準時，通過率必須 ≤ 60%）；兩次轉檔相同；`Engine.Read` 與離線轉檔前 3 秒逐取樣相同。27 個 WAV 的 SHA-256 前 16 碼記入 `docs/re/data/019-hrmusic-report.tsv`（限 `linux/amd64`）。實測：真檔基頻 798/799 通過，壞渲染器 26/799。限制：`BUILD.MID` 沒有符合條件的音符，基頻欄為空；`FIGHT1` 只有 1/1、`DANCE_E` 3/3，90% 門檻對少量樣本沒有意義，總計靠其餘檔撐；`ALCOHOL.MID` 是 0 byte 略過 | `tools/dosgolem.sh music`，輸出在 `workplace/out/music/`（gitignore） | 已有 |
-| 拉取者交接 | 世代（決定性）：`TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance`（不靜音；曲子 5 秒、舊世代讀 6 秒；舊世代必須拿到全零且曲子仍在播放，目前世代的拉取者必須讀到聲音）。假裝置：裝置執行緒停滯時看門狗接手，曲子照樣自然結束，舊拉取者醒來後同樣只拿靜音，`stop` 剛好一次；裝置回報 `died` 時同樣接手；開啟逾時（`TestAudioOpenTimeoutFallsBackToPump`）改用牆鐘拉取，晚到的裝置被關閉一次；停滯偵測用單調偏移。突變驗證：拿掉 `pullReader.Read` 的世代檢查，世代測試與停滯測試必須失敗。前端測試以 `-race` 執行 | `apps/hr/play/audio_test.go` | 已有（突變驗證結果見 `docs/re/019` 第 9 節） |
+| 離線轉檔 | `hrmusic -check`：27 個檔逐檔核對：曲長對獨立工具（`midisum`）在 0.1% 加 2 毫秒內（`0.002 ＋ 秒數 × 0.001`）；音符數相等；轉檔長度不小於結束取樣位置、不超過曲長加 2.53 秒（2.5 秒尾音容許加 30 毫秒）；`Steals ＝ 0`；沒有絕對值超過 0.99 的取樣；峰值介於 0.05 與 0.99；音符起音後 300 毫秒的窗（打擊類音色以 150 毫秒計）至少 95% 聽得到；SMF 算出的活動音符數與窗 RMS 的相關至少 0.2；最後一個音符結束 2.5 秒後的窗都靜音；**真檔基頻抽查**（每個旋律通道單獨渲染，每個通道的候選音符（夠長且不重疊）超過 12 個時以 `候選數 ÷ 12`（整數除法）為步距均勻挑，所以每通道抽 12 至 23 個，少於 13 個時全抽，窗放在音符中段，調和累加 S(m) ＝ Σ|X(h·f)|÷h（h ＝ 1 到 5）：期望音高的 S 至少是 ±12 個半音內最大值的 70%，通過率至少 90%）；**偵測器自測**（同一抽查餵壞渲染器：每個音符播固定 440 Hz 正弦、起訖準時，通過率必須 ≤ 60%；只在該檔基頻抽查樣本數至少 10 時檢查，樣本少於 10 的 8 個檔（`FIGHT1`、`DANCE_E`、`CLEAR`、`ROUT`、`FIGHT2`、`FIGHTEND`、`GOLD`、`VICTORY`）與無樣本的 `BUILD` 不做自測，26/799 是全部樣本合計）；兩次轉檔相同；`Engine.Read` 與離線轉檔前 3 秒逐取樣相同。27 個 WAV 的 SHA-256 前 16 碼記入 `docs/re/data/019-hrmusic-report.tsv`（限 `linux/amd64`）。實測：真檔基頻 798/799 通過，壞渲染器 26/799。限制：`BUILD.MID` 沒有符合條件的音符，基頻欄為空；`FIGHT1` 只有 1/1、`DANCE_E` 3/3，90% 門檻對少量樣本沒有意義，總計靠其餘檔撐；`ALCOHOL.MID` 是 0 byte 略過 | `tools/dosgolem.sh music`，輸出在 `workplace/out/music/`（gitignore） | 已有 |
+| 拉取者交接 | 世代（決定性）：`TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance`（不靜音；曲子 5 秒、舊世代讀 6 秒；舊世代必須拿到全零且曲子仍在播放，目前世代的拉取者必須讀到聲音）。假裝置：裝置執行緒停滯時看門狗接手，曲子照樣自然結束，舊拉取者醒來後同樣只拿靜音，`stop` 剛好一次；裝置回報 `died` 時同樣接手；開啟逾時（`TestAudioOpenTimeoutFallsBackToPump`）改用牆鐘拉取，晚到的裝置被關閉一次；停滯偵測的單調時鐘靠讀碼成立（`pullSource` 以 `time.Now()` 的單調讀數計時，沒有格式化、`Round` 或 `UTC` 轉換）；`TestPullSourceIdleUsesMonotonicOffset` 只檢查 `idle()` 隨拉取重設、隨時間增加，換成牆鐘差的實作同樣通過，不鑑別單調性，待補注入時鐘的測試。突變驗證：拿掉 `pullReader.Read` 的世代檢查，世代測試與停滯測試必須失敗。前端測試以 `-race` 執行 | `apps/hr/play/audio_test.go` | 已有（突變驗證結果見 `docs/re/019` 第 9 節） |
 | 靜音與優先序 | 純函式 `resolveMute`：旗標明確給過（含 `-mute=false`）、環境變數 `1`／`true`／`0`／`false`／亂值、偏好設定 `sound:true`／`sound:false`／缺欄位的 13 種組合 | `apps/hr/play/sound_startup_test.go` | 已有；F3 寫入偏好設定待 `docs/spec/006` 實作 |
 | 前端（Linux） | Xvfb 內（無音訊裝置）冷啟動遊戲、點新遊戲：日誌有「音訊裝置不可用，靜音運行」，遊戲進入新遊戲畫面，前端不結束（`tools/play.sh gui`）。`tools/pkg/verify_appimage.sh` 也跑一次 | `tools/play.sh` | `gui` 已有；AppImage 待補 |
 | 前端（Windows、macOS） | Windows：Wine 內冷啟動，前端不結束（無裝置時 oto 建 `nullContext`，沒有「靜音」日誌，判準是前端不結束且遊戲進入新遊戲畫面）。macOS：只驗結構，音訊路徑完全未驗，列為已知差異 | `tools/pkg/verify_wine.sh`、`verify_macos.sh` | 待補 |
 | 機器人 | `hrbot -sound`（`NullSink`），重做 `docs/re/016` 的 2 遊戲小時 × 2 種子（走玩家實際的遊戲路徑），`T2` 零報警。實測（`docs/re/019` 第 5 節）：兩個種子都 completed，疑似凍結 0、T2 零轉儲、最長靜默 3.40 與 1.89 遊戲秒、`sound.disabled` 空、`bad_sfx` 0。`NullSink` 不含 `Engine` 的狀態機，所以這個測試覆蓋掛鉤與遊戲路徑，不覆蓋引擎狀態轉移 | `tools/bot.sh` | 已有 |
-| 效能 | 沿用 `docs/spec/005` 第 9 節的做法：同行程成對、150 對、修剪平均不超過 1.05，量「前端預設組合（診斷加 HD 掛鉤）加聲音掛鉤」相對「同組合不加」。跟隨型 Sink 省下重複讀檔，比值是淨值，量不到純掛鉤成本；所以另量 `Playing()` 恆假且不保留資料（`discard`）的情境，那才是不被抵銷的掛鉤成本。實測（`docs/re/019` 第 2 節，150 對）：跟隨型冷啟動 0.857 ± 0.006、戰鬥佈陣 0.946 ± 0.004；恆假型冷啟動 1.007 ± 0.007、戰鬥佈陣 0.993 ± 0.004；全部在閘門內 | `apps/hr/runtime/overhead_test.go` | 已有 |
+| 效能 | 沿用 `docs/spec/005` 第 9 節的做法：同行程成對、150 對、修剪平均不超過 1.05，量「前端預設組合（診斷加 HD 掛鉤）加聲音掛鉤」相對「同組合不加」。跟隨型 Sink 省下重複讀檔，比值是淨值，量不到純掛鉤成本；所以另量 `Playing()` 恆假且不保留資料（`discard`）的情境，那才是不被抵銷的掛鉤成本。實測（`docs/re/019` 第 2 節，最終程式、150 對）：跟隨型冷啟動 0.875 ± 0.005、戰鬥佈陣 0.926 ± 0.006；恆假型冷啟動 0.998 ± 0.007、戰鬥佈陣 0.986 ± 0.005；全部在閘門內 | `apps/hr/runtime/overhead_test.go` | 已有 |
 | 外洩掃描 | `tools/pkg/leakscan.py` 加入副檔名 `.wav`、`.mid`、`.pcm`、檔頭 `RIFF`／`WAVE`／`MThd`，以及與清冊 `.MID`／`.PCM` 同名（去掉副檔名）的檔；含 HD 的包同樣不得含音訊。控制組：假 `SCOUT.wav` 與改了副檔名的 `MThd` 檔共 4 項命中，`README.txt` 無命中 | `tools/pkg/leakscan.py` | 已有 |
 | 恆真 Sink 與 T2 | 恆真 Sink（`HangSeconds ＝ 30`）下，診斷 `OnDiag` 在 `0274` 忙等迴圈恰好觸發一次 | `apps/hr/runtime` | 待補（第 6 節標為推論） |
 | 不限速裝置 | `asound.conf` 設 `pcm.!default` 為 `null` 外掛，觀察引擎是否被以 CPU 速度拉、遊戲是否退回重載 | `tools/play.sh` | 待補（第 5.2 節標為假說） |
@@ -199,7 +199,7 @@
 | 指令軌跡 | 有 Sink 時 `PlayMusic` 不再重複讀檔，之後的指令軌跡與無 Sink 不同；既有收據（`docs/re/008` 收據 A、B、`docs/spec/003` 第 8 節）都是無 Sink 的，不可與有 Sink 的執行逐步比對 |
 | 停止 | 旗標為 0 時原版的停止常式不清曲號；本實作補寫（與有驅動時一致） |
 | 音效 | 原版多播 1 個樣本，切片 0 含檔頭 4 bytes；本實作取半開區間，切片 0 同樣含檔頭。混音：原版音效與音樂走各自的硬體，本實作軟體相加並限幅 |
-| 延遲 | 假說，**沒有實測**（容器沒有裝置）：Linux 估計約 0.1 至 0.15 秒；Windows 與 macOS 估計上限約 0.2 秒加一個混音區塊（第 5.3 節） |
+| 延遲 | 假說，**沒有實測**（容器沒有裝置）：Linux 估計約 0.1 至 0.15 秒；Windows 與 macOS 估計約 0.2 至 0.3 秒加一個混音區塊（依據 `oto` 的讀取方式，第 5.3 節） |
 | 音樂與遊戲時鐘脫鉤 | 拉取者用牆鐘，遊戲時間由 `Session` 的模擬速度決定。模擬跟得上牆鐘時兩者一致；慢機器上模擬落後，遊戲時間比牆鐘慢，音樂（牆鐘）會領先遊戲，曲末後遊戲的重播節拍依遊戲時間觸發，所以曲子結束到重播之間可能出現靜音空檔。不做追趕或同步 |
 | macOS 音訊路徑 | 完全未驗證（沒有實機，交叉編譯環境也不能執行）；Windows 只驗證能編譯與 Wine 內前端不結束 |
 | 無 Sink 的工具 | 診斷工具、`probe`、不帶 `-sound` 的機器人沒有 Sink，軌跡與玩家不同（遊戲重複讀 MID）；要走玩家路徑用 `hrbot -sound`（`NullSink`） |
@@ -275,7 +275,7 @@
 | X2 交接機制敘述與測試 | 採納：第 5.2、5.3 節改寫（`Player.Close` 是空操作，靠世代）；新增決定性的世代單元測試（不靜音、讀長於曲長、目前世代對照）；停滯測試改為不靜音並消除競態；前端測試改 `-race`；突變驗證記收據 |
 | X3 與 READY 的 `docs/spec/003` 矛盾 | 採納：第 3 節末寫明同一提交修訂 `003` 第 7、9、10 節（保留鍵表由 `006` 負責）；F3 靜態普查已完成（`docs/re/021`） |
 | X4 第三版新增測試沒有收據 | 採納：重跑並存日誌（`workplace/out/test-sound-race.log`、`test-play-race.log`、`test-sound-engine-session.log`），逐項記入 `docs/re/019` 第 9 節 |
-| T1 效能閘門量不到掛鉤成本 | 採納：加量 `Playing()` 恆假且 `discard` 的情境（冷啟動 1.007、戰鬥佈陣 0.993，閘門內）；量測過程發現 MID 緩衝在 `0xD5000`（EMS 頁框區），原本逐位元組 `Read8` 的複製成本約 190 微秒，改為「不與 VGA 視窗相交即區塊複製」；數字見 `docs/re/019` 第 2 節 |
+| T1 效能閘門量不到掛鉤成本 | 採納：加量 `Playing()` 恆假且 `discard` 的情境（冷啟動 0.998、戰鬥佈陣 0.986，閘門內）；量測過程發現 MID 緩衝在 `0xD5000`（EMS 頁框區），原本逐位元組 `Read8` 的複製成本約 190 微秒，改為「不與 VGA 視窗相交即區塊複製」；數字見 `docs/re/019` 第 2 節 |
 | T2 SFX 不遞增世代的測試 | 採納：`TestEngineSFXDoesNotBumpEpoch`、並行後狀態一致測試 |
 | T3 位元組檢查範圍與「已驗證」措辭 | 採納：第 1 節與第 3 節改寫，資料偏移靠 `docs/re/010`（強推論），強保證用 `-verify` |
 | T4 音色表檔頭與家族數 | 採納：`patches.go` 檔頭補流程紀錄；第 5.1 節家族數改 16 族 |
@@ -288,3 +288,17 @@
 | T11 文件衛生 | 採納：標頭改為現況，審查敘事集中在本節；引用不進版控的審查報告改引 `docs/re` |
 | T12 次要項 | 採納：`session.go` 註解、PIT 出處、章節號、`masterGain` 註解、`BUILD.MID` 基頻空欄、14.7K 數字、`1975:038C` 補列、停止後狀態檔、`Ticker` 丟 tick、同狀態 A/B skip 條件 |
 | T13 存檔 A/B | 採納：第 8 節列與 `docs/re/019` 第 8 節同步，註明兩點限制 |
+
+### 第四輪重審（第四版）的處理
+
+| 項 | 處理 |
+|---|---|
+| W1 與 `docs/spec/003` 的順序與清單 | 採納：`006` 與 `007` 同一提交升 READY；第 3 節末列出 `003` 第 1、7、9、10、11 節與 `README.md`、`packaging/README.dist.txt` 的分工；`AGENTS.md` 在實作合併時同步 |
+| V1 並行測試偶發失敗 | 採納：最後命令前先 `Read` 清空佇列 |
+| V2 突變驗證原則 | 採納：原則縮小為已有收據的五項（Z1、世代檢查、SFX 世代、`send` 丟棄 `cStart` 的回復、`died` 接手），其餘以推演為據並列待補；補 M4、M5 兩項突變 |
+| V3 收據缺口與時間順序 | 採納：在最終程式上由 `workplace/final-verify-007.sh` 全跑一次（sound `-race`、play `-race -v`、runtime Sound、五項突變並記被測檔雜湊、`hrmusic -check` 的 WAV 雜湊對提交的 TSV、Windows 交叉編譯、Linux `gui`、效能），日誌 `workplace/out/final007-*.log`，結果記入 `docs/re/019` 第 10 節 |
+| V4 六處文字 | 採納：第 5.4、6、7、8 節與 `docs/re/019` 第 3 節改寫；離線轉檔判準與 `cmd/hrmusic` 的常數一致 |
+| V5 oto 延遲範圍 | 採納：改為約 0.2 至 0.3 秒加一個混音區塊，依據 `mux.go` 的讀取方式，仍是假說 |
+| V6 掛鉤觀察讀取的副作用 | 採納：所有觀察讀取改用 `Peek8`／`Peek16`；VGA 視窗相交時略過並計數（`SkippedStarts`）；補單元測試 |
+| V7 效能閘門量的是 `fakeSink` | 暫不處理：列為後補（解析失敗路徑的成本未量；日誌場景標籤待改） |
+| V8 次要項 | 部分採納：oto 後端 `stop` 先 `Pause()`；其餘後補 |

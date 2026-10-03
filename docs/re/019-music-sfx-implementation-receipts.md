@@ -11,8 +11,8 @@
 | `apps/hr/sound` | `CGO_ENABLED=1 tools/dosgolem.sh go test -race -count=1 -v ./apps/hr/sound/`（日誌 `workplace/out/test-sound-race.log`，2026-10-03） | 通過，38 個測試（SMF 解析與拒絕、起音時序對獨立公式、休止與音符、基頻、聲部相加、打擊樂瞬態、引擎生命週期、淡出與佇列、世代 CAS、音效內插、靜音、`Read` 零配置、並行、`NullSink`），含 `TestEngineFadeAfterNaturalEndIsNoop`、`TestEngineDroppedStartDoesNotLeavePlayingState`、`TestEngineSFXDoesNotBumpEpoch`、`TestEngineConcurrentThenQuiescentStateMatchesLastCommand` |
 | `apps/hr/runtime`（不需原版的部分） | `tools/play.sh test-diag`，`HR_TEST_RUN=Sound` | `TestSoundPostDecodesArguments`、`StatusPatchesAXOnly`、`HooksIgnoreNonEntries`、`DisabledWhenFlagNonzero` 通過 |
 | `apps/hr/hd`（theme 支援） | `CGO_ENABLED=1 tools/dosgolem.sh go test -race -count=1 -run 'CheckTheme\|Preload\|LoadAssets' ./apps/hr/hd/` | 通過 |
-| `apps/hr/play` | `HR_RACE=1 HR_VERBOSE=1 tools/play.sh test-play`（`go vet` 加 `go test -race`；Xvfb；日誌 `workplace/out/test-play-race.log`、突變驗證日誌 `workplace/out/mutation-007.log` 內有逐項名稱） | 通過（含保留鍵表不含 F3、`TestAudioAlwaysHasAPuller`、`TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance`、`TestAudioStalledBackendIsTakenOver`、`TestAudioDiedBackendHandover`、`TestAudioOpenTimeoutFallsBackToPump`、`TestPullSourceIdleUsesMonotonicOffset`、`TestResolveMute`） |
-| Windows 編譯 | `tools/play.sh build-cross` | `windows/amd64`、`CGO_ENABLED=0` 通過；macOS 需要 osxcross，未在此驗證 |
+| `apps/hr/play` | `HR_RACE=1 HR_VERBOSE=1 tools/play.sh test-play`（`go vet` 加 `go test -race`；Xvfb；日誌 `workplace/out/final007-play-race.log`（21 項，逐項名稱在內）） | 通過（含保留鍵表不含 F3、`TestAudioAlwaysHasAPuller`、`TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance`、`TestAudioStalledBackendIsTakenOver`、`TestAudioDiedBackendHandover`、`TestAudioOpenTimeoutFallsBackToPump`、`TestPullSourceIdleUsesMonotonicOffset`、`TestResolveMute`） |
+| Windows 編譯 | `tools/play.sh build-cross`（日誌 `workplace/out/final007-build-cross.log`） | `windows/amd64`、`CGO_ENABLED=0` 通過（exit 0；只有一行無害的模組快取寫入權限警告）；macOS 需要 osxcross，未在此驗證 |
 
 ## 2. runtime 掛鉤（需原版）
 
@@ -29,7 +29,7 @@
 
 ### 效能（成對、同行程、150 對、每塊 1M 步，`HR_BENCH_OVERHEAD=1`）
 
-重跑：`HR_BENCH_OVERHEAD=1 HR_TEST_RUN='DiagOverheadPaired' tools/play.sh test-diag`（日誌 `workplace/out/test-overhead-sound.log`，2026-10-03，約 6 分鐘；主機負載平均約 19，成對交替量測抵消大部分負載差異）。所有場景為前端預設組合（診斷加 HD 掛鉤），比值是使用者 CPU 時間的修剪平均 ± 標準誤。
+重跑：`HR_BENCH_OVERHEAD=1 HR_TEST_RUN='DiagOverheadPaired' tools/play.sh test-diag`（日誌 `workplace/out/final007-overhead.log`，2026-10-04，在最終程式上重跑，約 4 分鐘；主機負載平均約 19，成對交替量測抵消大部分負載差異）。所有場景為前端預設組合（診斷加 HD 掛鉤），比值是使用者 CPU 時間的修剪平均 ± 標準誤。
 
 兩種 Sink 回答不同的問題：
 
@@ -38,23 +38,22 @@
 
 | 場景 | 診斷開 ÷ NoDiag（對照，`docs/spec/005`） | 聲音掛鉤 ÷ 無聲音掛鉤（跟隨型） | 聲音掛鉤 ÷ 無聲音掛鉤（恆假，不被抵銷） |
 |---|---:|---:|---:|
-| 冷啟動（HD 掛鉤） | 1.004 ± 0.008（無 HD 掛鉤）、1.024 ± 0.007（HD 掛鉤） | 0.857 ± 0.006 | 1.007 ± 0.007 |
-| 戰鬥佈陣（HD 掛鉤） | 0.998 ± 0.007（無 HD 掛鉤）、0.998 ± 0.007（HD 掛鉤） | 0.946 ± 0.004 | 0.993 ± 0.004 |
+| 冷啟動（HD 掛鉤） | 1.027 ± 0.005（無 HD 掛鉤）、1.011 ± 0.006（HD 掛鉤） | 0.875 ± 0.005 | 0.998 ± 0.007 |
+| 戰鬥佈陣（HD 掛鉤） | 1.029 ± 0.006（無 HD 掛鉤）、0.978 ± 0.004（HD 掛鉤） | 0.926 ± 0.006 | 0.986 ± 0.005 |
 
-全部在閘門 1.05 之內。不被抵銷的掛鉤成本約為零（冷啟動 +0.7%、戰鬥佈陣 −0.7%，都在誤差內）。
+全部在閘門 1.05 之內。不被抵銷的掛鉤成本約為零（冷啟動 −0.2%、戰鬥佈陣 −1.4%，在誤差內）。診斷開對 NoDiag 的對照欄是 `docs/spec/005` 的量測，每次重跑有 ±2% 的主機負載波動。
 
 ### MID 緩衝的位址與複製路徑
 
-`MusicStart` 複製的 MID 緩衝在線性位址 `0xD5000`（EMS 頁框區，高於 `A0000`）。`SoundStats.MidAddr` 記最近一次複製的位址，`SlowCopies` 記走逐位元組 `Read8` 的次數。`TestSoundHooksDoNotChangeTheGame` 在冷啟動 90M 步的結果：`MidAddr=0xd5000`、`Starts=4774`、`SlowCopies=0`。
+`MusicStart` 複製的 MID 緩衝在線性位址 `0xD5000`（EMS 頁框區，高於 `A0000`）。`SoundStats.MidAddr` 記最近一次複製的位址，`SkippedStarts` 記因緩衝與 VGA 視窗相交而略過的 `MusicStart` 次數。`TestSoundHooksDoNotChangeTheGame` 在冷啟動 90M 步的結果：`MidAddr=0xd5000`、`Starts=4774`、`SkippedStarts=0`（最終程式，`workplace/out/final007-runtime-sound.log`）。
 
-- 複製的條件是「範圍不與 VGA 視窗 `A0000–AFFFF` 相交」就用區塊複製（`copy` 自 `Mem`），否則逐位元組 `Read8`。`Read8` 對 `0xD5000` 沒有特殊語意（只對 HMA、平面模式的 VGA 視窗與讀取監看特殊處理），EMS 映射又是把頁資料複製進頁框位址（`internal/dos/ems.go` 的 `WriteBytes`），所以區塊複製與 `Read8` 結果相同；第一次 `MusicStart` 的位元組通過「以 `SCOUT.MID` 開頭」的檢查（`TestSoundHooksDoNotChangeTheGame`）。
-- 逐位元組複製的成本：20000 次 `Read8`，每次 `MusicStart` 約 190 微秒（由效能量測推得：恆假 Sink 冷啟動比值 1.09 時，每 1M 步一塊約 48 次 `MusicStart`，額外約 9 毫秒）。改為區塊複製後恆假 Sink 冷啟動比值降到 1.007 ± 0.007。
+- 複製的條件是「範圍不與 VGA 視窗 `A0000–AFFFF` 相交」就用區塊複製（`copy` 自 `Mem`，不觸發讀取監看）；相交時略過這次 `MusicStart` 並計數（平面模式下讀視窗有 VGA latch 副作用，`Peek` 對視窗只回 0）。掛鉤所有觀察讀取（旗標、MID 遠指標、切片表、堆疊引數）一律用 `Machine.Peek8`／`Peek16`，沒有副作用。`Read8` 對 `0xD5000` 沒有特殊語意，EMS 映射又是把頁資料複製進頁框位址（`internal/dos/ems.go` 的 `WriteBytes`），所以區塊複製與 `Read8` 的值相同；第一次 `MusicStart` 的位元組通過「以 `SCOUT.MID` 開頭」的檢查（`TestSoundHooksDoNotChangeTheGame`）。`TestSoundPostDecodesArguments` 補了與視窗相交（`A000:F000`、`A000:0000`、`9FFF:FFF0`）與緊貼視窗但不相交（`9B1E:0000`、`B000:0000`）的案例。
 
 ## 3. 離線轉檔（`tools/dosgolem.sh music`）
 
 重跑：`tools/dosgolem.sh build && tools/dosgolem.sh music -out /out/music/wav -expect /out/music/midisum.tsv -check`（`midisum.tsv` 由 `tools/music/run.sh midisum` 產生，已存為 `docs/re/data/018-midisum.tsv`）。輸出表存為 `docs/re/data/019-hrmusic-report.tsv`：每個非空 MID 的曲長（解析器與獨立工具）、音符數（兩者）、峰值、RMS、近乎削波取樣數、聲部取代次數、活動音符數與窗 RMS 的相關、聽得到的比例、`Engine.Read` 與離線轉檔是否逐取樣相同、WAV 的 SHA-256 前 16 碼（限 `linux/amd64` 同一建置，不跨 `GOARCH`）。
 
-結果：27 個檔全部通過 `-check`：曲長與獨立工具相符（0.2% 加 2 毫秒內）、音符數全部相等、聲部取代 0、近乎削波 0、峰值 0.210 到 0.701、RMS 0.039 到 0.193、活動相關 0.30（`PRINCESS`）到 0.96、聽得到的比例全部 100%、兩次轉檔相同、`Engine.Read` 與離線轉檔逐取樣相同。
+結果：27 個檔全部通過 `-check`：曲長與獨立工具相符（0.1% 加 2 毫秒內）、音符數全部相等、聲部取代 0、近乎削波 0、峰值 0.210 到 0.701、RMS 0.039 到 0.193、活動相關 0.30（`PRINCESS`）到 0.96、聽得到的比例全部 100%、兩次轉檔相同、`Engine.Read` 與離線轉檔逐取樣相同。
 
 基頻抽查（`apps/hr/cmd/hrmusic/pitch.go`，判準只來自 SMF 的音高與時間，不依賴合成器參數）：26 個非空檔，真渲染器 798/799 個音符通過（期望音高的調和累加至少是 ±12 個半音內最大值的 70%，要求每檔至少 90%）；偵測器自測用壞渲染器（每個音符播固定 440 Hz 正弦、起訖準時），26/799 通過，低於 60% 的上限。`-pitch-debug` 可列出不符的音符。`ALCOHOL.MID` 是 0 byte 檔，略過。
 
@@ -64,9 +63,9 @@
 
 ## 4. 前端實跑（Xvfb、沒有音訊裝置）
 
-重跑：`tools/play.sh gui`（`workplace/out/gui-help.png`、`gui-newgame.png`、`gui-title.png`）。
+重跑：`tools/play.sh gui`（日誌 `workplace/out/final007-gui.log`，2026-10-04，最終程式；截圖 `workplace/out/gui-help.png`、`gui-newgame.png`、`gui-title.png`）。
 
-- Linux 後端確實載入了 `libasound.so.2`（日誌可見 ALSA 的錯誤訊息 `Unknown PCM default`），`snd_pcm_open` 回報失敗後，前端印出「音訊裝置不可用，靜音運行」並改用牆鐘拉取執行緒，遊戲照常進到新遊戲畫面，沒有結束（confirmed）。
+- Linux 後端確實載入了 `libasound.so.2`（`final007-gui.log` 有 ALSA 的 `Unknown PCM default`），`snd_pcm_open` 回報失敗後，前端印出「音訊裝置不可用，靜音運行」並改用牆鐘拉取執行緒，遊戲照常進到新遊戲畫面，沒有結束（confirmed）。
 - F1 說明列出 `F3 sound on/off` 與 `Sound: on (F3)`（`gui-help.png`）。
 - 真實音訊裝置上的輸出沒有驗證（容器沒有裝置）。Windows 與 macOS 的 oto 後端只驗證了 Windows 能編譯，沒有執行。
 
@@ -162,8 +161,25 @@
 | `TestResolveMute` | `-mute`、`HR_MUTE`、偏好設定 `sound` 的 13 種組合 |
 | `TestEngineConcurrentThenQuiescentStateMatchesLastCommand` | 並行命令洪流結束、讀取者停止後，最後一個音樂命令決定 `Playing()` |
 
-另有改動：`MusicStart` 的 20000 位元組複製在常規記憶體（`A0000` 以下）改為區塊複製；`pullSource` 的看門狗改用單調時鐘；`patches.go` 檔頭補流程紀錄；`hrmusic` 失敗訊息與判準一致。
+另有改動：`MusicStart` 的 20000 位元組複製改為區塊複製（第 4 輪後的現行條件見第 2 節「MID 緩衝的位址與複製路徑」）；`pullSource` 的看門狗改用單調時鐘；`patches.go` 檔頭補流程紀錄；`hrmusic` 失敗訊息與判準一致。
 
 ### 9.4 runtime 的 Sound 測試全跑
 
-重跑：`HR_TEST_RUN='Sound|SaveDiffDetector' tools/play.sh test-diag`（日誌 `workplace/out/test-runtime-sound-all.log`，2026-10-03，約 119 秒，不帶 `-race`：帶 `-race` 時 90M 步的測試超過 `go test` 預設的 10 分鐘逾時；並行相關的測試已在 `apps/hr/sound` 與 `apps/hr/play` 以 `-race` 跑過）。13 個測試全部通過：`TestSaveDiffDetectorSelfTest`、`TestSoundDoesNotChangeSaves`、`TestSoundPostDecodesArguments`、`TestSoundStatusPatchesAXOnly`、`TestSoundHooksIgnoreNonEntries`、`TestSoundDisabledWhenFlagNonzero`、`TestSoundHooksFailClosedOnBytes`、`TestSoundHooksDoNotChangeTheGame`、`TestSoundPlayingSuppressesReload`、`TestSoundNaturalEndReplays`、`TestSoundPlayMusicPathFromState`、`TestSoundStateFilesAreClean`、`TestSoundEngineSessionIntegration`。
+重跑：`HR_TEST_RUN='Sound|SaveDiffDetector' tools/play.sh test-diag`（日誌 `workplace/out/test-runtime-sound-all.log`，2026-10-03，約 119 秒；第 4 輪審查後在最終程式重跑的日誌見第 10 節，不帶 `-race`：帶 `-race` 時 90M 步的測試超過 `go test` 預設的 10 分鐘逾時；並行相關的測試已在 `apps/hr/sound` 與 `apps/hr/play` 以 `-race` 跑過）。13 個測試全部通過：`TestSaveDiffDetectorSelfTest`、`TestSoundDoesNotChangeSaves`、`TestSoundPostDecodesArguments`、`TestSoundStatusPatchesAXOnly`、`TestSoundHooksIgnoreNonEntries`、`TestSoundDisabledWhenFlagNonzero`、`TestSoundHooksFailClosedOnBytes`、`TestSoundHooksDoNotChangeTheGame`、`TestSoundPlayingSuppressesReload`、`TestSoundNaturalEndReplays`、`TestSoundPlayMusicPathFromState`、`TestSoundStateFilesAreClean`、`TestSoundEngineSessionIntegration`。
+
+## 10. 最終驗證（第四輪審查後，2026-10-04）
+
+在規格 007 第五版對應的最終程式上，整批重跑（腳本 `workplace/final-verify-007.sh`，日誌 `workplace/out/final007-*.log`，gitignore）。被測原始檔雜湊（前 16 碼）記在 `final007-hashes.log`：`engine.go` `7ad920886d07b4e9`、`audio.go` `87194ad09ee47961`、`engine_test.go` `57f882f2305c8674`、`audio_test.go` `36592dbbe2da1a5c`、`sound_test.go` `daa82e6dbde77943`。
+
+| 項目 | 指令與日誌 | 結果 |
+|---|---|---|
+| `apps/hr/sound` | `go vet` 加 `go test -race`（`final007-sound-race.log`） | 38 項通過 |
+| `apps/hr/play` | `HR_RACE=1 tools/play.sh test-play`（`final007-play-race.log`） | 21 項通過、1 項略過（`TestGenCharsets`，沒設 `HR_GEN_CHARSET`，字集重建用） |
+| `apps/hr/runtime` Sound | `HR_TEST_RUN='Sound|SaveDiffDetector' tools/play.sh test-diag`（`final007-runtime-sound.log`，95 秒，不帶 `-race`） | 13 項通過；整合測試 `MusicStart` 在遊戲秒 0.11、36.47、72.94（相隔 36.36、36.47，曲長 36.38）；`MidAddr=0xd5000`、`Starts=4774`、`SkippedStarts=0` |
+| 效能 | 第 2 節（`final007-overhead.log`，235 秒） | 全部在閘門 1.05 內 |
+| 突變 M1 至 M5 | `final007-mutation.log` | 5 項全部使對應測試失敗，還原後原始檔雜湊與基準相同（第 9.2 節 M1 至 M3；M4：`send` 丟棄 `cStart` 時不回復狀態字，`TestEngineDroppedStartDoesNotLeavePlayingState` 失敗；M5：裝置回報 died 時不接手，`TestAudioDiedBackendHandover` 失敗） |
+| 離線轉檔 | `hrmusic -check`（`final007-hrmusic.tsv`） | 27 個檔通過；輸出表與已提交的 `docs/re/data/019-hrmusic-report.tsv` 比對無差異（`final007-hrmusic.diff` 為空），WAV 的 SHA-256 前 16 碼相同 |
+| Windows 編譯 | `tools/play.sh build-cross`（`final007-build-cross.log`） | `windows/amd64` 通過；輸出只有模組快取寫入權限的一行警告 |
+| 前端 | `tools/play.sh gui`（`final007-gui.log`） | 見第 4 節。ALSA 沒有 `default` 裝置，前端靜音運行；日誌另有一行 `跑不到 18.2 Hz（2 秒內 21 個 tick，應有 36）：間隔 300000 → 270000`，是 Xvfb 軟體繪圖加主機負載下既有的計時器降頻（`Session.Lowered`），與聲音無關 |
+
+結論範圍：Linux、無音訊裝置、`NullSink` 與離線轉檔。真實音訊裝置輸出、macOS、`GOLD.MID` 與 `ALCOHOL.MID` 路徑、逐 id 的點擊音收據仍在第 7 節，使用者尚未試聽。

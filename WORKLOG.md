@@ -184,3 +184,14 @@
 
 - 四位子代理（兩位在第三輪、一位在第四輪、一位在 008 審查）仍在主機執行過 `python3 --version`，儘管 prompt 寫了「不要在主機執行 python 或任何解譯器」，其中一次的 prompt 還特別強調「連 `--version` 也不要」；都沒有產生檔案。之後的 prompt 把這條放在邊界清單的第一條，並要求回報時自述有無違反。
 - 主代理這邊：寫 `fonts_test.go` 時空白例外只寫了 `' '`，漏了 U+3000，第一次跑失敗（`docs/re/022` 第 2 節）。測試的控制組假設要先用資料確認，不用臆測。
+
+### 第五輪審查（006 第六版）、007 最終驗證（2026-10-04，續十五）
+
+- 規格 006 第六輪審查（`006-rereview5.md`）：阻擋 4 項。B1 `hdView` 測試用只有表頭的 TSV 時，雜湊不在清冊使 `Get` 回 nil，輸出與素材無關，A、B 分辨不出；`writeTheme` 的 PNG 是 alpha 全 0，同樣分辨不出；負向斷言沒有同步點，skip 模式下 (2) 不會變紅；「預期失敗的子測試」無法用 `t.Run` 表達。B2 逾時計數掛在「loading 收到已取消」那條，計時器路徑實際走 cancelling，計數永遠為 0。B3 離開列沒有放開 `HoldAdapt`（被拒、丟棄、cancelling 離開），`original` 目標沒有完整路徑。B4 生命週期鎖只保證互斥不保證先後，`hd → original → hd` 連按時新預載可能先於舊 `Release`。
+- 第七版的取捨：B3、B4 的共同根源是切走時背景 `Release`。第七版改為已套用的 HD theme 一律常駐（上限約 400 MiB 加基底與遊戲），整套 `releasing`、生命週期鎖、`SetMemoryLimit` 與 `Assets` 層級四態都不再需要；`Release` 只用在尚未套用的預載被丟棄或被拒，由載入 goroutine 在回報前同步呼叫。若日後記憶體成為問題，另立規格加 `Release` 策略。其餘：`onResult` 單一結果處理函式（結果優先於計時器）、`holdGate{mu, held, dirty}` 與 `windowVerdict`、`SetAssets` 單一臨界區加 `run` 擁有 `last` 與 `seenEpoch`、`upload` 與 `writePNG` 在 `ready` 為空時的語意、`pubFrom` 與 `discards` 觀察點、屏障式負向斷言、`scenario(t, mode) error` 的負對照。
+- 規格 007 第五版與 `docs/re/019` 的最終驗證：在最終程式上整批重跑，`apps/hr/sound` `-race` 38 項、`apps/hr/play` `-race` 21 項（另 1 項略過）、runtime Sound 13 項全部通過；突變驗證 M1 至 M5 都使對應測試失敗，還原後雜湊與基準相同；`hrmusic -check` 的輸出表與已提交的表相同；`build-cross` 通過；效能六個場景都在閘門 1.05 內（跟隨型 0.875、0.926；恆假型 0.998、0.986）。`docs/re/019` 新增第 10 節記錄，MID 緩衝的複製路徑改為「與 VGA 視窗相交就略過並計數」，刪除逐位元組 `Read8` 的成本段落。
+
+### 勘誤（續十五）
+
+- `docs/re/019` 第 2 節「MID 緩衝的位址與複製路徑」原寫 `SlowCopies` 與逐位元組 `Read8` 的成本（約 190 微秒、比值 1.09 降到 1.007）。這是前一版複製路徑的描述，現行設計是區塊複製加 `SkippedStarts`，觀察讀取一律用 `Peek`。該段已刪除，不再留在正文。
+- 007 與 019 的跟隨型與恆假型效能數字在最終程式上重跑後改變（舊值 0.857／0.946、1.007／0.993），舊值只對應舊程式，全部換成第 10 節的最終值。

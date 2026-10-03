@@ -1,7 +1,7 @@
 # 006 前端：F1 功能說明、F2 切換 theme、F3 聲音開關、F4 切換介面語言
 
-狀態：DRAFT（2026-10-03，第六版）
-審查：審查 A（唯讀）審第一版（報告 `workplace/spec-review/006-review-A.md`，不進版控）：阻擋 B1 至 B5、建議 S1 至 S13。重審（`006-rereview.md`）審第二版：新阻擋 2 個與 R1 至 R10。第三輪（`006-rereview2.md`）審第三版：阻擋 B1（字型腳本斷言與產物不符、授權檔夾帶 GPL 段）與 B2（`Compose` 快照測試仍可能空轉）、建議 R1 至 R13。第四版處理全部。第四輪（`006-rereview3.md`）審第四版：阻擋 B1（`HoldAdapt` 的計數式語意擋不住降頻，需視窗規則）與 B2（`hdView` 世代測試沒有決定性控制點與負對照）、建議 R1 至 R13。第五版處理全部。第五輪（`006-rereview4.md`）審第五版：阻擋 B1（`hdView` 世代測試的順序測試與負對照寫不出來）與 B2（切換序列沒有恢復暫停中的 `hdView`）、建議 R1 至 R8。第六版處理全部，對照見第 14 節。修正後需要窄範圍的第六輪重審（範圍：第 10 節的 `hdView` 與狀態機與 `HoldAdapt` 列、第 4 節的切換序列與狀態機轉移表）才能升 READY。
+狀態：DRAFT（2026-10-04，第七版）
+審查：審查 A（唯讀）審第一版（報告 `workplace/spec-review/006-review-A.md`，不進版控）：阻擋 B1 至 B5、建議 S1 至 S13。重審（`006-rereview.md`）審第二版：新阻擋 2 個與 R1 至 R10。第三輪（`006-rereview2.md`）審第三版：阻擋 B1（字型腳本斷言與產物不符、授權檔夾帶 GPL 段）與 B2（`Compose` 快照測試仍可能空轉）、建議 R1 至 R13。第四版處理全部。第四輪（`006-rereview3.md`）審第四版：阻擋 B1（`HoldAdapt` 的計數式語意擋不住降頻，需視窗規則）與 B2（`hdView` 世代測試沒有決定性控制點與負對照）、建議 R1 至 R13。第五版處理全部。第五輪（`006-rereview4.md`）審第五版：阻擋 B1（`hdView` 世代測試的順序測試與負對照寫不出來）與 B2（切換序列沒有恢復暫停中的 `hdView`）、建議 R1 至 R8。第六版處理全部。第六輪（`006-rereview5.md`）審第六版：阻擋 B1（`hdView` 測試分辨不出素材 A、B，負對照無法用 `t.Run` 表達，負向斷言沒有同步點）、B2（逾時計數在計時器路徑上不會加一）、B3（離開列沒有放開 `HoldAdapt`，`original` 目標沒有完整路徑）、B4（生命週期鎖不保證 `Release` 先於新 `Preload`）、建議 R1 至 R7。第七版處理全部：B3、B4 的根源是切走時背景 `Release`，第七版改為已套用的 HD theme 常駐，整套背景 `Release` 狀態不再存在。對照見第 14 節。修正後需要窄範圍的第七輪重審（範圍：第 4 節的常駐策略、`onResult`、`holdGate`、`hdView` 單一轉移與 `run`，第 10 節對應的測試列）才能升 READY。
 流程：工作樹已有本規格部分功能的實作草稿（`hd/theme.go`、`play/prefs.go`、`i18n.go`、字型子集與產生腳本，與 `docs/spec/007` 的聲音接線）。這些檔案是草稿，未提交到 fork 的 `hr` 分支，部分行為落後於本規格（偏好設定的補丁式合併、`updatePrefs`、`hdView` 的世代、`Composer.A` 原子指標等）。升 READY 後以本規格為準改程式，測試也要改成斷言規格的行為。
 範圍：`apps/hr/play`（前端）與 `apps/hr/hd`（素材預載、釋放、檢查）。涵蓋 F1 說明的內容與語言、F2 在原版與各 HD theme 之間循環、F3 聲音開關（功能見 `docs/spec/007`）、F4 在五種語言之間循環（只切換前端介面文字）、偏好設定、字型內嵌。不含：遊戲內文字（對白、選單、數值表）的多語系，那是里程碑 M10（`docs/spec/008`）；AI theme 的素材本身（M8）；音樂與音效的合成（`docs/spec/007`）。
 關聯：`docs/spec/003-runtime-and-frontend`（保留鍵第 7 節、縮放第 6 節）、`docs/spec/004-hd-overlay`（Composer、清冊第 3.3 節、素材契約第 6 節）、`docs/spec/005-hang-diagnostics`（Ctrl+D、F1 的最近診斷列）、`docs/spec/007-music-sfx-playback`（F3、`-mute`）、`docs/spec/008-ingame-text-localization`（F4 與遊戲內語言，第 3.8 節）、`docs/re/021-mainexe-keyboard-census.md`（遊戲是否讀 F2、F3、F4）。
@@ -44,7 +44,7 @@
 
   **Ctrl 按住時 F1 不處理是行為變更**：現行 F1 沒有 Ctrl 判斷（`game.go`），與 F2 至 F4 一致化。F3 排除 Alt 是 `docs/spec/007` 草稿原有的行為，本表統一定案，`docs/spec/007` 第 5.4 節引用本表。
 - Shift 或 Meta 按住時，F1 至 F4 視為無修飾鍵（`reservedKeyAction` 只有 `ctrl`、`alt` 兩個參數）。
-- `keys.go` 移除 F2、F3、F4 三列，更新檔頭註解。**跨規格修訂清單與分工**（本規格升 READY 的同一提交；`docs/spec/007` 升 READY 的同一提交處理它自己的格）：
+- `keys.go` 移除 F2、F3、F4 三列，更新檔頭註解。**跨規格修訂清單與分工**（**本規格與 `docs/spec/007` 在同一個提交升 READY**，該提交同時修訂 `003`，不留下一個 READY 規格與另一份規格不一致的區間；同一格內依詞語分工，先後無關）：
 
   | 位置 | 修訂 | 負責 |
   |---|---|---|
@@ -121,51 +121,55 @@
   - 基底 theme 只在 TSV 層錯誤時拒絕。逐圖問題（PNG 缺檔、尺寸不符、調色盤缺名）維持現行行為：該圖退回基底層（原版像素放大），其餘圖照常。理由：現行 `Assets.Get` 對這些問題逐圖降級；改成「一張壞就整個 HD 關閉」是未經決定的行為變更。
   - 衍生 theme 用 `hd.CheckTheme(base *Assets, dir string, s int) (*Assets, error)`（簽名與草稿 `theme.go` 一致：內部 `LoadAssets(dir)` 並回傳載入好的 `*Assets`，避免對衍生 theme 解析兩次 TSV；`base` 為 nil 時回明確錯誤，不 panic）。它對**每一列**檢查：`hash` 存在於基底清冊且 `w`、`h` 相同；引用的 `pal` 名稱存在於該 theme 自己的 `palettes.tsv`。`hd` 欄**非空**的列另檢查 PNG 存在且尺寸 S×w 乘 S×h（只讀檔頭，內容契約由發行前的驗收工具 `tools/hd` 負責）；`hd` 欄**為空**的列只略過 PNG 檢查（`tools/hd/catalog.py` 產生的清冊列出全部雜湊，沒有 HD 圖的列 `hd` 欄為空，`docs/spec/004` 第 3.3 節；草稿 `theme.go` 的行為與此一致）。允許只涵蓋部分雜湊；有任何一項不符就拒絕整個衍生 theme，記一行錯誤，其餘 theme 照常。比對以 `hash` 為鍵的集合，不依列序，也不比 `id`、`kind`、`pal` 欄的內容。`palettes.tsv` 不需與基底一致，合成用該 theme 自己的調色盤。
   - **兩條路徑的嚴格度不同是決定**：啟動時的預設 HD theme 沿用延遲解碼、不預載（開啟快）；切換（F2）時的預載若解碼成功數為 0 就拒絕切換。啟動後若全部 PNG 都缺，畫面是基底層（原版放大），由下面的錯誤輸出規則通報。
-  - **逐圖錯誤的輸出**：`Assets.Errors`（每雜湊最多一筆，上限 595 筆）目前只有 `cmd/hrhd` 讀取，前端不讀，所以現行逐圖降級沒有任何輸出。`Errors` 由合成執行緒在 `a.mu` 下 `append`，`Release` 會把它設為 nil，因此前端**不直接讀欄位**，改用帶鎖的 `Assets.ErrorStats() (gen uint64, n int, first string)`，`Release` 時 `gen` 加一。規定：前端在預載完成時、以及遊戲執行中每 60 秒檢查一次，`n` 增加時記一行（筆數與第一筆原因），不逐筆記。基準 `(gen, n)` 每個 `Assets` 一份，只由 UI 執行緒讀寫（背景 goroutine 不碰）；`gen` 與基準不同就視為基準 `n ＝ 0`（`Release` 後筆數倒退，下一次增加不會被吞掉）。
+  - **逐圖錯誤的輸出**：`Assets.Errors`（每雜湊最多一筆，上限 595 筆）目前只有 `cmd/hrhd` 讀取，前端不讀，所以現行逐圖降級沒有任何輸出。`Errors` 由合成執行緒在 `a.mu` 下 `append`，`Release` 會把它設為 nil，因此前端**不直接讀欄位**，改用帶鎖的 `Assets.ErrorStats() (n int, first string)`。規定：預載結果的失敗由載入 goroutine 在 `Release` 之前讀取並隨結果回傳（`Release` 會清掉原因，所以必須先讀），UI 在 `onResult` 記一行；已套用 theme 的逐圖錯誤，前端在遊戲執行中每 60 秒檢查一次，`n` 比基準增加時記一行（筆數與第一筆原因），不逐筆記。基準 `n` 每個 `Assets` 一份，只由 UI 執行緒讀寫：啟動 theme 為 0；預載成功的 theme 在進入 applying 時設為當時的 `n`（預載階段的失敗已在 `onResult` 記過）。已套用的 `Assets` 不 `Release`，所以 `n` 單調不減，不需要世代欄位。
 - 辨識（`Overlay`）與 theme 無關，所以切換 theme 不需重開 `Session`。
 - `status` 欄：執行期的 theme 載入不看 `hd/provenance.tsv` 的 `status`（`AGENTS.md` 第 8 節規定新素材先是 `candidate`）。AI theme 的候選圖在 F2 會直接顯示，這是**決定**：它是使用者過目新素材的方式；發行包不含 `hd-ai/`（`tools/package.sh` 的 `stage_hd` 只複製 `hd/`，confirmed）。
-- F2：依序 `original → hd → ai → original`（略過不可用的）循環。只有 `original` 可用時 F2 顯示提示「沒有其他 theme」，不改變狀態。**被拒的 theme 不再卡住循環**：預載被拒（解碼成功數為 0，含全部失敗與 `Preload` 回 `(0, 0)`，例如清冊的 `hd` 欄全空）時，該 theme 在本次執行標為不可用並記一行，`nextTheme` 略過它；逾時的 theme 不立即標記，允許再試一次，第二次逾時才標為不可用。
+- F2：依序 `original → hd → ai → original`（略過不可用的）循環。只有 `original` 可用時 F2 顯示提示「沒有其他 theme」，不改變狀態。**被拒的 theme 不再卡住循環**：預載被拒（解碼成功數為 0，含全部失敗與 `Preload` 回 `(0, 0)`，例如清冊的 `hd` 欄全空）時，該 theme 在本次執行標為不可用並記一行，`nextTheme` 略過它；逾時的 theme 不立即標記，允許再試一次，連續第二次逾時才標為不可用。
 - `-theme original|hd|ai`、`-no-hd`：`-theme` 的值未知或該 theme 不可用，退回預設並記一行，不致命。`-no-hd` 是「不開 HD 掛鉤」：`HDHooks` 關、不建立 `hdView`、F2 沒有其他 theme，與 `-theme original` 不同（後者保留掛鉤與 `hdView`，F2 仍可切）。
 
-**切換狀態機**（純邏輯，注入載入器、時鐘與 `viewControl` 縫隙即可測試）：
+**常駐策略**：已載入並套用過的 HD theme 一律常駐，切走時**不 `Release`**。HD theme 最多兩個（`hd/`、`hd-ai/`），常駐上限約 base 加兩份，每份約 194 MiB（595 張，原版像素合計 12,709,184 乘 4 位元組乘 4 ＝ 203,346,944 bytes ＝ 193.9 MiB；`docs/re/014` 另記全部載入約 262 MB 含不在清冊的字型圖），也就是約 400 MiB 加基底與遊戲。取捨：這換來沒有「切走時背景 `Release`、GC 與 `FreeOSMemory`」的整套狀態（`releasing`、`Release` 與新預載的先後、生命週期鎖、`SetMemoryLimit`），切回已載入的 theme 也是即時的；若日後記憶體成為問題，另立規格加 `Release` 策略。`Assets.Release()`（清空解碼快取與 `Errors`，保留清冊與調色盤）只用在**尚未套用的預載被丟棄或被拒**時，由載入 goroutine 在回報結果之前同步呼叫，此時沒有其他使用者。**通過標準**（收據量測後可調整，調整要記在 `docs/re`）：兩個 theme 都載入後 RSS 不高於載入前加 2 × 194 MiB 加 64 MiB；預載被丟棄後 RSS 不高於載入前加 64 MiB（Go 的 GC 不一定立刻還給系統，強推論，未量測）。
 
-| 狀態 | 進入 | 離開（守衛依序判斷，先符合的先生效） |
+**切換狀態機**（純邏輯，注入載入器、時鐘、`holder` 與 `viewControl` 縫隙即可測試）：
+
+| 狀態 | 進入 | 離開 |
 |---|---|---|
-| idle | 初始；任何路徑結束 | F2 且目標是 HD theme → loading；F2 且目標是 `original` → 序列 2 |
-| loading(g) | 受理 F2：取得 `HoldAdapt`；啟動背景 goroutine（世代 g）對目標 `Assets` 執行 `Assets.Preload(ctx, progress)`，進度顯示在 toast 行 | goroutine 回傳後，**先判 `ctx.Err() != nil` 或 `err != nil`**（逾時或程式結束取消，即使 `ok > 0` 也一樣）→ 丟棄結果並 `Release` → idle，逾時計數加一；**其次 `ok ＝ 0`** → 標為不可用並 `Release` → idle；**最後 `ok > 0`** → applying。計時器逾時（60 秒，含等待常駐鎖的時間）→ 取消 `ctx` → cancelling |
-| cancelling | 計時器逾時或程式結束，`ctx` 已取消，goroutine 尚未回來 | goroutine 回傳（任何結果，含 `ok > 0` 且無 `err`：`Preload` 只在迴圈頭檢查 `ctx`，可能剛好跑完全部才被取消）→ 一律丟棄並 `Release` → idle |
-| applying | `hdView.SetAssets(target)` 已呼叫，目前 theme 已更新為目標；等該世代第一張新畫面或 2 秒 | 第一張新畫面已發佈，或 2 秒到期 → 顯示來源與上傳依發佈計數更新、記 `theme ready: <代號>`、提交 `theme` 偏好補丁、背景 `Release` 舊 theme、放開 `HoldAdapt` → idle |
+| idle | 初始；任何交易結束 | F2 且目標是 `original` → 即時切換（下面「回 original」）；F2 且目標是已常駐的 HD theme → 取得 `HoldAdapt`，進入 applying；F2 且目標是未常駐的 HD theme → 取得 `HoldAdapt`，啟動 goroutine，進入 loading |
+| loading | goroutine 對目標 `Assets` 執行 `Assets.Preload(ctx, progress)`，進度顯示在 toast 行；計時器 60 秒 | 結果到達 → `onResult`（下）；計時器觸發 → 記 `timerFired`、取消 `ctx`、進入 cancelling（只是「已請求取消」的顯示狀態） |
+| cancelling | 計時器觸發或程式結束，`ctx` 已取消，goroutine 尚未回來 | 結果到達 → `onResult`（下） |
+| applying | 目標素材就緒，`hdView.SetAssets(target)` 已呼叫，目前 theme 已更新為目標；等該世代第一張新畫面或 2 秒 | 第一張新畫面已發佈（`ready` 由空變非空），或 2 秒到期 → 完成：顯示來源與上傳更新、toast、記 `theme ready: <代號>`、提交 `theme` 偏好補丁、放開 `HoldAdapt` → idle |
 
-- loading、cancelling、applying 期間再按 F2：忽略，不排隊，toast 顯示「載入中」。取消沒有使用者動作，只有逾時與程式結束兩個來源。「目標已常駐」不是可達的轉移（常駐只有目前 theme，`nextTheme` 不會回傳目前 theme），所以沒有這條。
-- **逾時計數**：每個 theme 一個計數，只算連續逾時，成功（進入 applying）時歸零；連續第二次逾時才標為不可用。「不可用」的標記只在本次執行有效，不持久化。
-- 結果只由 goroutine 回報、以世代比對丟棄過期結果。部分解碼的快取（最多約 194 MiB）不留著：丟棄與被拒的路徑都由該 goroutine 在回傳後 `Release` 目標素材；逾時後再按 F2 重新開始載入，從頭解碼。
-- **每個 `Assets` 的常駐狀態與生命週期鎖**：absent、loading、resident、releasing 四態。啟動時就使用的 HD theme（沿用延遲解碼、不預載）視為 resident，離開時走 releasing。狀態由一把**生命週期鎖**保護，它不是 `Assets` 內部的 `a.mu`：`Preload` 與 `Release` 整段持有生命週期鎖，`Get` 與 `ErrorStats()` 不取它（`Get` 持有 `a.mu` 解碼，若與 `Preload` 共用 `a.mu`，`Preload` 內部的 `Get` 會自鎖，也會擋住合成執行緒）。等待生命週期鎖的 `Preload` 能被 `ctx` 取消（60 秒含等待）。`hd → original → hd` 兩次 F2 之間，切走時的背景 `Release`（含 `runtime.GC()` 與 `debug.FreeOSMemory()`）可能還在進行，此時新的預載要等 releasing 結束才開始（toast 顯示「載入中」），不會讓新預載解碼的項目被舊的 `Release` 清掉。`Release` 不在 UI 執行緒呼叫（合成執行緒正在 `Get` 解碼時會等一次 PNG 解碼）。
+**`onResult` 是唯一的結果處理函式**（結果由 goroutine 傳回 UI，UI 在 `Update` 內處理；同一次 `Update` 內計時器與結果同時到達時**結果優先**）。`Preload` 回傳 `(ok, failed, err)`，`err != nil` 表示 `ctx` 在迴圈頭被取消，`ok` 可大於 0；迴圈跑完回傳 `err ＝ nil`（即使 `ctx` 在之後才被取消）：
+1. `err != nil`（取消，已有部分解碼的快取）：goroutine 已在回報前 `Release` 目標。若 `timerFired`，該 theme 的逾時計數加一；若是程式結束造成的取消，不計數。放開 `HoldAdapt` → idle。
+2. `err ＝ nil` 且 `ok ＝ 0`（含清冊 `hd` 欄全空的 `(0, 0)`）：goroutine 已在回報前讀取 `ErrorStats()` 並 `Release` 目標。標為不可用並記一行（含首筆原因）。放開 `HoldAdapt` → idle。
+3. `err ＝ nil` 且 `ok > 0`：預載是完整的，**即使計時器已經觸發也接受**（不丟棄一份已完整的預載），逾時計數歸零，目標成為常駐 → applying。有部分失敗照常，失敗的圖退回基底層，數量記一行。
+
+- **逾時計數**：每個 theme 一個計數，只算連續逾時（`onResult` 的第 1 條且 `timerFired`），第 3 條成功時歸零；連續第二次逾時才標為不可用。「不可用」的標記只在本次執行有效，不持久化。
+- loading、cancelling、applying 期間再按 F2：忽略，不排隊，toast 顯示「載入中」。取消沒有使用者動作，只有計時器與程式結束兩個來源。
+- **回 original**（`original` 為目標，全在 UI 執行緒，不需要 `HoldAdapt`）：顯示來源立刻換成 `imgOrig`；`hdView.SetAssets(nil)`（暫停）；提交 `theme: original` 偏好補丁；toast 與記 `theme ready: original`；回 idle。目前 HD theme 的 `Assets` 保留常駐。
+- **回報順序與一取一放**：每個 HD 目標的交易恰好取得一次、放開一次 `HoldAdapt`：成功與常駐目標在 applying 完成時放開；被拒、丟棄在 `onResult` 內放開。`original` 目標不取得。
 - `Preload` 的 `progress` 回呼在 goroutine 內執行；toast 與進度欄位用 atomic 或鎖，不得由 goroutine 直接改 UI 欄位。
-- 成功時切換；有部分失敗照常切換，失敗的圖退回基底層，數量記一行。
-- 時間：`docs/re/014` 實測全部載入約 1.65 秒（強推論，目標機器未量，量測見第 10 節）。`Get` 持鎖解碼，所以預載只對「目前沒有被合成使用」的 `Assets` 進行：從 `original` 切到 `hd` 時，`hd` 的 `Assets` 同時是 `Session` 的 `HDAssets`，但 `Overlay` 只讀清冊、不碰解碼快取，預載它安全。
+- 時間：`docs/re/014` 實測全部載入約 1.65 秒（強推論，目標機器未量，量測見第 10 節）。`Get` 持鎖解碼，所以預載只對「目前沒有被合成使用」的 `Assets` 進行（目標未常駐，不在顯示中）。從 `original` 切到 `hd` 時，`hd` 的 `Assets` 同時是 `Session` 的 `HDAssets`，但 `Overlay` 只讀清冊、不碰解碼快取，預載它安全。啟動時就使用的 HD theme 沿用延遲解碼、不預載，視為已常駐。
 - **預載與模擬降頻**：`Session.Run` 每 2 秒呼叫一次 `adapt`，隨後無條件把視窗基準（`lastCheck`、`checkTicks`）重設為現在；`adapt` 判斷整個視窗內的 tick 數，落後 5% 以上就把間隔降為 90% 且 `lowered` 永久為真（confirmed，`session.go`）。預載是單核解碼，與模擬、合成、UI、音訊同時進行，雙核機器（`tools/play.sh` 預設 `--cpus 2`）上可能觸發永久降頻，改變遊戲相對於計時器的速度。只讓 `adapt` 在持有時返回不夠（預載在視窗中途結束時，評估點落在持有之後，視窗仍含競爭期）。規定：
-  - `Session.HoldAdapt() (release func())`。狀態 `{held, dirty}` 由一把 mutex 保護（`Run` 每個檢查點才讀一次，不是熱路徑）；`release` 在鎖內同時減計數並設 `dirty`（不分先後的問題因此不存在），且冪等（第二次呼叫不再減，計數不得變負）。
-  - **視窗規則**：任何與持有時間相交的視窗（含放開當下所在的視窗）只重設基準、不評估：檢查時若 `held > 0`，或 `dirty` 為真（讀取後清除），就跳過 `adapt`。
-  - 決策拆成純函式 `windowVerdict(now, lastCheck, ticks, held, dirty) → skip | ok | lower`，與 `Session` 的薄包裝（讀寫狀態並呼叫 `adapt`）；`lastCheck`、`checkTicks` 目前是 `Run` 的區域變數，搬到 `Session` 欄位。靜態檢查：`adapt(` 只被包裝呼叫。
-  - **持有範圍是整個切換交易**：從受理 F2 到背景 `Release` 與 GC 結束（涵蓋預載、`hdView` 首次整幅合成與切到 `original` 時的背景釋放），不只到預載結束。最長持有 60 秒（逾時上限）加釋放時間；這段期間真正的落後也不降頻（已知差異）。
-  - 收據量測雙核下 F2 前後與 `hd` 回 `original` 之後的 `Lowered` 與 `interval`；另有對照：同一容器、同樣時間長度，以 `-theme hd` 啟動、不按 F2，若 `Lowered` 為真，代表 `hdView` 的持續合成本身就會降頻，F2 前後不變的斷言無效（`hdView` 的 `Workers` 預設 `min(GOMAXPROCS, 8)`）。
+  - 持有狀態是獨立型別 `holdGate{mu, held, dirty}`，方法 `hold() (release func())` 與 `take() (held int, dirty bool)`；`release` 在鎖內同時減計數並設 `dirty`，且冪等（第二次呼叫不再減，計數不得變負）。`Session.HoldAdapt()` 是它的薄包裝。
+  - **視窗規則**：任何與持有時間相交的視窗（含放開當下所在的視窗）只重設基準、不評估：`Run` 的檢查點呼叫 `take()`，若 `held > 0` 或 `dirty`（讀取後清除）就跳過。
+  - 決策拆成純函式 `windowVerdict(now, lastCheck, ticks, held, dirty) → skip | ok | lower`，`lower` 只表示「落後 5% 以上」；`adapt` 的下限判斷（`want <= 0`、`interval <= MinInterval` 時直接返回，不改 `lowered`、不記日誌）留在 `Session` 的薄包裝層。`lastCheck`、`checkTicks` 目前是 `Run` 的區域變數，搬到 `Session` 欄位。靜態檢查：`adapt(` 在 `session.go` 只出現定義與包裝的一次呼叫。
+  - **持有範圍**：從受理 F2 到 applying 完成或被拒、丟棄為止（涵蓋預載與 `hdView` 的首次整幅合成）。最長約 62 秒（60 秒逾時加 2 秒等待新畫面）；這段期間真正的落後也不降頻（已知差異）。
+  - 收據量測雙核下 F2 前後的 `Lowered` 與 `interval`；另有對照：同一容器、同樣時間長度，以 `-theme hd` 啟動、不按 F2，若 `Lowered` 為真，代表 `hdView` 的持續合成本身就會降頻，F2 前後不變的斷言無效（`hdView` 的 `Workers` 預設 `min(GOMAXPROCS, 8)`）。
 
 **切換的序列與畫面**：
-1. 目標是 HD theme（loading 成功進入 applying）：呼叫 `hdView.SetAssets(target)`（下面：單一臨界區內設素材、遞增 `epoch`、清 `ready`、解除暫停、重設 `last`）。目前 theme 在此刻就更新為目標，之後顯示來源換成 `imgHD` 只是呈現。**等 `hdView` 發佈該世代的第一張新畫面（最多 2 秒）**才更新顯示：從 `original` 切來時此時才把顯示來源換成 `imgHD`；HD 到 HD 時顯示來源本來就是 `imgHD`，舊內容一直保留到新畫面上傳，所以不會閃出黑色或舊 theme 以外的內容。停機時 `SetAssets` 仍讓 `run` 用目前 `Frame` 重合成，新畫面照樣出現；2 秒到期只會發生在 `Frame()` 為 nil（`Session` 尚無畫面）或 `Compose` 超過 2 秒。逾時仍切換，此時 `imgHD` 可能是黑色或舊 theme 的內容，列為已知差異。
-2. 目標是 `original`：顯示來源立刻換成 `imgOrig`，呼叫 `hdView.SetAssets(nil)`（暫停，並放掉對 `Assets` 的參照），之後目前 HD theme 的 `Assets` 才在背景 `Release`。
-3. 從 HD theme 切到另一個 HD theme：新 theme 套用（序列 1）之後，舊 theme 在背景 `Release`。常駐只有目前 theme，換手瞬間最多兩份。
-
-**`Release` 與記憶體預算**：每個 HD theme 解碼後約 194 MiB（595 張，原版像素合計 12,709,184 乘 4 位元組乘 4 ＝ 203,346,944 bytes ＝ 193.9 MiB；`docs/re/014` 另記全部載入約 262 MB 含不在清冊的字型圖）。`Assets.Release()` 清空解碼快取與 `Errors`，保留清冊與調色盤，之後 `Get` 重新延遲解碼。`Release` 之後在背景呼叫 `runtime.GC()` 與 `debug.FreeOSMemory()`（Go 的堆積目標約為上次 GC 後存活量的兩倍，只丟參照不會立刻還給系統；強推論，未量測）。**通過標準**（收據量測後可調整，調整要記在 `docs/re`）：`Release` 加 `FreeOSMemory` 完成後 RSS 不高於預載前 RSS 加 64 MiB；換手瞬間的峰值 RSS 不高於 600 MiB。預設不設 `debug.SetMemoryLimit`；要用時下限必須高於換手瞬間的存活量（兩份 theme 約 388 MiB 加基底與遊戲）再加餘裕，限制過低會讓 GC 吃滿 CPU 而拖慢模擬並觸發降頻；採用時收據記錄量到的 `Lowered`。切回已釋放的 theme 要重新預載。
+1. 目標是 HD theme（進入 applying 後）：呼叫 `hdView.SetAssets(target)`（下面：單一臨界區內設素材、遞增 `epoch`、清 `ready`）。目前 theme 在此刻就更新為目標，之後顯示來源換成 `imgHD` 只是呈現。**等 `ready` 由空變非空（該世代第一張新畫面，最多 2 秒）**才更新顯示：從 `original` 切來時此時才把顯示來源換成 `imgHD`；HD 到 HD 時顯示來源本來就是 `imgHD`，舊內容一直保留到新畫面上傳，不會閃出黑色。停機時 `SetAssets` 仍讓 `run` 用目前 `Frame` 重合成，新畫面照樣出現；2 秒到期只會發生在 `Frame()` 為 nil（`Session` 尚無畫面）或 `Compose` 超過 2 秒。逾時仍切換，此時 `imgHD` 可能是黑色或舊 theme 的內容，列為已知差異。
+2. 回 original：見上。
+3. 從 HD theme 切到另一個 HD theme：同序列 1，舊 theme 保持常駐，切回時是即時的（目標已常駐，直接進入 applying）。
 
 **換素材與暫停的併發**：
-- `Composer.A` 改為 `atomic.Pointer[Assets]`，提供 `SetAssets(*Assets)`；`Compose` 在**取任何素材之前**載入一次，整幀只用這個快照（草稿的快照在 `compose_draw.go` 的基底放大與驗證之後，實質相同，因為 `Composer.A` 在 `Compose` 內只有這一處讀取）。`Release` 即使在還有一次 `Compose` 持有舊素材時呼叫也安全（`drawStamp` 只讀不可變的 `as.Img`，`Get` 會重新延遲解碼）；重新解碼的項目留在快取直到下一次 `Release`，上限是那一幀用到的圖，遠小於 194 MiB。第 10 節有 `-race` 的並行測試。
+- `Composer.A` 改為 `atomic.Pointer[Assets]`，提供 `SetAssets(*Assets)`；`Compose` 在**取任何素材之前**載入一次，整幀只用這個快照（草稿的快照在 `compose_draw.go` 的基底放大與驗證之後，實質相同，因為 `Composer.A` 在 `Compose` 內只有這一處讀取）。第 10 節有 `-race` 的快照測試。
 - `hdView` 對畫面來源只依賴介面 `frameSource{ Frame() *hrrt.Frame }`（`*hrrt.Session` 實作），測試用假來源，不需原版。
-- **`hdView` 只有一個狀態轉移 `SetAssets(a *Assets)`**，取代先前的 `Pause()`、`Resume()`：`a` 為 nil 表示暫停（並放掉參照），非 nil 表示恢復並使用該素材。它在 `mu` 下的**單一臨界區**內同時改 `assets`、遞增 `epoch`、清 `ready`、設暫停旗標（`a` 為 nil 時）、重設 `last`。因此素材與世代永遠一起改變，沒有「先設素材還是先遞增世代」的順序問題。
-- **`run` 的一輪**：在 `mu` 下一起讀 `(epoch, assets)`；`assets` 為 nil 就等待；否則自己呼叫 `Composer.SetAssets(assets)` 再 `Compose`；完成後持 `mu` 檢查 `epoch` 未變且 `assets` 仍非 nil 才發佈（發佈時遞增**發佈計數** `pub`），否則丟棄結果，並把 `last` 歸零（`run` 在每輪開頭比對上次看到的 `epoch`，不同就歸零 `last`；這也涵蓋「`Session` 沒有新 `Seq`、靜態畫面」的情形，丟棄後下一輪會用目前 `Frame` 重新合成）。
-- **前端上傳以發佈計數比對，不用遊戲 `Seq`**：`upload` 把 `pub` 與上次上傳的 `pub` 比對。遊戲停機（`Seq` 不再增加）時 HD 到 HD 的新畫面因此仍能進入 `imgHD`。`lastSq` 只留給 `original` 的 `imgOrig` 更新。
-- **測試控制點**：`Assets` 提供匯出的測試輔助 `SetGetHook(f func(hash string))`，欄位用 `atomic.Pointer`（`run` 建立後就在跑，之後才設鉤子不得與 `Get` 的讀取競爭）。鉤子在 `Get` 進入時、查快取之前、**`a.mu` 之外**呼叫（否則停在鉤子的 `Compose` 持有 `a.mu`，測試同時呼叫 `ErrorStats()` 或 `Release()` 會卡死）；鉤子自帶 once（重合成與快照測試的第二個戳記會再進鉤子）。觸發前提：素材非 nil、`len(stamps) > 0`、至少一個戳記通過驗證（`compose_draw.go`）。`hd` 與 `play` 兩個套件的測試都用它；`play` 套件取不到 `hd` 的測試輔助（`_test.go` 不能跨套件），所以 `hdView` 測試用 `hd.LoadAssets` 指向只有表頭的兩個 TSV 暫存目錄，戳記用匯出欄位建立（`Stamp` 欄位全部匯出），雜湊不在清冊也會觸發鉤子，不需要真 PNG。`Composer` 的未匯出欄位 `rereadPerStamp` 與 `hdView` 的未匯出欄位 `skipEpochCheck`（只有測試設定）是負對照：`skipEpochCheck` 讓 `run` 的發佈**繞過整個發佈條件**（`epoch` 與 `assets` 非 nil），負對照以「同一測試函式的 skip 模式子測試，預期失敗」執行，不是人工變異。
-- F12 與 `writePNG`：`ready` 為空（清空中或暫停中）時，HD theme 下的 F12 退回存原版快照（640x400）並記一行，不寫舊畫面或全黑 PNG。
-- 提示：切換完成（applying 結束）後在 toast 行顯示 2 秒「Theme: HD」之類（該語言的文字），並記一行日誌 `theme ready: <代號>`（測試用的完成訊號；HD 到 HD 沒有換顯示來源，仍在 applying 結束時記）。toast 與載入進度同一行：使用者操作的提示（切換、語言、聲音）優先，壓過進度 2 秒（例外於「新的取代舊的」），之後進度恢復顯示。
+- **`hdView` 只有一個狀態轉移 `SetAssets(a *Assets)`**，取代先前的 `Pause()`、`Resume()`：`a` 為 nil 表示暫停，非 nil 表示恢復並使用該素材。它在 `mu` 下的**單一臨界區**內同時改 `assets`、遞增 `epoch`、清 `ready`。素材與世代永遠一起改變，沒有順序問題。暫停就是 `assets ＝ nil`，沒有另外的旗標。
+- **`run` 的一輪**（`run` 是唯一擁有 `last` 與 `seenEpoch` 的 goroutine）：在 `mu` 下一起讀 `(epoch, assets)`；若 `epoch` 與 `seenEpoch` 不同就把 `last` 歸零並更新 `seenEpoch`（`assets` 為 nil 的輪次也更新）；`assets` 為 nil 就等待；否則自己呼叫 `Composer.SetAssets(assets)`，再 `Compose`；完成後持 `mu` 檢查 `epoch` 未變才發佈（設 `ready`、遞增發佈計數 `pub`、記 `pubFrom ＝ assets`），否則丟棄（遞增 `discards`）。丟棄後下一輪會用目前 `Frame` 重新合成，這也涵蓋「`Session` 沒有新 `Seq`、靜態畫面」的情形。暫停時 `Composer` 仍指向舊 `Assets`（影響小：清冊與調色盤保留），`run` 在等待時可呼叫 `Composer.SetAssets(nil)`。
+- **`upload` 與 `writePNG` 在 `ready` 為空時**：`upload` 回 false（不論 `pub` 是否與上次相同；否則 HD 到 HD 時剛發佈的舊畫面在同一幀被 `SetAssets` 清空，`Draw` 會上傳清空的緩衝區而閃出黑色）；`writePNG` 回哨兵錯誤 `errNoFrame`，不複製。`upload` 以發佈計數比對，不用遊戲 `Seq`（遊戲停機時 HD 到 HD 的新畫面仍能進入 `imgHD`）；`lastSq` 只留給 `original` 的 `imgOrig` 更新。
+- **F12**：HD theme 下 `writePNG` 回 `errNoFrame` 時，`game.screenshot` 退回存原版快照（640x400）並記一行，不寫舊畫面或全黑 PNG。
+- **測試控制點與可觀察手段**：`Assets` 提供匯出的測試輔助 `SetGetHook(f func(hash string))`，欄位用 `atomic.Pointer`；鉤子在 `Get` 進入時、查快取之前、**`a.mu` 之外**呼叫（否則停在鉤子的 `Compose` 持有 `a.mu`，測試同時呼叫 `ErrorStats()` 或 `Release()` 會卡死）；鉤子自帶 once。觸發前提：素材非 nil、`len(stamps) > 0`、至少一個戳記通過驗證（`compose_draw.go`）。`hdView` 提供未匯出的測試欄位與方法：`pubFrom`（最近一次發佈用的素材）、`discards`、`pub`；`skipEpochCheck` 與 `Composer` 的 `rereadPerStamp` 是**建構選項**（建立時設定，`newHDView` 一建立 `run` 就在跑，之後才設會與 `run` 的讀取競爭）。`play` 套件取不到 `hd` 的測試輔助（`_test.go` 不能跨套件），所以 `hdView` 測試用 `hd.LoadAssets` 指向只有表頭的兩個 TSV 暫存目錄，戳記用匯出欄位建立，雜湊不在清冊也會觸發鉤子；此時 `Get` 回 nil、輸出與素材無關，所以 A 與 B 的區分**用 `pubFrom` 的指標比對，不用像素**（`Composer` 是否真的使用該素材由 `hd` 套件的快照測試負責）。
+- 提示：切換完成（applying 結束或回 original）後在 toast 行顯示 2 秒「Theme: HD」之類（該語言的文字），並記一行日誌 `theme ready: <代號>`（測試用的完成訊號；HD 到 HD 沒有換顯示來源，仍在 applying 結束時記）。toast 與載入進度同一行：使用者操作的提示（切換、語言、聲音）優先，壓過進度 2 秒（例外於「新的取代舊的」），之後進度恢復顯示。
 
 ## 5. F4 與介面語言
 
@@ -204,17 +208,17 @@
 | 基底 theme 的清冊或調色盤 TSV 缺檔或格式錯誤 | 該 theme 不可用，記一行；沒有其他 theme 時 `HDAssets` 為 nil，F2 只有 `original` |
 | 基底 theme 的個別 PNG 缺檔、尺寸不符、調色盤缺名 | 該圖退回基底層，其餘照常（現行行為，不變）；`Errors` 筆數增加時依第 4 節規則記一行 |
 | 衍生 theme 的檢查不符（雜湊不在基底、尺寸不符、調色盤缺名、非空 `hd` 欄的圖檔缺或尺寸不符） | 拒絕該 theme，其餘照常，F2 略過它，記一行 |
-| 預載解碼成功數為 0（含全部失敗與 `Preload` 回 `(0, 0)`，例如清冊 `hd` 欄全空） | 拒絕切換，提示失敗，留在原 theme，goroutine 回傳後 `Release` 目標素材；該 theme 在本次執行標為不可用並記一行，`nextTheme` 略過它 |
-| 預載逾時（60 秒，含等待常駐鎖）或程式結束取消，以及「跑完全部才被取消」（`ok > 0` 且無 `err`） | 一律丟棄結果，留在原 theme，提示逾時，記一行，goroutine 回傳後 `Release` 目標素材；逾時的 theme 允許再試，連續第二次逾時才標為不可用（本次執行有效，不持久化） |
+| 預載解碼成功數為 0（`err ＝ nil` 且 `ok ＝ 0`，含 `Preload` 回 `(0, 0)`，例如清冊 `hd` 欄全空） | 拒絕切換，提示失敗，留在原 theme；載入 goroutine 在回報前讀取 `ErrorStats()` 並 `Release` 目標素材（未套用、無其他使用者），記一行（含首筆原因）；該 theme 在本次執行標為不可用，`nextTheme` 略過它；放開 `HoldAdapt` |
+| 預載被取消（計時器 60 秒逾時或程式結束，`Preload` 回 `err != nil`，`ok` 可大於 0） | 丟棄結果，留在原 theme，goroutine 在回報前 `Release` 目標素材；計時器造成的取消，逾時計數加一，連續第二次逾時才標為不可用（本次執行有效，不持久化），程式結束造成的取消不計數；放開 `HoldAdapt` |
+| 「跑完全部後計時器才觸發」（`err ＝ nil` 且 `ok > 0`） | 接受這份完整的預載（`onResult` 第 3 條，結果優先於計時器），逾時計數歸零，進入 applying |
 | 切換等不到新畫面（2 秒，`Frame()` 為 nil 或 `Compose` 過慢） | 仍把顯示來源換成目標；`imgHD` 可能是黑色或舊內容（已知差異） |
-| applying 狀態時按 F2 | 忽略，不排隊 |
+| loading、cancelling、applying 時按 F2 | 忽略，不排隊，toast 顯示「載入中」 |
 | 預載部分失敗 | 照常切換，失敗的圖退回基底層，記一行（失敗數） |
-| 切換交易期間 `Session` 落後 | `HoldAdapt` 涵蓋整個切換交易（受理 F2 到背景 `Release` 結束）；含放開所在視窗不評估，下一個完整視窗恢復原判斷 |
+| 切換交易期間 `Session` 落後 | `HoldAdapt` 涵蓋 HD 目標的整個交易（受理 F2 到 applying 完成、被拒或丟棄）；含放開所在視窗不評估，下一個完整視窗恢復原判斷。`original` 目標不取得 `HoldAdapt`（全在 UI 執行緒，沒有預載） |
 | 字型缺字 | 字串表內不得有缺字（測試保證）；動態字串以 `?` 取代 |
 | 字型載入失敗 | 退回 ASCII 英文的 F1，功能照常 |
 | 偏好設定檔損壞 | 改名為 `prefs.json.bad`，用預設，寫新檔 |
 | 偏好設定的值不可用 | 該欄位用預設，不覆寫檔案內容 |
-| loading 或 cancelling 時按 F2 | 忽略，不排隊 |
 | 載入 theme 期間切換語言或聲音 | 照常生效，載入進度提示改用新語言 |
 | HD theme 下 F12 而 `ready` 為空 | 存原版快照，記一行 |
 | 旗標值未知（`-theme`、`-lang`） | 退回預設，記一行，不致命 |
@@ -232,8 +236,8 @@
 - `gameSession`：`game` 依賴的最小介面（`Stats`、`RequestFrame`、`RequestDiag`、`CrashDump`、`Input`、`Frame`），`*hrrt.Session` 實作，讓 `Layout` 與按鍵處理的測試不需要真的 `Session`，`newGame` 不在建構時啟動 `Run`；
 - `assetLoader`（`Preload(ctx, progress)`、`Release()`，可注入慢速載入）；`clock`（時間來源）；
 - `savePrefs` 寫入函式變數（可注入卡住的寫入）；字型載入函式變數（可注入壞字型）；
-- `Assets.SetGetHook`（`hd` 套件匯出的測試輔助，`atomic.Pointer` 欄位；`Get` 進入時、查快取之前、`a.mu` 之外呼叫；鉤子自帶 once）；`Composer` 的未匯出欄位 `rereadPerStamp` 與 `hdView` 的未匯出欄位 `skipEpochCheck`（只有測試設定，負對照用）；
-- `viewControl`：前端對 `hdView` 的介面（`SetAssets(*Assets)`、該世代第一張新畫面是否已發佈、發佈計數），讓狀態機測試能驗證呼叫順序；`holder`：`HoldAdapt` 的介面（取得與放開，可記錄是否放開），併入 `gameSession` 或獨立。
+- `Assets.SetGetHook`（`hd` 套件匯出的測試輔助，`atomic.Pointer` 欄位；`Get` 進入時、查快取之前、`a.mu` 之外呼叫；鉤子自帶 once）；`Composer` 的 `rereadPerStamp` 與 `hdView` 的 `skipEpochCheck`（負對照用，兩者都是**建構選項**，建立時設定，因為 `newHDView` 一建立 `run` 就在跑）；`hdView` 的未匯出觀察欄位 `pub`、`pubFrom`、`discards`（第 4 節）；
+- `viewControl`：前端對 `hdView` 的介面（`SetAssets(*Assets)`、`ready` 是否非空、發佈計數），讓狀態機測試能驗證呼叫順序；`holder`：`HoldAdapt` 的介面（取得與放開，記錄次數），併入 `gameSession` 或獨立，真實實作是 `holdGate`。
 
 純函式：`pickThemes(avail)`、`nextTheme(cur, avail, rejected)`、`nextLang`、`resolveStartup(flags, env, prefs, available)`、`reservedKeyAction(key, ctrl, alt)`、`panelLines(lang, face, info)`、`applyPrefsPatch(old, patches)`、`windowVerdict`（`Session` 的降頻決策，可注入時鐘，見下）。
 
@@ -254,16 +258,17 @@
 | 優先序與旗標：旗標、環境變數、偏好設定、預設；`-no-hd` 與 `-theme original` 的差別；`-hd` 不選 theme；未知旗標值退回預設。`sound` 欄位的優先序由 `docs/spec/007` 的 `resolveMute` 13 種組合承擔 | 單元：`resolveStartup` |
 | `CheckTheme(base *Assets, dir string, s int) (*Assets, error)`：雜湊不在基底、尺寸不符、調色盤缺名、非空 `hd` 欄的 PNG 缺檔或尺寸不符被拒絕；部分涵蓋與列序不同被接受；**空 `hd` 欄的列**：`pal` 存在時接受、`pal` 不存在時拒絕（只略過 PNG 檢查）；`base` 為 nil 回明確錯誤，不 panic；成功時回傳載入好的 `*Assets` | 單元（暫存目錄的假 theme，不含原版素材） |
 | 基底 theme 逐圖缺漏：維持逐圖退回基底層，不整個拒絕；TSV 層錯誤才拒絕 | 單元（假素材） |
-| `Assets.ErrorStats()` 帶鎖：並行 `Get`（合成執行緒 `append`）與前端讀取在 `-race` 下無競爭；`Release` 後 `gen` 加一，`gen` 與基準不同時視為基準 `n ＝ 0`，筆數倒退後的下一次增加仍會被偵測；前端依規則記一行（注入記錄器，不逐筆） | 單元（`-race`，假素材） |
+| `Assets.ErrorStats() (n, first)` 帶鎖：並行 `Get`（合成執行緒 `append`）與讀取在 `-race` 下無競爭；`n` 單調不減（已套用的 `Assets` 不 `Release`）；前端 60 秒檢查只在 `n` 比基準增加時記一行（注入記錄器，不逐筆），進入 applying 時基準設為當時的 `n`（預載階段的失敗不重複記）；被拒路徑在 `Release` 之前讀取，日誌含首筆原因 | 單元（`-race`，假素材；指令 `tools/play.sh test-hd`） |
 | 保留鍵：F2、F3、F4 不在 `specialKeys` 表內；F1 至 F4 與無修飾、Ctrl、Alt、Ctrl 加 Alt 的組合逐一斷言 `reservedKeyAction` 的結果；Shift、Meta 視為無修飾 | 單元 |
 | **F1 至 F12 的枚舉**：經注入的 `pressDuration` 逐鍵模擬按下，列出「會被轉成遊戲事件」的集合（`inputSink` 記錄），斷言不含 F1 至 F4；控制組：模擬按下 Enter 或方向鍵時集合非空（偵測器不是恆空） | 單元（比 `Input` 呼叫計數有鑑別力：計數為零恆成立） |
 | 邏輯畫面固定：`Layout` 在每個 theme 狀態下恆為 1280x800，游標換算恆為 `x/2`、`y/2` | 單元（用 `gameSession` 假實作，不用反射檢查欄位不存在） |
 | **`Compose` 快照（決定性）**：假畫面至少兩個戳記，假素材 A、B 的顏色不同，素材以 `writeTheme` 這類暫存目錄函式建出（真 PNG，不含原版）。`Assets.SetGetHook` 在第一個戳記的第一次 `Get` 時（進入 `Get`、查快取之前）同步呼叫 `Composer.SetAssets(B)`；斷言整幀輸出逐位元等於只用 A 的結果。**負對照**：`rereadPerStamp` 模式讓 `Compose` 每個戳記以 `c.A.Load()` 重讀，此時第二個戳記取到 B，輸出必須不同，否則判測試無效（`c.A.Load()` 是合法的原子讀取，所以 `-race` 不會先報競爭而掩蓋鑑別力）。統計式輔助：`GOMAXPROCS` 至少 2，固定 N 不小於 200 幀，切換者每幀與合成者以通道交握（不跑自由競速），每幀輸出必須逐位元等於全 A 或全 B，且兩種都至少出現一次，否則判無效 | `go test -race`（`tools/play.sh test-hd`），不需原版與 `hd/`，不 skip |
 | **`Release` 與 `Compose` 並行**：一個 goroutine 連續 `Compose` 假畫面，另一個連續 `Release`（素材是真 PNG，讓 `Get` 能重新解碼），每幀輸出逐位元等於參考輸出 | `-race` 單元 |
-| **`hdView` 世代與暫停（決定性）**：假 `frameSource`（可設為「不提供新 `Seq`」的靜態畫面），假畫面含至少一個通過驗證的戳記（用匯出欄位建立，`hd.LoadAssets` 指向只有表頭的暫存 TSV，不需真 PNG）。`SetGetHook` 在第一次 `Get` 送出 `inCompose` 訊號並阻塞到測試放行，讓 `Compose` 決定性地停在戳記迴圈中。子項：(1) 卡住時 `SetAssets(nil)`（暫停），放行後 `ready` 仍為空、沒有畫面發佈（舊畫面被丟棄）；(2) 卡住時 `SetAssets(B)`，放行後在**不提供新 `Seq`** 的 `frameSource` 上，最終發佈的畫面用 B 的顏色，且沒有任何以 A 合成的畫面以新世代發佈（涵蓋 `last` 重設與素材世代一起改變）；(3) 暫停中呼叫 `SetAssets(B)`（恢復）後，最終發佈的是新素材的畫面（從 `original` 切來的路徑）；(4) 暫停中 `writePNG` 存原版快照並記一行；(5) HD 到 HD 在停機（`Seq` 不再增加）時，`upload` 仍把新畫面放進 `imgHD`（以發佈計數比對）。**負對照**：`skipEpochCheck` 繞過整個發佈條件，同一測試函式以 skip 模式重跑 (1) 與 (2)，預期失敗（子測試，不是人工變異），否則判測試無效 | `-race` 單元 |
-| `Preload` 與切換狀態機：成功、部分失敗、成功數為 0（含 `(0, 0)`）、逾時（注入慢速載入與 `clock`）；**守衛優先序**：取消時 `ok > 0` 仍丟棄並 `Release`（不套用半載的 theme）；取消時 `ok ＝ 0` 算逾時、不算被拒；注入的載入器「跑完全部後才回報取消」（`ok > 0`、無 `err`）→ 目標被 `Release`、狀態回 idle、沒有常駐孤兒；成功數為 0 的 theme 被標為不可用且 `nextTheme` 略過；逾時計數連續累計、成功歸零、連續第二次逾時才標為不可用；loading、cancelling、applying 時 F2 被忽略；`Release` 只在 goroutine 回傳後呼叫且不在 UI 執行緒；`hd → original → hd` 兩次 F2 之間背景 `Release` 與新預載串行；生命週期鎖與 `a.mu` 分開（`Preload` 持有生命週期鎖時合成執行緒的 `Get` 與 `ErrorStats()` 不被擋）；等待生命週期鎖的 `Preload` 可被 `ctx` 取消；`progress` 回呼不直接改 UI 欄位（`-race`）；applying 結束時提交一次 `theme` 偏好補丁（正向），被拒與逾時不提交；程式結束時取消 | 單元（假 `assetLoader`、`viewControl`、`holder`） |
-| **`HoldAdapt` 視窗規則**：純函式 `windowVerdict(now, lastCheck, ticks, held, dirty) → skip｜ok｜lower` 以時間序列驅動（注入時鐘，不需原版、不需 `Session`）。案例：(1) 持有 [0.5, 2.15]、視窗 2 秒、同樣的落後：[0, 2.0] 與 [2.0, 4.0] 都不降頻，[4.0, 6.0] 降頻（正對照）；(2) 持有完全落在一個視窗內 [0.5, 1.5]（只走 `dirty` 路徑）：[0, 2.0] 不評估；(3) 持有跨三個檢查點 [0.5, 4.5]：[0,2]、[2,4]、[4,6] 都不評估，[6,8] 評估；(4) 兩個持有重疊（A [0.5, 1.0]、B [0.8, 2.15]）；(5) `release` 呼叫兩次，計數不得變負，也不吃掉另一個持有者的保護；(6) 持有結束與 `Run` 檢查的並行交錯在 `-race` 下正確（`{held, dirty}` 由同一把 mutex 保護）。`Session` 的薄包裝另測一次（`machine.New()` 加 `Session` 字面值，`interval` 要大於 `MinInterval`、`logf` 非 nil，因為 `adapt` 會呼叫 `setInterval` 改 `IRQ0Base`）。靜態檢查：`adapt(` 只被包裝呼叫。只在持有時直接呼叫 `adapt` 的測試抓不到視窗跨界，不夠 | `apps/hr/runtime` 單元加前端單元 |
-| 記憶體：預載前後、`Release` 後與換手峰值的 RSS，對第 4 節的通過標準 | 收據量測，記在 `docs/re` |
+| **`hdView` 世代與暫停（決定性）**：假 `frameSource`，`Seq` 必須從 1 起（`last` 歸零的哨兵是 0，`Seq ＝ 0` 的畫面永遠不會被合成；真實 `Session` 從 1 起）；可設為「不提供新 `Seq`」的靜態畫面；畫面含至少一個通過驗證的戳記（用匯出欄位建立，`hd.LoadAssets` 指向只有表頭的暫存 TSV，不需真 PNG）。**區分 A、B 用 `pubFrom`（最近一次發佈用的素材指標），不用像素**：雜湊不在清冊時 `Get` 回 nil，輸出與素材無關，`writeTheme` 的 PNG 又是 alpha 全 0（`drawStamp` 直接略過），兩者都分辨不出 A、B；`Composer` 是否真的用該素材由第 261 列旁的 `hd` 套件快照測試負責。控制點：`SetGetHook`（A 與 B 各裝一次性阻塞鉤子，進入 `Get` 時送出 `inCompose` 訊號並阻塞到測試放行）。**負向斷言的同步點是屏障**：`run` 是單一 goroutine，B 的 `Compose` 開始時，A 那一輪的發佈決定必然已做完，所以等 B 的 `inCompose` 之後才斷言。子項：(1) 卡住 A，`SetAssets(nil)`，放行 A，等 `discards ＝ 1`（丟棄路徑在 `mu` 下遞增），此刻斷言 `pub ＝ 0` 且 `ready` 為空；(2) 卡住 A，`SetAssets(B)`，放行 A，等 B 的 `inCompose`，此刻斷言 `pub ＝ 0` 且 `ready` 為空，放行 B，等 `pub ＝ 1`，斷言 `pubFrom ＝ B`，在**不提供新 `Seq`** 的來源上進行（涵蓋 `last` 重設與素材世代一起改變）；(3) 暫停中呼叫 `SetAssets(B)`（恢復，同樣用不提供新 `Seq` 的來源）後，等 `pub ＝ 1`，斷言 `pubFrom ＝ B`（從 `original` 切來的路徑）；(4) `ready` 為空時 `writePNG` 回哨兵 `errNoFrame` 且不複製，`upload` 回 false；退回原版快照並記一行的邏輯在 `game.screenshot`，用 `gameSession` 假實作另測；`writePNG` 假設 640x480 幾何，測試用滿尺寸的假畫面；(5) HD 到 HD 在停機（`Seq` 不再增加）時，`upload` 在 `ready` 為空期間回 false、新畫面發佈後把它放進 `imgHD`（以發佈計數比對）。**負對照**：測試主體寫成 `func scenario(t, mode) error`（不呼叫 `t.Fatal`），正常模式斷言回 nil，`skipEpochCheck`（繞過整個發佈條件）模式斷言回 non-nil；測試函式 `TestHDViewNegativeControl` 驗證 skip 模式回 non-nil，否則判負對照無效（Go 沒有「預期失敗」的子測試）。主體內所有等待帶逾時並回 error（skip 模式下屏障可能永遠等不到）。每個測試用 `t.Cleanup` 先放行所有鉤子再 `close()`（`close()` 的 `wg.Wait()` 會在阻塞的鉤子上永遠不回） | `-race` 單元（`tools/play.sh test-play`，`HR_RACE=1`） |
+| **切換狀態機與 `onResult`**（假 `assetLoader`、`viewControl`、`holder`、注入 `clock`）。`onResult` 三條路徑各一：(1) `err != nil`：丟棄，目標在回報前 `Release`；(2) `err ＝ nil` 且 `ok ＝ 0`（含 `(0, 0)`）：標為不可用並記一行（含首筆原因，證明 `ErrorStats()` 在 `Release` 之前讀取），`nextTheme` 略過；(3) `err ＝ nil` 且 `ok > 0`：接受，進入 applying。**計時器路徑的逾時計數**：注入永遠不回報的載入器，計時器觸發後取消 `ctx`，載入器回 `err != nil`，逾時計數加一；連續第二次逾時才標為不可用；中間一次成功則歸零；程式結束造成的取消不計數。**結果優先**：同一次 `Update` 內計時器與結果同時到達，結果優先；載入器「跑完全部後計時器才觸發」（`err ＝ nil`、`ok > 0`）→ 接受，沒有被丟棄的完整預載，逾時計數歸零。loading、cancelling、applying 時 F2 被忽略（不排隊，toast「載入中」）。**呼叫順序**（`viewControl` 與顯示來源的記錄）：HD 目標：`SetAssets(target)` 先於顯示來源變更，顯示來源在 `ready` 非空或 2 秒之後才換，HD 到 HD 顯示來源不變，2 秒逾時仍切換；回 original：顯示來源立刻換成 `imgOrig`，`SetAssets(nil)`，提交 `theme: original` 補丁一次，記 `theme ready: original`，不取得 `HoldAdapt`。**偏好補丁**：applying 結束提交一次 `theme` 補丁（正向）；被拒、丟棄不提交；程式結束時取消。**`holder` 逐路徑一取一放**：成功、部分失敗、被拒、逾時、跑完才計時器觸發、程式結束、HD 到 HD、回 original（不取得，取放次數都是 0）；假實作記錄取放次數，斷言恰好一取一放，且放開在 `onResult` 或 applying 完成之後。`progress` 回呼不直接改 UI 欄位（`-race`）。**`Preload` 與 `Release` 的順序**：`Release` 只由載入 goroutine 在回報前同步呼叫（假載入器記錄呼叫日誌：`Preload`、`ErrorStats`、`Release`、回報的先後），UI 在收到結果前不會啟動第二次預載（狀態機在 loading 與 cancelling 時忽略 F2），所以不存在新 `Preload` 搶在舊 `Release` 前的路徑；常駐 theme 不 `Release`（斷言從 `hd` 切到 `original` 再切回，`Release` 與 `Preload` 呼叫次數都是 0，切回直接 applying） | 單元（`tools/play.sh test-play`，`HR_RACE=1`） |
+| **`Preload` 的 `ctx` 取消與 `progress`**（真的 `*Assets`，`hd` 套件）：以 `progress` 回呼當阻塞點，`ctx` 在迴圈頭取消時回 `err != nil` 且 `ok` 可大於 0；迴圈跑完回 `err ＝ nil`（即使 `ctx` 在之後才取消）；清冊 `hd` 欄全空回 `(0, 0, nil)`；預載進行時合成執行緒的 `Get` 與 `ErrorStats()` 不被擋、無競爭 | `-race` 單元（`tools/play.sh test-hd`） |
+| **`HoldAdapt` 視窗規則**：持有狀態是型別 `holdGate{mu, held, dirty}`（`hold() (release func())`、`take() (held int, dirty bool)`，`take` 讀取後清 `dirty`），決策是純函式 `windowVerdict(now, lastCheck, ticks, held, dirty) → skip｜ok｜lower`，兩者都以注入時鐘驅動，不需原版、不需 `Session`。案例（視窗 2 秒，每個視窗的 tick 都落後 5% 以上）：(1) 持有 [0.5, 2.15]：[0, 2.0] skip、[2.0, 4.0] skip（放開設 `dirty`）、[4.0, 6.0] lower（正對照）；(2) 持有完全落在一個視窗內 [0.5, 1.5]（只走 `dirty` 路徑）：[0, 2.0] skip，[2.0, 4.0] lower；(3) 持有跨三個檢查點 [0.5, 4.5]：[0,2]、[2,4]、[4,6] 都 skip，[6,8] lower；(4) 兩個持有重疊（A [0.5, 1.0]、B [0.8, 2.15]）：[0, 2.0] skip（B 仍持有，A 設過 `dirty`），[2.0, 4.0] skip（B 放開設 `dirty`），[4.0, 6.0] lower；(5) `release` 呼叫兩次，計數不得變負，也不吃掉另一個持有者的保護；(6) 持有結束與 `take` 的並行交錯在 `-race` 下正確，不變式：若 `release()` 在某次 `take()` 開始前已回傳，該次 `take()` 必回 `held > 0` 或 `dirty`。`lower` 只表示落後 5% 以上；`adapt` 的下限判斷（`want <= 0`、`interval <= MinInterval` 時直接返回，不改 `lowered`、不記日誌）留在 `Session` 薄包裝，另測一次（`machine.New()` 加 `Session` 字面值，`interval` 要大於 `MinInterval`、`logf` 非 nil，因為 `adapt` 會呼叫 `setInterval` 改 `IRQ0Base`）。靜態檢查：`adapt(` 在 `session.go` 只出現定義與包裝的一次呼叫（`grep -n 'adapt('` 命中的非註解行只有定義與包裝呼叫兩處）。只在持有時直接呼叫 `adapt` 的測試抓不到視窗跨界，不夠 | `apps/hr/runtime`：`HR_RACE=1 HR_TEST_RUN='HoldGate|WindowVerdict' tools/play.sh test-diag`；前端的包裝呼叫在 `test-play` |
+| 記憶體：兩個 HD theme 都載入後的 RSS、預載被丟棄後的 RSS，對第 4 節「常駐策略」的通過標準 | 收據量測，記在 `docs/re` |
 | **遊戲不讀 F2、F3、F4 的動態旁證**：dosgolem 在讀鍵函式入口（`0110:9623` getch、`0110:964F` `_kbhit`、`1ACA:000B` 清緩衝，位址見 `docs/re/021` 第 4.1 節）計數；冷啟動到新遊戲與機器人遊玩期間預期為 0。**正對照**：另跑一次走到遊戲結束序列，清緩衝入口的命中必須大於 0（否則判計數方法無效）。`OnCall` 掛函式入口是既有用法，掛 `int 21h` 所在的函式中段位址是否支援未驗證，所以掛入口 | `probe` 的 `-call-args` 或 `OnCall` 計數；需原版，缺檔 skip |
 | **端對端**：Xvfb、`--cpus 2` 的容器。以環境變數 `HR_TEST_FREEZE_UI=1` 啟動：統計欄位固定為常數、toast 與載入進度不繪製、F1 面板底色不透明（這只影響測試時的畫面，一般使用不設定，不進文件）。先量原版標題畫面兩張間隔數秒的截圖雜湊是否相同（游標與動畫），不同就裁掉動態區。按 F4 循環，五張 F1 截圖（只比對面板區域）兩兩雜湊不同，第六次回到起點與第一張相同。以 `-theme original` 啟動取得基準標題截圖；按 F2 後以標準錯誤的日誌 `theme ready: hd` 為完成訊號（第 4 節定義：顯示來源換成目標之後才記；不用固定等待），再截圖；**正向檢查**：HD 區域與最近鄰放大的原版相比，差異像素比例超過收據量到的門檻（先記錄比例，門檻在收據定案）；再按 F2 回 `original`，與基準相同。`Lowered` 的觀察來源：標準錯誤的降頻日誌（`session.go` 的「跑不到」字樣）與 `play.log` 的 `lowered=` 欄（每分鐘一行），不讀 F1 面板（凍結後讀不到）。斷言 `Lowered` 在 F2 前後不變，**並有對照**：同一容器、同樣時間長度，以 `-theme hd` 啟動、不按 F2，若 `Lowered` 為真，代表 `hdView` 的持續合成本身會降頻，F2 前後不變的斷言無效 | `tools/play.sh gui-lang`、`gui-theme`（`gui-theme` 另掛 `-v hd:/hd:ro` 與 `-hd /hd`，先 `test -f hd/catalog.tsv`；Xvfb 軟體繪圖下 HD 較慢） |
 | 字型載入失敗時退回 ASCII 的 F1 | 單元（字型載入函式變數注入壞字型） |
@@ -273,11 +278,11 @@
 
 ## 11. 原版 oracle 與已知差異
 
-沒有原版對應物。已知差異：F2、F3、F4 不再送進遊戲（`MAIN.EXE` 靜態普查未發現使用，見第 2 節；5 個錯誤等待畫面少了三個可關閉畫面的鍵）；Ctrl 或 Alt 按住時 F1 不再處理（行為變更，現行 F1 沒有任何修飾判斷）；Shift 或 Meta 按住時 F1 至 F4 視為無修飾；`-scale 3` 的最後濾鏡步驟與舊版不同（第 4 節）；toast 與載入進度同一行，使用者提示壓過進度 2 秒；切換等不到新畫面（2 秒）時顯示來源仍會換；切換交易期間（最長約 60 秒加釋放時間）真正的落後也不降頻；被拒與逾時的標記只在本次執行有效、不持久化；遊戲內文字不隨 F4 改變（M10）；AI theme 要等 M8 有成品才可選，且候選圖會直接顯示（決定）；`original` theme 改由前端放大 2 倍，濾鏡由 `-linear` 控制（預設最近鄰）；`-scale 1` 時介面文字縮小難辨；回退字型在 1280x800 邏輯畫面上顯示得比舊版小；停機提示從 (4,4) 移到左下；啟動錯誤視窗不翻譯；`hd/` 的 TSV 壞掉時 `hd-ai/` 成為基底而只過寬鬆載入；啟動預設的 HD theme 不預載，切換時才預載（兩者嚴格度不同）；兩個執行個體同時改偏好設定仍有小窗口；信號終止不保證偏好設定 flush；五種語言翻譯未經母語者審閱。
+沒有原版對應物。已知差異：F2、F3、F4 不再送進遊戲（`MAIN.EXE` 靜態普查未發現使用，見第 2 節；5 個錯誤等待畫面少了三個可關閉畫面的鍵）；Ctrl 或 Alt 按住時 F1 不再處理（行為變更，現行 F1 沒有任何修飾判斷）；Shift 或 Meta 按住時 F1 至 F4 視為無修飾；`-scale 3` 的最後濾鏡步驟與舊版不同（第 4 節）；toast 與載入進度同一行，使用者提示壓過進度 2 秒；切換等不到新畫面（2 秒）時顯示來源仍會換；HD 目標的切換交易期間（最長約 62 秒：預載逾時 60 秒加等待新畫面 2 秒）真正的落後也不降頻；已套用的 HD theme 常駐，兩個 theme 都載入後記憶體約 400 MiB 加基底與遊戲；被拒與逾時的標記只在本次執行有效、不持久化；遊戲內文字不隨 F4 改變（M10）；AI theme 要等 M8 有成品才可選，且候選圖會直接顯示（決定）；`original` theme 改由前端放大 2 倍，濾鏡由 `-linear` 控制（預設最近鄰）；`-scale 1` 時介面文字縮小難辨；回退字型在 1280x800 邏輯畫面上顯示得比舊版小；停機提示從 (4,4) 移到左下；啟動錯誤視窗不翻譯；`hd/` 的 TSV 壞掉時 `hd-ai/` 成為基底而只過寬鬆載入；啟動預設的 HD theme 不預載，切換時才預載（兩者嚴格度不同）；兩個執行個體同時改偏好設定仍有小窗口；信號終止不保證偏好設定 flush；五種語言翻譯未經母語者審閱。
 
 ## 12. 停止線與權利邊界
 
-- 停止線：任何一語言的字串表有缺字（測試失敗）；動態計數發現遊戲讀 F2、F3 或 F4，或日後納入 `OP.EXE`、`END.EXE` 時發現它們使用這三個鍵；需要把 HD 或 AI 素材放進發行包（先問使用者，`AGENTS.md` 第 2 節）；衍生 theme 的檢查規則需要放寬到第 4 節之外；發行前以原檔核對時發現 Noto 有 Reserved Font Name 且子集改名義務成立；預載在雙核容器內仍造成 `Lowered`（對照組 `-theme hd` 不按 F2 的 `Lowered` 為假時才成立）；字形墨跡測試失敗（字型方案要換）。
+- 停止線：任何一語言的字串表有缺字（測試失敗）；兩個 HD theme 常駐的 RSS 超過第 4 節通過標準而無法接受（回到 DRAFT，另立 `Release` 策略）；動態計數發現遊戲讀 F2、F3 或 F4，或日後納入 `OP.EXE`、`END.EXE` 時發現它們使用這三個鍵；需要把 HD 或 AI 素材放進發行包（先問使用者，`AGENTS.md` 第 2 節）；衍生 theme 的檢查規則需要放寬到第 4 節之外；發行前以原檔核對時發現 Noto 有 Reserved Font Name 且子集改名義務成立；預載在雙核容器內仍造成 `Lowered`（對照組 `-theme hd` 不按 F2 的 `Lowered` 為假時才成立）；字形墨跡測試失敗（字型方案要換）。
 - 內嵌字型是 OFL，可散布，授權檔隨發行包；不使用原版字型（`CFONT.15`）。
 - HD 與 AI theme 的素材是原版美術的衍生物，發行包預設不含（`AGENTS.md` 第 2 節）；本規格不改變這個邊界。
 - 截圖（F1 的五種語言、theme 切換）含原版畫面，只放 `workplace/`；放 `docs/images/` 要先問（`AGENTS.md` 第 2 節的截圖例外，新增前先問）。
@@ -287,7 +292,7 @@
 1. ~~靜態普查遊戲是否使用 F2、F3、F4~~：已完成（第 2 節，`docs/re/021`）。剩動態計數旁證（第 10 節，含正對照）。
 2. ~~字形墨跡雛形~~：已完成（五份子集全部字元畫得出，`docs/re/022`）。
 3. ~~查上游 Noto 的 Reserved Font Name~~：上游 `LICENSE` 未宣告（WebFetch 摘要，第 6 節）；發行前以原檔核對一次。
-4. 第六輪重審（窄範圍：第 10 節的 `hdView`、狀態機與 `HoldAdapt` 列，第 4 節的切換序列與狀態機轉移表）。
+4. 第七輪重審（窄範圍：第 4 節的常駐策略、轉移表、`onResult`、`holdGate`、`hdView` 單一轉移與 `run`，第 10 節對應的 `hdView`、狀態機、`Preload`、`HoldAdapt` 列）。
 5. 收據：預載時間在本機的分布、預載前後與峰值 RSS、雙核容器內 F2 前後的 `Lowered`（含 `-theme hd` 不按 F2 的對照）、F1 重畫成本與字形快取、原版標題畫面靜態性、差異像素門檻。
 
 ## 14. 審查意見的取捨
@@ -320,13 +325,13 @@
 
 | 項 | 處理 |
 |---|---|
-| B1 `HoldAdapt` 擋不住降頻 | 採納：改為視窗規則（與持有時間相交的視窗只重設基準、不評估），決策抽成可注入時鐘的函式 `adaptWindow`，第 10 節以時間序列測試（跨界案例與正對照）；計數 atomic、`release` 冪等 |
-| B2 `hdView` 世代測試無控制點 | 採納：`Assets.SetGetHook`（`Get` 進入時、查快取之前）當決定性控制點，`skipEpochCheck` 負對照，`SetAssets` 與 `epoch` 的順序測試 |
+| B1 `HoldAdapt` 擋不住降頻 | 採納：改為視窗規則（與持有時間相交的視窗只重設基準、不評估），決策抽成可注入時鐘的函式 `adaptWindow`（已被第六輪改名為 `windowVerdict`），第 10 節以時間序列測試（跨界案例與正對照）；計數 atomic、`release` 冪等 |
+| B2 `hdView` 世代測試無控制點 | 採納：`Assets.SetGetHook`（`Get` 進入時、查快取之前）當決定性控制點，`skipEpochCheck` 負對照，`SetAssets` 與 `epoch` 的順序測試（順序測試已被第五輪取代，`SetAssets` 是單一臨界區） |
 | R1 被拒 theme 卡住 F2 循環、`(0, 0)` | 採納：成功數為 0（含 `(0, 0)`）標為不可用，`nextTheme` 略過；逾時可再試一次；失敗模式表補列 |
 | R2 切換序列的狀態與順序 | 採納：新增 applying 狀態；`hdView.SetAssets` 先設素材再遞增 `epoch`；2 秒逾時的理由改寫並列為已知差異 |
-| R3 `Errors` 的併發與基準 | 採納：帶鎖的 `ErrorCount()`、`FirstError()`，基準每個 `Assets` 一份，`Release` 時重設；`-race` 測試 |
+| R3 `Errors` 的併發與基準 | 採納：帶鎖的 `ErrorCount()`、`FirstError()`（已被第五輪取代為 `ErrorStats`，第七版再簡化為 `(n, first)`），基準每個 `Assets` 一份，`Release` 時重設；`-race` 測試 |
 | R4 `Release` 與 `Compose` 並行 | 採納：測試列與措辭修正 |
-| R5 狀態機與真正的並行 | 採納：每個 `Assets` 四態常駐狀態並串行化 `Preload` 與 `Release`；取消只有逾時與程式結束兩個來源 |
+| R5 狀態機與真正的並行 | 採納（四態與串行化已被第七版取代：已套用的 theme 常駐，不再有背景 `Release`）：每個 `Assets` 四態常駐狀態並串行化 `Preload` 與 `Release`；取消只有逾時與程式結束兩個來源 |
 | R6 降頻的其他來源、記憶體收斂副作用 | 採納：`-theme hd` 不按 F2 的對照；`SetMemoryLimit` 預設不設，下限規則 |
 | R7 端對端 | 採納：`Lowered` 的觀察來源、`theme ready` 的定義 |
 | R8 測試縫隙 | 採納：`pressDuration`、`gameSession`、`savePrefs`、表目錄自行解析、墨跡測試控制組（已實作）、`CheckTheme` 簽名與 nil、`SetGetHook` 觸發點、N 不小於 200 與通道交握 |
@@ -343,10 +348,26 @@
 | B1 `hdView` 世代測試的順序測試與負對照 | 採納：`assets` 與 `epoch` 在同一臨界區一起改（`SetAssets` 是唯一狀態轉移），順序問題不存在，順序測試刪除；`skipEpochCheck` 繞過整個發佈條件，負對照是同一測試函式的 skip 模式子測試（預期失敗）；子測試 (2) 在「不提供新 `Seq`」的 `frameSource` 上驗證 `last` 重設與素材世代一起改變 |
 | B2 切換序列沒有恢復暫停中的 `hdView` | 採納：`SetAssets(non-nil)` 即恢復，`SetAssets(nil)` 即暫停並放掉參照；序列 2 用 `SetAssets(nil)`；測試子項 (3) 驗證暫停中恢復的路徑 |
 | R1 `HoldAdapt` 細節 | 採納：mutex 保護 `{held, dirty}`、`release` 在鎖內減計數並設 `dirty`；純函式 `windowVerdict` 與薄包裝、`lastCheck` 與 `checkTicks` 搬到 `Session` 欄位、靜態檢查；補四個案例；持有範圍擴大到整個切換交易；`holder` 縫隙；60 秒內不降頻列為已知差異 |
-| R2 狀態機 | 採納：守衛優先序（取消先於成功數，`ok > 0` 的取消仍丟棄並 `Release`）；cancelling 收到任何結果一律丟棄並 `Release`；刪除不可達的「目標已常駐」轉移與 applying 目標改變測試；逾時計數連續累計、成功歸零；啟動 theme 視為 resident；生命週期鎖與 `a.mu` 分開；`viewControl` 縫隙；`progress` 回呼的執行緒；`theme` 補丁提交的正向測試 |
+| R2 狀態機 | 採納（守衛優先序與生命週期鎖已被第七版取代：`onResult` 三條，完整的預載即使計時器已觸發也接受；不再有鎖）：守衛優先序（取消先於成功數，`ok > 0` 的取消仍丟棄並 `Release`）；cancelling 收到任何結果一律丟棄並 `Release`；刪除不可達的「目標已常駐」轉移與 applying 目標改變測試；逾時計數連續累計、成功歸零；啟動 theme 視為 resident；生命週期鎖與 `a.mu` 分開；`viewControl` 縫隙；`progress` 回呼的執行緒；`theme` 補丁提交的正向測試 |
 | R3 `hdView` 與前端交界 | 採納：上傳以發佈計數比對，不再用遊戲 `Seq`；`run` 以 `epoch` 變化重設 `last`；`SetGetHook` 在 `a.mu` 之外、once、前提與 `atomic.Pointer`；`play` 套件的測試建法（表頭 TSV 加匯出欄位的戳記） |
 | R4 `CheckTheme` 簽名 | 採納：`(*Assets, error)` |
 | R5 跨規格分工表 | 採納：補 `003` 第 11 節與 `004` 第 108 行兩列；「同一格內依詞語分工」 |
 | R6 內部一致性 | 採納：面板最多 21 行、toast 優先序例外、`theme ready` 在 applying 結束時記、失敗模式與已知差異補列 |
-| R7 `ErrorStats` 基準 | 採納：`ErrorStats() (gen, n, first)`，基準只由 UI 執行緒讀寫，`gen` 不同視為 `n ＝ 0` |
+| R7 `ErrorStats` 基準 | 採納：`ErrorStats() (gen, n, first)`，基準只由 UI 執行緒讀寫，`gen` 不同視為 `n ＝ 0`（已被第七版簡化為 `(n, first)`，沒有 `gen`） |
 | R8 字型證據配對 | 採納：最後一次產生後重跑 `Fonts` 測試，日誌附被測檔案的 SHA-256（`workplace/out/test-fonts.log`，與測試前相同） |
+
+### 第六輪重審（第六版）的處理
+
+| 項 | 處理 |
+|---|---|
+| B1 `hdView` 測試分辨不出 A、B，負對照無法用 `t.Run` 表達，負向斷言沒有同步點 | 採納：用 `pubFrom`（發佈用的素材指標）區分 A、B，不用像素；負向斷言以 B 的阻塞鉤子當屏障，丟棄路徑加 `discards` 計數；測試主體寫成 `scenario(t, mode) error`，skip 模式回 non-nil，由獨立測試函式驗證，等待帶逾時；`skipEpochCheck` 與 `rereadPerStamp` 改為建構選項；`t.Cleanup` 先放行再 `close()`；假來源 `Seq` 從 1 起 |
+| B2 逾時計數在計時器路徑上不會加一 | 採納：守衛集中成單一函式 `onResult`（三條，計時器造成的取消才計數，程式結束不計），結果優先於計時器；cancelling 只是「已請求取消」的顯示狀態；測試列補計時器路徑 |
+| B3 離開列沒有放開 `HoldAdapt`，`original` 目標沒有完整路徑 | 採納，且不新增 `releasing` 狀態：根源是切走時背景 `Release`，第七版改為已套用的 HD theme 常駐，沒有背景 `Release`；`Release` 只用在尚未套用的預載被丟棄或被拒，由載入 goroutine 在回報前同步呼叫；每個 HD 目標交易恰好一取一放（被拒、丟棄在 `onResult` 內放開，成功在 applying 完成時放開）；`original` 目標全在 UI 執行緒，即時切換、提交 `theme: original` 補丁、toast 與完成日誌，不取得 `HoldAdapt`（沒有預載，與「持有涵蓋切換交易」不矛盾，因為此路徑沒有可能落後的新工作）；`holder` 逐路徑一取一放測試 |
+| B4 生命週期鎖不保證 `Release` 先於新 `Preload` | 採納，由結構消除：`Release` 與新預載之間不再有競爭路徑（見 B3）；`Release` 在回報前同步執行，UI 在收到結果前處於 loading 或 cancelling，忽略 F2；測試以呼叫日誌斷言先後；生命週期鎖與 `Assets` 層級的四態刪除 |
+| R1 `ready` 為空的語意、`upload` 與「第一張新畫面」判準 | 採納：判準是 `ready` 非空；`upload` 在 `ready` 為空時回 false；`writePNG` 回哨兵 `errNoFrame` |
+| R2 `last`、暫停旗標與 `Composer` 的參照 | 採納：`run` 是 `last` 與 `seenEpoch` 的唯一擁有者，`assets ＝ nil` 即暫停，刪除旗標 |
+| R3 序列斷言與測試層次、`ErrorStats` 在 `Release` 前讀取、結果優先、可取消 | 採納：序列斷言併入狀態機測試列；`Preload` 的 `ctx` 取消與 `progress` 阻塞點改在 `hd` 套件測；`ErrorStats` 在 `Release` 前讀取；結果優先；不再有鎖，不需要可取消的鎖等待 |
+| R4 四態與逾時上限 | 採納：刪除 `Assets` 層級四態；上限改為約 62 秒 |
+| R5 `windowVerdict` 的下限判斷、`holdGate`、案例預期、並行不變式、靜態檢查、指令 | 採納：`lower` 只表示落後 5% 以上，下限判斷留在薄包裝；`holdGate` 型別；案例 (1) 至 (4) 補預期；案例 (6) 補不變式；靜態檢查寫明期望；測試指令逐列寫出 |
+| R6 `hdView` 測試細節 | 採納：建構選項、`t.Cleanup` 先放行、`Seq` 從 1 起、子項 (3) 用不提供新 `Seq` 的來源、`game.screenshot` 的退回邏輯用 `gameSession` 假實作另測 |
+| R7 措辭與歷史表 | 採納：「連續第二次逾時」統一；第四、五輪表內被取代的項標註；失敗模式表合併 F2 被忽略兩列 |
