@@ -1,9 +1,9 @@
 # 006 前端：F1 功能說明、F2 切換 theme、F3 聲音開關、F4 切換介面語言
 
-狀態：READY（2026-10-04，第七版）
+狀態：READY（2026-10-04，第七版）；F4 與遊戲內語言的語意依 `docs/spec/008` 修訂（2026-10-04）
 審查：審查 A（唯讀）審第一版（報告 `workplace/spec-review/006-review-A.md`，不進版控）：阻擋 B1 至 B5、建議 S1 至 S13。重審（`006-rereview.md`）審第二版：新阻擋 2 個與 R1 至 R10。第三輪（`006-rereview2.md`）審第三版：阻擋 B1（字型腳本斷言與產物不符、授權檔夾帶 GPL 段）與 B2（`Compose` 快照測試仍可能空轉）、建議 R1 至 R13。第四版處理全部。第四輪（`006-rereview3.md`）審第四版：阻擋 B1（`HoldAdapt` 的計數式語意擋不住降頻，需視窗規則）與 B2（`hdView` 世代測試沒有決定性控制點與負對照）、建議 R1 至 R13。第五版處理全部。第五輪（`006-rereview4.md`）審第五版：阻擋 B1（`hdView` 世代測試的順序測試與負對照寫不出來）與 B2（切換序列沒有恢復暫停中的 `hdView`）、建議 R1 至 R8。第六版處理全部。第六輪（`006-rereview5.md`）審第六版：阻擋 B1（`hdView` 測試分辨不出素材 A、B，負對照無法用 `t.Run` 表達，負向斷言沒有同步點）、B2（逾時計數在計時器路徑上不會加一）、B3（離開列沒有放開 `HoldAdapt`，`original` 目標沒有完整路徑）、B4（生命週期鎖不保證 `Release` 先於新 `Preload`）、建議 R1 至 R7。第七版處理全部：B3、B4 的根源是切走時背景 `Release`，第七版改為已套用的 HD theme 常駐，整套背景 `Release` 狀態不再存在。對照見第 14 節。第七輪（`006-rereview6.md`，窄範圍）審第七版：設計面沒有阻擋，阻擋 B1（`holdGate` 案例 (6) 的不變式字面為假）與 B2（`hdView` 負對照要逐子項獨立）都在測試列文字，建議 R1 至 R7。同一版內處理全部，對照見第 14 節末；審查者表示不需要再做設計層重審，主代理對照 B1、B2、R1 至 R4 做 diff 核對後，與 `docs/spec/007` 在同一提交升 READY（該提交同時修訂 `003`、`004`、`005` 的對應句）。
-流程：工作樹已有本規格部分功能的實作草稿（`hd/theme.go`、`play/prefs.go`、`i18n.go`、字型子集與產生腳本，與 `docs/spec/007` 的聲音接線）。這些檔案是草稿，未提交到 fork 的 `hr` 分支，部分行為落後於本規格（偏好設定的補丁式合併、`updatePrefs`、`hdView` 的世代、`Composer.A` 原子指標等）。升 READY 後以本規格為準改程式，測試也要改成斷言規格的行為。
-範圍：`apps/hr/play`（前端）與 `apps/hr/hd`（素材預載、釋放、檢查）。涵蓋 F1 說明的內容與語言、F2 在原版與各 HD theme 之間循環、F3 聲音開關（功能見 `docs/spec/007`）、F4 在五種語言之間循環（只切換前端介面文字）、偏好設定、字型內嵌。不含：遊戲內文字（對白、選單、數值表）的多語系，那是里程碑 M10（`docs/spec/008`）；AI theme 的素材本身（M8）；音樂與音效的合成（`docs/spec/007`）。
+流程：本規格的實作已提交 fork 的 `hr` 分支（`c9c8ec3` hd 與 runtime、`adeb3e4` 聲音、`aaaf999` play，收據 `docs/re/026`）。
+範圍：`apps/hr/play`（前端）與 `apps/hr/hd`（素材預載、釋放、檢查）。涵蓋 F1 說明的內容與語言、F2 在原版與各 HD theme 之間循環、F3 聲音開關（功能見 `docs/spec/007`）、F4 切換單一語言設定 `lang`：前端介面立即生效，遊戲內文字下次啟動生效（`docs/spec/008` 第 3.8 節）、偏好設定、字型內嵌。不含：遊戲內文字（對白、選單、數值表）的多語系，那是里程碑 M10（`docs/spec/008`）；AI theme 的素材本身（M8）；音樂與音效的合成（`docs/spec/007`）。
 關聯：`docs/spec/003-runtime-and-frontend`（保留鍵第 7 節、縮放第 6 節）、`docs/spec/004-hd-overlay`（Composer、清冊第 3.3 節、素材契約第 6 節）、`docs/spec/005-hang-diagnostics`（Ctrl+D、F1 的最近診斷列）、`docs/spec/007-music-sfx-playback`（F3、`-mute`）、`docs/spec/008-ingame-text-localization`（F4 與遊戲內語言，第 3.8 節）、`docs/re/021-mainexe-keyboard-census.md`（遊戲是否讀 F2、F3、F4）。
 使用者決定（2026-10-03，`AGENTS.md` 第 12 節）：F1 說明列出功能；F2 切換 theme；F4 切換語言（繁體中文、簡體中文、韓文、英文、日文）。F3 是本專案為聲音開關選的鍵（使用者沒有指定，見第 14 節）。
 
@@ -71,7 +71,7 @@
   |---|---:|---|
   | 標題 | 1 | 名稱與版本 |
   | 按鍵表 | 8 | F1、F2、F3、F4、F11 與 Alt+Enter、F12、Ctrl+D、Ctrl+Q，各一行（鍵名與功能） |
-  | 狀態 | 4 | theme（含可用清單）、介面語言、遊戲內文字語言（M10 之前一律「繁體中文（原版）」）、聲音開或關 |
+  | 狀態 | 4 | theme（含可用清單）、介面語言、遊戲內文字語言（四類值與依序判定見 `docs/spec/008` 第 3.8 節的 `ingameStatus` 與真值表；沒有語言包時為「原版（繁體中文）」）、聲音開或關 |
   | 統計 | 3 | 步數、tick、遊戲秒、間隔、是否降頻（`interval`、`lowered`）；堆疊最低 SP、堆疊頂端、開啟檔案數；TPS、FPS。欄位沿用現行 `Session.Stats` 與 `ebiten.ActualTPS/FPS` |
   | 診斷 | 1 | 最近一份診斷的目錄名（ASCII，`docs/spec/005`） |
   | 提示 | 4 | 滑鼠操作遊戲；存檔路徑（1 行）；截圖路徑（1 行）；資料目錄 |
@@ -90,7 +90,7 @@
 - 字面不是並行安全的（`opentype.Face`）：字面只在 UI 執行緒使用，測試的 `MeasureString` 不與繪製並行。字面建立後長期保留，每個語言一個，不在每次切換時重建。
 - F1 開著的期間，字元與特殊鍵不送進遊戲（沿用）。
 - 字型載入失敗時退回 `DebugPrintAt` 的 ASCII 英文版（按鍵表與狀態，英文），標準錯誤記一行；功能不得因字型缺失而不可用。回退字型畫在 1280x800 的邏輯畫面上，`original` theme 的螢幕大小比舊版小一半（已知差異）。
-- 效能：面板內容的靜態部分（標題、按鍵表、狀態）只在 F1 開關、語言、theme、聲音狀態、診斷變化時重畫到快取影像；統計部分另一層，至多每秒重畫一次。`text.Draw` 的字形快取軟上限 512 個（以字元與四分之一像素 x 偏移為鍵，超過後只清 60 個 tick 沒用過的，confirmed，`text.go`）。各語言的字元表為 205（zh-TW）、206（zh-CN）、212（ko）、101（en）、232（ja）個字元（`TestGenCharsets` 實測），F1 同時用到的不同字元數低於此；快取鍵含四種 x 偏移，最壞約為字元數乘 4，超過軟上限時只是不清除仍在使用的項目。實作時量測重畫成本與快取大小並記在收據。
+- 效能：面板內容的靜態部分（標題、按鍵表、狀態）只在 F1 開關、語言、theme、聲音狀態、診斷變化時重畫到快取影像；統計部分另一層，至多每秒重畫一次。`text.Draw` 的字形快取軟上限 512 個（以字元與四分之一像素 x 偏移為鍵，超過後只清 60 個 tick 沒用過的，confirmed，`text.go`）。各語言的字元表字元數以當次 `TestGenCharsets` 實測為準（現值見 `docs/re/026` 第 4 節），F1 同時用到的不同字元數低於此；快取鍵含四種 x 偏移，最壞約為字元數乘 4，超過軟上限時只是不清除仍在使用的項目。實作時量測重畫成本與快取大小並記在收據。
 - `-scale 1`（視窗 640x400）時 F1 的 22 像素字縮成約 11 像素，CJK 難辨，列為已知差異；旗標說明建議 `-scale 2` 以上。
 
 ## 4. F2 與 theme
@@ -176,9 +176,9 @@
 - 語言：`zh-TW` 繁體中文、`zh-CN` 簡體中文、`ko` 한국어、`en` English、`ja` 日本語。顯示名稱用各語言自己的名稱。
 - F4 依序循環 `zh-TW → zh-CN → ko → en → ja → zh-TW`。
 - 啟動時的語言：`-lang <代號>`，其次偏好設定，其次 `zh-TW`。`-lang` 的值未知：退回預設並記一行，不致命。
-- **範圍**：F4 切換的是前端介面文字（F1 說明、F2、F3、F4 的提示、診斷提示與停機提示、視窗標題）。遊戲內文字（對白、選單、數值表）由原版資料決定，M10 之前不隨 F4 改變，F1 的「遊戲內文字」一行如實標示。M10 的 L1 實作後，F4 同時設定遊戲內語言包（`docs/spec/008` 第 3.8 節）；沒有語言包的語言，遊戲內文字維持原版繁體中文並在 F1 標示。
+- **範圍**：F4 切換單一語言設定 `lang`：前端介面文字（F1 說明、F2、F3、F4 的提示、診斷提示與停機提示、視窗標題）立即生效；遊戲內文字（對白、選單、數值表）由原版資料與語言包決定，`LangDir` 在 `Session.Open` 綁定，所以下次啟動才生效，F1 的「遊戲內文字」一行如實標示（`docs/spec/008` 第 3.8 節）。沒有語言包的語言，遊戲內文字維持原版繁體中文並在 F1 標示。
 - **啟動錯誤視窗（`errwin.go`）不在 F4 的範圍內**：它的內文固定 ASCII 英文、`Layout` 640x400、沒有按鍵處理，維持現狀。
-- 提示：切換後在 toast 行顯示 2 秒語言名稱（用目標語言的字面與名稱）。
+- 提示：切換後在 toast 行顯示 2 秒，內容是語言名稱（用目標語言的字面與名稱）接上 `ingameStatus` 選出的字句，共五種（旗標指定、無法使用、下次啟動生效、尚無語言包、不變，`docs/spec/008` 第 3.8 節）。
 - 翻譯內容：五種語言的字串是 AI 草稿，未經母語者審閱（字串表檔頭註記）。這是翻譯品質的已知限制。
 
 ## 6. 字串與字型
@@ -198,7 +198,7 @@
 - 讀取：逐欄位寬鬆解析（每個欄位單獨解碼，型別錯誤只讓該欄位用預設，不讓整份失敗）。未知欄位忽略，寫回時**保留**。值已知但目前不可用（例如 `"ai"` 而沒有 `hd-ai/`）：用預設，不覆寫檔案內容。
 - **補丁的提交時機**：切換完成（顯示來源已換、語言與聲音狀態已生效）才提交，不在按鍵當下。預載被拒或逾時時不得寫入 `theme`。
 - **版本與損壞**：頂層不是 JSON 物件（陣列、`null`、字串）、不是合法 JSON，或 `version` 缺或不是數字，視為損壞：**每次寫入時**對剛讀到的位元組判斷（不是啟動時留下的旗標；否則兩個執行個體時，晚到的那個會把對方剛寫好的有效檔改名成 `.bad`），損壞就先把原檔改名為 `prefs.json.bad`（覆蓋舊的 `.bad`），再寫新檔，記一行。`version` 是數字但不是 1（例如新版寫的 2）：已知欄位照常讀取；寫回時**原樣保留 `version` 的值與所有未知欄位**，只改被切換的欄位。
-- 優先序（theme、lang、sound 一致）：命令列旗標、環境變數（目前只有 `HR_MUTE`，`docs/spec/007` 第 5.4 節）、偏好設定、預設。
+- 優先序（theme、lang、sound 一致）：命令列旗標、環境變數（設定值的環境變數只有 `HR_MUTE`，`docs/spec/007` 第 5.4 節）、偏好設定、預設。遊戲內語言另有旗標 `-ingame-lang` 與環境變數 `HR_INGAME_LANG`，不參與 theme、lang、sound 的優先序（見 `docs/spec/008` 第 3.2 節）；`HR_L10N` 是譯文表目錄定位，不是設定值。
 - 寫入：`os.CreateTemp` 建唯一的暫存檔再 `os.Rename`；在背景 goroutine 寫，不阻塞 UI 執行緒；失敗只記一行。**結束時 flush**：所有結束路徑（Ctrl+Q、視窗關閉、停機後離開、`os.Exit(1)` 的錯誤路徑）都經同一個 `quit()`，它等最後一次寫完，最多 1 秒（`Close()` 內部帶逾時，草稿的無上限等待要改）。信號終止不保證（已知差異）。啟動時清理自己留下的 `.prefs-*.tmp`（崩潰殘留，盡力而為）。`dataDir()` 在 `UserConfigDir` 失敗時退到 `os.TempDir()`，此時偏好設定不跨次保留（已知差異）。
 
 ## 8. 失敗模式
@@ -239,7 +239,7 @@
 - `Assets.SetGetHook`（`hd` 套件匯出的測試輔助，`atomic.Pointer` 欄位；`Get` 進入時、查快取之前、`a.mu` 之外呼叫；鉤子自帶 once）；`Composer` 的 `rereadPerStamp` 與 `hdView` 的 `skipEpochCheck`（負對照用，兩者都是**建構選項**，建立時設定，因為 `newHDView` 一建立 `run` 就在跑）；`hdView` 的未匯出觀察欄位 `pub`、`pubFrom`、`discards`（第 4 節）；
 - `viewControl`：前端對 `hdView` 的介面（`SetAssets(*Assets)`、`ready` 是否非空、發佈計數），讓狀態機測試能驗證呼叫順序；`holder`：`HoldAdapt` 的介面（取得與放開，記錄次數），併入 `gameSession` 或獨立，真實實作是 `holdGate`。
 
-純函式：`pickThemes(avail)`、`nextTheme(cur, avail, rejected)`、`nextLang`、`resolveStartup(flags, env, prefs, available)`、`reservedKeyAction(key, ctrl, alt)`、`panelLines(lang, face, info)`、`applyPrefsPatch(old, patches)`、`windowVerdict`（`Session` 的降頻決策，可注入時鐘，見下）。
+純函式：`pickThemes(avail)`、`nextTheme(cur, avail, rejected)`、`nextLang`、`resolveStartup(flags, env, prefs, available)`（輸入含遊戲內語言旗標與環境變數 `-ingame-lang`、`HR_INGAME_LANG`，輸出含遊戲內語言 `C ＝ (代碼, 明示)` 與覆蓋旗標是否生效）、`planIngame(C, hasTable, l2Supported, patchInHand)` 與 `ingameStatus(S, E, startFail, override, avail)`（`docs/spec/008` 第 3.2、3.8 節，串接為 `resolveStartup`、`planIngame`、`ingameStatus`）、`reservedKeyAction(key, ctrl, alt)`、`panelLines(lang, face, info)`（`info` 帶 `ingameStatus` 的輸出：F1 值與原因鍵）、`applyPrefsPatch(old, patches)`、`windowVerdict`（`Session` 的降頻決策，可注入時鐘，見下）。
 
 | 承諾 | 測試 |
 |---|---|
@@ -270,7 +270,7 @@
 | **`HoldAdapt` 視窗規則**：持有狀態是型別 `holdGate{mu, held, dirty}`（`hold() (release func())`、`take() (held int, dirty bool)`，`take` 讀取後清 `dirty`），決策是純函式 `windowVerdict(now, lastCheck, ticks, held, dirty) → skip｜ok｜lower`，兩者都以注入時鐘驅動，不需原版、不需 `Session`。案例（視窗 2 秒，每個視窗的 tick 都落後 5% 以上）：(1) 持有 [0.5, 2.15]：[0, 2.0] skip、[2.0, 4.0] skip（放開設 `dirty`）、[4.0, 6.0] lower（正對照）；(2) 持有完全落在一個視窗內 [0.5, 1.5]（只走 `dirty` 路徑）：[0, 2.0] skip，[2.0, 4.0] lower；(3) 持有跨三個檢查點 [0.5, 4.5]：[0,2]、[2,4]、[4,6] 都 skip，[6,8] lower；(4) 兩個持有重疊（A [0.5, 1.0]、B [0.8, 2.15]）：[0, 2.0] skip（B 仍持有，A 設過 `dirty`），[2.0, 4.0] skip（B 放開設 `dirty`），[4.0, 6.0] lower；(5) `release` 呼叫兩次，計數不得變負，也不吃掉另一個持有者的保護；(6) 持有結束與 `take` 的並行交錯在 `-race` 下正確，不變式：對每次 `release()` 回傳，緊接其後開始的第一次 `take()`（其間沒有別的 `take()` 回傳）必回 `held > 0` 或 `dirty`（不能寫成「放開之後開始的每次 `take()`」：中間另一次 `take()` 已清掉 `dirty` 時，後面的 `take()` 合法地回 `(0, false)`）。另加單持有者的並行測試：`take()` 不得同時看到 `held > 0` 且 `dirty`（實作時由 impl-006-A 發現：先設 `dirty`、解鎖、之後才減計數的非原子放開，案例 (1) 至 (6) 全部抓不到，這個測試抓得到）。`lower` 只表示落後 5% 以上；`adapt` 的下限判斷（`want <= 0`、`interval <= MinInterval` 時直接返回，不改 `lowered`、不記日誌）留在 `Session` 薄包裝，另測一次（`machine.New()` 加 `Session` 字面值，`interval` 要大於 `MinInterval`、`logf` 非 nil，因為 `adapt` 會呼叫 `setInterval` 改 `IRQ0Base`）。靜態檢查：`adapt(` 在 `session.go` 只出現定義與包裝的一次呼叫（`grep -n 'adapt('` 命中的非註解行只有定義與包裝呼叫兩處）。只在持有時直接呼叫 `adapt` 的測試抓不到視窗跨界，不夠 | `apps/hr/runtime`：`HR_RACE=1 HR_TEST_RUN='HoldGate|WindowVerdict' tools/play.sh test-diag`（容器指令以 `grep -v` 管線結尾、沒有 `pipefail`，退出碼不可靠，收據以輸出中的 `PASS`／`FAIL` 行為準）；前端的包裝呼叫在 `test-play` |
 | 記憶體：兩個 HD theme 都載入後，預載剛完成與 `runtime.GC()` 後等 5 秒兩個時點的 RSS 與 `HeapInuse`；預載被丟棄後的 RSS（只記錄）；對第 4 節「常駐策略」的通過標準（只設在 GC 之後） | 收據量測，記在 `docs/re` |
 | **遊戲不讀 F2、F3、F4 的動態旁證**：dosgolem 在讀鍵函式入口（`0110:9623` getch、`0110:964F` `_kbhit`、`1ACA:000B` 清緩衝，位址見 `docs/re/021` 第 4.1 節）計數；冷啟動到新遊戲與機器人遊玩期間預期為 0。**正對照**：另跑一次走到遊戲結束序列，清緩衝入口的命中必須大於 0（否則判計數方法無效）。`OnCall` 掛函式入口是既有用法，掛 `int 21h` 所在的函式中段位址是否支援未驗證，所以掛入口 | `probe` 的 `-call-args` 或 `OnCall` 計數；需原版，缺檔 skip |
-| **端對端**：Xvfb、`--cpus 2` 的容器。以環境變數 `HR_TEST_FREEZE_UI=1` 啟動：統計欄位固定為常數、toast 與載入進度不繪製、F1 面板底色不透明（這只影響測試時的畫面，一般使用不設定，不進文件）。先量原版標題畫面兩張間隔數秒的截圖雜湊是否相同（游標與動畫），不同就裁掉動態區。按 F4 循環，五張 F1 截圖（只比對面板區域）兩兩雜湊不同，第六次回到起點與第一張相同。以 `-theme original` 啟動取得基準標題截圖；按 F2 後以標準錯誤的日誌 `theme ready: hd` 為完成訊號（第 4 節定義：顯示來源換成目標之後才記；不用固定等待），再截圖；**正向檢查**：HD 區域與最近鄰放大的原版相比，差異像素比例超過收據量到的門檻（先記錄比例，門檻在收據定案）；再按 F2 回 `original`，與基準相同。`Lowered` 的觀察來源：標準錯誤的降頻日誌（`session.go` 的「跑不到」字樣）與 `play.log` 的 `lowered=` 欄（每分鐘一行），不讀 F1 面板（凍結後讀不到）。斷言 `Lowered` 在 F2 前後不變，**並有對照**：同一容器、同樣時間長度，以 `-theme hd` 啟動、不按 F2，若 `Lowered` 為真，代表 `hdView` 的持續合成本身會降頻，F2 前後不變的斷言無效 | `tools/play.sh gui-lang`、`gui-theme`（`gui-theme` 另掛 `-v hd:/hd:ro` 與 `-hd /hd`，先 `test -f hd/catalog.tsv`；Xvfb 軟體繪圖下 HD 較慢） |
+| **端對端**：Xvfb、`--cpus 2` 的容器。以環境變數 `HR_TEST_FREEZE_UI=1` 啟動：統計欄位固定為常數、toast 與載入進度不繪製、F1 面板底色不透明（這只影響測試時的畫面，一般使用不設定，不進文件）。先量原版標題畫面兩張間隔數秒的截圖雜湊是否相同（游標與動畫），不同就裁掉動態區。按 F4 循環，五張 F1 截圖（只比對面板區域）兩兩雜湊不同，第六次回到起點與第一張相同（前提：生效語言與 `lang` 都回到 zh-TW）。以 `-theme original` 啟動取得基準標題截圖；按 F2 後以標準錯誤的日誌 `theme ready: hd` 為完成訊號（第 4 節定義：顯示來源換成目標之後才記；不用固定等待），再截圖；**正向檢查**：HD 區域與最近鄰放大的原版相比，差異像素比例超過收據量到的門檻（先記錄比例，門檻在收據定案）；再按 F2 回 `original`，與基準相同。`Lowered` 的觀察來源：標準錯誤的降頻日誌（`session.go` 的「跑不到」字樣）與 `play.log` 的 `lowered=` 欄（每分鐘一行），不讀 F1 面板（凍結後讀不到）。斷言 `Lowered` 在 F2 前後不變，**並有對照**：同一容器、同樣時間長度，以 `-theme hd` 啟動、不按 F2，若 `Lowered` 為真，代表 `hdView` 的持續合成本身會降頻，F2 前後不變的斷言無效 | `tools/play.sh gui-lang`、`gui-theme`（`gui-theme` 另掛 `-v hd:/hd:ro` 與 `-hd /hd`，先 `test -f hd/catalog.tsv`；Xvfb 軟體繪圖下 HD 較慢） |
 | 字型載入失敗時退回 ASCII 的 F1 | 單元（字型載入函式變數注入壞字型） |
 | `THIRD_PARTY_NOTICES.txt` 含 OFL 與 Adobe 版權，且不含 GNU General Public License；字型授權檔缺檔時 `package.sh` 失敗 | `tools/pkg/verify_*.sh` |
 | `OFL.txt` 產生腳本的斷言（版本、映像 ID、無 GSUB／GPOS、name ID、無 GPL 文字、字元表時間戳與 `PASS`） | `tools/gen_ui_fonts.sh` 的實跑收據（`docs/re/022`） |
@@ -278,7 +278,7 @@
 
 ## 11. 原版 oracle 與已知差異
 
-沒有原版對應物。已知差異：F2、F3、F4 不再送進遊戲（`MAIN.EXE` 靜態普查未發現使用，見第 2 節；5 個錯誤等待畫面少了三個可關閉畫面的鍵）；Ctrl 或 Alt 按住時 F1 不再處理（行為變更，現行 F1 沒有任何修飾判斷）；Shift 或 Meta 按住時 F1 至 F4 視為無修飾；`-scale 3` 的最後濾鏡步驟與舊版不同（第 4 節）；toast 與載入進度同一行，使用者提示壓過進度 2 秒；切換等不到新畫面（2 秒）時顯示來源仍會換；HD 目標的切換交易期間（最長約 62 秒：預載逾時 60 秒加等待新畫面 2 秒）真正的落後也不降頻；已套用的 HD theme 常駐，兩個 theme 都載入後記憶體約 400 MiB 加基底與遊戲；被拒與逾時的標記只在本次執行有效、不持久化；遊戲內文字不隨 F4 改變（M10）；AI theme 要等 M8 有成品才可選，且候選圖會直接顯示（決定）；`original` theme 改由前端放大 2 倍，濾鏡由 `-linear` 控制（預設最近鄰）；`-scale 1` 時介面文字縮小難辨；回退字型在 1280x800 邏輯畫面上顯示得比舊版小；停機提示從 (4,4) 移到左下；啟動錯誤視窗不翻譯；`hd/` 的 TSV 壞掉時 `hd-ai/` 成為基底而只過寬鬆載入；啟動預設的 HD theme 不預載，切換時才預載（兩者嚴格度不同）；兩個執行個體同時改偏好設定仍有小窗口；信號終止不保證偏好設定 flush；五種語言翻譯未經母語者審閱。
+沒有原版對應物。已知差異：F2、F3、F4 不再送進遊戲（`MAIN.EXE` 靜態普查未發現使用，見第 2 節；5 個錯誤等待畫面少了三個可關閉畫面的鍵）；Ctrl 或 Alt 按住時 F1 不再處理（行為變更，現行 F1 沒有任何修飾判斷）；Shift 或 Meta 按住時 F1 至 F4 視為無修飾；`-scale 3` 的最後濾鏡步驟與舊版不同（第 4 節）；toast 與載入進度同一行，使用者提示壓過進度 2 秒；切換等不到新畫面（2 秒）時顯示來源仍會換；HD 目標的切換交易期間（最長約 62 秒：預載逾時 60 秒加等待新畫面 2 秒）真正的落後也不降頻；已套用的 HD theme 常駐，兩個 theme 都載入後記憶體約 400 MiB 加基底與遊戲；被拒與逾時的標記只在本次執行有效、不持久化；遊戲內文字在 F4 後下次啟動才改變（`docs/spec/008`）；AI theme 要等 M8 有成品才可選，且候選圖會直接顯示（決定）；`original` theme 改由前端放大 2 倍，濾鏡由 `-linear` 控制（預設最近鄰）；`-scale 1` 時介面文字縮小難辨；回退字型在 1280x800 邏輯畫面上顯示得比舊版小；停機提示從 (4,4) 移到左下；啟動錯誤視窗不翻譯；`hd/` 的 TSV 壞掉時 `hd-ai/` 成為基底而只過寬鬆載入；啟動預設的 HD theme 不預載，切換時才預載（兩者嚴格度不同）；兩個執行個體同時改偏好設定仍有小窗口；信號終止不保證偏好設定 flush；五種語言翻譯未經母語者審閱。
 
 ## 12. 停止線與權利邊界
 

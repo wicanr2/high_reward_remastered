@@ -15,7 +15,7 @@
 玩家指定一個目錄，內含原版檔案。前端不內建、不下載、不重新散布任何原版檔案。啟動時檢查：
 
 1. `MAIN.EXE` 存在且 SHA-256 為 `08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e`。不符就拒絕啟動並顯示實際雜湊（其他版本的位址與補丁不成立，`docs/spec/002` 第 4 節）。
-2. 必要檔案存在且大小相符。清單是 `apps/hr/data/required.tsv`，由 `docs/re/source-inventory.tsv` 取 `in_jsdos ＝ 1` 的列、排除 `GAMEFILE.*` 與 `复件 *`，欄位為檔名、大小、SHA-256。缺檔或大小不符就列出檔名並拒絕啟動，不用替代檔。完整雜湊驗證只在 `-verify` 時做。
+2. 必要檔案存在且大小相符。清單是 `apps/hr/runtime/required.tsv`，由 `docs/re/source-inventory.tsv` 取 `in_jsdos ＝ 1` 的列、排除 `GAMEFILE.*` 與 `复件 *`，欄位為檔名、大小、SHA-256。缺檔或大小不符就列出檔名並拒絕啟動，不用替代檔。完整雜湊驗證只在 `-verify` 時做。語言包（`docs/spec/008`）有自己的 manifest，由 `Session.Open` 另驗，不併入這份清單。
 
 ## 3. 執行層（`apps/hr/runtime`）
 
@@ -23,7 +23,7 @@
 
 | 介面 | 作用 |
 |---|---|
-| `Open(root string, opt Options) (*Session, error)` | 驗證映像（第 2 節）、載入、套用 `docs/spec/002` 的堆疊補丁、`d.Install()`；`Options.SaveDir` 設為 `d.Scratch`（空字串為唯讀，第 5 節） |
+| `Open(root string, opt Options) (*Session, error)` | 驗證映像（第 2 節）、載入、套用 `docs/spec/002` 的堆疊補丁、`d.Install()`；`Options.SaveDir` 設為 `d.Scratch`（空字串為唯讀，第 5 節）；`Options.LangDir`、`LangDigest`、`SkipLangDigest` 設定語言層與預期輸入摘要（`docs/spec/008` 第 3.1、3.2 節）：語言包驗證失敗時 `Open` 不回錯，改以空 `LangDir` 開啟，並由 `Session.LangStatus()` 回報原因；`LangDir` 非空而 `LangDigest` 為空且未明示 `SkipLangDigest` 時回錯 |
 | `Run(ctx)` | 模擬迴圈（第 4 節）。回傳停機原因（第 3.1 節） |
 | `Frame() *Frame`、`RequestFrame()` | 最近一個快照：`640x480` 的像素值（`Machine.Planar`，0 至 15）、AC 到 DAC 的對應表、DAC 與模擬步數；`Frame.RGBA` 在使用者的執行緒轉成 RGBA。快照是拉取式：前端每次繪製前呼叫 `RequestFrame`，模擬 goroutine 在下一次滑鼠輪詢指令剛執行完時產生（審查實測 `PlanarRGB` 一次 1.8 至 3.3 ms，推送式每 8 ms 一次會吃掉兩到四成的單核）。快照由模擬 goroutine 逐指令檢查 `d.Mouse.Polls` 的長度，在輪詢指令剛執行完的那一刻產生（遊戲回到等輸入的迴圈）：批次邊界或 tick 邊界取樣時游標矩形完整繪出的比例只有 8% 至 9%（審查實測），輪詢指令剛執行完是 158／159。滑鼠 100 毫秒內沒有輪詢（動畫、載入）時，退回牆鐘 100 毫秒的快照。前端把 `RequestFrame` 的呼叫率限制在 60 Hz 以內（`docs/spec/004` 第 5.1 節）。前端執行緒取用快照，不碰機器 |
 | `ScreenPNG() []byte` | 目前畫面的調色盤 PNG（`Machine.Planar` 與 `VGA.DACIndex`，標準庫 `image/png` 預設壓縮），與 `probe -dump-screen-png` 同編碼，供無頭驗收比對雜湊 |
@@ -61,6 +61,7 @@
 - 暫存層的檔名保留遊戲開檔時的大小寫（`fname.dat`），讀取時要大小寫不分地比對原版目錄與暫存層（實測成立）。
 - 刪除（`AH=41`）與改名（`AH=56`）在暫存層沒有墓碑：原版目錄的檔案無法被「刪掉」。遊戲存檔流程是否用到：實測的存檔（覆寫既有槽）沒有用到；存入新槽與其他路徑未驗，驗收要涵蓋。
 - DOS 日期在 dosgolem 固定為 1993-01-01（`int 21h AH=2A`），所以存檔列顯示該日期。執行器的 play 模式改用主機時間（需要 dosgolem 增加一個時鐘來源；`AH=2C` 已用 `d.clock()`）。執行器的 play 模式不要求決定性。
+- 語言層（`docs/spec/008` 第 3.1 節）：`Options.LangDir` 非空時，檔案解析順序是暫存層、語言層、原版目錄，語言層缺檔回退原版；以寫入模式開語言層的檔回存取被拒，不複製進暫存層。`LangDir` 為空時行為與沒有語言層相同。
 
 ## 6. 畫面
 

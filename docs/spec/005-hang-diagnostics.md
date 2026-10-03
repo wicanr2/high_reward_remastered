@@ -118,8 +118,9 @@ T2 的已知盲點（設計限制）：
 | 時間 | 距最後一次服務中斷與最後一次滑鼠輪詢各幾步（換算遊戲秒）、靜默累計、`DOS.Blocked`、`DOS.KeyWaits` |
 | 迴圈取樣（只有 T2） | 觸發後的 4096 道指令，各 `CS:IP` 的次數與該處 16 bytes，取前 16 名；取樣期間停機則標明樣本不足 |
 | 輸入 | 最近輸入（沿用） |
+| 語言層 | `LangDir` 的值（沒有語言包為空；驗證失敗回退原版的 Session 另記 `LangStatus` 的原因鍵）、語言包 manifest 的 SHA-256、各資料檔與 `CFONT.15` 的命中層（`scratch`、`lang`、`root`，`docs/spec/008` 第 3.1 節）。這一區段在沒有語言包時三項皆空 |
 
-`screen.png` 與 `state.state` 隨診斷寫入（T1 沿用，T2、T3 也寫）。每份約 330 KB（實測：`docs/re/016` 的 `ctl-stk1024/crash` 329,960 bytes、`ctl-hang3/frozen` 333,704 bytes，含 `bot-info.txt`）。
+`screen.png` 與 `state.state` 隨診斷寫入（T1 沿用，T2、T3 也寫）。每份約 330 KB（實測：`docs/re/016` 的 `ctl-stk1024/crash` 329,960 bytes、`ctl-hang3/frozen` 333,704 bytes，含 `bot-info.txt`）。語言包 Session 存下的 `state.state` 只能在同一 `LangDir` 與同一 manifest 的 Session 載入，否則 `LoadState` 在任何狀態變更之前明確拒絕（`docs/spec/008` 第 3.1 節）；狀態檔記錄的是機器本地路徑，跨機載入本來就需要相同路徑（既有行為），本條不改變這點。
 
 ### 5.1 位址分類與換算
 
@@ -230,7 +231,7 @@ B 版另量 `NoDiag ＝ true`（應約等於 A，量出新增分支本身的成�
 | 寫檔失敗 | `DiagDir` 是唯讀：遊戲繼續，`Log` 有一行錯誤 | 單元 |
 | 目錄衝突與保留 | 同一秒兩次得到 `-hang` 與 `-hang-02`；保留只刪符合條件的目錄，非本程式目錄、符號連結、缺標記的目錄、T1 現場都不被刪；保留 6 份含剛寫的一份 | 單元 |
 | 跨執行緒 | `RequestDiag` 與 `OnDiag` 在 `-race` 下無資料競爭 | 單元（`go test -race`；需 cgo，容器內執行） |
-| `info.txt` | 每個區段都存在；第一行是固定標記；T1 路徑（`CrashDump`）也含新區段 | 單元 |
+| `info.txt` | 每個區段都存在（含「語言層」區段的三項欄位，T1、T2、T3 都要有）；第一行是固定標記；T1 路徑（`CrashDump`）也含新區段 | 單元 |
 | 前端 | Ctrl 按住的那一幀不送字元與特殊鍵給遊戲；Ctrl+D 觸發 `RequestDiag`；`F1` 說明列出最近一份 | 前端測試 |
 | 整合：機器人 | `hrbot -hang-routine 20C2:25A1`：診斷產生，機器人自己的凍結偵測隨後也報警 | 整合 |
 | 效能 | 第 9 節 | `tools/bench.sh` |
