@@ -1,17 +1,17 @@
 # 019 音樂與音效播放的實作收據
 
 日期：2026-10-03
-狀態：收據（`docs/spec/007` 的實作驗證）。規格仍是 DRAFT（第三版，第三輪審查尚未做）；收據記錄的是目前實作在目前輸入下實際量到的結果，不構成「已支援」的宣稱（見第 7 節）。
+狀態：收據（`docs/spec/007` 的實作驗證）。規格仍是 DRAFT（第四版，待第四輪重審）；收據記錄的是目前實作在目前輸入下實際量到的結果，不構成「已支援」的宣稱（見第 7 節）。
 輸入：`MAIN.EXE` SHA-256 `08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e`；dosgolem 分支 `hr` 基準提交 `223ed99`，實作為其上的未提交修改（提交後補提交號）；Go 容器 `golang:1.24-bookworm`（`tools/dosgolem.sh`）、`eob-remake-go:1.26.7-ebiten2.9.9`（`tools/play.sh`）；`linux/amd64`。
 
 ## 1. 單元測試（不需原版）
 
 | 套件 | 重跑 | 結果 |
 |---|---|---|
-| `apps/hr/sound` | `CGO_ENABLED=1 tools/dosgolem.sh go test -race -count=1 ./apps/hr/sound/` | 通過（SMF 解析與拒絕、起音時序對獨立公式、休止與音符、基頻、聲部相加、打擊樂瞬態、引擎生命週期、淡出與佇列、世代 CAS、音效內插、靜音、`Read` 零配置、並行、`NullSink`） |
+| `apps/hr/sound` | `CGO_ENABLED=1 tools/dosgolem.sh go test -race -count=1 -v ./apps/hr/sound/`（日誌 `workplace/out/test-sound-race.log`，2026-10-03） | 通過，38 個測試（SMF 解析與拒絕、起音時序對獨立公式、休止與音符、基頻、聲部相加、打擊樂瞬態、引擎生命週期、淡出與佇列、世代 CAS、音效內插、靜音、`Read` 零配置、並行、`NullSink`），含 `TestEngineFadeAfterNaturalEndIsNoop`、`TestEngineDroppedStartDoesNotLeavePlayingState`、`TestEngineSFXDoesNotBumpEpoch`、`TestEngineConcurrentThenQuiescentStateMatchesLastCommand` |
 | `apps/hr/runtime`（不需原版的部分） | `tools/play.sh test-diag`，`HR_TEST_RUN=Sound` | `TestSoundPostDecodesArguments`、`StatusPatchesAXOnly`、`HooksIgnoreNonEntries`、`DisabledWhenFlagNonzero` 通過 |
 | `apps/hr/hd`（theme 支援） | `CGO_ENABLED=1 tools/dosgolem.sh go test -race -count=1 -run 'CheckTheme\|Preload\|LoadAssets' ./apps/hr/hd/` | 通過 |
-| `apps/hr/play` | `tools/play.sh test-play` | 通過（含保留鍵表不含 F3、`TestAudioAlwaysHasAPuller`） |
+| `apps/hr/play` | `HR_RACE=1 HR_VERBOSE=1 tools/play.sh test-play`（`go vet` 加 `go test -race`；Xvfb；日誌 `workplace/out/test-play-race.log`、突變驗證日誌 `workplace/out/mutation-007.log` 內有逐項名稱） | 通過（含保留鍵表不含 F3、`TestAudioAlwaysHasAPuller`、`TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance`、`TestAudioStalledBackendIsTakenOver`、`TestAudioDiedBackendHandover`、`TestAudioOpenTimeoutFallsBackToPump`、`TestPullSourceIdleUsesMonotonicOffset`、`TestResolveMute`） |
 | Windows 編譯 | `tools/play.sh build-cross` | `windows/amd64`、`CGO_ENABLED=0` 通過；macOS 需要 osxcross，未在此驗證 |
 
 ## 2. runtime 掛鉤（需原版）
@@ -60,7 +60,7 @@
 
 ## 5. 機器人長跑（`-sound`，NullSink）
 
-重跑：`tools/bot.sh run snd-long-s1 -sound -game-hours 2 -seed 1`、`snd-long-s2 -sound -game-hours 2 -seed 2`（輸出 `workplace/out/bot/snd-long-s{1,2}/summary.json`，gitignore）。Sink 是 `NullSink`（用遊戲 tick 當時鐘，不開裝置），所以這一節只覆蓋掛鉤、引擎狀態與遊戲路徑，不覆蓋音訊裝置。
+重跑：`tools/bot.sh run snd-long-s1 -sound -game-hours 2 -seed 1`、`snd-long-s2 -sound -game-hours 2 -seed 2`（輸出 `workplace/out/bot/snd-long-s{1,2}/summary.json`，gitignore）。Sink 是 `NullSink`（用遊戲 tick 當時鐘，不開裝置），所以這一節只覆蓋掛鉤與遊戲路徑，不覆蓋 `Engine` 的狀態機（命令佇列、世代、淡出）與音訊裝置。
 
 | 項目 | 種子 1 | 種子 2 |
 |---|---:|---:|
@@ -96,6 +96,58 @@
 | `ALCOHOL.MID`（`7B3A:0488`，0 byte 檔） | 沒有收據 |
 | 點擊音實機路徑（`PlaySFX(0x32)`，`1043:03B6`） | 冷啟動到新遊戲 90M 步內 `SFX ＝ 0`；載入取樣狀態檔後觀察到 1 次 `sfx`，但沒有逐 id 的收據 |
 | 真實音訊裝置、Windows、macOS 實際出聲 | 沒有驗證 |
-| 存檔 A/B（Sink 與無 Sink 的 `GAMEFILE.00x`、`fname.dat` 相同） | 待補 |
+| 存檔 A/B（Sink 與無 Sink 的 `GAMEFILE.00x`、`fname.dat` 相同） | 第 8 節：一條路徑已驗（讀槽 0、存槽 2）；停止常式與跟隨型 Sink 的路徑未驗 |
 | AppImage、Wine 驗收 | 待補 |
 | 聽感 | 由使用者試聽 |
+
+## 8. 存檔 A/B
+
+重跑：`HR_TEST_RUN='SaveDiffDetector|SoundDoesNotChangeSaves' tools/play.sh test-diag`（`apps/hr/runtime/sound_save_test.go`，約 62 秒）。腳本與 `TestSaveGoesToScratchAndLeavesOriginalAlone` 相同：標題讀取遊戲檔案、槽 0、地圖筆圖示開系統選單、檔案存入、槽 2，跑到 246M 步。分別在無 Sink 與 `Playing()` 恆假的 Sink 下各跑一次（恆假的 Sink 讓遊戲走與無 Sink 相同的路徑，指令軌跡一致）。
+
+結果：`GAMEFILE.002`（31839 bytes）與 `FNAME.DAT`（158 bytes）逐位元相同。Sink 那一輪的掛鉤確實在運作（`Starts ＝ 11849`、`Fades ＝ 11849`、`SFX ＝ 2`、`Queries ＝ 23692`），所以不是空跑。比較器另有自測（翻轉一個位元組必須被找到、長度不同必須被報告）。
+
+限制：
+- 這條路徑 `Stops ＝ 0`，停止掛鉤寫 `2BCC:0223` 的路徑沒有被走到。`2BCC:0223` 的線性位址 `0x2BEE3` 在存檔傾印範圍（IDA `4073:0008` 起 31839 bytes，執行期線性位址約 `0x31838` 起）之外，推得不影響存檔；未用收據證明。
+- 跟隨型 Sink 會讓遊戲少讀 MID，tick 數與指令軌跡改變，存檔可能因時間欄位而不同，那不是掛鉤改寫存檔，所以沒有納入比較。
+- 只驗了槽 2 的寫入，沒有驗讀入原版存檔後的行為（讀槽 0 在腳本內已發生，到存檔時狀態一致）。
+
+## 9. 第三輪審查後的重跑與突變驗證
+
+日期：2026-10-03。對應 `docs/spec/007` 第 8 節與審查項 X1、X2、X4、T2。命令與日誌如下，日誌在 `workplace/out/`（gitignore）。
+
+### 9.1 Engine 加 Session 整合測試
+
+重跑：`HR_TEST_RUN='SoundEngineSession' tools/play.sh test-diag`（日誌 `test-sound-engine-session.log`，約 39 秒）。靜音的真 `Engine`，每個遊戲秒餵 44100 框，跑到連續三次 `MusicStart`。
+
+| 項目 | 值 |
+|---|---|
+| `MusicStart` 的遊戲秒 | 0.11、36.47、72.94 |
+| 相隔（第 1 至 2 次、第 2 至 3 次） | 36.36、36.47 |
+| `SCOUT.MID` 曲長 | 36.38 |
+| 判準 | 兩個相隔都在曲長正負 0.35 內；每次 `MusicStart` 的資料以 `SCOUT.MID` 開頭 |
+| 結果 | 通過 |
+
+### 9.2 突變驗證
+
+腳本把原始檔的雜湊記在 `workplace/out/mutation-007.log`（`engine.go` 前 16 碼 `7ad920886d07b4e9`，`audio.go` 前 16 碼 `87194ad09ee47961`），每項突變後還原並核對雜湊相同。基準（未突變）的所有被測測試先通過。
+
+| 突變 | 測試 | 結果 |
+|---|---|---|
+| M1：`cFade` 的 `if e.cur.SongDone()` 改成 `if false && …`（拿掉 Z1 修正；只改 `engine.go` 的第一處，曲末 CAS 那一處不動） | `TestEngineFadeAfterNaturalEndIsNoop` | 失敗：「曲末後的淡出應是空操作：fading＝true pending＝true」 |
+| 同上 | `TestSoundEngineSessionIntegration` | 失敗：`MusicStart` 在遊戲秒 0.11、36.47、73.65；第 2 至 3 次相隔 37.18，比通過時的 36.47 多 0.71 秒（`FadeSeconds(1)`）；第 1 至 2 次相隔 36.36 不受影響，與審查的推論一致 |
+| M2：`pullReader.Read` 的 `if r.gen != r.s.gen` 改成 `if false && …`（拿掉世代檢查） | `TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance` | 失敗：「被接手的舊世代拉取者應只拿到靜音」 |
+| 同上 | `TestAudioStalledBackendIsTakenOver` | 失敗：「被接手的舊拉取者應只拿到靜音」（前端測試以 `-race` 執行） |
+| M3：`SFX` 在送命令前遞增世代並寫狀態字 | `TestEngineSFXDoesNotBumpEpoch` | 失敗：「播放中呼叫過 SFX 之後，曲子到曲末仍應自然結束」 |
+
+結論：這三項修正各有至少一個會失敗的測試守住。舊版 `TestSoundEngineSessionIntegration`（只比第 1 至 2 次相隔）與舊版停滯測試（靜音、舊拉取者只讀 2 秒）在對應突變下仍會通過，也就是審查 X1、X2 指出的空轉，本輪已改為上述有鑑別力的版本。
+
+### 9.3 其餘本輪新增的測試
+
+| 測試 | 內容 |
+|---|---|
+| `TestAudioOpenTimeoutFallsBackToPump` | 開啟裝置卡住：`startAudio` 在逾時後返回，曲子由牆鐘拉取者推到自然結束，晚到的裝置被關閉剛好一次 |
+| `TestPullSourceIdleUsesMonotonicOffset` | 停滯偵測的 `idle()` 隨拉取重設、隨時間增加 |
+| `TestResolveMute` | `-mute`、`HR_MUTE`、偏好設定 `sound` 的 13 種組合 |
+| `TestEngineConcurrentThenQuiescentStateMatchesLastCommand` | 並行命令洪流結束、讀取者停止後，最後一個音樂命令決定 `Playing()` |
+
+另有改動：`MusicStart` 的 20000 位元組複製在常規記憶體（`A0000` 以下）改為區塊複製；`pullSource` 的看門狗改用單調時鐘；`patches.go` 檔頭補流程紀錄；`hrmusic` 失敗訊息與判準一致。

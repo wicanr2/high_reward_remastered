@@ -7,9 +7,12 @@
 #   1. play.sh 的 Go 容器跑 TestGenCharsets，把五份字元表寫到 apps/hr/play/fonts/charset-<語言>.txt；
 #   2. 核對主機的 NotoSansCJK-Regular.ttc 的 SHA-256（不符即失敗），唯讀掛進 fontTools 容器；
 #   3. pyftsubset 依字元表各切一份子集（zh-TW 與 en 用 TC 字面 3、zh-CN 用 SC 字面 2、ko 用 KR 字面 1、ja 用 JP 字面 0），
-#      丟棄 GSUB／GPOS 與提示（x/image 沒有 shaping），保留 .notdef 與 name ID 0、7、13、14（版權、商標、授權說明、授權網址）；
-#   4. 核對 TTC 內指定字面的名稱（選到 Mono 字面會讓拉丁字母變等寬），印出 fontTools 版本與各檔大小。
-# 輸出 apps/hr/play/fonts/ui-<語言>.otf 與 fonts/SOURCE.txt（來源、雜湊、版本）。授權全文在 fonts/OFL.txt。
+#      丟棄 GSUB／GPOS 與提示（x/image 沒有 shaping；--layout-features= 只清空特性，仍留空殼表，所以另加 --drop-tables+=GSUB,GPOS），
+#      保留 .notdef 與 name ID 0、7、13、14（版權、商標、授權說明、授權網址）；
+#   4. 核對 TTC 內指定字面的名稱（選到 Mono 字面會讓拉丁字母變等寬）；fontTools 版本不是 4.66.1 即失敗；
+#      斷言每份子集沒有 GSUB、GPOS 表，且 name ID 0、7、13、14 都存在。
+# 輸出 apps/hr/play/fonts/ui-<語言>.otf 與 fonts/SOURCE.txt（來源、雜湊、fontTools 版本、旗標）。授權全文在 fonts/OFL.txt
+# （只取 OFL 1.1 一段，斷言不含 GPL 文字）。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DG="$ROOT/workplace/dosgolem"
@@ -23,6 +26,13 @@ mkdir -p "$FONTDIR"
 
 # 1. 字元表
 HR_GEN_CHARSET=/src/apps/hr/play/fonts "$ROOT/tools/play.sh" gen-charset
+
+# fontTools 版本必須是 4.66.1（子集行為隨版本變）；SOURCE.txt 記錄它
+WANT_FT="4.66.1"
+FTV="$(timeout 2m docker run --rm --name "hr-ftver-$$" --network none --memory 256m --cpus 1 --pids-limit 32 \
+  --log-opt max-size=10m --log-opt max-file=3 -u "$(id -u):$(id -g)" -e HOME=/tmp \
+  yuan-analysis:1 python3 -c 'import fontTools; print(fontTools.version)')"
+[ "$FTV" = "$WANT_FT" ] || { echo "fontTools 是 $FTV，應為 $WANT_FT" >&2; exit 1; }
 
 # 2 到 4. 子集
 timeout 10m docker run --rm --name "hr-fonts-$$" --network none --memory 1g --cpus 1 --pids-limit 64 \
@@ -45,15 +55,26 @@ assert name in (want, want + " Regular"), (l, n, name)
 print("面", n, name)
 PY
   pyftsubset "/fonts/$TTCNAME" --font-number=$n --text-file=/out/charset-$l.txt --output-file=/out/ui-$l.otf \
-    --layout-features= --no-hinting --notdef-outline --name-IDs=0,7,13,14 --legacy-kern --recalc-bounds
+    --layout-features= --drop-tables+=GSUB,GPOS --no-hinting --notdef-outline --name-IDs=0,7,13,14 --legacy-kern --recalc-bounds
   ls -l /out/ui-$l.otf
+  python3 - "$l" <<PY
+import sys
+from fontTools.ttLib import TTFont
+l = sys.argv[1]
+f = TTFont("/out/ui-%s.otf" % l)
+tabs = sorted(f.keys())
+assert "GSUB" not in tabs and "GPOS" not in tabs, (l, tabs)
+for i in (0, 7, 13, 14):
+    assert f["name"].getDebugName(i), (l, "name", i)
+print("表", " ".join(t for t in tabs if t != "GlyphOrder"))
+PY
 done
 '
 {
   echo "來源：$(basename "$TTC")（Debian 套件 fonts-noto-cjk，Noto Sans CJK Regular，SIL Open Font License 1.1）"
   echo "SHA-256：$WANT_SHA"
   echo "字面：zh-TW 與 en ＝ 3（TC）、zh-CN ＝ 2（SC）、ko ＝ 1（KR）、ja ＝ 0（JP）"
-  echo "工具：fontTools（容器 yuan-analysis:1）pyftsubset，--layout-features= --no-hinting --notdef-outline --name-IDs=0,7,13,14"
+  echo "工具：fontTools $FTV（容器 yuan-analysis:1）pyftsubset，--layout-features= --drop-tables+=GSUB,GPOS --no-hinting --notdef-outline --name-IDs=0,7,13,14 --legacy-kern --recalc-bounds"
   echo "字元表：charset-<語言>.txt（由 apps/hr/play 的 TestGenCharsets 產生）"
 } > "$FONTDIR/SOURCE.txt"
 echo "完成：$(ls "$FONTDIR"/ui-*.otf | wc -l) 份子集，總大小 $(cat "$FONTDIR"/ui-*.otf | wc -c) bytes"
@@ -71,11 +92,11 @@ from fontTools.ttLib import TTFont
 names = {}
 for l in ("zh-TW", "zh-CN", "ko", "ja", "en"):
     n = TTFont("/out/ui-%s.otf" % l)["name"]
-    for i in (0, 13, 14):
+    for i in (0, 7, 13, 14):
         s = n.getDebugName(i)
         assert s, (l, i)
         names.setdefault(i, set()).add(s)
-for i in (0, 13, 14):
+for i in (0, 7, 13, 14):
     assert len(names[i]) == 1, (i, names[i])
 with open("/out/NOTICE-fonts.txt", "w", encoding="utf-8") as f:
     f.write("Noto Sans CJK 子集（內嵌於 hr-play 的介面字型）\n\n")
@@ -87,7 +108,11 @@ PY
 test -s "$FONTDIR/NOTICE-fonts.txt" || { echo "沒有產生 NOTICE-fonts.txt" >&2; exit 1; }
 {
   cat "$FONTDIR/NOTICE-fonts.txt"
-  tail -n +"$((start+1))" "$DOC" | sed 's/^ \.$//; s/^ //'
+  # 只取 "License: SIL-1.1" 這一段：Debian copyright 的段落以空白開頭的行延續，遇到不以空白開頭的行（下一段，
+  # 例如 debian/* 的 License: GPL-3+）就停。" ." 是 Debian 的空行寫法。
+  awk -v s="$start" 'NR > s { if ($0 ~ /^ /) print; else exit }' "$DOC" | sed 's/^ \.$//; s/^ //'
 } > "$FONTDIR/OFL.txt"
 rm -f "$FONTDIR/NOTICE-fonts.txt"
+grep -q 'SIL OPEN FONT LICENSE Version 1.1' "$FONTDIR/OFL.txt" || { echo "OFL.txt 沒有 OFL 1.1 全文" >&2; exit 1; }
+if grep -q 'GNU General Public License' "$FONTDIR/OFL.txt"; then echo "OFL.txt 夾帶了 GPL 文字" >&2; exit 1; fi
 echo "授權檔：$(wc -l < "$FONTDIR/OFL.txt") 行（fonts/OFL.txt）"

@@ -56,7 +56,9 @@ case "$CMD" in
   test-play)
     # 前端（apps/hr/play，獨立模組）的測試：保留鍵、診斷目錄顯示等純函式
     [ -n "${HR_RACE:-}" ] && EXTRA+=(-e HR_RACE=1)
-    run 'set -e; mkdir -p /tmp/.X11-unix; Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 & XPID=$!; sleep 2; export DISPLAY=:99; cd apps/hr/play; go vet ./...; go test -count=1 ${HR_RACE:+-race} ./...; kill $XPID 2>/dev/null || true' ;;
+    [ -n "${HR_VERBOSE:-}" ] && EXTRA+=(-e HR_VERBOSE=1)
+    [ -n "${HR_TEST_RUN:-}" ] && EXTRA+=(-e "HR_TEST_RUN=${HR_TEST_RUN}")
+    run 'set -e; mkdir -p /tmp/.X11-unix; Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 & XPID=$!; sleep 2; export DISPLAY=:99; cd apps/hr/play; go vet ./...; go test -count=1 ${HR_RACE:+-race} ${HR_VERBOSE:+-v} ${HR_TEST_RUN:+-run "$HR_TEST_RUN"} ./...; kill $XPID 2>/dev/null || true' ;;
   smoke)
     run 'cd /src && go run ./apps/hr/cmd/hr-smoke -orig /orig/orig -steps 30000000 -png /out/smoke-a.png && go run ./apps/hr/cmd/hr-smoke -orig /orig/orig -steps 90000000 -click 35000000:312:211 -png /out/smoke-b.png' ;;
   gui)

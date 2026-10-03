@@ -156,3 +156,18 @@
 
 - `hrmusic` 的基頻抽查失敗訊息仍寫「基頻在 MIDI 音高的 3% 內」，但判準早已改成調和累加比例。訊息已改，判準與通過數字不受影響。
 - 又有一次工作目錄漂到 `workplace/out/bot`（在該目錄 `head` 兩個 summary 之後沒有回到 repo 根）。同一條規則：Bash 呼叫以 `cd /home/anr2/cht/hr &&` 開頭。
+
+### 第三輪審查、讀鍵普查、突變驗證（2026-10-03，續十三）
+
+- 規格 006 第三輪審查（唯讀）：阻擋 2 項。字型子集的 `--layout-features=` 只清空特性，輸出仍留空殼 GSUB（72 bytes）與 GPOS（32 bytes），腳本斷言「無 GSUB、GPOS」會每次失敗；`OFL.txt` 取 Debian copyright 時取到檔尾，夾帶 12 行 `debian/*` 的 GPL-3+ 授權。另一項是 `Compose` 快照測試可能空轉。已修 `tools/gen_ui_fonts.sh`（加 `--drop-tables+=GSUB,GPOS`、fontTools 版本硬失敗、name ID 7 斷言、只取 OFL 段並斷言無 GPL、`SOURCE.txt` 記版本），在容器內實跑通過；規格第四版處理全部建議項。
+- 規格 007 第三輪審查（唯讀）：阻擋 4 項。整合測試看不到 Z1（只比第 1 至 2 次 `MusicStart`，Z1 的位移出現在第 2 至 3 次）、交接測試靜音且讀取長度短於曲長而空轉、與 READY 的 `docs/spec/003` 矛盾、第三版新增測試沒有收據。已改測試並做突變驗證（`docs/re/019` 第 9 節）：拿掉 Z1 修正時第 2 至 3 次相隔多出 0.71 秒（37.18 對 36.47），拿掉世代檢查與讓 SFX 遞增世代都被各自的測試擋下。規格第四版處理。
+- `MAIN.EXE` 讀鍵靜態普查（子代理，`docs/re/021`）：讀鍵的 `int 21h` 只有 4 個，三個函式的 7 個呼叫點都不使用鍵值（5 個錯誤等待、2 個結束清緩衝），沒有 `int 16h`、INT 09h 掛接與埠 60h。保留 F2、F3、F4 不影響遊戲（強推論）。`docs/spec/003` 第 7 節與驗收表、`docs/re/013` 的「未普查」改為引用 021。
+- 存檔 A/B（`docs/re/019` 第 8 節）：無 Sink 與 `Playing()` 恆假的 Sink，讀槽 0、存槽 2，`GAMEFILE.002` 與 `FNAME.DAT` 逐位元相同。
+- 新規格 `docs/spec/008`（M10：語言層、譯文清冊、字模管線，只涵蓋檔案類文字）：第一版，審查中。
+- 音訊前端補強：`pullSource` 看門狗改單調時鐘、裝置開啟逾時 3 秒、`resolveMute` 三態；`MusicStart` 的複製改區塊複製。
+
+### 勘誤（續十三）
+
+- 為了把看門狗改單調時鐘，我用一條 `sed` 把 `s.last.Store(time.Now().UnixNano())` 全換掉，連 `pullReader.Read` 裡的 `r.s.last.Store(…)` 也被換成引用未定義變數 `s`；`go vet` 在前端測試的第一步擋下（編譯失敗），修正後重跑通過。教訓：全域取代前先 `grep -n` 看全部命中位置，或改用 Edit 逐處改。
+- 突變驗證腳本的第一版規則 `s|if e.cur.SongDone() {|…|` 在 `engine.go` 命中兩處（含曲末 CAS），會連帶破壞其他測試。對複本 dry-run 時發現，改成只改第一處（`0,/…/s//…/`）才進正式跑。
+- 把 `sound_save_test.go` 的存檔 A/B 結果寫進 `docs/re/019` 時，新節被插在第 6 節之前（順序錯），用暫存檔重排後才覆蓋原檔，沒有遺失內容。
