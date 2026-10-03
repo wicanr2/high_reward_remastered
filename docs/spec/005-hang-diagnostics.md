@@ -28,10 +28,10 @@
 | T2 | 服務中斷靜默：累計 `HangSeconds` 個遊戲秒當量沒有出現**遊戲碼發出的服務中斷**（定義見下） | 非致命。啟動取樣、取樣完寫診斷、遊戲繼續跑。同一個靜默期只報一次；任何服務中斷出現後重新武裝；每個 `Session` 最多 3 次。`HangSeconds ＝ 0` 關閉 T2（執行層預設），前端設 30 |
 | T3 | 前端按 Ctrl+D | `Session.RequestDiag("manual")`，診斷在下一個批次邊界產生。兩次之間至少 5 秒（`Options.Now` 的時鐘）。不取樣迴圈 |
 
-**遊戲碼發出的服務中斷**：經 `CPU.IntHook` 進入、且 `CPU.Op()` 的段不是 `machine.StubSeg` 的軟體中斷（`CD ib`、`CC`、`CE`）。理由（confirmed）：
+**遊戲碼發出的服務中斷**：經 `CPU.IntHook` 進入、且 `CPU.Op()` 的段不是 `machine.StubSeg` 或 `machine.EMSSeg` 的軟體中斷（`CD ib`、`CC`、`CE`）。理由（confirmed）：
 
 - BIOS 預設的 `int 08h` stub 每個 tick 轉呼 `CD 1C`（`machine.go` 的 `initVectors`、`dos.go` 的 `case 0x08, 0x1C`）。
-- dosgolem 內部的哨兵與 trampoline 都在 `StubSeg`：滑鼠事件回呼結束的 `CD F9`（`machine/callback.go`）、`F2` 至 `F6`（`int 21h/10h/15h`、XMS、EMS 的 trampoline）、`F7`、`F8`（字型 stub）。遊戲若以 `int 33h AX＝000Ch` 登記過處理常式，使用者在凍結的畫面上動滑鼠就會排進回呼，每次回呼都執行一次 `CD F9`；這類內部事件若算進去，T2 會被玩家的輸入一直重置。
+- dosgolem 內部的哨兵與 trampoline 在 `StubSeg`，EMS 的 `CD F6` 在 `EMSSeg`（`machine.EMSSeg ＝ 0x0050`，EMM 驅動 header，`machine.go` 的 `initVectors`）：滑鼠事件回呼結束的 `CD F9`（`machine/callback.go`）、`F2` 至 `F5`（`int 21h/10h/15h`、XMS 的 trampoline）、`F7`、`F8`（字型 stub）在 `StubSeg`，`F6`（EMS）在 `EMSSeg`。遊戲若以 `int 33h AX＝000Ch` 登記過處理常式，使用者在凍結的畫面上動滑鼠就會排進回呼，每次回呼都執行一次 `CD F9`；這類內部事件若算進去，T2 會被玩家的輸入一直重置。
 - 遊戲碼自己的 `CD 21`（在遊戲的段）仍然算，檔名擷取只看這一類，所以 `F2` 不需要折回 `21h`。
 
 **時鐘**：用指令步數換算的遊戲秒當量，不用 `Machine.Ticks`。`IF ＝ 0` 或 PIC 遮掉 IRQ0 時 `Ticks` 不前進（`machine.go` 的 `tick`，`!IF || picMask&1` 提早返回），`cli; jmp $` 與卡在 ISR 內的情形用 tick 計時會永遠不觸發。每個批次結束（`afterBatch`）累加本批的步數 ÷ （當下 `interval` × `TickHz`）；批次內出現過服務中斷就把累計歸零。這樣 `adapt` 在靜默期中途調降 `interval` 不會讓窗口提早到期。
@@ -52,7 +52,7 @@ T2 的已知盲點（設計限制）：
 
 `Open` 在 `d.Install()` 之後把 `CPU.IntHook` 包一層：先記錄再呼叫原本的 `d.handle`，記錄在服務進入之前，暫存器是呼叫時的值。包裝不影響 `handle` 的回傳與行為。`CPU.Op()` 在 `IntHook` 被呼叫時是 `INT` 指令的起點（含前綴，`ops.go` 的 `Step` 在前綴迴圈前設定，confirmed）。`Options.NoDiag` 為真時不包裝（僅供對照與基準，第 6 節）。
 
-記錄屬於「遊戲碼發出」的中斷（`Op()` 的段不是 `StubSeg`）；`StubSeg` 內的中斷不記錄、不計數、不更新靜默。
+記錄屬於「遊戲碼發出」的中斷（`Op()` 的段不是 `StubSeg` 與 `EMSSeg`）；這兩段內的中斷不記錄、不計數、不更新靜默。
 
 | 欄位 | 內容 |
 |---|---|
@@ -65,7 +65,12 @@ T2 的已知盲點（設計限制）：
 
 ### 4.2 呼叫（執行後分類）
 
-`Machine.Step` 先跑 `tick()`（可能 `Interrupt(0x08)`、回呼、週期遠呼叫，這些都改 `CS:IP`）再執行指令，所以 `Step` 之前讀的 `CS:IP` 不一定是被執行的指令。因此在 `m.Step()` 成功返回之後、`ov.Post(m)` 之前（也在 `pollStop` 的提早返回之前），用 `CPU.Op()` 取得本道指令的起點，讀該處的位元組分類。純函式 `classifyCall(code []byte) (kind, ok)` 負責位元組判斷，另行單元測試：
+`Machine.Step` 先跑 `tick()`（可能 `Interrupt(0x08)`、回呼、週期遠呼叫，這些都改 `CS:IP`）再執行指令，所以 `Step` 之前讀的 `CS:IP` 不一定是被執行的指令。熱迴圈分兩段處理，每步只多一次讀取與一次表查：
+
+1. `m.Step()` 之前：`stepBatch` 本來就為停機檢查算好起點的線性位址 `a`，順手讀一個位元組 `b0 ＝ m.Mem[a & 0xFFFFF]`。
+2. `m.Step()` 成功返回之後（`ov.Post(m)` 之前，也在 `pollStop` 的提早返回之前）：`b0` 是 `E8`、`9A`、`FF`（呼叫候選），或是前綴且其後一個位元組也是 `E8`、`9A`、`FF` 時，才用 `CPU.Op()` 取得本道指令的起點，讀該處的位元組做完整分類。只看前綴是不夠的：區段覆蓋前綴（`26`、`2E`、`36`、`3E`）與 `rep` 在繪圖迴圈裡很常見，實測把所有前綴都當候選時冷啟動 15.2% 的步數進完整分類，只認「前綴加呼叫候選」後降到 1.4%（呼叫事件數不變，165,959 筆，見 `docs/re/017`）。`s.cls` 是指向分類表的指標：一般用 `opClass`（`E8`、`9A`、`FF` ＝ 呼叫候選，前綴 ＝ 前綴），取樣期間切成每個位元組都進的表，`NoDiag` 時切成全 0 的表，所以 `NoDiag` 與取樣都不需要另設每步分支。熱迴圈只認單一前綴後的呼叫；兩個以上前綴連用後接呼叫（例如 `F3 2E FF`）不會進完整分類，這是已知限制，原版有沒有這種指令沒有普查；`classifyCall` 本身（用於取樣與測試）認得任意個前綴。
+
+純函式 `classifyCall(code []byte) (kind, ok)` 負責位元組判斷，另行單元測試：
 
 | 位元組（跳過前綴後） | 種類 | 目標 | 呼叫前 `SP` |
 |---|---|---|---|
@@ -78,7 +83,7 @@ T2 的已知盲點（設計限制）：
 
 前綴集合與 `internal/cpu/ops.go` 一致：`26 2E 36 3E`、`64 65 66`（只在 80386 機型）、`F0 F1`、`F2 F3`，沒有個數上限（分類上限 15 個後放棄）。出現 `66` 時不分類：這支 CPU 在 `66 E8`、`66 9A`、`66 FF` 回 CPU 錯誤（`ops386.go` 的 `execute32` default），不會被執行。`FF` 需要在前綴之後多讀一個位元組。
 
-記憶體讀取：只在起點 `a ＜ 0xA0000`（`VideoSeg × 16`）時分類，用 `m.Mem[a]` 直接讀；其他位址不分類（遊戲碼不會在 A0000 以上，進入視訊記憶體範圍本來就是停機條件；HMA 區的位址 `≥ 1 MiB` 不能直接索引）。診斷時的記憶體讀取（呼叫鏈、堆疊、位元組傾印、`DS:DX` 檔名）一律用 `Peek8`／`Peek16`（沒有 VGA latch 副作用，`peek.go`）。
+記憶體讀取：起點位址遮成 20 位元後用 `m.Mem[]` 直接讀（`Mem` 長度剛好 2²⁰，免邊界檢查）。遊戲碼不會在 `A0000` 以上執行（進入視訊記憶體範圍本來就是停機條件），HMA 區的程式不在 `MAIN.EXE` 的使用範圍，所以遮碼造成的誤分類只出現在已經壞掉的狀態，不影響正確性。tick 命中那一步的限制：`b0` 是 tick 之前的位元組；若原指令不是候選、而 tick 之後被執行的 ISR 第一道恰好是 `call`，該呼叫漏記（ISR 的第一道實測是 `push` 與 `cli`；已知限制）。診斷時的記憶體讀取（呼叫鏈、堆疊、位元組傾印、`DS:DX` 檔名）一律用 `Peek8`／`Peek16`（沒有 VGA latch 副作用，`peek.go`）。
 
 目標用執行後的 `CS:IP`，不解位移，對間接呼叫與前綴都成立。`Step` 回傳錯誤時不記錄。
 
@@ -120,7 +125,7 @@ T2 的已知盲點（設計限制）：
 
 | 類別 | 條件 | 換算 |
 |---|---|---|
-| dosgolem 內部 stub | `CS ＝ StubSeg` | 不換算，標「dosgolem 內部 stub」 |
+| dosgolem 內部 stub | `CS ＝ StubSeg` 或 `CS ＝ EMSSeg` | 不換算，標「dosgolem 內部 stub」 |
 | 堆疊內程式碼 | `CS ＝ SS` | 不換算，標「堆疊內程式碼（`_int86x` 的 stub）」 |
 | overlay | `(CS−1)×16＋0Eh` 處的字組是 `ovrtab` 的某個 stub 段，且 `CS ≥ 0x540F`、`CS ≠ SS` | 得 `ovrNNN` 與 IDA 載入段，IDA 位址 ＝ 載入段:偏移（`docs/re/007` 第 8 節，強推論，本規格的測試是第一次執行中驗證，並以 stub `＋10h` 處的載入段交叉，兩法一致才通過） |
 | stub 入口 | `CS` 是 `ovrtab` 的 stub 段 | 標「`ovrNNN` stub，入口 k」（偏移 `0x20 ＋ 5k`），否則「`ovrNNN` stub 標頭」 |
@@ -172,7 +177,7 @@ func (s *Session) RequestDiag(reason string)  // 任何執行緒可呼叫；原�
 - 手動觸發是 **Ctrl+D**，不送進遊戲：Ctrl 按住的那一幀前端不送 `AppendInputChars` 與特殊鍵給遊戲（前端測試）。這是對 `docs/spec/003` 第 7 節保留鍵表的修訂：保留鍵為 F1、F11、F12、Alt+Enter、Ctrl+Q、Ctrl+D，本規格升 READY 的同一提交一併修訂 003。選 Ctrl+D 而不選 F9，因為 F9 目前當遊戲按鍵送出（掃描碼 `0x43`）；遊戲是否讀 Ctrl+D 的 `0x04` 與 F9 同樣未普查，這是已知差異。
 - 存檔影響：診斷不修改遊戲記憶體、檔案與存檔。
 - 診斷含 `screen.png`、`state.state` 與記憶體位元組，是原版內容的衍生物。回報當機時請提供目錄給作者，不要貼到公開的 issue。
-- 注入只存在於機器人與測試的旗標，前端永不注入。`hrbot` 新增：`-hang-seconds`（預設 30，0 關閉；傳給 `Options.HangSeconds`，診斷目錄在 `<out>/diag`）、`-hang-routine SEG:OFF`（十六進位的執行期位址；在 `Open` 之後把該處兩個位元組改成 `EB FE`，模擬那個 routine 進入後不返回）、`-inject-hang-minutes`（既有）。機器人的 `summary.json` 增加 `t2` 物件：`enabled`、`evals`、`max_silent_sec`、`dumps`。
+- 注入只存在於機器人與測試的旗標，前端永不注入。`hrbot` 新增：`-hang-seconds`（預設 30，0 關閉；傳給 `Options.HangSeconds`，診斷目錄在 `<out>/diag`）、`-hang-routine SEG:OFF`（十六進位的執行期位址；遊戲時間到 `-hang-after-minutes`（預設 1）之後的第一個輪詢點，把該處兩個位元組改成 `EB FE`，模擬那個 routine 進入後不返回，讓 hang 發生在遊玩途中）、`-inject-hang-minutes`（既有）。機器人的 `summary.json` 增加 `t2` 物件：`enabled`、`evals`、`max_silent_sec`、`dumps`。
 
 ## 9. 效能閘門
 
@@ -180,7 +185,9 @@ func (s *Session) RequestDiag(reason string)  // 任何執行緒可呼叫；原�
 
 **基準提交**：實作之前，先把 `bench_test.go` 與 `session_test.go` 的 `testing.TB` 修改提交成獨立補丁（0022），A 版就是這個提交，可由 `git` 重建；B 版是實作提交。
 
-驗收（`tools/bench.sh`）：同一台機器、`--cpus 1`、記錄 CPU 型號。A 與 B 的 `go test -c` 執行檔**交錯**執行（ABAB…），每個 5 次，取使用者 CPU 時間（`getrusage`，`BenchmarkRunSteps` 回報 `user-ns/op`）的中位數，B 不超過 A 的 105%。另加 A 對 A 的對照（兩個 A 執行檔交錯）得到噪音帶；若噪音帶超過 ±3%，增加次數。場景四個：
+**主閘門：同行程成對量測。** 跨執行檔的 A/B 在負載高的主機上雜訊可達 2 倍（`docs/re/016` 第 2 節記主機負載平均 30 至 46；實測同一個 A 執行檔相鄰兩次的使用者 CPU 時間差約 2 倍），5% 的閘門量不出來。所以主閘門改成 `TestDiagOverheadPaired`（`HR_BENCH_OVERHEAD=1`）：同一個行程內，前端實際的 `Options`（診斷開、`HangSeconds: 30`、`DiagDir`）與 `NoDiag ＝ true` 兩個 `Session` 從同一個狀態出發，交錯各跑一塊 10⁷ 步（共 12 對，奇偶對交換先後），量使用者 CPU 時間，取相鄰成對比值的中位數，每個場景的中位數不得超過 1.05。成對、交錯、同行程使兩邊吃到同樣的主機負載。兩個 `Session` 唯一的差別是診斷的程式路徑，`NoDiag` 仍保留 `if !s.noDiag` 的分支，這一個已預測的分支相對於基準提交（A）的成本由跨執行檔的對照估計。
+
+**次要：跨執行檔 A/B**（`tools/bench.sh`）：同一台機器、`--cpus 1`、記錄 CPU 型號。A 與 B 的 `go test -c` 執行檔**交錯**執行（ABAB…），每個 5 次，報最小值與中位數（負載只會增加時間，最小值最接近無干擾的速度）；另加 A 對 A 的對照得到噪音帶。這組數字只作紀錄與粗略檢查，不作閘門。場景四個：
 
 | 場景 | 內容 |
 |---|---|

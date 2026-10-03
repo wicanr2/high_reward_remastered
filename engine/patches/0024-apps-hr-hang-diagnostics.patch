@@ -1,0 +1,2632 @@
+From bda969e70f21e9661a26e9730e166a561e7d8b89 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 20:06:06 +0800
+Subject: [PATCH 24/24] =?UTF-8?q?apps/hr:=20=E5=81=9C=E6=A9=9F=E8=88=87=20?=
+ =?UTF-8?q?hang=20=E7=9A=84=E8=A8=BA=E6=96=B7=E7=B4=80=E9=8C=84=EF=BC=88do?=
+ =?UTF-8?q?cs/spec/005=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- runtime/diag.go：呼叫與服務中斷紀錄（IntHook 包裝；Step 之後分類，執行前讀起點位元組、候選才進完整分類）、
+  第二結構（最近不同的呼叫目標）、註記表、位址分類與 overlay 查表（ovrtab.go，由 tools/gen_ovr_table.sh 產生）、
+  T2 疑似 hang（遊戲碼服務中斷靜默，步數換算的遊戲秒當量）、T3 RequestDiag、取樣、診斷目錄命名與保留清理。
+- session.go：Options（DiagDir、HangSeconds、OnDiag、NoDiag、Now）、Stats（HangEvals、HangMaxSilentSec）、
+  stepBatch 的分類、afterBatch 的 T2、T3。crash.go：CrashDump 的 info.txt 第一行加標記並含診斷區段。
+- 前端：Options 帶入診斷、Ctrl+D 手動診斷、Ctrl 按住不送字元、F1 說明列最近一份診斷；keys_test.go。
+- hrbot：-hang-seconds、-hang-routine SEG:OFF、-hang-after-minutes，summary.json 的 t2。
+- 測試：diag_test.go（含 T2 正對照 A 至 D、routine 掛起、與 probe 的獨立交叉檢查、-race）、
+  overhead_test.go（同行程成對量測）、bench_diag_test.go。
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrbot/main.go          |   44 +-
+ apps/hr/play/game.go               |   38 +-
+ apps/hr/play/keys_test.go          |   31 +
+ apps/hr/play/main.go               |    1 +
+ apps/hr/runtime/bench_diag_test.go |   17 +
+ apps/hr/runtime/crash.go           |   24 +-
+ apps/hr/runtime/diag.go            |  847 ++++++++++++++++++++++
+ apps/hr/runtime/diag_test.go       | 1068 ++++++++++++++++++++++++++++
+ apps/hr/runtime/overhead_test.go   |  109 +++
+ apps/hr/runtime/ovrtab.go          |  155 ++++
+ apps/hr/runtime/session.go         |   33 +-
+ 11 files changed, 2350 insertions(+), 17 deletions(-)
+ create mode 100644 apps/hr/play/keys_test.go
+ create mode 100644 apps/hr/runtime/bench_diag_test.go
+ create mode 100644 apps/hr/runtime/diag.go
+ create mode 100644 apps/hr/runtime/diag_test.go
+ create mode 100644 apps/hr/runtime/overhead_test.go
+ create mode 100644 apps/hr/runtime/ovrtab.go
+
+diff --git a/apps/hr/cmd/hrbot/main.go b/apps/hr/cmd/hrbot/main.go
+index 4b956b6..f0af34a 100644
+--- a/apps/hr/cmd/hrbot/main.go
++++ b/apps/hr/cmd/hrbot/main.go
+@@ -57,6 +57,9 @@ type options struct {
+ 	noPatch            bool
+ 	stklen             int
+ 	injectHang         float64
++	hangSeconds        float64
++	hangRoutine        string
++	hangAfter          float64
+ 	thinkMin, thinkMax int
+ 	shotMinutes        float64
+ 	ckptMinutes        float64
+@@ -103,6 +106,11 @@ type bot struct {
+ 	frozen       bool
+ 	noPollStreak int
+ 	hung         bool
++	hungR        bool
++	t2EvalsDone  uint64
++	t2EvalsCur   uint64
++	t2Max        float64
++	diags        int
+ 	noPollStart  uint64
+ 	ckpts        []string
+ }
+@@ -117,6 +125,9 @@ func main() {
+ 	flag.BoolVar(&o.noPatch, "no-stack-patch", false, "關掉堆疊補丁（對照：看原版堆疊會不會在遊玩中溢位）")
+ 	flag.IntVar(&o.stklen, "stklen", 0, "覆寫補丁寫入的 _stklen（0 ＝ 預設 0x8000）。偵測器正對照：-stklen 1024 讓已知會溢位的遊玩觸發停機")
+ 	flag.Float64Var(&o.injectHang, "inject-hang-minutes", 0, "正對照：遊戲時間到這個分鐘數，在輪詢點把 CS:IP 的兩個位元組改成 jmp $，凍結偵測要報警（0 ＝ 不注入）")
++	flag.Float64Var(&o.hangSeconds, "hang-seconds", 30, "T2 疑似 hang 的門檻（遊戲秒當量，沒有遊戲碼服務中斷；0 ＝ 關閉）。診斷寫到 <out>/diag（docs/spec/005）")
++	flag.StringVar(&o.hangRoutine, "hang-routine", "", "正對照：SEG:OFF（十六進位的執行期位址），把該處兩個位元組改成 jmp $，模擬那個 routine 進入後不返回（只限機器人與測試，docs/spec/005 第 8 節）")
++	flag.Float64Var(&o.hangAfter, "hang-after-minutes", 1, "-hang-routine 在遊戲時間到這個分鐘數之後的第一個輪詢點才注入（讓 hang 發生在遊玩途中）")
+ 	flag.IntVar(&o.thinkMin, "think-min", 18, "每個動作之後的思考時間下限（tick，約 1 秒）")
+ 	flag.IntVar(&o.thinkMax, "think-max", 55, "思考時間上限（tick，約 3 秒）")
+ 	flag.Float64Var(&o.shotMinutes, "shot-minutes", 5, "每幾遊戲分鐘存一張截圖")
+@@ -253,7 +264,15 @@ func stopName(k hrrt.StopKind) string {
+ 
+ // startGame 開一個新的 Session（等於玩家重新啟動程式），走到標題選單，讀檔或開新遊戲。
+ func (b *bot) startGame() (*hrrt.Stop, error) {
+-	s, err := hrrt.Open(b.opt.orig, hrrt.Options{SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch, Stklen: uint16(b.opt.stklen)})
++	s, err := hrrt.Open(b.opt.orig, hrrt.Options{
++		SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch, Stklen: uint16(b.opt.stklen),
++		DiagDir: filepath.Join(b.out, "diag"), HangSeconds: b.opt.hangSeconds,
++		OnDiag: func(dir, reason string) {
++			b.diags++
++			b.logEvent("diag", dir+"："+reason)
++			fmt.Printf("診斷：%s（%s）\n", dir, reason)
++		},
++	})
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -305,6 +324,8 @@ func (b *bot) latestSave() int {
+ func (b *bot) endSession() {
+ 	if b.s != nil {
+ 		b.base += b.s.Machine().Ticks
++		b.t2EvalsDone += b.t2EvalsCur
++		b.t2EvalsCur = 0
+ 	}
+ 	b.s = nil
+ }
+@@ -334,8 +355,13 @@ func (b *bot) toPoll(maxTicks int) (bool, *hrrt.Stop) {
+ func (b *bot) account() {
+ 	m := b.s.Machine()
+ 	b.gameTicks = b.base + m.Ticks
+-	if sp := b.s.Stats().MinSP; sp < b.minSP {
+-		b.minSP = sp
++	st := b.s.Stats()
++	if st.MinSP < b.minSP {
++		b.minSP = st.MinSP
++	}
++	b.t2EvalsCur = st.HangEvals
++	if st.HangMaxSilentSec > b.t2Max {
++		b.t2Max = st.HangMaxSilentSec
+ 	}
+ 	d := b.s.DOS()
+ 	for _, op := range d.FileOps {
+@@ -422,6 +448,17 @@ func (b *bot) step() *hrrt.Stop {
+ 		b.noPollStreak = 0
+ 		sig = b.chain()
+ 	}
++	if b.opt.hangRoutine != "" && !b.hungR && polled && float64(b.gameTicks)/tickHz/60 >= b.opt.hangAfter {
++		// 正對照（docs/spec/005 第 8 節）：遊戲開始 hang-after-minutes 之後，把指定 routine 的入口改成 jmp $，
++		// 遊戲下一次呼叫它就不再返回。只限機器人與測試，前端不注入。
++		var seg, off uint16
++		if _, err := fmt.Sscanf(b.opt.hangRoutine, "%x:%x", &seg, &off); err != nil {
++			return &hrrt.Stop{Kind: hrrt.StopCPUError, Msg: "-hang-routine 要 SEG:OFF（十六進位）：" + err.Error()}
++		}
++		b.s.Machine().WriteBytes(cpu.Linear(seg, off), []byte{0xEB, 0xFE})
++		b.hungR = true
++		b.logEvent("hang-routine", fmt.Sprintf("%04X:%04X 改成 jmp $（遊戲時間 %.1f 分）", seg, off, float64(b.gameTicks)/tickHz/60))
++	}
+ 	if b.opt.injectHang > 0 && !b.hung && polled && float64(b.gameTicks)/tickHz/60 >= b.opt.injectHang {
+ 		// 偵測器正對照：把輪詢點的下一道指令換成 jmp $，遊戲從此不再輪詢滑鼠；不是遊玩，只用來證明凍結偵測會報警。
+ 		m := b.s.Machine()
+@@ -664,6 +701,7 @@ func (b *bot) summary(status string, wall time.Duration) {
+ 	j, _ := json.MarshalIndent(map[string]any{
+ 		"status": status, "game_hours": float64(b.gameTicks) / tickHz / 3600, "actions": b.actionsN, "restarts": b.restarts, "quits": b.quits,
+ 		"unique_screens": len(b.sigsEver), "min_sp": fmt.Sprintf("%04X", b.minSP), "max_same_sig_streak": b.maxSame, "suspect_freezes": b.freezes,
++		"t2": map[string]any{"enabled": b.opt.hangSeconds > 0, "hang_seconds": b.opt.hangSeconds, "evals": b.t2EvalsDone + b.t2EvalsCur, "max_silent_sec": b.t2Max, "dumps": b.diags},
+ 		"crash": b.crashInfo, "no_stack_patch": b.opt.noPatch, "stklen": b.opt.stklen, "seed": b.opt.seed, "interval": b.opt.interval, "wall_seconds": wall.Seconds(), "file_opens": opens,
+ 	}, "", "  ")
+ 	_ = os.WriteFile(filepath.Join(b.out, "summary.json"), j, 0o644)
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index 37fe790..8e7b92c 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -6,6 +6,7 @@ import (
+ 	"image"
+ 	"os"
+ 	"path/filepath"
++	"sync/atomic"
+ 	"time"
+ 
+ 	"github.com/hajimehoshi/ebiten/v2"
+@@ -70,7 +71,11 @@ func (g *game) Update() error {
+ 		}
+ 	default:
+ 	}
+-	if ebiten.IsKeyPressed(ebiten.KeyControl) && inpututil.IsKeyJustPressed(ebiten.KeyQ) {
++	ctrl := ebiten.IsKeyPressed(ebiten.KeyControl)
++	if ctrl && inpututil.IsKeyJustPressed(ebiten.KeyD) {
++		g.s.RequestDiag("Ctrl+D") // docs/spec/005 T3：診斷在下一個批次邊界由模擬迴圈寫出
++	}
++	if ctrl && inpututil.IsKeyJustPressed(ebiten.KeyQ) {
+ 		return ebiten.Termination
+ 	}
+ 	if inpututil.IsKeyJustPressed(ebiten.KeyF1) {
+@@ -108,7 +113,7 @@ func (g *game) Update() error {
+ 			g.s.Input(hrrt.MouseButtonEvent(x, y, b, false))
+ 		}
+ 	}
+-	if !g.help {
++	if sendKeysToGame(g.help, ctrl) {
+ 		for _, ev := range keyEvents(ebiten.AppendInputChars(nil)) {
+ 			g.s.Input(ev)
+ 		}
+@@ -147,12 +152,12 @@ func (g *game) Draw(screen *ebiten.Image) {
+ 	if g.help {
+ 		st := g.s.Stats()
+ 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf(
+-			"F1 help   F11/Alt+Enter fullscreen   F12 screenshot   Ctrl+Q quit\n"+
++			"F1 help   F11/Alt+Enter fullscreen   F12 screenshot   Ctrl+Q quit   Ctrl+D diagnostics\n"+
+ 				"steps %d  ticks %d  sim %.0fs  interval %d  lowered %v\n"+
+ 				"stack min SP %04X top %04X  open files %d\n"+
+-				"TPS %.1f  FPS %.1f",
++				"TPS %.1f  FPS %.1f\nlast diagnostics: %s",
+ 			st.Steps, st.Ticks, st.SimSeconds, st.Interval, st.Lowered, st.MinSP, st.StackTop, st.DOS.OpenHandles,
+-			ebiten.ActualTPS(), ebiten.ActualFPS()), 4, 4)
++			ebiten.ActualTPS(), ebiten.ActualFPS(), lastDiagName()), 4, 4)
+ 	}
+ }
+ 
+@@ -232,3 +237,26 @@ func (g *game) logTelemetry(tag string) {
+ 	fmt.Fprintf(f, "%s\t%s\tsteps=%d\tticks=%d\tsim=%.0fs\twall=%.0fs\tinterval=%d\tlowered=%v\tminSP=%04X\tstackTop=%04X\n",
+ 		time.Now().Format(time.RFC3339), tag, st.Steps, st.Ticks, st.SimSeconds, time.Since(g.started).Seconds(), st.Interval, st.Lowered, st.MinSP, st.StackTop)
+ }
++
++// lastDiag 是最近一份診斷目錄的名稱（docs/spec/005）。OnDiag 在模擬的 goroutine 內寫，UI 執行緒讀，所以用 atomic。
++var lastDiag atomic.Value
++
++// onDiag 是 Options.OnDiag：在持有機器的 goroutine 內呼叫，不得阻塞，不得呼叫會進入模擬迴圈的 Session 方法。
++func onDiag(dataDir, dir, reason string) {
++	lastDiag.Store(filepath.Base(dir))
++	fmt.Fprintf(os.Stderr, "診斷已存到 %s（%s）\n", dir, reason)
++	if f, err := os.OpenFile(filepath.Join(dataDir, "play.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
++		fmt.Fprintf(f, "%s\tdiag\t%s\t%s\n", time.Now().Format(time.RFC3339), dir, reason)
++		f.Close()
++	}
++}
++
++// sendKeysToGame 決定這一幀要不要把字元與特殊鍵送進遊戲：F1 說明開著，或 Ctrl 按住（Ctrl+Q、Ctrl+D 是前端保留鍵），都不送。
++func sendKeysToGame(help, ctrl bool) bool { return !help && !ctrl }
++
++func lastDiagName() string {
++	if s, ok := lastDiag.Load().(string); ok && s != "" {
++		return s
++	}
++	return "(none)"
++}
+diff --git a/apps/hr/play/keys_test.go b/apps/hr/play/keys_test.go
+new file mode 100644
+index 0000000..732300f
+--- /dev/null
++++ b/apps/hr/play/keys_test.go
+@@ -0,0 +1,31 @@
++package main
++
++import "testing"
++
++// docs/spec/005 第 8 節：Ctrl 按住或 F1 說明開著的那一幀，字元與特殊鍵都不送進遊戲。
++func TestSendKeysToGame(t *testing.T) {
++	cases := []struct{ help, ctrl, want bool }{
++		{false, false, true},
++		{true, false, false},
++		{false, true, false},
++		{true, true, false},
++	}
++	for _, c := range cases {
++		if got := sendKeysToGame(c.help, c.ctrl); got != c.want {
++			t.Errorf("sendKeysToGame(help＝%v, ctrl＝%v) ＝ %v，預期 %v", c.help, c.ctrl, got, c.want)
++		}
++	}
++}
++
++// OnDiag 在模擬 goroutine 寫、UI 執行緒讀：lastDiag 以 atomic 存取，F1 說明只顯示目錄名（ASCII）。
++func TestLastDiagName(t *testing.T) {
++	lastDiag.Store("")
++	if got := lastDiagName(); got != "(none)" {
++		t.Errorf("沒有診斷時應顯示 (none)，實際 %q", got)
++	}
++	dir := t.TempDir()
++	onDiag(dir, dir+"/crash/20261003-120000-manual", "手動：Ctrl+D")
++	if got := lastDiagName(); got != "20261003-120000-manual" {
++		t.Errorf("lastDiagName ＝ %q", got)
++	}
++}
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index 316f22d..2f1785f 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -71,6 +71,7 @@ func main() {
+ 	}
+ 	s, err := hrrt.Open(root, hrrt.Options{
+ 		SaveDir: saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf, HDHooks: assets != nil, HDAssets: assets,
++		DiagDir: filepath.Join(dd, "crash"), HangSeconds: 30, OnDiag: func(dir, reason string) { onDiag(dd, dir, reason) },
+ 	})
+ 	if err != nil {
+ 		fail(err, "hr-play: cannot start.", "", "The game folder is missing files or is a different version.", "See the message printed to the terminal (run hr-play from a terminal).", "", "Folder: "+root)
+diff --git a/apps/hr/runtime/bench_diag_test.go b/apps/hr/runtime/bench_diag_test.go
+new file mode 100644
+index 0000000..987f1c0
+--- /dev/null
++++ b/apps/hr/runtime/bench_diag_test.go
+@@ -0,0 +1,17 @@
++package runtime
++
++import "testing"
++
++// 診斷功能（docs/spec/005）上線後的對照：NoDiag（應約等於 A，量出新增分支本身的成本）與前端實際的
++// Options（T2 開啟、DiagDir 設定）。基準提交（A）沒有這些欄位，所以放在獨立檔案。
++func BenchmarkRunStepsDiag(b *testing.B) {
++	front := func(b *testing.B) Options {
++		return Options{Interval: NativeInterval, HangSeconds: 30, DiagDir: b.TempDir()}
++	}
++	b.Run("cold-nodiag", func(b *testing.B) { benchSteps(b, Options{Interval: NativeInterval, NoDiag: true}, "", false, 200_000_000) })
++	b.Run("cold-frontend", func(b *testing.B) { benchSteps(b, front(b), "", false, 200_000_000) })
++	b.Run("battle-nodiag", func(b *testing.B) {
++		benchSteps(b, Options{Interval: NativeInterval, NoDiag: true}, benchState(b), true, 100_000_000)
++	})
++	b.Run("battle-frontend", func(b *testing.B) { benchSteps(b, front(b), benchState(b), true, 100_000_000) })
++}
+diff --git a/apps/hr/runtime/crash.go b/apps/hr/runtime/crash.go
+index 3364b20..d2ec558 100644
+--- a/apps/hr/runtime/crash.go
++++ b/apps/hr/runtime/crash.go
+@@ -11,13 +11,9 @@ import (
+ 	"github.com/wicanr2/dosgolem/internal/state"
+ )
+ 
+-// CrashDump 把停機現場存進 dir（docs/spec/003 第 3.1 節）：info.txt（原因、步數、最低 SP、最近輸入）、
+-// state.state（dosgolem 狀態檔，可用 hrhd 或探針載入重現）、screen.png（停機當下的畫面）。
+-// 只能在 Run、RunSteps 沒有執行時呼叫。輸出含原版內容的衍生物，不要提交或散布。
+-func (s *Session) CrashDump(dir, reason string) error {
+-	if err := os.MkdirAll(dir, 0o755); err != nil {
+-		return err
+-	}
++// infoHeader 是 info.txt 沿用 docs/spec/003 第 3.1 節的欄位（原因、步數、最低 SP、堆疊補丁、最近輸入）。
++// 診斷區段（docs/spec/005）接在它後面（diagSections）。
++func (s *Session) infoHeader(reason string) string {
+ 	var b strings.Builder
+ 	st := s.Stats()
+ 	fmt.Fprintf(&b, "時間 %s\n原因 %s\n步數 %d\ntick %d（遊戲時間 %.1f 分）\n計時器間隔 %d\n最低 SP %04X，堆疊頂端 %04X\n堆疊補丁 %v\n",
+@@ -37,7 +33,19 @@ func (s *Session) CrashDump(dir, reason string) error {
+ 			fmt.Fprintf(&b, "  鍵 ascii=%02X scan=%02X\n", ev.Key.ASCII, ev.Key.Scan)
+ 		}
+ 	}
+-	if err := os.WriteFile(filepath.Join(dir, "info.txt"), []byte(b.String()), 0o644); err != nil {
++	return b.String()
++}
++
++// CrashDump 把停機現場存進 dir（T1，docs/spec/003 第 3.1 節、docs/spec/005）：info.txt（第一行是固定標記，
++// 其後是原因、步數、最低 SP、最近輸入，再加暫存器、呼叫鏈、最近呼叫、服務中斷等診斷區段）、
++// state.state（dosgolem 狀態檔，可用 hrhd 或探針載入重現）、screen.png（停機當下的畫面）。
++// 簽章不變、內容擴充。只能在 Run、RunSteps 沒有執行時呼叫（T2、T3 在迴圈內由 writeDiagDir 處理）。
++// 輸出含原版內容的衍生物，不要提交或散布。
++func (s *Session) CrashDump(dir, reason string) error {
++	if err := os.MkdirAll(dir, 0o755); err != nil {
++		return err
++	}
++	if err := os.WriteFile(filepath.Join(dir, "info.txt"), []byte(s.diagText(reason, nil)), 0o644); err != nil {
+ 		return err
+ 	}
+ 	if png, err := s.ScreenPNG(); err == nil {
+diff --git a/apps/hr/runtime/diag.go b/apps/hr/runtime/diag.go
+new file mode 100644
+index 0000000..fd84398
+--- /dev/null
++++ b/apps/hr/runtime/diag.go
+@@ -0,0 +1,847 @@
++package runtime
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++	"regexp"
++	"sort"
++	"strings"
++	"sync/atomic"
++	"time"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// 停機與 hang 的診斷紀錄（docs/spec/005）。
++//
++// 這裡的紀錄都只由持有機器的迴圈寫入；它們只讀機器，不改機器狀態。
++// 診斷輸出含原版的位元組、畫面與狀態，是原版內容的衍生物，不要提交或散布。
++
++const (
++	diagMarker   = "高報酬戰將 診斷紀錄 v1"
++	callRingSize = 1024 // 主環：最近的原始呼叫事件
++	intRingSize  = 256
++	distinctSize = 256 // 第二結構：直接對映的「不同呼叫目標」
++	nameRingSize = 8
++	sampleSteps  = 4096
++	maxHangDumps = 3
++	manualMinGap = 5 * time.Second
++	keepDiagDirs = 6
++
++	videoLinear = machine.VideoSeg * 16 // 起點在這之上不分類
++	dgroupSeg   = 0x540F                // DGROUP；overlay 緩衝區與堆疊都在這之上
++	residentLo  = 0x0110                // 常駐映像的起點（IDA 1000）
++	idaDelta    = 0x0EF0                // IDA 段 ＝ 常駐碼的執行期段 ＋ 這個值（docs/re/007 第 8 節）
++	noOvr       = 0xFFFF
++)
++
++type callKind byte
++
++const (
++	ckNear    callKind = 'N' // E8
++	ckFar     callKind = 'F' // 9A
++	ckNearInd callKind = 'n' // FF /2
++	ckFarInd  callKind = 'f' // FF /3
++)
++
++func (k callKind) String() string {
++	switch k {
++	case ckNear:
++		return "call near"
++	case ckFar:
++		return "call far"
++	case ckNearInd:
++		return "call near 間接"
++	case ckFarInd:
++		return "call far 間接"
++	}
++	return "?"
++}
++
++// pushBytes 是這種呼叫在堆疊上放的位元組數。
++func (k callKind) pushBytes() uint16 {
++	if k == ckFar || k == ckFarInd {
++		return 4
++	}
++	return 2
++}
++
++// callEvent 是一次呼叫。fromOvr、toOvr 是記錄當下查到的 overlay 編號（overlay 之後會被換出，傾印時才查會標錯）。
++type callEvent struct {
++	step           uint64
++	kind           callKind
++	fromCS, fromIP uint16
++	toCS, toIP     uint16
++	sp             uint16 // 呼叫前的 SP
++	count          uint32
++	fromOvr, toOvr uint16
++}
++
++// intEvent 是一次遊戲碼發出的服務中斷。
++type intEvent struct {
++	step         uint64
++	n            uint8
++	ax           uint16
++	cs, ip       uint16 // INT 指令的起點（CPU.Op）
++	sp           uint16
++	count        uint32
++	hasRet       bool // CS ＝ SS（_int86x 的堆疊 stub）時記返回位址
++	retCS, retIP uint16
++	stubK        int // int 3Fh：入口序號；-1 ＝ stub 標頭重載；-2 ＝ 不是 int 3Fh
++	w            uint16
++}
++
++type distinctEntry struct {
++	toCS, toIP uint16
++	step       uint64
++	count      uint64
++	toOvr      uint16
++	used       bool
++}
++
++type nameEntry struct {
++	name string
++	step uint64
++}
++
++// sampleResult 是 T2 取樣的結果。
++type sampleResult struct {
++	hist  map[uint32]uint32
++	taken int // 實際取到的步數
++}
++
++// diagState 是 Session 的診斷狀態。
++type diagState struct {
++	calls   [callRingSize]callEvent
++	callN   uint64
++	noteN   uint64 // noteCall 被呼叫的次數（候選指令的頻率，量成本用）
++	ints    [intRingSize]intEvent
++	intN    uint64
++	distinc [distinctSize]distinctEntry
++
++	entryBits [1024]uint64
++	entryCnt  map[uint32]uint64
++
++	intCount    [256]uint64
++	names       [nameRingSize]nameEntry
++	nameN       uint64
++	lastSvcStep uint64
++	lastPoll    uint64 // 最後一次 int 33h AX＝3 的步數
++	svcSeen     bool
++
++	init      bool
++	lastAfter uint64
++	silentSec float64
++	maxSilent float64
++	evals     uint64
++	hangArmed bool
++	hangDumps int
++
++	sampleLeft   int
++	sampleActive bool
++	sampleHist   map[uint32]uint32
++
++	lastManual time.Time
++	diagReq    atomic.Bool
++	diagReason atomic.Value // string
++}
++
++// opClass 是指令起點位元組的分類：0 不理，clsCall ＝ E8、9A、FF，clsPrefix ＝ 前綴，clsAll 只在取樣期間（每步都進）。
++const (
++	clsCall   = 1
++	clsPrefix = 2
++	clsAll    = 3
++)
++
++var opClass [256]uint8
++
++func init() {
++	for _, b := range []byte{0xE8, 0x9A, 0xFF} {
++		opClass[b] = clsCall // 呼叫候選
++	}
++	for _, b := range []byte{0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65, 0x66, 0xF0, 0xF1, 0xF2, 0xF3} {
++		opClass[b] = clsPrefix // 前綴：繪圖迴圈裡很常見，下一個位元組也是呼叫候選才進完整分類
++	}
++}
++
++// zeroClass、allClass 是 opClass 的另外兩張表：NoDiag 時永遠不分類，取樣期間每一步都進 noteCall 記直方圖。
++var zeroClass, allClass [256]uint8
++
++func init() {
++	for i := range allClass {
++		allClass[i] = clsAll
++	}
++}
++
++// classifyCall 判斷 code（指令起點起至少 16 個位元組）是不是呼叫。純函式。
++// 前綴集合與 internal/cpu/ops.go 一致；出現 66 不分類（這支 CPU 對 66 E8、66 9A、66 FF 回 CPU 錯誤）。
++func classifyCall(code []byte) (callKind, bool) {
++	i := 0
++loop:
++	for ; i < 15 && i < len(code); i++ {
++		switch code[i] {
++		case 0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65, 0xF0, 0xF1, 0xF2, 0xF3:
++			continue
++		case 0x66:
++			return 0, false
++		default:
++			break loop
++		}
++	}
++	if i >= 15 || i >= len(code) {
++		return 0, false
++	}
++	switch code[i] {
++	case 0xE8:
++		return ckNear, true
++	case 0x9A:
++		return ckFar, true
++	case 0xFF:
++		if i+1 >= len(code) {
++			return 0, false
++		}
++		switch (code[i+1] >> 3) & 7 {
++		case 2:
++			return ckNearInd, true
++		case 3:
++			return ckFarInd, true
++		}
++	}
++	return 0, false
++}
++
++// knownRoutines 是註記表（docs/spec/005 第 11 節）：執行期位址 → 一行用途。
++// 註記是導覽名稱，不是證據；位址、位元組、推論等級以 docs/re/009 為準。
++var knownRoutines = map[uint32]string{
++	0x1C57_0022: "精靈貼圖入口",
++	0x1FA2_0414: "LZSS 直接解碼進 VRAM（平面順序）",
++	0x1FA2_066A: "LZSS 解碼進 VRAM（遮罩在列首，BSTAGE）",
++	0x259F_0005: "packed 4bpp 轉平面寫進 VRAM（GS、FACE、VS）",
++	0x234A_000A: "PXZ 戰場地圖",
++	0x20C2_25A1: "GMAP.PXS 串流讀取並解 LZSS 寫 VRAM",
++	0x24BD_0D3E: "從檔案 handle 讀並解 LZSS 到記憶體",
++	0x2378_112A: "24x24 遮罩精靈資料複製到程式碼段快取",
++	0x2378_1155: "從程式碼段快取貼 24x24 遮罩精靈",
++	0x2378_12D0: "24 列背景存到程式碼段",
++	0x2378_139D: "還原上一項的背景",
++	0x1D11_000A: "垂直線",
++	0x1D29_000E: "水平線",
++	0x1F69_000E: "把 VRAM 矩形存到記憶體",
++	0x1F69_00B5: "從保存區寫回 VRAM 的新位置",
++	0x1F69_0169: "從保存區寫回原位置",
++	0x1C35_01C5: "16 列字形寫入",
++}
++
++func entryFilterIdx(cs, ip uint16) (word int, bit uint64) {
++	i := (uint32(cs)*16 + uint32(ip)) & 0xFFFF
++	return int(i >> 6), 1 << (i & 63)
++}
++
++// initDiag 在 Open 的尾端呼叫：註記表的篩與計數、包裝 IntHook。
++func (s *Session) initDiag() {
++	d := &s.dg
++	d.entryCnt = map[uint32]uint64{}
++	for k := range knownRoutines {
++		w, b := entryFilterIdx(uint16(k>>16), uint16(k))
++		d.entryBits[w] |= b
++	}
++	d.hangArmed = true
++	s.cls = &opClass
++	if s.opt.NoDiag {
++		s.cls = &zeroClass
++	}
++	if s.opt.NoDiag {
++		return
++	}
++	orig := s.m.CPU.IntHook
++	s.m.CPU.IntHook = func(c *cpu.CPU, n uint8) bool {
++		s.noteInt(c, n)
++		if orig != nil {
++			return orig(c, n)
++		}
++		return false
++	}
++}
++
++// ovrIdxOfCS 回傳 CS 所在 overlay 的編號（沒有就 noOvr）。判定：(CS−1)×16＋0Eh 處的字組是某個 stub 的執行期段
++// （docs/re/007 第 8 節，強推論）。
++func (s *Session) ovrIdxOfCS(cs uint16) uint16 {
++	if cs < dgroupSeg || cs == s.stackSeg {
++		return noOvr
++	}
++	stub := s.m.Peek16(cpu.Linear(cs-1, 0x0E))
++	if o, ok := ovrByStub(stub); ok {
++		return o.Idx
++	}
++	return noOvr
++}
++
++// ovrByStub 在 ovrStubs（依 StubSeg 遞增）內二分搜尋。
++func ovrByStub(seg uint16) (ovrStub, bool) {
++	i := sort.Search(len(ovrStubs), func(i int) bool { return ovrStubs[i].StubSeg >= seg })
++	if i < len(ovrStubs) && ovrStubs[i].StubSeg == seg {
++		return ovrStubs[i], true
++	}
++	return ovrStub{}, false
++}
++
++func ovrByIdx(idx uint16) (ovrStub, bool) {
++	for _, o := range ovrStubs {
++		if o.Idx == idx {
++			return o, true
++		}
++	}
++	return ovrStub{}, false
++}
++
++// noteCall 在 Step 成功之後呼叫：a 是本道指令起點的線性位址（< 0xA0000）。
++func (s *Session) noteCall() {
++	m := s.m
++	s.dg.noteN++
++	cs, ip := m.CPU.Op()
++	if s.dg.sampleLeft > 0 { // 取樣期間每一步都進來（allClass）：先記直方圖
++		s.sampleOp(cs, ip)
++	}
++	a := cpu.Linear(cs, ip) & (machine.MemSize - 1)
++	if a > machine.MemSize-16 {
++		return
++	}
++	kind, ok := classifyCall(m.Mem[a : a+16])
++	if !ok {
++		return
++	}
++	c := m.CPU
++	d := &s.dg
++	toCS, toIP := c.Seg[cpu.CS], c.IP
++	sp := c.R[cpu.SP] + kind.pushBytes() // uint16：模 2^16
++	if n := d.callN; n > 0 {
++		last := &d.calls[(n-1)%callRingSize]
++		if last.kind == kind && last.fromCS == cs && last.fromIP == ip && last.toCS == toCS && last.toIP == toIP {
++			last.count++
++			last.step = m.Steps
++			return
++		}
++	}
++	e := &d.calls[d.callN%callRingSize]
++	*e = callEvent{step: m.Steps, kind: kind, fromCS: cs, fromIP: ip, toCS: toCS, toIP: toIP, sp: sp, count: 1, fromOvr: noOvr, toOvr: noOvr}
++	if cs >= dgroupSeg {
++		e.fromOvr = s.ovrIdxOfCS(cs)
++	}
++	if toCS >= dgroupSeg {
++		e.toOvr = s.ovrIdxOfCS(toCS)
++	}
++	d.callN++
++	// 第二結構：直接對映的最近不同目標
++	key := uint32(toCS)<<16 | uint32(toIP)
++	slot := &d.distinc[uint8((key*0x9E3779B1)>>24)]
++	if slot.used && slot.toCS == toCS && slot.toIP == toIP {
++		slot.count++
++		slot.step = m.Steps
++	} else {
++		*slot = distinctEntry{toCS: toCS, toIP: toIP, step: m.Steps, count: 1, toOvr: e.toOvr, used: true}
++	}
++	// 註記表入口的不修剪計數
++	if w, b := entryFilterIdx(toCS, toIP); d.entryBits[w]&b != 0 {
++		if _, ok := knownRoutines[key]; ok {
++			d.entryCnt[key]++
++		}
++	}
++}
++
++// noteInt 包在 CPU.IntHook 外：記錄遊戲碼發出的服務中斷（StubSeg 內的不算）。記錄在服務進入之前。
++func (s *Session) noteInt(c *cpu.CPU, n uint8) {
++	cs, ip := c.Op()
++	if cs == machine.StubSeg || cs == machine.EMSSeg { // dosgolem 內部的哨兵與 trampoline（EMS 的 CD F6 在 EMSSeg）
++		return
++	}
++	d := &s.dg
++	m := s.m
++	d.svcSeen = true
++	d.lastSvcStep = m.Steps
++	d.intCount[n]++
++	ax := c.R[cpu.AX]
++	if n == 0x33 && uint8(ax) == 3 {
++		d.lastPoll = m.Steps
++	}
++	sp := c.R[cpu.SP]
++	if k := d.intN; k > 0 {
++		last := &d.ints[(k-1)%intRingSize]
++		if last.n == n && last.ax == ax && last.cs == cs && last.ip == ip {
++			last.count++
++			last.step = m.Steps
++			return
++		}
++	}
++	e := &d.ints[d.intN%intRingSize]
++	*e = intEvent{step: m.Steps, n: n, ax: ax, cs: cs, ip: ip, sp: sp, count: 1, stubK: -2}
++	d.intN++
++	ss := c.Seg[cpu.SS]
++	if cs == ss {
++		e.hasRet = true
++		e.retIP = m.Peek16(cpu.Linear(ss, sp+2))
++		e.retCS = m.Peek16(cpu.Linear(ss, sp+4))
++	}
++	switch n {
++	case 0x3F:
++		if ip >= 0x20 && (ip-0x20)%5 == 0 {
++			e.stubK = int((ip - 0x20) / 5)
++			e.w = m.Peek16(cpu.Linear(cs, ip+2))
++		} else {
++			e.stubK = -1
++		}
++	case 0x21:
++		switch uint8(ax >> 8) {
++		case 0x3C, 0x3D, 0x41, 0x43, 0x4B:
++			if name := s.peekName(c.Seg[cpu.DS], c.R[cpu.DX]); name != "" {
++				s.noteName(name)
++			}
++		}
++	}
++}
++
++func (s *Session) peekName(seg, off uint16) string {
++	var b []byte
++	for i := uint16(0); i < 32; i++ {
++		ch := s.m.Peek8(cpu.Linear(seg, off+i))
++		if ch < 0x20 || ch > 0x7E {
++			break
++		}
++		b = append(b, ch)
++	}
++	return string(b)
++}
++
++// noteName 記「不同檔名的最後一次」：同名更新步數，否則換掉最舊的。
++func (s *Session) noteName(name string) {
++	d := &s.dg
++	oldest := 0
++	for i := range d.names {
++		if d.names[i].name == name {
++			d.names[i].step = s.m.Steps
++			return
++		}
++		if d.names[i].step < d.names[oldest].step {
++			oldest = i
++		}
++	}
++	d.names[oldest] = nameEntry{name: name, step: s.m.Steps}
++	d.nameN++
++}
++
++// sampleOp 在取樣期間每一步被呼叫：記進直方圖，取滿就把分類表切回 opClass。
++func (s *Session) sampleOp(cs, ip uint16) {
++	d := &s.dg
++	d.sampleHist[uint32(cs)<<16|uint32(ip)]++
++	d.sampleLeft--
++	if d.sampleLeft <= 0 {
++		s.cls = &opClass
++	}
++}
++
++// RequestDiag 要求在下一個批次邊界產生手動診斷（T3）。任何執行緒可呼叫。
++func (s *Session) RequestDiag(reason string) {
++	s.dg.diagReason.Store(reason)
++	s.dg.diagReq.Store(true)
++}
++
++func (s *Session) now() time.Time {
++	if s.opt.Now != nil {
++		return s.opt.Now()
++	}
++	return time.Now()
++}
++
++// diagAfterBatch 做 T2、T3 的批次邊界工作。force ＝ 迴圈即將返回（停機或跑滿）。
++func (s *Session) diagAfterBatch(force bool) {
++	d := &s.dg
++	m := s.m
++	if !d.init || m.Steps < d.lastAfter || m.Steps-d.lastAfter > 2*batchSteps {
++		// 第一次或步數不連續（載入狀態檔）：重置靜默累計，環與計數保留
++		d.init = true
++		d.silentSec, d.svcSeen = 0, false
++		d.lastSvcStep = m.Steps
++		d.hangArmed = true
++		d.lastAfter = m.Steps
++	} else {
++		delta := m.Steps - d.lastAfter
++		d.lastAfter = m.Steps
++		if d.svcSeen {
++			d.silentSec, d.svcSeen, d.hangArmed = 0, false, true
++		} else if s.interval > 0 {
++			d.silentSec += float64(delta) / (float64(s.interval) * TickHz)
++		}
++		d.evals++
++		if d.silentSec > d.maxSilent {
++			d.maxSilent = d.silentSec
++		}
++		if s.opt.HangSeconds > 0 && d.hangArmed && d.silentSec >= s.opt.HangSeconds &&
++			d.hangDumps < maxHangDumps && !d.sampleActive {
++			d.hangArmed = false
++			d.hangDumps++
++			d.sampleActive = true
++			d.sampleLeft = sampleSteps
++			d.sampleHist = map[uint32]uint32{}
++			s.cls = &allClass
++		}
++	}
++	if d.sampleActive && (d.sampleLeft <= 0 || force) {
++		res := &sampleResult{hist: d.sampleHist, taken: sampleSteps - d.sampleLeft}
++		d.sampleActive, d.sampleLeft, d.sampleHist = false, 0, nil
++		s.cls = &opClass
++		s.emitDiag("hang", "hang：服務中斷靜默超過 "+fmt.Sprintf("%.0f", s.opt.HangSeconds)+" 遊戲秒", res)
++	}
++	if d.diagReq.Swap(false) {
++		now := s.now()
++		if d.lastManual.IsZero() || now.Sub(d.lastManual) >= manualMinGap {
++			d.lastManual = now
++			reason, _ := d.diagReason.Load().(string)
++			if reason == "" {
++				reason = "manual"
++			}
++			s.emitDiag("manual", "手動："+reason, nil)
++		}
++	}
++}
++
++// emitDiag 寫一份 T2、T3 診斷並通知 OnDiag。失敗只記一行 Log，遊戲繼續。
++func (s *Session) emitDiag(suffix, reason string, smp *sampleResult) {
++	if s.opt.DiagDir == "" {
++		return
++	}
++	dir, err := s.writeDiagDir(suffix, reason, smp)
++	if err != nil {
++		s.logf("診斷寫檔失敗：%v", err)
++		return
++	}
++	s.logf("診斷已存到 %s", dir)
++	if s.opt.OnDiag != nil {
++		s.opt.OnDiag(dir, reason)
++	}
++}
++
++// diagDirRe 是保留清理認得的目錄名。
++var diagDirRe = regexp.MustCompile(`^\d{8}-\d{6}-(hang|manual)(-\d{2})?$`)
++
++func (s *Session) writeDiagDir(suffix, reason string, smp *sampleResult) (string, error) {
++	base := s.opt.DiagDir
++	if err := os.MkdirAll(base, 0o755); err != nil {
++		return "", err
++	}
++	stem := s.now().UTC().Format("20060102-150405") + "-" + suffix
++	dir := filepath.Join(base, stem)
++	for n := 1; ; n++ {
++		err := os.Mkdir(dir, 0o755)
++		if err == nil {
++			break
++		}
++		if !os.IsExist(err) || n >= 99 {
++			return "", err
++		}
++		dir = filepath.Join(base, fmt.Sprintf("%s-%02d", stem, n+1))
++	}
++	if err := os.WriteFile(filepath.Join(dir, "info.txt"), []byte(s.diagText(reason, smp)), 0o644); err != nil {
++		return dir, err
++	}
++	if png, err := s.ScreenPNG(); err == nil {
++		_ = os.WriteFile(filepath.Join(dir, "screen.png"), png, 0o644)
++	}
++	if err := state.Save(filepath.Join(dir, "state.state"), s.m, s.d); err != nil {
++		return dir, err
++	}
++	pruneDiagDirs(base, filepath.Base(dir), keepDiagDirs, s.logf)
++	return dir, nil
++}
++
++// pruneDiagDirs 只刪同時符合下列條件的目錄：名稱完整比對 diagDirRe、Lstat 是真目錄不是符號連結、
++// 內有 info.txt 且第一行是固定標記、不是 keepName。保留名稱排序最後的 keep 份（含 keepName）。
++func pruneDiagDirs(base, keepName string, keep int, logf func(string, ...any)) {
++	ents, err := os.ReadDir(base)
++	if err != nil {
++		return
++	}
++	var names []string
++	for _, e := range ents {
++		if diagDirRe.MatchString(e.Name()) {
++			names = append(names, e.Name())
++		}
++	}
++	sort.Strings(names)
++	if len(names) <= keep {
++		return
++	}
++	for _, name := range names[:len(names)-keep] {
++		if name == keepName {
++			continue
++		}
++		p := filepath.Join(base, name)
++		fi, err := os.Lstat(p)
++		if err != nil || !fi.IsDir() || fi.Mode()&os.ModeSymlink != 0 {
++			continue
++		}
++		head, err := os.ReadFile(filepath.Join(p, "info.txt"))
++		if err != nil || !strings.HasPrefix(string(head), diagMarker+"\n") {
++			continue
++		}
++		if err := os.RemoveAll(p); err != nil {
++			logf("診斷目錄清理失敗：%v", err)
++		}
++	}
++}
++
++// ---- 傾印 ----
++
++// addrText 把一個執行期位址寫成「XXXX:XXXX（類別、換算位址、註記）」。ovr 是記錄當下查到的 overlay 編號
++//（noOvr ＝ 沒有或沒查）；current 為真時對 CS 在傾印當下查 overlay。
++func (s *Session) addrText(cs, ip uint16, ovr uint16, current bool) string {
++	var b strings.Builder
++	fmt.Fprintf(&b, "%04X:%04X", cs, ip)
++	switch {
++	case cs == machine.StubSeg || cs == machine.EMSSeg:
++		b.WriteString("（dosgolem 內部 stub）")
++	case cs == s.stackSeg:
++		b.WriteString("（堆疊內程式碼，_int86x 的 stub）")
++	default:
++		if o, ok := ovrByStub(cs); ok {
++			if ip >= 0x20 && (ip-0x20)%5 == 0 {
++				fmt.Fprintf(&b, "（ovr%d stub，入口 %d，IDA %04X:%04X）", o.Idx, (ip-0x20)/5, o.StubSeg+idaDelta, ip)
++			} else {
++				fmt.Fprintf(&b, "（ovr%d stub 標頭）", o.Idx)
++			}
++			break
++		}
++		if current && cs >= dgroupSeg {
++			ovr = s.ovrIdxOfCS(cs)
++		}
++		if ovr != noOvr {
++			if o, ok := ovrByIdx(ovr); ok {
++				stub := s.m.Peek16(cpu.Linear(o.StubSeg, 0x10))
++				cross := "stub+10h 交叉一致"
++				if current && stub != cs {
++					cross = fmt.Sprintf("stub+10h 交叉不一致（%04X）", stub)
++				} else if !current {
++					cross = "記錄當下查表"
++				}
++				fmt.Fprintf(&b, "（overlay ovr%d，IDA %04X:%04X，%s）", ovr, o.LoadSeg, ip, cross)
++			}
++			break
++		}
++		if cs >= residentLo && cs < dgroupSeg {
++			fmt.Fprintf(&b, "（常駐，IDA %04X:%04X）", cs+idaDelta, ip)
++		} else {
++			b.WriteString("（未分類）")
++		}
++	}
++	if note, ok := knownRoutines[uint32(cs)<<16|uint32(ip)]; ok {
++		fmt.Fprintf(&b, " [%s]", note)
++	}
++	return b.String()
++}
++
++func (s *Session) peekBytes(cs, ip uint16, n int) string {
++	var b strings.Builder
++	for i := 0; i < n; i++ {
++		if i > 0 {
++			b.WriteByte(' ')
++		}
++		fmt.Fprintf(&b, "%02X", s.m.Peek8(cpu.Linear(cs, ip+uint16(i))))
++	}
++	return b.String()
++}
++
++func (s *Session) silentSteps(last uint64) string {
++	d := s.m.Steps - last
++	if last == 0 || d > s.m.Steps {
++		return "（沒有記錄）"
++	}
++	iv := s.interval
++	if iv == 0 {
++		return fmt.Sprintf("%d 步", d)
++	}
++	return fmt.Sprintf("%d 步（約 %.1f 遊戲秒）", d, float64(d)/(float64(iv)*TickHz))
++}
++
++// diagText 組出 info.txt 的全文：標記行、沿用的欄位、診斷區段。
++func (s *Session) diagText(reason string, smp *sampleResult) string {
++	var b strings.Builder
++	b.WriteString(diagMarker + "\n")
++	b.WriteString(s.infoHeader(reason))
++	b.WriteString(s.diagSections(smp))
++	return b.String()
++}
++
++func (s *Session) diagSections(smp *sampleResult) string {
++	var b strings.Builder
++	m, c, d := s.m, s.m.CPU, &s.dg
++	r := c.R
++	fmt.Fprintf(&b, "\n== 暫存器 ==\nAX %04X  BX %04X  CX %04X  DX %04X  SI %04X  DI %04X  BP %04X  SP %04X\n",
++		r[cpu.AX], r[cpu.BX], r[cpu.CX], r[cpu.DX], r[cpu.SI], r[cpu.DI], r[cpu.BP], r[cpu.SP])
++	fmt.Fprintf(&b, "CS %04X  DS %04X  ES %04X  SS %04X  IP %04X  FLAGS %04X（IF＝%v）\n",
++		c.Seg[cpu.CS], c.Seg[cpu.DS], c.Seg[cpu.ES], c.Seg[cpu.SS], c.IP, c.Flags, c.Flags&cpu.IF != 0)
++
++	opCS, opIP := c.Op()
++	fmt.Fprintf(&b, "\n== 目前位置 ==\n本道指令（CPU.Op）：%s\n  位元組：%s\n", s.addrText(opCS, opIP, noOvr, true), s.peekBytes(opCS, opIP, 16))
++	if cs, ip := c.Seg[cpu.CS], c.IP; cs != opCS || ip != opIP {
++		fmt.Fprintf(&b, "Seg[CS]:IP（下一道）：%s\n", s.addrText(cs, ip, noOvr, true))
++	}
++
++	b.WriteString("\n== 呼叫鏈（沿 BP 鏈，強推論；near 框的 [BP+4] 不是 CS，標 ?）==\n")
++	bp := r[cpu.BP]
++	ss := c.Seg[cpu.SS]
++	prev := uint16(0)
++	for i := 0; i < 16; i++ {
++		if i > 0 && bp <= prev {
++			b.WriteString("  （BP 不遞增，停止）\n")
++			break
++		}
++		ip := m.Peek16(cpu.Linear(ss, bp+2))
++		cs := m.Peek16(cpu.Linear(ss, bp+4))
++		known := cs == machine.StubSeg || cs == s.stackSeg || (cs >= residentLo && cs < dgroupSeg) || (cs >= dgroupSeg && s.ovrIdxOfCS(cs) != noOvr)
++		if _, isStub := ovrByStub(cs); isStub {
++			known = true
++		}
++		if known {
++			fmt.Fprintf(&b, "  #%d BP %04X 返回 %s\n", i, bp, s.addrText(cs, ip, noOvr, true))
++		} else {
++			fmt.Fprintf(&b, "  #%d BP %04X 返回 %04X:%04X ?\n", i, bp, cs, ip)
++		}
++		prev = bp
++		next := m.Peek16(cpu.Linear(ss, bp))
++		if next <= bp {
++			b.WriteString("  （下一個 BP 不遞增，停止）\n")
++			break
++		}
++		bp = next
++	}
++
++	fmt.Fprintf(&b, "\n== 堆疊頂部（SS:SP＝%04X:%04X，32 個字組）==\n", ss, r[cpu.SP])
++	for i := 0; i < 32; i++ {
++		if i%8 == 0 {
++			fmt.Fprintf(&b, "  %04X:", r[cpu.SP]+uint16(i*2))
++		}
++		fmt.Fprintf(&b, " %04X", m.Peek16(cpu.Linear(ss, r[cpu.SP]+uint16(i*2))))
++		if i%8 == 7 {
++			b.WriteByte('\n')
++		}
++	}
++
++	n := d.callN
++	shown := uint64(callRingSize)
++	if n < shown {
++		shown = n
++	}
++	earliest := uint64(0)
++	if shown > 0 {
++		earliest = d.calls[(n-shown)%callRingSize].step
++	}
++	fmt.Fprintf(&b, "\n== 最近呼叫（主環容量 %d 筆原始事件，目前 %d 筆，最早一筆在步數 %d；連續相同者合併）==\n", callRingSize, shown, earliest)
++	if shown > 0 {
++		first := n - shown
++		if shown > 64 {
++			first = n - 64
++		}
++		for i := first; i < n; i++ {
++			e := d.calls[i%callRingSize]
++			fmt.Fprintf(&b, "  步 %d  %s  從 %s  到 %s  呼叫前 SP %04X  ×%d\n", e.step, e.kind,
++				s.addrText(e.fromCS, e.fromIP, e.fromOvr, false), s.stubEntryText(e.toCS, e.toIP, e.toOvr), e.sp, e.count)
++		}
++		last := d.calls[(n-1)%callRingSize]
++		fmt.Fprintf(&b, "最後一次呼叫的目標（可能已返回，不是「目前所在 routine」）：%s\n", s.stubEntryText(last.toCS, last.toIP, last.toOvr))
++	} else {
++		b.WriteString("  （沒有呼叫紀錄）\n")
++	}
++
++	b.WriteString("\n== 最近不同的呼叫目標（直接對映，雜湊衝突時新者覆蓋，近似；最後 16 筆）==\n")
++	var dist []distinctEntry
++	for _, e := range d.distinc {
++		if e.used {
++			dist = append(dist, e)
++		}
++	}
++	sort.Slice(dist, func(i, j int) bool { return dist[i].step > dist[j].step })
++	if len(dist) > 16 {
++		dist = dist[:16]
++	}
++	for _, e := range dist {
++		fmt.Fprintf(&b, "  步 %d  %s  累計 %d 次\n", e.step, s.stubEntryText(e.toCS, e.toIP, e.toOvr), e.count)
++	}
++
++	b.WriteString("\n== 服務中斷（遊戲碼發出；累計次數）==\n")
++	for i := 0; i < 256; i++ {
++		if d.intCount[i] > 0 {
++			fmt.Fprintf(&b, "  int %02Xh ×%d\n", i, d.intCount[i])
++		}
++	}
++	b.WriteString("最後 16 筆：\n")
++	ni := d.intN
++	from := uint64(0)
++	if ni > 16 {
++		from = ni - 16
++	}
++	for i := from; i < ni; i++ {
++		e := d.ints[i%intRingSize]
++		fmt.Fprintf(&b, "  步 %d  int %02Xh AX＝%04X  從 %s  ×%d", e.step, e.n, e.ax, s.addrText(e.cs, e.ip, noOvr, false), e.count)
++		if e.hasRet {
++			fmt.Fprintf(&b, "  返回位址 %s", s.addrText(e.retCS, e.retIP, noOvr, true))
++		}
++		switch {
++		case e.stubK >= 0:
++			if o, ok := ovrByStub(e.cs); ok {
++				fmt.Fprintf(&b, "  overlay ovr%d 入口 %d（overlay 內偏移 %04X）", o.Idx, e.stubK, e.w)
++			}
++		case e.stubK == -1:
++			b.WriteString("  stub 標頭重載")
++		}
++		b.WriteByte('\n')
++	}
++	b.WriteString("不同檔名的最後一次（DOS 開檔、建檔、刪檔、改屬性、執行）：\n")
++	var names []nameEntry
++	for _, e := range d.names {
++		if e.name != "" {
++			names = append(names, e)
++		}
++	}
++	sort.Slice(names, func(i, j int) bool { return names[i].step < names[j].step })
++	for _, e := range names {
++		fmt.Fprintf(&b, "  步 %d  %s\n", e.step, e.name)
++	}
++
++	fmt.Fprintf(&b, "\n== 時間 ==\n距最後一次服務中斷：%s\n距最後一次滑鼠輪詢：%s\n靜默累計 %.1f 遊戲秒當量，T2 評估 %d 次，最長靜默 %.1f 遊戲秒\nDOS.Blocked＝%v  DOS.KeyWaits＝%d\n",
++		s.silentSteps(d.lastSvcStep), s.silentSteps(d.lastPoll), d.silentSec, d.evals, d.maxSilent, s.d.Blocked, s.d.KeyWaits)
++
++	if smp != nil {
++		fmt.Fprintf(&b, "\n== 迴圈取樣（觸發後 %d 道指令，前 16 名）==\n", smp.taken)
++		if smp.taken < sampleSteps {
++			b.WriteString("  樣本不足（取樣期間停機或迴圈即將返回）\n")
++		}
++		type kv struct {
++			k uint32
++			v uint32
++		}
++		var hs []kv
++		for k, v := range smp.hist {
++			hs = append(hs, kv{k, v})
++		}
++		sort.Slice(hs, func(i, j int) bool {
++			if hs[i].v != hs[j].v {
++				return hs[i].v > hs[j].v
++			}
++			return hs[i].k < hs[j].k
++		})
++		if len(hs) > 16 {
++			hs = hs[:16]
++		}
++		for _, e := range hs {
++			cs, ip := uint16(e.k>>16), uint16(e.k)
++			fmt.Fprintf(&b, "  %5d 次  %s\n         位元組 %s\n", e.v, s.addrText(cs, ip, noOvr, true), s.peekBytes(cs, ip, 16))
++		}
++	}
++	return b.String()
++}
++
++// stubEntryText 是呼叫目標的文字：stub 段的入口加註 ovr 與入口序號，其餘照 addrText。
++func (s *Session) stubEntryText(cs, ip uint16, ovr uint16) string {
++	return s.addrText(cs, ip, ovr, false)
++}
+diff --git a/apps/hr/runtime/diag_test.go b/apps/hr/runtime/diag_test.go
+new file mode 100644
+index 0000000..7b5709b
+--- /dev/null
++++ b/apps/hr/runtime/diag_test.go
+@@ -0,0 +1,1068 @@
++package runtime
++
++import (
++	"bytes"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"sync/atomic"
++	"testing"
++	"time"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// docs/spec/005 第 10 節的測試。需要原版的測試缺檔就 skip（origRoot），需要狀態檔的測試缺檔也 skip。
++
++func openDiag(t *testing.T, opt Options) *Session {
++	t.Helper()
++	root := origRoot(t)
++	opt.NoPacing = true
++	s, err := Open(root, opt)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return s
++}
++
++// execAt 在 seg:off 放 code，把 CPU 設在那裡（SS ＝ 0x2000、DS ＝ 0x8000、IF ＝ 0），經 stepBatch 執行一步。
++func execAt(t *testing.T, s *Session, seg, off uint16, code []byte, sp uint16) {
++	t.Helper()
++	m := s.m
++	c := m.CPU
++	m.WriteBytes(cpu.Linear(seg, off), code)
++	c.Seg[cpu.CS], c.IP = seg, off
++	c.Seg[cpu.SS], c.R[cpu.SP] = 0x2000, sp
++	c.Seg[cpu.DS] = 0x8000
++	c.SetFlags(0)
++	if st := s.stepBatch(1); st != nil {
++		t.Fatalf("stepBatch 停機：%v", st.Msg)
++	}
++}
++
++func lastCall(s *Session) callEvent {
++	return s.dg.calls[(s.dg.callN-1)%callRingSize]
++}
++
++func TestClassifyCall(t *testing.T) {
++	cases := []struct {
++		name  string
++		code  []byte
++		kind  callKind
++		ok    bool
++		exact bool // 不補零（測資料在指令中途結束）
++	}{
++		{"E8", []byte{0xE8, 0x10, 0x00}, ckNear, true, false},
++		{"9A", []byte{0x9A, 0x00, 0x03, 0x00, 0x91}, ckFar, true, false},
++		{"FF/2", []byte{0xFF, 0x16, 0x00, 0x02}, ckNearInd, true, false},
++		{"FF/3", []byte{0xFF, 0x1E, 0x00, 0x02}, ckFarInd, true, false},
++		{"FF/2 暫存器形式", []byte{0xFF, 0xD0}, ckNearInd, true, false},
++		{"FF/4 jmp", []byte{0xFF, 0x26, 0x00, 0x02}, 0, false, false},
++		{"FF/0 inc", []byte{0xFF, 0x06, 0x00, 0x02}, 0, false, false},
++		{"FF/6 push", []byte{0xFF, 0x36, 0x00, 0x02}, 0, false, false},
++		{"CS 前綴 FF/2", []byte{0x2E, 0xFF, 0x16, 0x00, 0x02}, ckNearInd, true, false},
++		{"多個前綴 FF/3", []byte{0xF3, 0x2E, 0x26, 0xF0, 0xFF, 0x1E, 0x00, 0x02}, ckFarInd, true, false},
++		{"F1 前綴 E8", []byte{0xF1, 0xE8, 0x00, 0x00}, ckNear, true, false},
++		{"64 前綴 E8", []byte{0x64, 0xE8, 0x00, 0x00}, ckNear, true, false},
++		{"66 開頭不分類（這支 CPU 會回 CPU 錯誤）", []byte{0x66, 0xE8, 0x00, 0x00, 0x00, 0x00}, 0, false, false},
++		{"66 在前綴後也不分類", []byte{0x2E, 0x66, 0x9A, 0, 0, 0, 0, 0, 0}, 0, false, false},
++		{"nop", []byte{0x90}, 0, false, false},
++		{"int", []byte{0xCD, 0x21}, 0, false, false},
++		{"ret", []byte{0xC3}, 0, false, false},
++		{"前綴後沒有位元組", []byte{0x26}, 0, false, true},
++		{"FF 後沒有 modrm", []byte{0xFF}, 0, false, true},
++	}
++	for _, c := range cases {
++		code := c.code
++		if !c.exact {
++			code = make([]byte, 16) // 後面補 0，不影響判斷
++			copy(code, c.code)
++		}
++		k, ok := classifyCall(code)
++		if ok != c.ok || (ok && k != c.kind) {
++			t.Errorf("%s：得 (%v,%v)，預期 (%v,%v)", c.name, k, ok, c.kind, c.ok)
++		}
++	}
++	// 15 個前綴之後放棄
++	long := bytes.Repeat([]byte{0x26}, 15)
++	long = append(long, 0xE8, 0, 0)
++	if _, ok := classifyCall(long); ok {
++		t.Error("15 個前綴之後應放棄")
++	}
++}
++
++func TestCallEventTargetAndSP(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	s.m.Write16(cpu.Linear(0x8000, 0x0200), 0x0777) // 間接 near 的目標
++	type tc struct {
++		name         string
++		code         []byte
++		sp           uint16
++		kind         callKind
++		toCS, toIP   uint16
++		wantSPBefore uint16
++	}
++	// 注意：near 的目標是執行後的 IP（E8 的位移以下一道指令為準）。
++	cases := []tc{
++		{"E8", []byte{0xE8, 0x10, 0x00}, 0x1000, ckNear, 0x9000, 0x0113, 0x1000},
++		{"E8 SP＝0 繞回", []byte{0xE8, 0x10, 0x00}, 0x0000, ckNear, 0x9000, 0x0113, 0x0000},
++		{"E8 SP＝1 繞回", []byte{0xE8, 0x10, 0x00}, 0x0001, ckNear, 0x9000, 0x0113, 0x0001},
++		{"9A", []byte{0x9A, 0x00, 0x03, 0x00, 0x91}, 0x1000, ckFar, 0x9100, 0x0300, 0x1000},
++		{"9A SP＝2 繞回", []byte{0x9A, 0x00, 0x03, 0x00, 0x91}, 0x0002, ckFar, 0x9100, 0x0300, 0x0002},
++		{"FF/2 記憶體", []byte{0xFF, 0x16, 0x00, 0x02}, 0x1000, ckNearInd, 0x9000, 0x0777, 0x1000},
++		{"DS 前綴 FF/2", []byte{0x3E, 0xFF, 0x16, 0x00, 0x02}, 0x0000, ckNearInd, 0x9000, 0x0777, 0x0000},
++	}
++	for i, c := range cases {
++		before := s.dg.callN
++		from := uint16(0x0100 + i*0x20) // 每個案例用不同的呼叫處，避免被「連續相同」合併
++		execAt(t, s, 0x9000, from, c.code, c.sp)
++		if s.dg.callN != before+1 {
++			t.Fatalf("%s：callN %d → %d，預期多一筆", c.name, before, s.dg.callN)
++		}
++		e := lastCall(s)
++		toIP := c.toIP
++		if c.kind == ckNear {
++			toIP = from + 3 + 0x10
++		}
++		if e.kind != c.kind || e.fromCS != 0x9000 || e.fromIP != from || e.toCS != c.toCS || e.toIP != toIP {
++			t.Errorf("%s：事件 %+v，預期目標 %04X:%04X", c.name, e, c.toCS, toIP)
++		}
++		if e.sp != c.wantSPBefore {
++			t.Errorf("%s：呼叫前 SP ＝ %04X，預期 %04X", c.name, e.sp, c.wantSPBefore)
++		}
++	}
++	// 間接 far：兩個字組是 偏移、段
++	s.m.Write16(cpu.Linear(0x8000, 0x0200), 0x0123)
++	s.m.Write16(cpu.Linear(0x8000, 0x0202), 0x9200)
++	execAt(t, s, 0x9000, 0x0100, []byte{0xFF, 0x1E, 0x00, 0x02}, 0x0000)
++	e := lastCall(s)
++	if e.kind != ckFarInd || e.toCS != 0x9200 || e.toIP != 0x0123 || e.sp != 0x0000 {
++		t.Errorf("FF/3 記憶體：事件 %+v", e)
++	}
++	// 非呼叫不記錄
++	before := s.dg.callN
++	execAt(t, s, 0x9000, 0x0100, []byte{0x90}, 0x1000)
++	execAt(t, s, 0x9000, 0x0100, []byte{0xFF, 0x26, 0x00, 0x02}, 0x1000) // FF /4 jmp
++	if s.dg.callN != before {
++		t.Errorf("nop 與 jmp 不應記錄，callN %d → %d", before, s.dg.callN)
++	}
++}
++
++func TestCallRingMergesOnlyConsecutive(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	for i := 0; i < 10; i++ {
++		execAt(t, s, 0x9000, 0x0100, []byte{0xE8, 0x10, 0x00}, 0x1000)
++	}
++	if s.dg.callN != 1 || lastCall(s).count != 10 {
++		t.Fatalf("連續相同應合併：callN＝%d count＝%d", s.dg.callN, lastCall(s).count)
++	}
++	// 兩種交替：沒有任何兩筆相鄰且相同，不合併
++	base := s.dg.callN
++	for i := 0; i < 10; i++ {
++		execAt(t, s, 0x9000, 0x0200, []byte{0xE8, 0x20, 0x00}, 0x1000)
++		execAt(t, s, 0x9000, 0x0100, []byte{0xE8, 0x10, 0x00}, 0x1000)
++	}
++	if got := s.dg.callN - base; got != 20 {
++		t.Fatalf("交替的 20 次呼叫應記 20 筆，實際 %d", got)
++	}
++	// 第二結構保留不同目標（這裡 3 個：0113、0223，以及先前合併的那個 0113 算同一個）
++	n := 0
++	for _, e := range s.dg.distinc {
++		if e.used {
++			n++
++		}
++	}
++	if n < 2 {
++		t.Errorf("第二結構應保留至少 2 個不同目標，實際 %d", n)
++	}
++	// 填滿環之後最早的事件被覆蓋，callN 單調成長
++	for i := 0; i < 2*callRingSize; i++ {
++		execAt(t, s, 0x9000, uint16(0x100+i%2*0x100), []byte{0xE8, 0x10, 0x00}, 0x1000)
++	}
++	if s.dg.callN < callRingSize {
++		t.Errorf("callN 應超過容量，實際 %d", s.dg.callN)
++	}
++}
++
++func TestIntRecordingFilenameAndStub(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	// 遊戲碼（CS ≠ StubSeg）的 int 21h AH＝3Dh：記檔名
++	name := append([]byte("TEST.DAT"), 0)
++	s.m.WriteBytes(cpu.Linear(0x8000, 0x0300), name)
++	s.m.CPU.R[cpu.AX] = 0x3D00
++	s.m.CPU.R[cpu.DX] = 0x0300
++	execAtKeepRegs(t, s, 0x9000, 0x0100, []byte{0xCD, 0x21})
++	if s.dg.intCount[0x21] != 1 {
++		t.Fatalf("intCount[0x21] ＝ %d，預期 1", s.dg.intCount[0x21])
++	}
++	found := false
++	for _, e := range s.dg.names {
++		if e.name == "TEST.DAT" {
++			found = true
++		}
++	}
++	if !found {
++		t.Errorf("沒記到檔名 TEST.DAT：%+v", s.dg.names)
++	}
++	// StubSeg 內的中斷不記錄、不計數、不更新靜默
++	before := s.dg.intCount[0x21]
++	s.dg.svcSeen = false
++	s.m.CPU.R[cpu.AX] = 0x3000
++	execAtKeepRegs(t, s, machine.StubSeg, 0x0700, []byte{0xCD, 0x21})
++	if s.dg.intCount[0x21] != before || s.dg.svcSeen {
++		t.Error("StubSeg 內的中斷不該計入服務中斷")
++	}
++	// int 3Fh 的 stub 解碼：stub 252 的 stub 段 5206，入口 0 在偏移 0x20，其後 u16 ＝ 002C（overlays.json）。
++	// 只測記錄的解碼，不真的執行 overlay 管理員：寫一個 nop 到入口位置，再直接呼叫 noteInt。
++	stub := cpu.Linear(0x5206, 0)
++	if got := s.m.Peek8(stub); got != 0xCD || s.m.Peek8(stub+1) != 0x3F {
++		t.Fatalf("stub 5206 起點不是 CD 3F：%02X %02X", got, s.m.Peek8(stub+1))
++	}
++	wantW := s.m.Peek16(cpu.Linear(0x5206, 0x22))
++	execAtKeepRegs(t, s, 0x5206, 0x0020, []byte{0x90}) // 本道指令 ＝ 5206:0020（Op）
++	s.noteInt(s.m.CPU, 0x3F)
++	var e intEvent
++	for i := uint64(0); i < s.dg.intN; i++ {
++		if x := s.dg.ints[i%intRingSize]; x.n == 0x3F {
++			e = x
++		}
++	}
++	if e.n != 0x3F || e.stubK != 0 || e.w != wantW || wantW != 0x002C {
++		t.Errorf("int 3Fh 記錄：%+v（預期入口 0、u16 ＝ 002C，實際記憶體 %04X）", e, wantW)
++	}
++	// stub 標頭重載：偏移 0
++	execAtKeepRegs(t, s, 0x5206, 0x0000, []byte{0x90})
++	s.noteInt(s.m.CPU, 0x3F)
++	e = s.dg.ints[(s.dg.intN-1)%intRingSize]
++	if e.stubK != -1 {
++		t.Errorf("stub 標頭的 int 3Fh 應標 -1，實際 %+v", e)
++	}
++}
++
++// execAtKeepRegs 同 execAt，但不動 AX、DX（呼叫端先設）。
++func execAtKeepRegs(t *testing.T, s *Session, seg, off uint16, code []byte) {
++	t.Helper()
++	m := s.m
++	c := m.CPU
++	m.WriteBytes(cpu.Linear(seg, off), code)
++	c.Seg[cpu.CS], c.IP = seg, off
++	c.Seg[cpu.SS], c.R[cpu.SP] = 0x2000, 0x1000
++	c.Seg[cpu.DS] = 0x8000
++	c.SetFlags(0)
++	if st := s.stepBatch(1); st != nil {
++		t.Fatalf("stepBatch 停機：%v", st.Msg)
++	}
++}
++
++func TestIntFromStackStubRecordsReturn(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	// 模擬 _int86x 的堆疊 stub：CS ＝ SS，SP 指向 [bp][ret IP][ret CS]
++	s.m.Write16(cpu.Linear(0x2000, 0x0FF2), 0xAAAA) // saved bp
++	s.m.Write16(cpu.Linear(0x2000, 0x0FF4), 0x1234) // ret IP
++	s.m.Write16(cpu.Linear(0x2000, 0x0FF6), 0x0A5B) // ret CS
++	c := s.m.CPU
++	s.m.WriteBytes(cpu.Linear(0x2000, 0x0800), []byte{0x90})
++	c.Seg[cpu.CS], c.IP = 0x2000, 0x0800
++	c.Seg[cpu.SS], c.R[cpu.SP] = 0x2000, 0x0FF2
++	c.SetFlags(0)
++	if st := s.stepBatch(1); st != nil {
++		t.Fatal(st.Msg)
++	}
++	s.noteInt(c, 0x33)
++	e := s.dg.ints[(s.dg.intN-1)%intRingSize]
++	if !e.hasRet || e.retCS != 0x0A5B || e.retIP != 0x1234 {
++		t.Errorf("CS＝SS 的中斷應記返回位址：%+v", e)
++	}
++}
++
++func TestNoPhantomCallsOnTick(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	s.setInterval(4) // 每 4 步一個 tick：幾乎每一步都有機會被 tick 插入
++	if st := s.RunSteps(2_000_000); st.Kind != StopSteps {
++		t.Fatalf("停機：%v", st.Msg)
++	}
++	if s.dg.callN < 100 {
++		t.Fatalf("只記到 %d 筆呼叫，不足以驗證", s.dg.callN)
++	}
++	n := s.dg.callN
++	if n > callRingSize {
++		n = callRingSize
++	}
++	for i := s.dg.callN - n; i < s.dg.callN; i++ {
++		e := s.dg.calls[i%callRingSize]
++		if e.fromCS == machine.StubSeg || e.toCS == machine.StubSeg {
++			t.Fatalf("tick 命中那一步記到了幻影呼叫：%+v", e)
++		}
++	}
++}
++
++func TestIntCountMatchesMouseCalls(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	if st := s.RunSteps(30_000_000); st.Kind != StopSteps {
++		t.Fatalf("停機：%v", st.Msg)
++	}
++	total := 0
++	for _, n := range s.d.Mouse.Calls {
++		total += n
++	}
++	if total == 0 {
++		t.Fatal("冷啟動後 DOS.Mouse.Calls 為 0，不足以驗證")
++	}
++	if got := s.dg.intCount[0x33]; got != uint64(total) {
++		t.Errorf("intCount[0x33] ＝ %d，DOS.Mouse.Calls 總和 ＝ %d（冷啟動、未載入狀態檔時應相等）", got, total)
++	}
++	if s.dg.callN == 0 || s.dg.intN == 0 {
++		t.Error("環是空的")
++	}
++}
++
++func TestKnownRoutinesTable(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	ida := map[uint32]uint32{ // 執行期 → IDA（docs/spec/005 第 11 節）
++		0x1C57_0022: 0x2B47_0022, 0x1FA2_0414: 0x2E92_0414, 0x1FA2_066A: 0x2E92_066A, 0x259F_0005: 0x348F_0005,
++		0x234A_000A: 0x323A_000A, 0x20C2_25A1: 0x2FB2_25A1, 0x24BD_0D3E: 0x33AD_0D3E, 0x2378_112A: 0x3268_112A,
++		0x2378_1155: 0x3268_1155, 0x2378_12D0: 0x3268_12D0, 0x2378_139D: 0x3268_139D, 0x1D11_000A: 0x2C01_000A,
++		0x1D29_000E: 0x2C19_000E, 0x1F69_000E: 0x2E59_000E, 0x1F69_00B5: 0x2E59_00B5, 0x1F69_0169: 0x2E59_0169,
++		0x1C35_01C5: 0x2B25_01C5,
++	}
++	if len(knownRoutines) != len(ida) {
++		t.Fatalf("註記表 %d 項，預期 %d", len(knownRoutines), len(ida))
++	}
++	prologue := []byte{0xC8, 0x00, 0x00, 0x00, 0x56, 0x57, 0x1E, 0x06}
++	for k := range knownRoutines {
++		cs, ip := uint16(k>>16), uint16(k)
++		want, ok := ida[k]
++		if !ok {
++			t.Errorf("%04X:%04X 不在預期表", cs, ip)
++			continue
++		}
++		if uint16(want>>16) != cs+idaDelta || uint16(want) != ip {
++			t.Errorf("%04X:%04X 的 IDA 位址 ＋0xEF0 不符：%08X", cs, ip, want)
++		}
++		for i, b := range prologue {
++			if got := s.m.Peek8(cpu.Linear(cs, ip) + uint32(i)); got != b {
++				t.Errorf("%04X:%04X 第 %d 個位元組 ＝ %02X，預期 %02X", cs, ip, i, got, b)
++				break
++			}
++		}
++	}
++}
++
++func TestOvrTable(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	if len(ovrStubs) != 139 {
++		t.Fatalf("ovrtab 有 %d 筆，預期 139", len(ovrStubs))
++	}
++	seenStub := map[uint16]bool{}
++	seenIdx := map[uint16]bool{}
++	for i, o := range ovrStubs {
++		if i > 0 && o.StubSeg <= ovrStubs[i-1].StubSeg {
++			t.Fatalf("ovrtab 沒有依 StubSeg 遞增排列（第 %d 筆）", i)
++		}
++		if seenStub[o.StubSeg] || seenIdx[o.Idx] {
++			t.Fatalf("重複項：%+v", o)
++		}
++		seenStub[o.StubSeg], seenIdx[o.Idx] = true, true
++		if o.StubSeg >= dgroupSeg {
++			t.Errorf("stub 段 %04X 不在 DGROUP 之前", o.StubSeg)
++		}
++		base := cpu.Linear(o.StubSeg, 0)
++		if s.m.Peek8(base) != 0xCD || s.m.Peek8(base+1) != 0x3F {
++			t.Errorf("ovr%d 的 stub %04X 起點不是 CD 3F", o.Idx, o.StubSeg)
++		}
++	}
++	// 補丁開與關兩組 stub 段相同
++	s2 := openDiag(t, Options{Interval: NativeInterval, NoStackPatch: true})
++	for _, o := range ovrStubs {
++		base := cpu.Linear(o.StubSeg, 0)
++		if s2.m.Peek8(base) != 0xCD || s2.m.Peek8(base+1) != 0x3F {
++			t.Fatalf("未補丁時 ovr%d 的 stub %04X 起點不是 CD 3F", o.Idx, o.StubSeg)
++		}
++	}
++}
++
++func TestAddrClasses(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	for _, noPatch := range []bool{false, true} {
++		if noPatch {
++			s = openDiag(t, Options{Interval: NativeInterval, NoStackPatch: true})
++		}
++		cases := []struct {
++			cs, ip uint16
++			want   string
++		}{
++			{machine.StubSeg, 0x0700, "dosgolem 內部 stub"},
++			{s.stackSeg, 0x7F6B, "堆疊內程式碼"},
++			{0x1D11, 0x000A, "常駐，IDA 2C01:000A"},
++			{0x5206, 0x0020, "ovr252 stub，入口 0"},
++			{0x5206, 0x0000, "ovr252 stub 標頭"},
++			{machine.EMSSeg, 0x0000, "dosgolem 內部 stub"},
++			{0x0040, 0x0000, "未分類"},
++		}
++		for _, c := range cases {
++			if got := s.addrText(c.cs, c.ip, noOvr, true); !strings.Contains(got, c.want) {
++				t.Errorf("補丁 %v：%04X:%04X → %q，預期含 %q", !noPatch, c.cs, c.ip, got, c.want)
++			}
++		}
++		if got := s.addrText(0x20C2, 0x25A1, noOvr, true); !strings.Contains(got, "GMAP.PXS") {
++			t.Errorf("註記表入口應有註記：%q", got)
++		}
++	}
++}
++
++// overlay 判定：用戰鬥佈陣狀態檔（HR_BENCH_STATE）載入後，在 BP 鏈上找 overlay 框，
++// 兩個獨立算式（stub 位置字組、stub ＋10h）必須一致（docs/re/007 第 8 節在執行中的第一次驗證）。
++func TestOverlayClassificationOnState(t *testing.T) {
++	p := os.Getenv("HR_BENCH_STATE")
++	if p == "" {
++		t.Skip("沒有設 HR_BENCH_STATE")
++	}
++	if _, err := os.Stat(p); err != nil {
++		t.Skipf("狀態檔不存在：%v", err)
++	}
++	s := openDiag(t, Options{Interval: NativeInterval})
++	if err := state.Load(p, s.m, s.d); err != nil {
++		t.Fatal(err)
++	}
++	st, polled := s.RunToPoll(200_000_000)
++	if st != nil && st.Kind != StopSteps {
++		t.Fatalf("停機：%v", st.Msg)
++	}
++	if !polled {
++		t.Skip("沒有走到輪詢點")
++	}
++	c := s.m.CPU
++	bp, ss := c.R[cpu.BP], c.Seg[cpu.SS]
++	nOvr := 0
++	for i := 0; i < 16 && bp > 0; i++ {
++		ip := s.m.Peek16(cpu.Linear(ss, bp+2))
++		cs := s.m.Peek16(cpu.Linear(ss, bp+4))
++		if idx := s.ovrIdxOfCS(cs); idx != noOvr {
++			o, _ := ovrByIdx(idx)
++			if stub := s.m.Peek16(cpu.Linear(o.StubSeg, 0x10)); stub != cs {
++				t.Errorf("CS %04X：stub 位置字組判為 ovr%d，但 stub ＋10h ＝ %04X，兩法不一致", cs, idx, stub)
++			}
++			nOvr++
++			_ = ip
++		}
++		next := s.m.Peek16(cpu.Linear(ss, bp))
++		if next <= bp {
++			break
++		}
++		bp = next
++	}
++	if nOvr == 0 {
++		t.Skip("BP 鏈上沒有 overlay 框")
++	}
++}
++
++func hasInfoSections(t *testing.T, text string, extra ...string) {
++	t.Helper()
++	if !strings.HasPrefix(text, diagMarker+"\n") {
++		t.Errorf("第一行不是固定標記：%q", strings.SplitN(text, "\n", 2)[0])
++	}
++	for _, sec := range append([]string{"== 暫存器 ==", "== 目前位置 ==", "== 呼叫鏈", "== 堆疊頂部", "== 最近呼叫", "== 最近不同的呼叫目標", "== 服務中斷", "== 時間 =="}, extra...) {
++		if !strings.Contains(text, sec) {
++			t.Errorf("info.txt 缺區段 %q", sec)
++		}
++	}
++}
++
++func TestCrashDumpHasDiagSections(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	s.RunSteps(5_000_000)
++	dir := filepath.Join(t.TempDir(), "crash")
++	if err := s.CrashDump(dir, "測試"); err != nil {
++		t.Fatal(err)
++	}
++	b, err := os.ReadFile(filepath.Join(dir, "info.txt"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	hasInfoSections(t, string(b))
++	for _, f := range []string{"screen.png", "state.state"} {
++		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
++			t.Errorf("缺 %s：%v", f, err)
++		}
++	}
++}
++
++// hangHarness 開一個 HangSeconds 較短的 Session，跑到標題輪詢點，回傳記錄 OnDiag 的容器。
++type hangHarness struct {
++	s    *Session
++	dirs []string
++	n    atomic.Int32
++}
++
++func newHang(t *testing.T, seconds float64) *hangHarness {
++	t.Helper()
++	h := &hangHarness{}
++	h.s = openDiag(t, Options{
++		DiagDir: filepath.Join(t.TempDir(), "crash"), HangSeconds: seconds,
++		OnDiag: func(dir, reason string) { h.dirs = append(h.dirs, dir); h.n.Add(1) },
++	})
++	st, polled := h.s.RunToPoll(200_000_000)
++	if (st != nil && st.Kind != StopSteps) || !polled {
++		t.Fatalf("沒走到標題輪詢點：%v %v", st, polled)
++	}
++	if h.n.Load() != 0 {
++		t.Fatal("冷啟動走到輪詢點的過程不該報 hang")
++	}
++	return h
++}
++
++// run 跑 gs 個遊戲秒當量的步數（以目前 interval 換算）。
++func (h *hangHarness) run(t *testing.T, gs float64) {
++	t.Helper()
++	steps := uint64(gs * TickHz * float64(h.s.interval))
++	if st := h.s.RunSteps(h.s.m.Steps + steps); st.Kind != StopSteps {
++		t.Fatalf("停機：%v", st.Msg)
++	}
++}
++
++func (h *hangHarness) patchHere(code ...byte) (cs, ip uint16) {
++	c := h.s.m.CPU
++	cs, ip = c.Seg[cpu.CS], c.IP
++	h.s.m.WriteBytes(cpu.Linear(cs, ip), code)
++	return
++}
++
++func (h *hangHarness) checkOne(t *testing.T, cs, ip uint16) string {
++	t.Helper()
++	if got := h.n.Load(); got != 1 {
++		t.Fatalf("OnDiag 呼叫 %d 次，預期 1", got)
++	}
++	b, err := os.ReadFile(filepath.Join(h.dirs[0], "info.txt"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	text := string(b)
++	hasInfoSections(t, text, "== 迴圈取樣")
++	if !strings.HasSuffix(h.dirs[0], "-hang") {
++		t.Errorf("目錄名應以 -hang 結尾：%s", h.dirs[0])
++	}
++	return text[strings.Index(text, "== 迴圈取樣"):]
++}
++
++// topSample 回傳取樣區段第一名的次數與位址文字（格式：「%5d 次  XXXX:XXXX…」）。
++func topSample(t *testing.T, sec string) (int, string) {
++	t.Helper()
++	for _, line := range strings.Split(sec, "\n")[1:] {
++		f := strings.Fields(line)
++		if len(f) >= 3 && f[1] == "次" {
++			n := 0
++			for _, ch := range f[0] {
++				n = n*10 + int(ch-'0')
++			}
++			return n, f[2]
++		}
++	}
++	t.Fatalf("取樣區段沒有項目：%s", sec)
++	return 0, ""
++}
++
++func TestT2JmpSelf(t *testing.T) {
++	h := newHang(t, 3)
++	cs, ip := h.patchHere(0xEB, 0xFE) // jmp $，IF ＝ 1
++	h.run(t, 3.6)
++	sec := h.checkOne(t, cs, ip)
++	n, addr := topSample(t, sec)
++	if n < 3500 || n > 4096 {
++		t.Errorf("取樣第一名的次數應接近 4096（少數是 tick 的 ISR 指令）：%d", n)
++	}
++	if !strings.HasPrefix(addr, hex4(cs)+":"+hex4(ip)) {
++		t.Errorf("取樣第一名應是 %04X:%04X，實際 %s", cs, ip, addr)
++	}
++	h.run(t, 6) // 再跑 60 秒當量的一半以上：同一個靜默期不重複
++	if got := h.n.Load(); got != 1 {
++		t.Errorf("同一個靜默期不該重複報，實際 %d 次", got)
++	}
++}
++
++func hex4(v uint16) string {
++	const d = "0123456789ABCDEF"
++	return string([]byte{d[v>>12&15], d[v>>8&15], d[v>>4&15], d[v&15]})
++}
++
++func TestT2CliJmpSelf(t *testing.T) {
++	h := newHang(t, 3)
++	cs, ip := h.patchHere(0xFA, 0xEB, 0xFE) // cli; jmp $：IF ＝ 0，Ticks 不前進
++	ticks0 := h.s.m.Ticks
++	h.run(t, 3.6)
++	h.checkOne(t, cs, ip)
++	if h.s.m.CPU.Flags&cpu.IF != 0 {
++		t.Error("測試前提：IF 應為 0")
++	}
++	if d := h.s.m.Ticks - ticks0; d > 20 {
++		t.Logf("IF＝0 之後 Ticks 仍前進了 %d（cli 前的少量 tick）", d)
++	}
++}
++
++func TestT2StuckInISR(t *testing.T) {
++	h := newHang(t, 3)
++	// 卡在 ISR 內：int 21h 的向量改指向 cli; jmp $。遊戲的下一個 CD 21 進入後就回不來。
++	m := h.s.m
++	m.WriteBytes(cpu.Linear(0x9000, 0x0000), []byte{0xFA, 0xEB, 0xFE})
++	m.Write16(0x21*4, 0x0000)
++	m.Write16(0x21*4+2, 0x9000)
++	h.run(t, 4)
++	if got := h.n.Load(); got != 1 {
++		t.Fatalf("卡在 ISR 內應觸發 T2，OnDiag %d 次", got)
++	}
++	b, _ := os.ReadFile(filepath.Join(h.dirs[0], "info.txt"))
++	if !strings.Contains(string(b), "9000:0001") {
++		t.Errorf("取樣應落在 9000:0001（cli 在 0000，jmp $ 在 0001）：\n%s", string(b)[strings.Index(string(b), "== 迴圈取樣"):])
++	}
++}
++
++func TestT2StillFiresWithMouseHandlerAndInput(t *testing.T) {
++	h := newHang(t, 3)
++	m := h.s.m
++	// 已登記 AX＝0Ch 事件處理常式（回呼結束靠 StubSeg 內的 CD F9，不是遊戲碼的服務中斷）。
++	// 處理常式：inc word cs:[0400]；retf，用 cs 前綴讓計數與 DS 無關。
++	m.WriteBytes(cpu.Linear(0x9000, 0x0100), []byte{0x2E, 0xFF, 0x06, 0x00, 0x04, 0xCB})
++	m.Write16(cpu.Linear(0x9000, 0x0400), 0)
++	h.s.d.Mouse.Handler.Seg, h.s.d.Mouse.Handler.Off = 0x9000, 0x0100
++	h.s.d.Mouse.Handler.Mask, h.s.d.Mouse.Handler.Set = 0x0001, true
++	cs, ip := h.patchHere(0xEB, 0xFE)
++	_ = cs
++	_ = ip
++	// 持續注入滑鼠移動：每個批次一次
++	x := 100
++	end := m.Steps + uint64(4.0*TickHz*float64(h.s.interval))
++	for m.Steps < end {
++		x = 100 + (x+7)%200
++		h.s.Input(MouseMoveEvent(x, 100+x%50))
++		if st := h.s.RunSteps(m.Steps + 200_000); st.Kind != StopSteps {
++			t.Fatalf("停機：%v", st.Msg)
++		}
++	}
++	if got := m.Peek16(cpu.Linear(0x9000, 0x0400)); got == 0 {
++		t.Fatal("處理常式一次都沒有被呼叫，這個測試沒有證明什麼")
++	}
++	if h.s.dg.intCount[0xF9] != 0 {
++		t.Errorf("CD F9 在 StubSeg 內，不該計入：%d", h.s.dg.intCount[0xF9])
++	}
++	if got := h.n.Load(); got != 1 {
++		t.Errorf("持續有滑鼠回呼時 T2 仍須觸發，OnDiag %d 次", got)
++	}
++}
++
++func TestT2NoFalseAlarmAtTitle(t *testing.T) {
++	h := newHang(t, 3)
++	h.run(t, 40)
++	if got := h.n.Load(); got != 0 {
++		t.Fatalf("標題畫面不該報 hang：%d 次", got)
++	}
++	st := h.s.Stats()
++	if st.HangEvals == 0 {
++		t.Error("偵測器沒有在評估（HangEvals ＝ 0），反對照無效")
++	}
++	if h.s.dg.intCount[0x33] == 0 || st.HangMaxSilentSec <= 0 || st.HangMaxSilentSec >= 3 {
++		t.Errorf("最長靜默 %.2f 遊戲秒，應介於 0 與門檻之間；int 33h 計數 %d", st.HangMaxSilentSec, h.s.dg.intCount[0x33])
++	}
++}
++
++func TestT2DisabledAndCap(t *testing.T) {
++	// HangSeconds ＝ 0：關閉
++	h := newHang(t, 0)
++	h.patchHere(0xEB, 0xFE)
++	h.run(t, 5)
++	if got := h.n.Load(); got != 0 {
++		t.Fatalf("HangSeconds＝0 不該觸發：%d", got)
++	}
++	// 次數上限：每次靜默期後手動重新武裝，第 4 次不再報
++	h2 := newHang(t, 1)
++	h2.patchHere(0xEB, 0xFE)
++	for i := 0; i < 5; i++ {
++		h2.run(t, 1.5)
++		h2.s.dg.hangArmed = true
++		h2.s.dg.silentSec = 0
++	}
++	if got := h2.n.Load(); got != maxHangDumps {
++		t.Fatalf("OnDiag %d 次，預期上限 %d", got, maxHangDumps)
++	}
++}
++
++func TestT2AdaptLoweringDoesNotFireEarly(t *testing.T) {
++	h := newHang(t, 3)
++	h.patchHere(0xEB, 0xFE)
++	h.run(t, 1.5) // 靜默 1.5 遊戲秒（interval 300,000）
++	if h.n.Load() != 0 {
++		t.Fatal("1.5 遊戲秒不該報")
++	}
++	h.s.setInterval(150_000) // adapt 把間隔降為一半
++	h.run(t, 0.7)            // 以新 interval 換算再 0.7 秒，總計約 2.2 秒
++	if h.n.Load() != 0 {
++		t.Fatalf("降速後累計 2.2 遊戲秒就報了（窗口提早到期）")
++	}
++	h.run(t, 1.5)
++	if h.n.Load() != 1 {
++		t.Fatalf("總計約 3.7 遊戲秒應報一次，實際 %d", h.n.Load())
++	}
++}
++
++func TestT2StepDiscontinuityAfterStateLoad(t *testing.T) {
++	p := os.Getenv("HR_SOAK_STATE")
++	if p == "" {
++		t.Skip("沒有設 HR_SOAK_STATE")
++	}
++	if _, err := os.Stat(p); err != nil {
++		t.Skipf("狀態檔不存在：%v", err)
++	}
++	n := 0
++	s := openDiag(t, Options{DiagDir: t.TempDir(), HangSeconds: 3, OnDiag: func(string, string) { n++ }})
++	s.RunSteps(1_000_000) // 先讓 Session 評估過一次
++	if err := state.Load(p, s.m, s.d); err != nil {
++		t.Fatal(err)
++	}
++	if s.m.Steps < 1_000_000_000 {
++		t.Skipf("狀態檔的 Steps ＝ %d，不是大步數的檔案", s.m.Steps)
++	}
++	s.RunSteps(s.m.Steps + 3*batchSteps)
++	if n != 0 {
++		t.Fatalf("載入狀態檔後第一個批次誤報：%d", n)
++	}
++	if s.dg.lastSvcStep < 1_000_000_000 {
++		t.Errorf("載入後 lastSvcStep 應重置為當時的步數，實際 %d", s.dg.lastSvcStep)
++	}
++}
++
++func TestT3ManualAndRateLimit(t *testing.T) {
++	now := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
++	var dirs []string
++	s := openDiag(t, Options{
++		DiagDir: filepath.Join(t.TempDir(), "crash"), Now: func() time.Time { return now },
++		OnDiag: func(dir, reason string) { dirs = append(dirs, dir) },
++	})
++	s.RunSteps(2_000_000)
++	before := s.m.Steps
++	s.RequestDiag("按鍵")
++	s.RunSteps(before + 10_000)
++	if len(dirs) != 1 || !strings.HasSuffix(dirs[0], "20261003-120000-manual") {
++		t.Fatalf("手動診斷：%v", dirs)
++	}
++	b, _ := os.ReadFile(filepath.Join(dirs[0], "info.txt"))
++	hasInfoSections(t, string(b))
++	if strings.Contains(string(b), "== 迴圈取樣") {
++		t.Error("手動診斷不取樣迴圈")
++	}
++	s.RequestDiag("太快")
++	s.RunSteps(s.m.Steps + 10_000)
++	if len(dirs) != 1 {
++		t.Fatalf("5 秒內第二次應被忽略：%v", dirs)
++	}
++	now = now.Add(6 * time.Second)
++	s.RequestDiag("夠久了")
++	s.RunSteps(s.m.Steps + 10_000)
++	if len(dirs) != 2 {
++		t.Fatalf("6 秒後應再產生一份：%v", dirs)
++	}
++	// 同一秒的衝突：加兩位數序號
++	now = now.Add(0)
++	s.dg.lastManual = time.Time{}
++	s.RequestDiag("同一秒")
++	s.RunSteps(s.m.Steps + 10_000)
++	if len(dirs) != 3 || !strings.HasSuffix(dirs[2], "-manual-02") {
++		t.Fatalf("同一秒應得 -manual-02：%v", dirs)
++	}
++}
++
++func TestDiagDoesNotChangeMachineState(t *testing.T) {
++	digest := func(noDiag bool) ([32]byte, [32]byte) {
++		s := openDiag(t, Options{Interval: NativeInterval, NoDiag: noDiag})
++		if st := s.RunSteps(30_000_000); st.Kind != StopSteps {
++			t.Fatalf("停機：%v", st.Msg)
++		}
++		var mb, db bytes.Buffer
++		if err := s.m.SaveState(&mb); err != nil {
++			t.Fatal(err)
++		}
++		if err := s.d.SaveState(&db); err != nil {
++			t.Fatal(err)
++		}
++		md, err := machine.StateDigest(&mb)
++		if err != nil {
++			t.Fatal(err)
++		}
++		dd, err := dos.StateDigest(&db)
++		if err != nil {
++			t.Fatal(err)
++		}
++		return md, dd
++	}
++	m1, d1 := digest(true)
++	m2, d2 := digest(false)
++	if m1 != m2 {
++		t.Error("machine 狀態摘要在 NoDiag 與有診斷之間不同")
++	}
++	if d1 != d2 {
++		t.Error("dos 狀態摘要在 NoDiag 與有診斷之間不同")
++	}
++}
++
++func TestRoutineHangGMAP(t *testing.T) {
++	// 有效性閘門：先在未注入的同一路徑上確認進入過註記表的入口
++	const key = uint32(0x20C2)<<16 | 0x25A1
++	probe := openDiag(t, Options{Interval: NativeInterval})
++	probe.RunSteps(60_000_000)
++	if probe.dg.entryCnt[key] == 0 {
++		t.Skip("冷啟動無輸入在 60,000,000 步內沒有進入 20C2:25A1；見 docs/spec/005 第 10 節的替代路徑")
++	}
++	var dirs []string
++	s := openDiag(t, Options{DiagDir: filepath.Join(t.TempDir(), "crash"), HangSeconds: 3,
++		OnDiag: func(dir, reason string) { dirs = append(dirs, dir) }})
++	entry := cpu.Linear(0x20C2, 0x25A1)
++	s.m.WriteBytes(entry, []byte{0xEB, 0xFE}) // 進入後不返回
++	s.RunSteps(60_000_000 + uint64(5*TickHz*float64(s.interval)))
++	if len(dirs) != 1 {
++		t.Fatalf("OnDiag %d 次，預期 1", len(dirs))
++	}
++	last := lastCall(s)
++	if last.toCS != 0x20C2 || last.toIP != 0x25A1 {
++		t.Fatalf("最後一次呼叫的目標是 %04X:%04X，預期 20C2:25A1", last.toCS, last.toIP)
++	}
++	if last.fromCS != 0x1A8D || last.fromIP != 0x0027 {
++		t.Errorf("呼叫處 %04X:%04X，預期 1A8D:0027（返回位址 1A8D:002C）", last.fromCS, last.fromIP)
++	}
++	b, _ := os.ReadFile(filepath.Join(dirs[0], "info.txt"))
++	for _, want := range []string{"最後一次呼叫的目標", "GMAP.PXS 串流讀取", "20C2:25A1", "1A8D:0027"} {
++		if !strings.Contains(string(b), want) {
++			t.Errorf("info.txt 缺 %q", want)
++		}
++	}
++}
++
++func TestStackOverflowDiagWithGarbageBP(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval, Stklen: 1024})
++	// docs/re/016 的正對照 A：開機後點「新遊戲開始」就溢位（冷啟動停在標題時堆疊還淺）
++	if st, polled := s.RunToPoll(200_000_000); (st != nil && st.Kind != StopSteps) || !polled {
++		t.Fatalf("沒走到標題輪詢點：%v %v", st, polled)
++	}
++	s.RunSteps(s.m.Steps + 3_000_000)
++	s.Input(MouseMoveEvent(312, 171))
++	s.RunSteps(s.m.Steps + 3_000_000)
++	s.Input(MouseButtonEvent(312, 171, 0, true))
++	s.RunSteps(s.m.Steps + 3_000_000)
++	s.Input(MouseButtonEvent(312, 171, 0, false))
++	var st *Stop
++	for i := 0; i < 10 && st == nil; i++ {
++		st = s.RunSteps(s.m.Steps + 20_000_000)
++		if st.Kind == StopSteps {
++			st = nil
++		}
++	}
++	if st == nil || st.Kind != StopStackOverflow {
++		t.Fatalf("-stklen 1024 應報堆疊溢位：%v", st)
++	}
++	dir := filepath.Join(t.TempDir(), "crash")
++	if err := s.CrashDump(dir, st.Msg); err != nil {
++		t.Fatal(err)
++	}
++	b, _ := os.ReadFile(filepath.Join(dir, "info.txt"))
++	hasInfoSections(t, string(b))
++	if !strings.Contains(string(b), "SP＝") {
++		t.Error("沒有堆疊區段")
++	}
++}
++
++func TestDiagWriteFailureDoesNotStopGame(t *testing.T) {
++	base := t.TempDir()
++	ro := filepath.Join(base, "ro")
++	if err := os.Mkdir(ro, 0o555); err != nil {
++		t.Fatal(err)
++	}
++	defer os.Chmod(ro, 0o755)
++	if f, err := os.Create(filepath.Join(ro, "probe")); err == nil {
++		f.Close()
++		t.Skip("唯讀目錄仍可寫（可能以 root 執行）")
++	}
++	var logs []string
++	n := 0
++	s := openDiag(t, Options{DiagDir: filepath.Join(ro, "crash"), Log: func(f string, a ...any) { logs = append(logs, f) },
++		OnDiag: func(string, string) { n++ }})
++	s.RunSteps(1_000_000)
++	s.RequestDiag("x")
++	if st := s.RunSteps(s.m.Steps + 100_000); st.Kind != StopSteps {
++		t.Fatalf("寫檔失敗不該停機：%v", st.Msg)
++	}
++	if n != 0 {
++		t.Error("寫檔失敗時不該通知 OnDiag")
++	}
++	found := false
++	for _, l := range logs {
++		if strings.Contains(l, "診斷寫檔失敗") {
++			found = true
++		}
++	}
++	if !found {
++		t.Errorf("Log 應有一行寫檔失敗：%v", logs)
++	}
++}
++
++func TestPruneDiagDirs(t *testing.T) {
++	base := t.TempDir()
++	mk := func(name string, marker bool) {
++		if err := os.Mkdir(filepath.Join(base, name), 0o755); err != nil {
++			t.Fatal(err)
++		}
++		head := "別的程式的檔案\n"
++		if marker {
++			head = diagMarker + "\n其他\n"
++		}
++		if err := os.WriteFile(filepath.Join(base, name, "info.txt"), []byte(head), 0o644); err != nil {
++			t.Fatal(err)
++		}
++	}
++	names := []string{"20261001-000001-hang", "20261001-000002-hang", "20261001-000003-manual", "20261001-000004-hang", "20261001-000005-hang", "20261001-000006-manual"}
++	for _, n := range names {
++		mk(n, true)
++	}
++	mk("20261001-000000-hang", false)    // 缺標記
++	mk("20260930-235959", true)          // T1 現場（沒有後綴）：不納入清理
++	mk("random-dir", true)               // 名稱不符
++	outside := t.TempDir()
++	if err := os.WriteFile(filepath.Join(outside, "keep.txt"), []byte("x"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Symlink(outside, filepath.Join(base, "20261001-000000-manual")); err != nil { // 符號連結
++		t.Fatal(err)
++	}
++	mk("20261001-000007-hang", true) // 剛寫的一份
++	pruneDiagDirs(base, "20261001-000007-hang", 3, func(string, ...any) {})
++	exists := func(n string) bool { _, err := os.Lstat(filepath.Join(base, n)); return err == nil }
++	for _, gone := range []string{"20261001-000001-hang", "20261001-000002-hang", "20261001-000003-manual", "20261001-000004-hang"} {
++		if exists(gone) {
++			t.Errorf("%s 應被清掉", gone)
++		}
++	}
++	for _, kept := range []string{"20261001-000005-hang", "20261001-000006-manual", "20261001-000007-hang", "20261001-000000-hang", "20260930-235959", "random-dir", "20261001-000000-manual"} {
++		if !exists(kept) {
++			t.Errorf("%s 不該被清掉", kept)
++		}
++	}
++	if _, err := os.Stat(filepath.Join(outside, "keep.txt")); err != nil {
++		t.Error("符號連結指向的外部目錄被動到了")
++	}
++}
++
++func TestRequestDiagConcurrent(t *testing.T) {
++	var n atomic.Int32
++	s := openDiag(t, Options{DiagDir: filepath.Join(t.TempDir(), "crash"), OnDiag: func(string, string) { n.Add(1) },
++		Now: func() time.Time { return time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC) }})
++	var wg sync.WaitGroup
++	stop := make(chan struct{})
++	wg.Add(1)
++	go func() {
++		defer wg.Done()
++		for {
++			select {
++			case <-stop:
++				return
++			default:
++				s.RequestDiag("併發")
++				s.Input(MouseMoveEvent(10, 10))
++				time.Sleep(time.Millisecond)
++			}
++		}
++	}()
++	for i := 0; i < 20; i++ {
++		s.RunSteps(s.m.Steps + 500_000)
++	}
++	close(stop)
++	wg.Wait()
++	if n.Load() == 0 {
++		t.Error("併發的 RequestDiag 一份診斷都沒產生")
++	}
++}
++
++// 穩態的 stepBatch 不配置（取樣期除外）。
++func TestStepBatchSteadyStateNoAllocs(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	s.RunSteps(3_000_000)
++	if a := testing.AllocsPerRun(20, func() { s.stepBatch(2048) }); a != 0 {
++		t.Errorf("穩態 stepBatch 每次配置 %.1f 次，預期 0", a)
++	}
++}
++
++// 密度記錄（docs/spec/005 第 9 節）：不判定，只把冷啟動場景的呼叫與服務中斷密度印出來，收據用。
++func TestCallDensity(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	const steps = 20_000_000
++	s.RunSteps(steps)
++	var ints uint64
++	for _, n := range s.dg.intCount {
++		ints += n
++	}
++	t.Logf("冷啟動 %d 步：服務中斷 %d（每步 %.5f）；呼叫事件（合併後）%d 筆（每步 %.5f）；候選指令進分類 %d 次（每步 %.5f）", steps, ints, float64(ints)/steps, s.dg.callN, float64(s.dg.callN)/steps, s.dg.noteN, float64(s.dg.noteN)/steps)
++}
++
++// dosgolem 內部的 trampoline 不是遊戲碼：StubSeg 的哨兵（CD F9 等）與 EMSSeg 的 CD F6 都不計入服務中斷。
++func TestInternalTrampolinesNotCounted(t *testing.T) {
++	s := openDiag(t, Options{Interval: NativeInterval})
++	for _, seg := range []uint16{machine.StubSeg, machine.EMSSeg} {
++		s.dg.svcSeen = false
++		execAtKeepRegs(t, s, seg, 0x0700, []byte{0x90})
++		s.noteInt(s.m.CPU, 0xF6)
++		if s.dg.intCount[0xF6] != 0 || s.dg.svcSeen {
++			t.Errorf("CS＝%04X 的中斷不該計入", seg)
++		}
++	}
++	// 點「新遊戲開始」進入遊玩之後，遊戲會用 int 67h（EMS）；EMSSeg 內的 CD F6 不得計入
++	s = openDiag(t, Options{Interval: NativeInterval})
++	if st, polled := s.RunToPoll(200_000_000); (st != nil && st.Kind != StopSteps) || !polled {
++		t.Fatalf("沒走到標題輪詢點：%v %v", st, polled)
++	}
++	s.Input(MouseMoveEvent(312, 171))
++	s.RunSteps(s.m.Steps + 3_000_000)
++	s.Input(MouseButtonEvent(312, 171, 0, true))
++	s.RunSteps(s.m.Steps + 3_000_000)
++	s.Input(MouseButtonEvent(312, 171, 0, false))
++	for i := 0; i < 15 && s.dg.intCount[0x67] == 0; i++ {
++		s.RunSteps(s.m.Steps + 10_000_000)
++	}
++	if s.dg.intCount[0x67] == 0 {
++		t.Fatal("遊玩路徑上沒有用到 int 67h，這個測試沒有證明什麼")
++	}
++	t.Logf("int 67h ×%d，int F6h ×%d", s.dg.intCount[0x67], s.dg.intCount[0xF6])
++	if s.dg.intCount[0xF6] != 0 {
++		t.Errorf("int F6h（EMS trampoline）被計入：%d", s.dg.intCount[0xF6])
++	}
++}
++
++// 呼叫計數的獨立交叉檢查（docs/spec/005 第 10 節）：同一個狀態檔、同一個窗口，probe -call-args 的輸出
++// （docs/re/data/017-probe-call-args.txt）是垂直線 1D11:000A 與水平線 1D29:000E 各 10 次。
++// 進入計數以 call 的目標計，probe 以步前 CS:IP 等於入口計，視窗頭尾可能差 1，所以允許 ±1。
++func TestCallCountsMatchProbe(t *testing.T) {
++	p := os.Getenv("HR_SOAK_STATE")
++	if p == "" {
++		t.Skip("沒有設 HR_SOAK_STATE")
++	}
++	if _, err := os.Stat(p); err != nil {
++		t.Skipf("狀態檔不存在：%v", err)
++	}
++	s := openDiag(t, Options{Interval: NativeInterval})
++	if err := state.Load(p, s.m, s.d); err != nil {
++		t.Fatal(err)
++	}
++	if s.m.Steps != 1_500_000_000 {
++		t.Skipf("狀態檔的 Steps ＝ %d，不是 docs/re/009 的 1,500,000,000", s.m.Steps)
++	}
++	if st := s.RunSteps(1_503_000_000); st.Kind != StopSteps {
++		t.Fatalf("停機：%v", st.Msg)
++	}
++	for _, c := range []struct {
++		name string
++		key  uint32
++	}{{"1D11:000A 垂直線", 0x1D11_000A}, {"1D29:000E 水平線", 0x1D29_000E}} {
++		got := s.dg.entryCnt[c.key]
++		if got < 9 || got > 11 {
++			t.Errorf("%s：進入計數 %d，probe -call-args 是 10 次（±1）", c.name, got)
++		}
++		t.Logf("%s：進入計數 %d（probe：10）", c.name, got)
++	}
++}
+diff --git a/apps/hr/runtime/overhead_test.go b/apps/hr/runtime/overhead_test.go
+new file mode 100644
+index 0000000..07d4062
+--- /dev/null
++++ b/apps/hr/runtime/overhead_test.go
+@@ -0,0 +1,109 @@
++package runtime
++
++import (
++	"os"
++	"sort"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// 診斷熱迴圈成本的成對量測（docs/spec/005 第 9 節）：同一個行程內，診斷開（前端的 Options）與 NoDiag 兩個 Session
++// 從同一個狀態出發，交錯各跑一塊固定步數，量使用者 CPU 時間，取 150 對的修剪平均（成對比值，去掉兩端各 20%）。
++// 跨執行檔的 A/B（tools/bench.sh）在負載高的主機上雜訊可達 2 倍，成對、交錯、同行程才擋得住 5% 的退化。
++// HR_BENCH_OVERHEAD=1 才執行；HR_BENCH_STATE 指定戰鬥佈陣前的狀態檔（缺檔就 skip 戰鬥場景）。
++
++type overheadScenario struct {
++	name  string
++	hd    bool
++	state string
++	click bool
++}
++
++func startSession(t *testing.T, sc overheadScenario, noDiag bool) *Session {
++	t.Helper()
++	opt := Options{Interval: NativeInterval, NoDiag: noDiag, HDHooks: sc.hd}
++	if !noDiag {
++		opt.HangSeconds, opt.DiagDir = 30, t.TempDir()
++	}
++	s := openDiag(t, opt)
++	if sc.state != "" {
++		if err := state.Load(sc.state, s.m, s.d); err != nil {
++			t.Fatal(err)
++		}
++	}
++	if sc.click {
++		s.Input(MouseMoveEvent(16, 56))
++		s.RunSteps(s.m.Steps + 1_000_000)
++		s.Input(MouseButtonEvent(16, 56, 0, true))
++		s.RunSteps(s.m.Steps + 17_000_000)
++		s.Input(MouseButtonEvent(16, 56, 0, false))
++	}
++	return s
++}
++
++func TestDiagOverheadPaired(t *testing.T) {
++	if os.Getenv("HR_BENCH_OVERHEAD") == "" {
++		t.Skip("沒有設 HR_BENCH_OVERHEAD")
++	}
++	scs := []overheadScenario{{name: "cold"}, {name: "cold-hdhooks", hd: true}}
++	if p := os.Getenv("HR_BENCH_STATE"); p != "" {
++		if _, err := os.Stat(p); err == nil {
++			scs = append(scs, overheadScenario{name: "battle", state: p, click: true}, overheadScenario{name: "battle-hdhooks", hd: true, state: p, click: true})
++		}
++	}
++	const pairs, chunk = 150, 1_000_000
++	for _, sc := range scs {
++		on, off := startSession(t, sc, false), startSession(t, sc, true)
++		var ratios []float64
++		for i := 0; i < pairs; i++ {
++			a, b := on, off
++			if i%2 == 1 { // 交換先後，抵消順序效應
++				a, b = off, on
++			}
++			t0 := userNanos()
++			a.RunSteps(a.m.Steps + chunk)
++			t1 := userNanos()
++			b.RunSteps(b.m.Steps + chunk)
++			t2 := userNanos()
++			tOn, tOff := t1-t0, t2-t1
++			if i%2 == 1 {
++				tOn, tOff = t2-t1, t1-t0
++			}
++			if tOn > 0 && tOff > 0 {
++				ratios = append(ratios, tOn/tOff)
++			}
++		}
++		sort.Float64s(ratios)
++		// 每塊約 0.1 秒，相鄰兩塊吃到的主機負載相近；對 150 對取修剪平均（去掉兩端各 20%）與標準誤，
++		// 比單看一塊的時間比穩得多。
++		lo, hi := len(ratios)/5, len(ratios)-len(ratios)/5
++		trim := ratios[lo:hi]
++		var sum, sq float64
++		for _, r := range trim {
++			sum += r
++		}
++		mean := sum / float64(len(trim))
++		for _, r := range trim {
++			sq += (r - mean) * (r - mean)
++		}
++		se := (sq / float64(len(trim)-1) / float64(len(trim))) // 變異數的估計，開根號在下面
++		se = sqrtF(se)
++		t.Logf("%-15s 診斷開 ÷ NoDiag：修剪平均 %.3f ± %.3f（標準誤），中位數 %.3f，範圍 %.3f 至 %.3f（%d 對，每塊 %d 步）",
++			sc.name, mean, se, ratios[len(ratios)/2], ratios[0], ratios[len(ratios)-1], len(ratios), chunk)
++		if mean > 1.05 {
++			t.Errorf("%s：修剪平均 %.3f 超過閘門 1.05", sc.name, mean)
++		}
++	}
++}
++
++func sqrtF(x float64) float64 { // 牛頓法，免得為了一個平方根多 import math
++	if x <= 0 {
++		return 0
++	}
++	z := x
++	for i := 0; i < 40; i++ {
++		z = (z + x/z) / 2
++	}
++	return z
++}
+diff --git a/apps/hr/runtime/ovrtab.go b/apps/hr/runtime/ovrtab.go
+new file mode 100644
+index 0000000..007a7a5
+--- /dev/null
++++ b/apps/hr/runtime/ovrtab.go
+@@ -0,0 +1,155 @@
++// 本檔由 tools/gen_ovr_table.py 產生，不要手改（docs/spec/005 第 5.1 節）。
++// 來源：MAIN.EXE（SHA-256 08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e）的 overlays.json（docs/re/007）。
++// 只含版面中繼資料：stub 執行期段、overlay 編號、IDA 載入段。
++
++package runtime
++
++// ovrStub 是一個 overlay 的 stub 執行期段與它在 IDA 內的載入段。
++type ovrStub struct {
++	StubSeg uint16 // stub 的執行期段（stub_seg_dosgolem）
++	Idx     uint16 // overlay 編號（IDA 的 ovrNNN）
++	LoadSeg uint16 // IDA 內的載入段（偏移不變）
++}
++
++// ovrStubs 依 StubSeg 遞增排列，共 139 筆。
++var ovrStubs = [...]ovrStub{
++	{0x5206, 252, 0x63B8},
++	{0x5209, 253, 0x63BF},
++	{0x520C, 254, 0x63C6},
++	{0x520F, 255, 0x63CD},
++	{0x5212, 256, 0x63D4},
++	{0x5215, 257, 0x63DB},
++	{0x5218, 258, 0x63E2},
++	{0x521B, 259, 0x63E9},
++	{0x521E, 260, 0x63F0},
++	{0x5221, 261, 0x63F7},
++	{0x5224, 262, 0x63FE},
++	{0x5227, 263, 0x6405},
++	{0x522A, 264, 0x640C},
++	{0x522D, 265, 0x6413},
++	{0x5230, 266, 0x641A},
++	{0x5233, 267, 0x6421},
++	{0x5236, 268, 0x6428},
++	{0x5239, 269, 0x642F},
++	{0x523C, 270, 0x6436},
++	{0x523F, 271, 0x643D},
++	{0x5242, 272, 0x6444},
++	{0x5245, 273, 0x644B},
++	{0x5248, 274, 0x6452},
++	{0x524B, 275, 0x6459},
++	{0x524E, 276, 0x6461},
++	{0x5251, 277, 0x6468},
++	{0x5254, 278, 0x646F},
++	{0x5257, 279, 0x6477},
++	{0x525A, 280, 0x647E},
++	{0x525D, 281, 0x6485},
++	{0x5260, 282, 0x648C},
++	{0x5263, 283, 0x6493},
++	{0x5266, 284, 0x6499},
++	{0x5269, 285, 0x64A0},
++	{0x526C, 286, 0x64A7},
++	{0x526F, 287, 0x64AE},
++	{0x5272, 288, 0x64B5},
++	{0x5275, 289, 0x64BC},
++	{0x5278, 290, 0x64C3},
++	{0x527B, 291, 0x64C9},
++	{0x527E, 292, 0x64CF},
++	{0x5281, 293, 0x64D5},
++	{0x5284, 294, 0x64DB},
++	{0x5287, 295, 0x64E1},
++	{0x528A, 296, 0x64E8},
++	{0x528D, 297, 0x651D},
++	{0x5290, 298, 0x6523},
++	{0x5293, 299, 0x6529},
++	{0x5296, 300, 0x652F},
++	{0x5299, 301, 0x6536},
++	{0x529C, 302, 0x653C},
++	{0x529F, 303, 0x6542},
++	{0x52A2, 304, 0x6548},
++	{0x52A5, 305, 0x654E},
++	{0x52A8, 306, 0x6554},
++	{0x52AB, 307, 0x655A},
++	{0x52AE, 308, 0x6560},
++	{0x52B1, 309, 0x6566},
++	{0x52B4, 310, 0x656D},
++	{0x52B7, 311, 0x6573},
++	{0x52BA, 312, 0x6579},
++	{0x52BD, 313, 0x657F},
++	{0x52C0, 314, 0x6585},
++	{0x52C3, 315, 0x658B},
++	{0x52C6, 316, 0x6591},
++	{0x52C9, 317, 0x6597},
++	{0x52CC, 318, 0x659F},
++	{0x52CF, 319, 0x65A5},
++	{0x52D2, 320, 0x65AB},
++	{0x52D5, 321, 0x65B1},
++	{0x52D8, 322, 0x65B7},
++	{0x52DB, 323, 0x65BD},
++	{0x52DE, 324, 0x65C3},
++	{0x52E1, 325, 0x65C9},
++	{0x52E4, 326, 0x65D0},
++	{0x52E7, 327, 0x65D6},
++	{0x52EA, 328, 0x65DC},
++	{0x52ED, 329, 0x65E2},
++	{0x52F0, 330, 0x65E8},
++	{0x52F3, 331, 0x65EE},
++	{0x52F6, 332, 0x65F4},
++	{0x52F9, 333, 0x65FA},
++	{0x52FC, 334, 0x6601},
++	{0x52FF, 335, 0x6608},
++	{0x5302, 336, 0x660E},
++	{0x5305, 337, 0x6614},
++	{0x5308, 338, 0x661A},
++	{0x530B, 339, 0x6620},
++	{0x530E, 340, 0x6626},
++	{0x5311, 341, 0x662C},
++	{0x5314, 342, 0x6632},
++	{0x5317, 343, 0x6638},
++	{0x531A, 344, 0x663F},
++	{0x531D, 345, 0x6645},
++	{0x5320, 346, 0x664B},
++	{0x5323, 347, 0x6651},
++	{0x5326, 348, 0x6657},
++	{0x5329, 349, 0x665E},
++	{0x532C, 350, 0x6664},
++	{0x532F, 351, 0x666A},
++	{0x5332, 352, 0x666D},
++	{0x5335, 353, 0x6670},
++	{0x5338, 354, 0x6673},
++	{0x533B, 355, 0x6676},
++	{0x533E, 356, 0x6679},
++	{0x5341, 357, 0x667C},
++	{0x5344, 358, 0x667F},
++	{0x5347, 359, 0x6682},
++	{0x534A, 360, 0x6685},
++	{0x534D, 361, 0x6688},
++	{0x5350, 362, 0x668B},
++	{0x5353, 363, 0x668E},
++	{0x5356, 364, 0x6691},
++	{0x5359, 365, 0x6694},
++	{0x535C, 366, 0x6697},
++	{0x535F, 367, 0x669A},
++	{0x5362, 368, 0x669D},
++	{0x5366, 369, 0x6761},
++	{0x536C, 370, 0x68AA},
++	{0x5374, 371, 0x6B28},
++	{0x537B, 372, 0x6C1E},
++	{0x537E, 373, 0x6DB5},
++	{0x5382, 374, 0x6EE9},
++	{0x539A, 375, 0x749C},
++	{0x53B2, 376, 0x76B6},
++	{0x53B5, 377, 0x7718},
++	{0x53C0, 378, 0x7AC4},
++	{0x53C4, 379, 0x7B3A},
++	{0x53CE, 380, 0x7D37},
++	{0x53D7, 381, 0x7E76},
++	{0x53D9, 382, 0x7E77},
++	{0x53DF, 383, 0x7F94},
++	{0x53E3, 384, 0x80F0},
++	{0x53EA, 385, 0x82F6},
++	{0x53ED, 386, 0x8334},
++	{0x53F0, 387, 0x83C9},
++	{0x53F8, 388, 0x86D1},
++	{0x53FC, 389, 0x87C1},
++	{0x5400, 390, 0x88A1},
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index dc66927..250a695 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -50,6 +50,16 @@ type Options struct {
+ 	// Stklen 覆寫補丁寫入的 `_stklen`（0 ＝ patch.StklenPatched）。偵測器的正對照用：
+ 	// 把堆疊縮到 1024 讓已知會溢位的遊玩觸發停機，證明溢位偵測與現場存檔會動。
+ 	Stklen uint16
++	// DiagDir 是 T2、T3 診斷的根目錄（docs/spec/005）；空 ＝ 不寫檔。
++	DiagDir string
++	// HangSeconds 是 T2 的門檻（遊戲秒當量，沒有遊戲碼服務中斷）；0 ＝ 關閉。
++	HangSeconds float64
++	// OnDiag 在 T2、T3 診斷寫好之後於持有機器的 goroutine 內呼叫：不得阻塞，不得呼叫 Run、RunSteps、RunToPoll、CrashDump。
++	OnDiag func(dir, reason string)
++	// NoDiag 僅供對照與基準：不包 IntHook、不分類呼叫、T2 與 T3 失效。
++	NoDiag bool
++	// Now 是目錄名與 T3 間隔用的時鐘；nil ＝ time.Now。
++	Now func() time.Time
+ 	// HostClock 讓 DOS 日期與時間取主機時鐘（存檔列才有真的日期）；預設維持固定值（決定性）。
+ 	HostClock bool
+ 	// Verify 對必要檔案做完整 SHA-256 驗證（預設只驗存在與大小）。
+@@ -127,6 +137,9 @@ type Stats struct {
+ 	StackTop   uint16
+ 	Interval   uint64 // 目前的間隔（分頻 65536 時每個 tick 幾道指令）
+ 	Lowered    bool   // 是否曾因跑不到 18.2 Hz 降低間隔
++	// HangEvals 與 HangMaxSilentSec 是 T2 的評估次數與本 Session 最長的靜默（遊戲秒當量），長跑用來證明偵測器在線。
++	HangEvals        uint64
++	HangMaxSilentSec float64
+ }
+ 
+ // EventKind 是輸入事件種類。
+@@ -189,6 +202,11 @@ type Session struct {
+ 
+ 	// recent 是最近的輸入事件（停機現場用，最多 recentMax 筆）。
+ 	recent []Event
++
++	// 診斷（docs/spec/005）
++	dg     diagState
++	noDiag bool
++	cls    *[256]uint8 // 執行後要不要分類的位元組表：opClass（候選指令）、取樣期間 allClass、NoDiag 時 zeroClass
+ }
+ 
+ // Open 驗證原版、載入 MAIN.EXE、套用補丁並安裝 DOS 服務。
+@@ -226,6 +244,8 @@ func Open(root string, opt Options) (*Session, error) {
+ 	}
+ 	s.d = dos.New(s.m, root)
+ 	s.d.Install()
++	s.noDiag = opt.NoDiag
++	s.initDiag()
+ 	if opt.SaveDir != "" {
+ 		if err := os.MkdirAll(opt.SaveDir, 0o755); err != nil {
+ 			return nil, err
+@@ -361,15 +381,22 @@ func (s *Session) stepBatch(n int) *Stop {
+ 				s.minSP = sp
+ 			}
+ 		}
+-		if a := cpu.Linear(c.Seg[cpu.CS], c.IP); a >= machine.VideoSeg*16 && a < machine.MemSize {
++		a := cpu.Linear(c.Seg[cpu.CS], c.IP)
++		if a >= machine.VideoSeg*16 && a < machine.MemSize {
+ 			return &Stop{Kind: StopOutOfRange, Msg: fmt.Sprintf("跑出可用記憶體：CS:IP ＝ %04X:%04X", c.Seg[cpu.CS], c.IP)}
+ 		}
++		// docs/spec/005 第 4.2 節：執行前順手讀起點位元組（a 本來就算好了，遮成 20 位元只為免去邊界檢查）。
++		// 只有候選指令（呼叫與前綴；取樣期間全部）才在執行後用 CPU.Op() 取得本道指令並分類。
++		b0 := m.Mem[a&(machine.MemSize-1)]
+ 		if ov != nil {
+ 			ov.Pre(m)
+ 		}
+ 		if err := m.Step(); err != nil {
+ 			return &Stop{Kind: StopCPUError, Msg: "CPU 錯誤：" + err.Error()}
+ 		}
++		if k := s.cls[b0]; k == clsCall || k == clsAll || (k == clsPrefix && s.cls[m.Mem[(a+1)&(machine.MemSize-1)]] == clsCall) {
++			s.noteCall()
++		}
+ 		if ov != nil && ov.Pending() > 0 {
+ 			ov.Post(m)
+ 		}
+@@ -420,9 +447,13 @@ func (s *Session) afterBatch(force bool) {
+ 		s.totalPolls += TrimDiagnostics(m, d)
+ 		s.lastPolls = 0
+ 	}
++	if !s.noDiag {
++		s.diagAfterBatch(force)
++	}
+ 	st := Stats{
+ 		Steps: m.Steps, Ticks: m.Ticks, SimSeconds: float64(m.Ticks) / TickHz,
+ 		DOS: d.Stats(), MinSP: s.minSP, StackTop: s.stackTop, Interval: s.interval, Lowered: s.lowered,
++		HangEvals: s.dg.evals, HangMaxSilentSec: s.dg.maxSilent,
+ 	}
+ 	s.mu.Lock()
+ 	s.stats = st
+-- 
+2.43.0
+

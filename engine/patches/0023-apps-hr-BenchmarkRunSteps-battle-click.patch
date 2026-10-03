@@ -1,0 +1,97 @@
+From 794e5961605835ac7b4e42e908b03308cbaed601 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 19:28:59 +0800
+Subject: [PATCH 23/24] =?UTF-8?q?apps/hr/runtime:=20BenchmarkRunSteps=20?=
+ =?UTF-8?q?=E7=9A=84=E6=88=B0=E9=AC=A5=E5=A0=B4=E6=99=AF=E5=8A=A0=E5=85=A5?=
+ =?UTF-8?q?=E9=BB=9E=E6=93=8A=E4=B8=A6=E8=A3=9C=20HDHooks=20=E7=B5=84?=
+ =?UTF-8?q?=EF=BC=88docs/spec/005=20=E7=AC=AC=209=20=E7=AF=80=E7=9A=84=20A?=
+ =?UTF-8?q?=20=E7=89=88=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+審查指出 battle 場景載入狀態檔後沒有注入 docs/re/014 第 54 列的點擊，量到的是點擊前的畫面。
+改為載入後點 (16,56)、先跑 18,000,000 步進入戰鬥佈陣，再計量 10^8 步；cold 與 battle 各加 HDHooks 組。
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/runtime/bench_test.go | 46 +++++++++++++++++++++++------------
+ 1 file changed, 31 insertions(+), 15 deletions(-)
+
+diff --git a/apps/hr/runtime/bench_test.go b/apps/hr/runtime/bench_test.go
+index b151073..0905387 100644
+--- a/apps/hr/runtime/bench_test.go
++++ b/apps/hr/runtime/bench_test.go
+@@ -18,7 +18,9 @@ func userNanos() float64 {
+ 	return float64(ru.Utime.Nano())
+ }
+ 
+-func benchSteps(b *testing.B, opt Options, state0 string, steps uint64) {
++// benchSteps 計量 measure 步。stateFile 非空時先載入狀態檔；click 為真時在載入後點 (16,56)（docs/re/014 第 54 列的
++// 戰鬥佈陣入口）並先跑 18,000,000 步進入戰鬥佈陣，這段不計量。
++func benchSteps(b *testing.B, opt Options, stateFile string, click bool, measure uint64) {
+ 	root := origRoot(b)
+ 	opt.NoPacing = true
+ 	var user float64
+@@ -28,12 +30,19 @@ func benchSteps(b *testing.B, opt Options, state0 string, steps uint64) {
+ 		if err != nil {
+ 			b.Fatal(err)
+ 		}
+-		if state0 != "" {
+-			if err := state.Load(state0, s.m, s.d); err != nil {
++		if stateFile != "" {
++			if err := state.Load(stateFile, s.m, s.d); err != nil {
+ 				b.Fatal(err)
+ 			}
+ 		}
+-		target := s.m.Steps + steps
++		if click {
++			s.Input(MouseMoveEvent(16, 56))
++			s.RunSteps(s.m.Steps + 1_000_000)
++			s.Input(MouseButtonEvent(16, 56, 0, true))
++			s.RunSteps(s.m.Steps + 17_000_000)
++			s.Input(MouseButtonEvent(16, 56, 0, false))
++		}
++		target := s.m.Steps + measure
+ 		b.StartTimer()
+ 		u0 := userNanos()
+ 		s.RunSteps(target)
+@@ -43,17 +52,24 @@ func benchSteps(b *testing.B, opt Options, state0 string, steps uint64) {
+ 	b.ReportMetric(user/float64(b.N), "user-ns/op")
+ }
+ 
++func benchState(b *testing.B) string {
++	p := os.Getenv("HR_BENCH_STATE")
++	if p == "" {
++		b.Skip("沒有設 HR_BENCH_STATE（戰鬥佈陣前的狀態檔）")
++	}
++	if _, err := os.Stat(p); err != nil {
++		b.Skipf("狀態檔不存在：%v", err)
++	}
++	return p
++}
++
+ func BenchmarkRunSteps(b *testing.B) {
+-	b.Run("cold", func(b *testing.B) { benchSteps(b, Options{Interval: NativeInterval}, "", 200_000_000) })
+-	b.Run("cold-hdhooks", func(b *testing.B) { benchSteps(b, Options{Interval: NativeInterval, HDHooks: true}, "", 200_000_000) })
+-	b.Run("battle-state", func(b *testing.B) {
+-		p := os.Getenv("HR_BENCH_STATE")
+-		if p == "" {
+-			b.Skip("沒有設 HR_BENCH_STATE（戰鬥佈陣狀態檔）")
+-		}
+-		if _, err := os.Stat(p); err != nil {
+-			b.Skipf("狀態檔不存在：%v", err)
+-		}
+-		benchSteps(b, Options{Interval: NativeInterval}, p, 100_000_000)
++	b.Run("cold", func(b *testing.B) { benchSteps(b, Options{Interval: NativeInterval}, "", false, 200_000_000) })
++	b.Run("cold-hdhooks", func(b *testing.B) { benchSteps(b, Options{Interval: NativeInterval, HDHooks: true}, "", false, 200_000_000) })
++	b.Run("battle", func(b *testing.B) {
++		benchSteps(b, Options{Interval: NativeInterval}, benchState(b), true, 100_000_000)
++	})
++	b.Run("battle-hdhooks", func(b *testing.B) {
++		benchSteps(b, Options{Interval: NativeInterval, HDHooks: true}, benchState(b), true, 100_000_000)
+ 	})
+ }
+-- 
+2.43.0
+

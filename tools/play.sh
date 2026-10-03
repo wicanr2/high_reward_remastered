@@ -3,6 +3,8 @@
 #
 #   tools/play.sh build            建 Linux amd64 執行檔到 workplace/out/bin/hr-play
 #   tools/play.sh test             跑 apps/hr 的測試（含 runtime、patch；原版以 /orig/orig 唯讀掛入）
+#   tools/play.sh test-play        前端（apps/hr/play）的測試
+#   tools/play.sh test-diag        docs/spec/005 的診斷測試（HR_TEST_RUN 指定樣式，HR_RACE=1 加 -race）
 #   tools/play.sh smoke            不開視窗（hr-smoke）重現 docs/re/008 的收據 A、B，輸出 workplace/out/smoke-{a,b}.png 與其 SHA-256
 #   tools/play.sh gui              Xvfb 內啟動視窗、xdotool 點標題選單的新遊戲、截圖（workplace/out/gui-*.png）
 #   tools/play.sh gui-error        找不到原版時的錯誤視窗（workplace/out/gui-error.png）
@@ -18,12 +20,13 @@ test -d "$DG/apps/hr/play" || { echo "缺 workplace/dosgolem/apps/hr/play" >&2; 
 test -d "$ROOT/workplace/orig" || { echo "缺 workplace/orig" >&2; exit 1; }
 mkdir -p "$OUT/bin" "$ROOT/workplace/gocache"
 CMD="${1:-}"
+EXTRA=()
 run() { # $1 = 容器內的 sh 指令
   timeout "${HR_PLAY_TIMEOUT:-20m}" docker run --rm --network none \
     --memory "${HR_PLAY_MEM:-4g}" --cpus "${HR_PLAY_CPUS:-2}" --pids-limit 512 \
     --log-opt max-size=10m --log-opt max-file=3 \
     -u "$(id -u):$(id -g)" \
-    -v "$DG:/src" -v "$OUT:/out" -v "$ROOT/workplace/orig:/orig/orig:ro" -v "$ROOT/workplace/gocache:/gocache" \
+    -v "$DG:/src" -v "$OUT:/out" -v "$ROOT/workplace/orig:/orig/orig:ro" -v "$ROOT/workplace/gocache:/gocache" "${EXTRA[@]}" \
     -e HOME=/tmp -e GOCACHE=/gocache -e GOFLAGS=-mod=mod -e GOPROXY=off -e GOSUMDB=off -e CGO_ENABLED="${HR_CGO:-1}" \
     -e HR_VERSION="${HR_VERSION:-dev}" \
     -w /src "$IMAGE" sh -c "$1"
@@ -33,6 +36,17 @@ case "$CMD" in
     run 'cd apps/hr/play && go build -ldflags "-s -w -X main.version=$HR_VERSION" -o /out/bin/hr-play . && ls -la /out/bin/hr-play' ;;
   test)
     run 'cd /src && GOFLAGS=-mod=mod go test -count=1 ./apps/hr/patch/ ./apps/hr/runtime/' ;;
+  test-diag)
+    # docs/spec/005 的診斷測試。狀態檔場景：戰鬥佈陣前的狀態檔（HR_BENCH_STATE）與 docs/re/009 的取樣狀態檔（HR_SOAK_STATE），
+    # 缺檔就 skip。HR_TEST_RUN 指定 -run 樣式，HR_RACE=1 加 -race（需 cgo）。
+    SN="$OUT/explore2/nodes"; SK="$OUT/soak-s0"
+    test -f "$SN/n00071.state" && EXTRA+=(-v "$SN:/state/explore:ro" -e HR_BENCH_STATE=/state/explore/n00071.state)
+    test -f "$SK/ck-001500000000.state" && EXTRA+=(-v "$SK:/state/soak:ro" -e HR_SOAK_STATE=/state/soak/ck-001500000000.state)
+    [ -n "${HR_BENCH_OVERHEAD:-}" ] && EXTRA+=(-e HR_BENCH_OVERHEAD=1)
+    run "cd /src && GOFLAGS=-mod=mod go test -count=1 ${HR_RACE:+-race} -run '${HR_TEST_RUN:-.}' -v ./apps/hr/runtime/ 2>&1 | grep -E '^(=== RUN|--- |PASS|FAIL|ok|panic|\\s+[a-z_]+\\.go:[0-9]+:)' | grep -v '=== RUN'" ;;
+  test-play)
+    # 前端（apps/hr/play，獨立模組）的測試：保留鍵、診斷目錄顯示等純函式
+    run 'set -e; mkdir -p /tmp/.X11-unix; Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 & XPID=$!; sleep 2; export DISPLAY=:99; cd apps/hr/play; go vet ./...; go test -count=1 ./...; kill $XPID 2>/dev/null || true' ;;
   smoke)
     run 'cd /src && go run ./apps/hr/cmd/hr-smoke -orig /orig/orig -steps 30000000 -png /out/smoke-a.png && go run ./apps/hr/cmd/hr-smoke -orig /orig/orig -steps 90000000 -click 35000000:312:211 -png /out/smoke-b.png' ;;
   gui)
