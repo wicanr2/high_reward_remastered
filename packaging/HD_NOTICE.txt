@@ -1,0 +1,28 @@
+HD 素材說明
+===========
+
+本資料夾的 PNG 是以原版《高報酬戰將》的美術為輸入，用演算法（art_lib v2：週期抖色偵測、
+雙邊濾波、模式搜尋上採樣）放大 2 倍並去除抖色後產生的衍生物。原版美術屬於各自的權利人，
+權利人尚未查證；這些衍生圖不屬於 RRSAL-1.0 涵蓋的「本作品」（LICENSE 第 1 條 (a)），
+也沒有取得原版權利人的散布授權。
+
+本包只供使用者私人流通與驗收，不得公開散布、上傳或商用。
+
+內容
+----
+catalog.tsv      清冊：以解碼後像素內容的 SHA-256 為鍵，記錄每張圖的 id、尺寸、調色盤與 HD 圖路徑
+palettes.tsv     參考調色盤（HD 圖的顏色以它為基準，遊戲淡入淡出時依它縮放）
+provenance.tsv   逐張的處理者、工具、日期與狀態（目前全部是 candidate：合成圖已看過，逐張尚未驗收）
+x2/              HD PNG（遊戲區 640x400 的 2 倍座標，不改任何遊戲邏輯）
+
+使用
+----
+程式找到這個 hd 資料夾就自動啟用 HD 疊層；想看原版畫面：hr-play -no-hd，或刪除 hd 資料夾。
+沒有 HD 圖的位置顯示原版畫面。
+
+English
+-------
+The PNG files here are derivatives of the original game's artwork (2x algorithmic upscale and
+de-dithering). The original artwork belongs to its respective rights holders, who have not been
+identified. These derivatives are not covered by RRSAL-1.0 and are not licensed for distribution.
+This package is for private circulation and review only. Do not publish, upload or use commercially.

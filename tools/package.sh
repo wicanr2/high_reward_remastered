@@ -18,10 +18,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 TARGET="${1:-all}"
 DG="workplace/dosgolem"
+WITH_HD="${HR_WITH_HD:-0}"   # 1 ＝ 把 hd/ 放進包內（含原版美術的衍生物，只供私人流通）
 HRV="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 DGV="$(git -C "$DG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 VER="${HR_VERSION:-$HRV-dg$DGV}"
+if [ "$WITH_HD" = 1 ]; then VER="$VER-hd"; fi
 DIST="dist-all"
+if [ "$WITH_HD" = 1 ]; then DIST="dist-all/with-hd"; fi
 STAGE="workplace/pkg-stage"
 GO_IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"
 MAC_IMAGE="${HR_MAC_IMAGE:-psychicwar-osxcross:latest}"
@@ -76,9 +79,20 @@ make_notices() { # $1 輸出檔
 stage_common() { # $1 目的目錄
   mkdir -p "$1/original"
   cp packaging/README.dist.txt "$1/README.txt"
+  if [ "$WITH_HD" = 1 ]; then cat packaging/README.hd.txt >> "$1/README.txt"; fi
   cp LICENSE "$1/LICENSE"
   cp packaging/PUT_ORIGINAL_FILES_HERE.txt "$1/original/PUT_ORIGINAL_FILES_HERE.txt"
   make_notices "$1/THIRD_PARTY_NOTICES.txt"
+}
+
+stage_hd() { # $1 包內放 hd 的位置（HR_WITH_HD=1 才做）
+  [ "$WITH_HD" = 1 ] || return 0
+  test -f hd/catalog.tsv && test -f hd/palettes.tsv && test -f hd/provenance.tsv && test -d hd/x2 || { echo "HR_WITH_HD=1 需要 hd/catalog.tsv、palettes.tsv、provenance.tsv 與 x2/" >&2; exit 1; }
+  mkdir -p "$1/hd"
+  cp hd/catalog.tsv hd/palettes.tsv hd/provenance.tsv "$1/hd/"
+  cp -r hd/x2 "$1/hd/x2"
+  cp packaging/HD_NOTICE.txt "$1/hd/NOTICE.txt"
+  echo "[package] 含 HD 素材：$(find "$1/hd/x2" -name '*.png' | wc -l) 張（$1/hd）"
 }
 
 leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
@@ -107,6 +121,7 @@ do_appimage() {
   go_build linux 1 /out/pkg-hr-play-linux ""
   cp workplace/out/pkg-hr-play-linux "$app/usr/bin/hr-play"; chmod +x "$app/usr/bin/hr-play"
   stage_common "$app/usr/bin"
+  stage_hd "$app/usr/bin"
   icons "$STAGE/icons"
   cp "$STAGE/icons/icon_256.png" "$app/hr-play.png"
   cat > "$app/AppRun" <<'SH'
@@ -144,6 +159,7 @@ do_windows() {
   go_build windows 0 /out/pkg-hr-play.exe "-H=windowsgui"
   cp workplace/out/pkg-hr-play.exe "$dir/hr-play.exe"
   stage_common "$dir"
+  stage_hd "$dir"
   leak_scan "$dir"
   keep_latest "$DIST/HighReward-*-win64.zip" "$out"
   rm -f "$out"
@@ -164,6 +180,7 @@ do_macos() {
     drun "$GO_IMAGE" -v "$ROOT/workplace/gomodcache:/dst" -- sh -c 'cp -a /go/pkg/mod/. /dst/'
   fi
   stage_common "$app/Contents/Resources"
+  stage_hd "$app/Contents/Resources"
   icons "$STAGE/mac-icons"
   tools/pkg/py.sh icns.py "/w/${STAGE#workplace/}/mac-icons" "/w/${STAGE#workplace/}/mac/HighReward.app/Contents/Resources/hr-play.icns" >/dev/null
   drun "$MAC_IMAGE" -e HOME=/tmp -e "HR_VER=$VER" -e "HR_MIN=$min" -e HR_OUT=/src-out/hr-play-mac \

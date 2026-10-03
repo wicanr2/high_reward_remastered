@@ -181,7 +181,7 @@ M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。
 
 - 入口是單一腳本 `tools/package.sh [all|appimage|windows|macos]`，全部在 Docker 內，任何一步失敗即非零結束。版本字串取自 `git describe --tags --always --dirty` 加 dosgolem 分支的 commit；發行用的包要在乾淨工作樹上建（版本字串不含 `dirty`）。
 - Linux 是 AppImage（`tools/pkg/verify_appimage.sh` 在 Xvfb 內啟動並點新遊戲）。Windows 是 `CGO_ENABLED=0` 交叉編譯的 zip，以 Wine 驗收（Wine 與軟體繪圖下很慢，只驗證能啟動並顯示標題）。macOS 以 osxcross 建 arm64 與 x86_64，`lipo` 合成 universal `.app`，未簽章，只驗結構（`tools/pkg/verify_macos.sh`），沒有實機測試。
-- 發行包不含原版素材。原版放在程式旁的方式與第一次啟動的雜湊核對，在 M7 的規格定案。是否含 HD 素材見第 2 節。
+- 發行包不含原版素材。原版放在程式旁的方式與第一次啟動的雜湊核對，在 M7 的規格定案。是否含 HD 素材見第 2 節：`HR_WITH_HD=1 tools/package.sh` 把 `hd/` 放進包內（AppImage 的 `usr/bin/hd`、Windows zip 的 `hd/`、macOS 的 `Contents/Resources/hd`），產物放 `dist-all/with-hd/`，版本字串加 `-hd`，包內附 `hd/NOTICE.txt` 與 README 的 HD 段；這種包含原版美術的衍生物，只供私人流通。
 - `LICENSE` 要出現在每個發行包、發行根目錄與 AppImage 的 `usr/share/doc/`。
 - 外洩掃描：以原版檔案雜湊與檔名比對整個包，命中即失敗並刪除產物。
 - 驗收實際打包的產物，在它自己的執行環境：解開 AppImage 或 zip，在唯讀 cwd 與相對路徑下冷開機，存檔寫到使用者可寫的目錄。
