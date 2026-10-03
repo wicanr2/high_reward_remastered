@@ -132,6 +132,7 @@ macOS 版沒有簽章，首次開啟請右鍵選「打開」。
 | `HR_WITH_HD=1 tools/package.sh all` | 同上，包內含 `hd/`，產物在 `dist-all/with-hd/` |
 | `tools/bot.sh run <名稱>` | 執行遊玩機器人；`-hang-routine SEG:OFF` 模擬某個 routine 進入後不返回 |
 | `tools/play.sh test-diag` | 診斷功能的測試 |
+| `tools/play.sh gui-diag` | Xvfb 內啟動視窗、按 Ctrl+D，確認診斷產生 |
 
 原版缺失時，依賴它的測試會明確 skip，不使用替代品。
 

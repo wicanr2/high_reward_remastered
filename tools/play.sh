@@ -73,6 +73,36 @@ case "$CMD" in
       kill $PID 2>/dev/null || true
       kill $XPID 2>/dev/null || true
       tail -5 /tmp/play.log' ;;
+  gui-diag)
+    # docs/spec/005 第 8 節：Xvfb 內啟動視窗、點新遊戲、按 Ctrl+D，確認使用者資料目錄的 crash/ 出現 -manual 診斷
+    run 'set -e
+      cd apps/hr/play
+      go build -o /out/bin/hr-play .
+      mkdir -p /tmp/.X11-unix
+      Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 &
+      XPID=$!
+      sleep 2
+      export DISPLAY=:99
+      /out/bin/hr-play -orig /orig/orig -saves /out/gui-saves -scale 2 >/tmp/play.log 2>&1 &
+      PID=$!
+      sleep 15
+      xdotool mousemove 640 342
+      sleep 1
+      xdotool click 1
+      sleep 20
+      xdotool keydown ctrl; sleep 0.4; xdotool keydown d; sleep 0.6; xdotool keyup d; sleep 0.3; xdotool keyup ctrl
+      sleep 6
+      xdotool key F1
+      sleep 1
+      import -window root /out/gui-diag-help.png
+      kill $PID 2>/dev/null || true
+      kill $XPID 2>/dev/null || true
+      echo "== crash 目錄"; ls -la /tmp/.config/high_reward/crash/ || true
+      d=$(ls -d /tmp/.config/high_reward/crash/*-manual* 2>/dev/null | head -1)
+      echo "== $d"; ls -la "$d" || true
+      head -12 "$d/info.txt" || true
+      echo "== play.log"; tail -3 /tmp/.config/high_reward/play.log || true
+      echo "== stderr"; tail -5 /tmp/play.log' ;;
   gui-error)
     run 'set -e
       cd apps/hr/play

@@ -1,0 +1,33 @@
+From 223ed993e3b22c5d5ede8ee5604535d497fbfd4e Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 20:12:30 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/play:=20onDiag=20=E4=B8=8D=E9=87=8D?=
+ =?UTF-8?q?=E8=A4=87=E5=8D=B0=20stderr=EF=BC=88runtime=20=E7=9A=84=20Log?=
+ =?UTF-8?q?=20=E5=B7=B2=E5=8D=B0=E8=A8=BA=E6=96=B7=E7=9B=AE=E9=8C=84?=
+ =?UTF-8?q?=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Xvfb 端對端驗證（tools/play.sh gui-diag）時發現同一份診斷在 stderr 出現兩行。
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/play/game.go | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index 8e7b92c..9511c09 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -244,7 +244,6 @@ var lastDiag atomic.Value
+ // onDiag 是 Options.OnDiag：在持有機器的 goroutine 內呼叫，不得阻塞，不得呼叫會進入模擬迴圈的 Session 方法。
+ func onDiag(dataDir, dir, reason string) {
+ 	lastDiag.Store(filepath.Base(dir))
+-	fmt.Fprintf(os.Stderr, "診斷已存到 %s（%s）\n", dir, reason)
+ 	if f, err := os.OpenFile(filepath.Join(dataDir, "play.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644); err == nil {
+ 		fmt.Fprintf(f, "%s\tdiag\t%s\t%s\n", time.Now().Format(time.RFC3339), dir, reason)
+ 		f.Close()
+-- 
+2.43.0
+

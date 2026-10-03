@@ -22,7 +22,7 @@
 | 診斷核心 | dosgolem 分支 `hr` 的 `apps/hr/runtime/diag.go`、`ovrtab.go`（由 `tools/gen_ovr_table.sh` 產生）、`session.go` 與 `crash.go` 的接線 |
 | 前端 | `apps/hr/play`：Ctrl+D、Ctrl 按住不送字元、F1 說明列最近一份、`onDiag` |
 | 機器人 | `apps/hr/cmd/hrbot`：`-hang-seconds`、`-hang-routine SEG:OFF`、`-hang-after-minutes`，`summary.json` 的 `t2` |
-| 補丁備份 | `engine/patches/0021` 至 `0024`（0022、0023 是效能基準，0024 是診斷） |
+| 補丁備份 | `engine/patches/0021` 至 `0025`（0022、0023 是效能基準，0024 是診斷，0025 是前端的小修） |
 | 工具 | `tools/bench.sh`（交錯 A/B）、`tools/play.sh test-diag`、`tools/play.sh test-play`、`tools/gen_ovr_table.*` |
 
 ## 3. 測試
@@ -62,6 +62,7 @@
 | `info.txt` 的區段與標記、T1 路徑含新區段 | `TestCrashDumpHasDiagSections` 與 `hasInfoSections` | 通過 |
 | 穩態 `stepBatch` 零配置 | `TestStepBatchSteadyStateNoAllocs` | 通過 |
 | Ctrl 按住與 F1 說明開著不送鍵；`lastDiag` 顯示 | `TestSendKeysToGame`、`TestLastDiagName`（前端） | 通過 |
+| 前端端對端：Xvfb 內啟動視窗、點新遊戲、按住 Ctrl 再按 D | `tools/play.sh gui-diag` | `crash/20261003-121136-manual/` 出現（`info.txt` 原因「手動：Ctrl+D」、`screen.png`、`state.state`），`play.log` 記一行 `diag`，F1 說明列出 `last diagnostics: 20261003-121136-manual`（`workplace/out/gui-diag-help.png`）。xdotool 的瞬間按放（約 12 毫秒）在負載高時會被 60 TPS 的輪詢漏掉，所以腳本拉長按住時間 |
 
 獨立交叉檢查的原始輸出：`docs/re/data/017-probe-call-args.txt`（`probe -load-state soak-s0/ck-001500000000.state`，窗口 1,500,000,000 至 1,503,000,000 步：`1D11:000A` 與 `1D29:000E` 各被呼叫 10 次）。進入計數（以 `call` 的目標計）與 `probe`（以步前 `CS:IP` 等於入口計）在這個窗口一致。
 
