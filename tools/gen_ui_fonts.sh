@@ -125,7 +125,7 @@ test -s "$FONTDIR/NOTICE-fonts.txt" || { echo "沒有產生 NOTICE-fonts.txt" >&
   cat "$FONTDIR/NOTICE-fonts.txt"
   # 只取 "License: SIL-1.1" 這一段：Debian copyright 的段落以空白開頭的行延續，遇到不以空白開頭的行（下一段，
   # 例如 debian/* 的 License: GPL-3+）就停。" ." 是 Debian 的空行寫法。
-  awk -v s="$start" 'NR > s { if ($0 ~ /^ /) print; else exit }' "$DOC" | sed 's/^ \.$//; s/^ //'
+  sed -n "$((start+1)),\${ /^ /!q; p; }" "$DOC" | sed 's/^ \.$//; s/^ //'
 } > "$FONTDIR/OFL.txt"
 rm -f "$FONTDIR/NOTICE-fonts.txt"
 grep -q 'SIL OPEN FONT LICENSE Version 1.1' "$FONTDIR/OFL.txt" || { echo "OFL.txt 沒有 OFL 1.1 全文" >&2; exit 1; }
