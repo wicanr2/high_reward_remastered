@@ -8,8 +8,8 @@
 |---|---|---|
 | 1 | 取得 jsdos 版原版 | 完成，見 `docs/re/001-source-intake.md` |
 | 2 | 以 [`dosgolem`](https://github.com/wicanr2/dosgolem) 執行原版，打包成三平台可玩的版本 | 進行中：`MAIN.EXE` 在 dosgolem 內可到標題、新遊戲、讀檔、存檔（暫存層）、戰鬥佈陣等畫面（`docs/re/008`、`docs/re/012`）；執行層、前端與三平台打包已實作（`docs/spec/003` READY，`docs/re/013`）；沒有聲音，不播片頭片尾 |
-| 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 進行中：找到並重現一個堆疊溢位當機（`docs/re/011`），修補規格 DRAFT（`docs/spec/002`，在記憶體內把 `_stklen` 由 0x1000 改成 0x8000）；是否即使用者說的當機：未確認 |
-| 4 | HD 化遊戲圖片 | 進行中：圖像格式已全部解碼（`docs/re/006`），繪圖原語已逆向（`docs/re/009` DRAFT），替換機制規格 DRAFT（`docs/spec/004`）；美術處理未開始 |
+| 3 | 找出長時間遊玩後的當機點，用 IDA Pro 分析並修復 | 進行中：找到並重現一個堆疊溢位當機（`docs/re/011`），修補規格 READY 並已實作（`docs/spec/002`，在記憶體內把 `_stklen` 由 0x1000 改成 0x8000，收據 `docs/re/013`）；是否即使用者說的當機：未確認 |
+| 4 | HD 化遊戲圖片 | 進行中：圖像格式已全部解碼（`docs/re/006`），繪圖原語已逆向（`docs/re/009` DRAFT），替換機制規格 READY 並已實作掛鉤、驗證、合成與前端（`docs/spec/004`，收據 `docs/re/014`）；美術 v2 基準 615 張在 `workplace/hd-work/x2-v2`，尚待使用者目視；`hd/` 未建立 |
 
 - 目前範圍是用 dosgolem 執行原版。原版 EXE、資料檔、遊戲規則與存檔格式保持原樣。改變遊戲行為、存檔格式或平衡的提案超出範圍，先經使用者決定。
 - 原版文字已是 Big5 繁體中文，目前範圍不含翻譯。
@@ -118,12 +118,12 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | `docs/spec/` | DRAFT、READY、CONFORMED 規格 |
 | `tools/` | 容器包裝腳本與清冊工具 |
 | `workplace/` | 唯一可寫的研究工作區，已 gitignore：原版壓縮檔、解包、dosgolem 副本、探針輸出、截圖草稿 |
-| `hd/` | 驗收後的 HD 素材，版控，private。尚未建立 |
+| `hd/` | 驗收後的 HD 素材，版控，private。尚未建立（驗收前的草稿在 `workplace/hd-work/`） |
 | `engine/patches/` | `workplace/dosgolem` 分支 `hr` 的 `git format-patch` 備份 |
 | `packaging/` | 發行包內的說明文字（README、PUT_ORIGINAL_FILES_HERE） |
-| `dist-all/` | 唯一的交付根目錄，已 gitignore。尚未建立 |
+| `dist-all/` | 唯一的交付根目錄，已 gitignore |
 
-- `README.md`、`WORKLOG.md` 尚未建立。建立或大改 README 前先讀 `~/.claude/rulebook/80-retro-cht-readme-polish.md`，對外文字寫完過一次 `humanizer-zh-tw`。
+- `README.md` 尚未建立（`WORKLOG.md` 已建立）。建立或大改 README 前先讀 `~/.claude/rulebook/80-retro-cht-readme-polish.md`，對外文字寫完過一次 `humanizer-zh-tw`。
 - 正文只寫現況。推翻舊結論的原因追加到 `WORKLOG.md` 的勘誤段，教訓寫成規則。
 - 不為相同職責另建同義文件或工作目錄。
 
@@ -168,9 +168,9 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | M2 | 建立 `workplace/dosgolem` 副本，用 `cmd/probe` 產生冷啟動能力報告。缺口只記錄，不當場補 | 完成，見 `docs/re/003-cold-start-capability-report.md` |
 | M3 | 冷啟動到片頭、主選單、進入遊戲的可重播收據（dosgolem 為權威，DOSBox-X 交叉驗證）。缺的服務逐項先寫 DRAFT 規格再補 | 進行中：標題、新遊戲、讀檔、存檔、系統選單、戰鬥佈陣已有收據（`docs/re/008`、`docs/re/012`）；`OP.EXE`、`SIG.COM`、`END.EXE`、DOSBox-X 對照未做 |
 | M4 | 長跑，定位停機點並分類 | 進行中：隨機輸入與介面探索兩條線已建（`docs/re/011`、`docs/re/012`）；覆蓋不足（overlay 讀取起點 17 至 20 個，共 139 個）；計時器擾動、音效路徑、戰鬥進行未量 |
-| M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 進行中：堆疊溢位已定位，規格 `docs/spec/002` 第二版待第二輪審查，實作待 READY |
-| M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 進行中：格式解碼完成；繪圖原語逆向（`docs/re/009` DRAFT）；替換機制規格 DRAFT（`docs/spec/004`）；實作與美術處理未開始 |
-| M7 | 三平台前端、打包與發行前驗證 | 進行中：規格 `docs/spec/003` READY，執行層、前端、三平台打包腳本已實作；Linux 與 Windows（Wine）已驗，macOS 只驗結構；聲音、片頭片尾、HD 疊層未做（`docs/re/013`） |
+| M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 進行中：堆疊溢位已定位，規格 `docs/spec/002` READY 並已實作；是否即使用者說的當機未確認，其他停機點未找到 |
+| M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 進行中：格式解碼完成；繪圖原語逆向（`docs/re/009` DRAFT）；替換機制規格 `docs/spec/004` READY，掛鉤、驗證、合成與前端已實作（`docs/re/014`）；美術 v2 基準完成，待使用者目視與驗收；`hd/` 未建立 |
+| M7 | 三平台前端、打包與發行前驗證 | 進行中：規格 `docs/spec/003` READY，執行層、前端、三平台打包腳本已實作；Linux 與 Windows（Wine）已驗，macOS 只驗結構；HD 前端只在 Linux（Xvfb）驗過，三平台發行包尚未用含 HD 前端的版本重建；聲音、片頭片尾未做（`docs/re/013`、`docs/re/014`） |
 
 M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。
 

@@ -70,9 +70,9 @@ with open(inv, encoding="utf-8") as f:
         if not r["hd"]:
             r["hd"] = hd_rel
 with open(out, "w", encoding="utf-8") as o:
-    o.write("hash\tid\tw\th\tkind\tpal\thd\tsingleton\n")
+    o.write("hash\tid\tw\th\tkind\tpal\thd\n")
     for (h, w, hh), r in sorted(rows.items(), key=lambda kv: kv[1]["ids"][0]):
-        o.write(f"{h}\t{';'.join(r['ids'])}\t{w}\t{hh}\t{r['kind']}\t{r['pal']}\t{r['hd']}\t\n")
+        o.write(f"{h}\t{';'.join(r['ids'])}\t{w}\t{hh}\t{r['kind']}\t{r['pal']}\t{r['hd']}\n")
 total = sum(len(r["ids"]) for r in rows.values())
 print(f"項目 {total}，不同內容 {len(rows)}，合併 {total - len(rows)}")
 pal_out = os.path.join(os.path.dirname(out), "palettes.tsv")

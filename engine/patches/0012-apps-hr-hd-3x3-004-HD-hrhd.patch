@@ -1,0 +1,2697 @@
+From 65706a9bf9b3d7e4687cf6bd5603855a78a4af9c Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 3 Oct 2026 10:14:05 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/hd:=20=E6=88=B3=E8=A8=98=E4=BD=87?=
+ =?UTF-8?q?=E5=88=97=E3=80=81=E4=BD=8D=E5=85=83=E5=88=97=203x3=20=E9=A9=97?=
+ =?UTF-8?q?=E8=AD=89=E3=80=81=E5=90=88=E6=88=90=E8=88=87=E9=80=B2=E5=85=A5?=
+ =?UTF-8?q?=E9=BB=9E=E6=8E=9B=E9=89=A4=EF=BC=88=E8=A6=8F=E6=A0=BC=20004?=
+ =?UTF-8?q?=EF=BC=89=EF=BC=9B=E5=89=8D=E7=AB=AF=20HD=20=E6=AA=A2=E8=A6=96?=
+ =?UTF-8?q?=E8=88=87=E5=BF=AB=E7=85=A7=E9=99=90=E9=80=9F=EF=BC=9Bhrhd=20?=
+ =?UTF-8?q?=E9=A9=97=E6=94=B6=E5=B7=A5=E5=85=B7?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- hd: Queue（去重、呼叫點 singleton、LRU）、Verifier（位元列 3x3 加後序戳記解釋，與逐像素定義對拍）、
+  Composer（由大到小的前往後混合、純乘法淡入縮放）、Assets（清冊、調色盤表、延遲載入）、Overlay（五個進入點、返回鉤子、記錄與相符比例量測）
+- runtime: Options.HDHooks 等、Frame.Stamps、stepBatch 的 Pre/Post、FrameLimiter（16 ms）
+- play: -hd/-no-hd、背景合成 goroutine、Layout 依倍率；不開 HD 時維持原路徑
+- cmd/hrhd: 無頭驗收（識別率、返回時相符比例、合成時間、輸出 PNG）
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrhd/main.go          | 173 ++++++++++++
+ apps/hr/hd/assets.go              | 207 +++++++++++++++
+ apps/hr/hd/capture.go             | 425 ++++++++++++++++++++++++++++++
+ apps/hr/hd/compose.go             | 307 +++++++++++++++++++++
+ apps/hr/hd/compose_test.go        | 317 ++++++++++++++++++++++
+ apps/hr/hd/stamp.go               | 125 +++++++++
+ apps/hr/hd/verify.go              | 248 +++++++++++++++++
+ apps/hr/hd/verify_test.go         | 226 ++++++++++++++++
+ apps/hr/play/game.go              |  38 ++-
+ apps/hr/play/hdview.go            |  93 +++++++
+ apps/hr/play/main.go              |  26 +-
+ apps/hr/play/paths.go             |  26 ++
+ apps/hr/runtime/hd_test.go        |  97 +++++++
+ apps/hr/runtime/ratelimit.go      |  26 ++
+ apps/hr/runtime/ratelimit_test.go |  40 +++
+ apps/hr/runtime/session.go        |  30 ++-
+ 16 files changed, 2392 insertions(+), 12 deletions(-)
+ create mode 100644 apps/hr/cmd/hrhd/main.go
+ create mode 100644 apps/hr/hd/assets.go
+ create mode 100644 apps/hr/hd/capture.go
+ create mode 100644 apps/hr/hd/compose.go
+ create mode 100644 apps/hr/hd/compose_test.go
+ create mode 100644 apps/hr/hd/stamp.go
+ create mode 100644 apps/hr/hd/verify.go
+ create mode 100644 apps/hr/hd/verify_test.go
+ create mode 100644 apps/hr/play/hdview.go
+ create mode 100644 apps/hr/runtime/hd_test.go
+ create mode 100644 apps/hr/runtime/ratelimit.go
+ create mode 100644 apps/hr/runtime/ratelimit_test.go
+
+diff --git a/apps/hr/cmd/hrhd/main.go b/apps/hr/cmd/hrhd/main.go
+new file mode 100644
+index 0000000..84e4cc5
+--- /dev/null
++++ b/apps/hr/cmd/hrhd/main.go
+@@ -0,0 +1,173 @@
++// Command hrhd 是 HD 疊層（hr 專案的 docs/spec/004）的無頭驗收工具：
++// 跑執行層（含進入點掛鉤），回報識別率、返回時與 VRAM 的相符比例、戳記佇列與合成時間，並可輸出合成後的 PNG。
++// 不開視窗。⚠ 本專案不含任何原版檔案，-orig 由玩家自備；輸出 PNG 是原版美術的衍生物，只放 workplace/。
++package main
++
++import (
++	"flag"
++	"fmt"
++	"image"
++	"image/png"
++	"os"
++	"strings"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++type clickList []string
++
++func (c *clickList) String() string     { return strings.Join(*c, ",") }
++func (c *clickList) Set(v string) error { *c = append(*c, v); return nil }
++
++func main() {
++	orig := flag.String("orig", "original", "原版檔案目錄（內含 MAIN.EXE）")
++	hdDir := flag.String("hd", "", "HD 目錄（含 catalog.tsv、palettes.tsv、x2/）；空 ＝ 不載入清冊（不統計識別率）")
++	stateFile := flag.String("state", "", "先載入的狀態檔（dosgolem 狀態，例如 explore 輸出的節點）")
++	steps := flag.Uint64("steps", 90_000_000, "從目前步數起再跑幾步（冷啟動時就是絕對步數）")
++	check := flag.Int("check", 3, "每個雜湊的前 N 次出現量一次返回時的相符比例（0 ＝ 不量）")
++	record := flag.Bool("record", true, "收集未識別的雜湊")
++	out := flag.String("png", "", "輸出合成後的 PNG（HD 解析度）")
++	nohd := flag.Bool("nohd", false, "不載入 HD 圖（只放大基底層；戳記照樣遮蔽）")
++	native := flag.Bool("native", true, "使用 dosgolem 預設計時器間隔；false ＝ play 預設")
++	hooks := flag.Bool("hooks", true, "開啟掛鉤")
++	var clicks clickList
++	flag.Var(&clicks, "click", "在『相對步數』按下並放開左鍵：`步數:X:Y`（X、Y 是 640x480 畫面座標），可重複")
++	flag.Parse()
++
++	var assets *hd.Assets
++	if *hdDir != "" {
++		var err error
++		if assets, err = hd.LoadAssets(*hdDir, 2); err != nil {
++			fmt.Fprintln(os.Stderr, "載入清冊失敗：", err)
++			os.Exit(2)
++		}
++	}
++	opt := hrrt.Options{Interval: hrrt.NativeInterval, HDHooks: *hooks, HDAssets: assets, HDCheck: *check, HDRecord: *record,
++		Log: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) }}
++	if !*native {
++		opt.Interval = 0
++	}
++	s, err := hrrt.Open(*orig, opt)
++	if err != nil {
++		fmt.Fprintln(os.Stderr, err)
++		os.Exit(2)
++	}
++	if *stateFile != "" {
++		if err := state.Load(*stateFile, s.Machine(), s.DOS()); err != nil {
++			fmt.Fprintln(os.Stderr, "載入狀態失敗：", err)
++			os.Exit(2)
++		}
++	}
++	start := s.Machine().Steps
++	target := start + *steps
++	type ck struct {
++		at   uint64
++		x, y int
++	}
++	var cks []ck
++	for _, c := range clicks {
++		var at uint64
++		var x, y int
++		if _, err := fmt.Sscanf(c, "%d:%d:%d", &at, &x, &y); err != nil {
++			fmt.Fprintln(os.Stderr, "-click 要寫成 步數:X:Y：", err)
++			os.Exit(2)
++		}
++		cks = append(cks, ck{start + at, x, y})
++	}
++	t0 := time.Now()
++	for _, c := range cks {
++		if st := s.RunSteps(c.at); st.Kind != hrrt.StopSteps {
++			fmt.Fprintln(os.Stderr, "提前停機：", st.Msg)
++			os.Exit(1)
++		}
++		s.Input(hrrt.MouseButtonEvent(c.x, c.y-40, 0, true))
++		s.Input(hrrt.MouseButtonEvent(c.x, c.y-40, 0, false))
++	}
++	if st := s.RunSteps(target); st.Kind != hrrt.StopSteps {
++		fmt.Fprintln(os.Stderr, "提前停機：", st.Msg)
++		os.Exit(1)
++	}
++	el := time.Since(t0)
++	// 取一個快照（輪詢點）
++	var seq uint64
++	if f := s.Frame(); f != nil {
++		seq = f.Seq
++	}
++	s.RequestFrame()
++	for i := 0; i < 100; i++ {
++		if f := s.Frame(); f != nil && f.Seq != seq {
++			break
++		}
++		s.RunSteps(s.Machine().Steps + 50_000)
++	}
++	f := s.Frame()
++	fmt.Printf("步數 %d（本次 %d），耗時 %.1fs（%.1f M步/s）\n", s.Machine().Steps, s.Machine().Steps-start, el.Seconds(), float64(s.Machine().Steps-start)/1e6/el.Seconds())
++	ov := s.Overlay()
++	if ov == nil {
++		return
++	}
++	st := ov.Stats
++	fmt.Printf("進入：%v，建立 %d，解碼失敗 %d，略過 %d，返回對不上 %d，已識別 %d，未識別 %d，佇列 %d（取代 %d，LRU 丟 %d）\n",
++		st.Entered, st.Created, st.DecodeErr, st.Skipped, st.Interrupt, st.Identified, st.Unknown, ov.Q.Len(), ov.Q.Replaced, ov.Q.Dropped)
++	if *check > 0 {
++		fmt.Println("# 返回時相符比例（hash12 id 大小 次數 取樣 首次 最低）")
++		for _, m := range ov.MatchList() {
++			id := ""
++			if e := assets.Lookup(m.Hash); e != nil {
++				id = e.ID
++			}
++			ratio := 0.0
++			if m.Opaque > 0 {
++				ratio = float64(m.Matched) / float64(m.Opaque)
++			}
++			fmt.Printf("%s\t%s\tn=%d\tsamples=%d\tfirst=%.3f\tmin=%.3f\tavg=%.3f\n", m.Hash[:12], id, m.N, m.Samples, m.FirstRatio, m.MinRatio, ratio)
++		}
++	}
++	if *record {
++		fmt.Println("# 未識別（hash12 種類 大小 次數 呼叫點 第一次位置）")
++		for _, u := range ov.UnknownList() {
++			fmt.Printf("%s\t%s\t%dx%d\tn=%d\t%04X:%04X\t(%d,%d)\n", u.Hash[:12], u.Kind, u.W, u.H, u.Count, u.Site>>16, u.Site&0xFFFF, u.X, u.Y)
++		}
++	}
++	if assets != nil && len(assets.Errors) > 0 {
++		fmt.Println("# 清冊錯誤：")
++		for _, e := range assets.Errors {
++			fmt.Println(e)
++		}
++	}
++	if f == nil {
++		fmt.Println("沒有快照")
++		return
++	}
++	var ca *hd.Assets
++	if !*nohd {
++		ca = assets
++	}
++	cmp := hd.NewComposer(ca, 2)
++	ow, oh := cmp.OutSize(f.W, f.H)
++	dst := make([]byte, ow*oh*4)
++	cmp.Compose(dst, f.Px, f.W, f.H, f.Map, &f.DAC, f.Stamps) // 暖機：PNG 解碼只算一次
++	t1 := time.Now()
++	const rounds = 20
++	for i := 0; i < rounds; i++ {
++		cmp.Compose(dst, f.Px, f.W, f.H, f.Map, &f.DAC, f.Stamps)
++	}
++	fmt.Printf("快照：戳記 %d，合成 %.2f ms/幀（含基底；暖機後 %d 輪平均）；統計 %+v\n", len(f.Stamps), float64(time.Since(t1).Microseconds())/1000/rounds, rounds, cmp.Stats)
++	if *out != "" {
++		img := &image.RGBA{Pix: dst, Stride: ow * 4, Rect: image.Rect(0, 0, ow, oh)}
++		fh, err := os.Create(*out)
++		if err != nil {
++			fmt.Fprintln(os.Stderr, err)
++			os.Exit(1)
++		}
++		defer fh.Close()
++		if err := png.Encode(fh, img); err != nil {
++			fmt.Fprintln(os.Stderr, err)
++			os.Exit(1)
++		}
++		fmt.Println("輸出", *out)
++	}
++}
+diff --git a/apps/hr/hd/assets.go b/apps/hr/hd/assets.go
+new file mode 100644
+index 0000000..2e35fff
+--- /dev/null
++++ b/apps/hr/hd/assets.go
+@@ -0,0 +1,207 @@
++package hd
++
++import (
++	"bufio"
++	"fmt"
++	"image"
++	"image/draw"
++	"image/png"
++	"os"
++	"path/filepath"
++	"strconv"
++	"strings"
++	"sync"
++)
++
++// CatalogEntry 是清冊 hd/catalog.tsv 的一列（docs/spec/004 第 3.3 節）。
++type CatalogEntry struct {
++	Hash string
++	ID   string
++	W, H int
++	Kind string
++	Pal  string // 參考調色盤名稱（hd/palettes.tsv）
++	HD   string // HD PNG 相對於 x<S>/ 的路徑，空 ＝ 尚無
++}
++
++// Asset 是一張載入後的 HD 圖。Img 是非預乘 RGBA，尺寸是 S × S 倍的原版尺寸。
++type Asset struct {
++	Entry *CatalogEntry
++	Img   *image.NRGBA
++	Pal   *[16][3]uint8 // 參考調色盤（DAC 色值，8 位元）
++}
++
++// Assets 管理清冊、調色盤表與延遲載入的 HD 圖。Get 可由前端執行緒呼叫，內部上鎖。
++type Assets struct {
++	Dir string
++	S   int
++
++	cat  map[string]*CatalogEntry
++	pals map[string]*[16][3]uint8
++
++	mu     sync.Mutex
++	cache  map[string]*Asset // nil 值表示載入失敗或沒有 HD，不重試
++	Errors []string          // 載入失敗與不一致的紀錄（每筆只記一次）
++}
++
++// LoadAssets 讀 dir/catalog.tsv、dir/palettes.tsv；HD 圖在 dir/x<S>/。清冊缺檔回錯誤。
++func LoadAssets(dir string, s int) (*Assets, error) {
++	a := &Assets{Dir: dir, S: s, cat: map[string]*CatalogEntry{}, pals: map[string]*[16][3]uint8{}, cache: map[string]*Asset{}}
++	if err := a.loadCatalog(filepath.Join(dir, "catalog.tsv")); err != nil {
++		return nil, err
++	}
++	if err := a.loadPalettes(filepath.Join(dir, "palettes.tsv")); err != nil {
++		return nil, err
++	}
++	return a, nil
++}
++
++func readTSV(path string) (header []string, rows [][]string, err error) {
++	f, err := os.Open(path)
++	if err != nil {
++		return nil, nil, err
++	}
++	defer f.Close()
++	sc := bufio.NewScanner(f)
++	sc.Buffer(make([]byte, 1<<20), 1<<20)
++	for sc.Scan() {
++		line := strings.TrimRight(sc.Text(), "\r\n")
++		if line == "" {
++			continue
++		}
++		cols := strings.Split(line, "\t")
++		if header == nil {
++			header = cols
++			continue
++		}
++		rows = append(rows, cols)
++	}
++	return header, rows, sc.Err()
++}
++
++func colIndex(header []string, names ...string) (map[string]int, error) {
++	m := map[string]int{}
++	for i, h := range header {
++		m[h] = i
++	}
++	for _, n := range names {
++		if _, ok := m[n]; !ok {
++			return nil, fmt.Errorf("缺欄位 %q", n)
++		}
++	}
++	return m, nil
++}
++
++func (a *Assets) loadCatalog(path string) error {
++	hdr, rows, err := readTSV(path)
++	if err != nil {
++		return err
++	}
++	ix, err := colIndex(hdr, "hash", "id", "w", "h", "kind", "pal", "hd")
++	if err != nil {
++		return fmt.Errorf("%s：%w", path, err)
++	}
++	for n, r := range rows {
++		if len(r) < len(hdr) {
++			r = append(r, make([]string, len(hdr)-len(r))...)
++		}
++		w, e1 := strconv.Atoi(r[ix["w"]])
++		h, e2 := strconv.Atoi(r[ix["h"]])
++		if e1 != nil || e2 != nil || len(r[ix["hash"]]) != 64 {
++			return fmt.Errorf("%s 第 %d 列格式錯誤", path, n+2)
++		}
++		a.cat[r[ix["hash"]]] = &CatalogEntry{Hash: r[ix["hash"]], ID: r[ix["id"]], W: w, H: h, Kind: r[ix["kind"]], Pal: r[ix["pal"]], HD: r[ix["hd"]]}
++	}
++	return nil
++}
++
++func (a *Assets) loadPalettes(path string) error {
++	hdr, rows, err := readTSV(path)
++	if err != nil {
++		return err
++	}
++	ix, err := colIndex(hdr, "name", "palette16")
++	if err != nil {
++		return fmt.Errorf("%s：%w", path, err)
++	}
++	for n, r := range rows {
++		if len(r) <= ix["palette16"] {
++			return fmt.Errorf("%s 第 %d 列欄位不足", path, n+2)
++		}
++		f := strings.Fields(r[ix["palette16"]])
++		if len(f) != 16 {
++			return fmt.Errorf("%s 第 %d 列不是 16 個顏色", path, n+2)
++		}
++		var p [16][3]uint8
++		for i, c := range f {
++			v, err := strconv.ParseUint(c, 16, 32)
++			if err != nil || len(c) != 6 {
++				return fmt.Errorf("%s 第 %d 列的顏色 %q 格式錯誤", path, n+2, c)
++			}
++			p[i] = [3]uint8{uint8(v >> 16), uint8(v >> 8), uint8(v)}
++		}
++		pp := p
++		a.pals[r[ix["name"]]] = &pp
++	}
++	return nil
++}
++
++// Lookup 回傳雜湊在清冊中的列（不論有沒有 HD 圖）；識別率統計用。
++func (a *Assets) Lookup(hash string) *CatalogEntry {
++	if a == nil {
++		return nil
++	}
++	return a.cat[hash]
++}
++
++// Palette 回傳參考調色盤；沒有就回 nil。
++func (a *Assets) Palette(name string) *[16][3]uint8 { return a.pals[name] }
++
++// Get 回傳雜湊對應的 HD 圖；清冊沒有、尚無 HD、PNG 缺檔、尺寸不符、調色盤缺漏時回 nil
++// （顯示原版像素的放大，不報錯；原因記在 Errors，每個雜湊一次）。
++func (a *Assets) Get(hash string) *Asset {
++	if a == nil {
++		return nil
++	}
++	a.mu.Lock()
++	defer a.mu.Unlock()
++	if as, ok := a.cache[hash]; ok {
++		return as
++	}
++	var as *Asset
++	if e := a.cat[hash]; e != nil && e.HD != "" {
++		as = a.load(e)
++	}
++	a.cache[hash] = as
++	return as
++}
++
++func (a *Assets) fail(format string, args ...any) *Asset {
++	a.Errors = append(a.Errors, fmt.Sprintf(format, args...))
++	return nil
++}
++
++func (a *Assets) load(e *CatalogEntry) *Asset {
++	pal := a.pals[e.Pal]
++	if pal == nil {
++		return a.fail("%s：參考調色盤 %q 不在 palettes.tsv", e.ID, e.Pal)
++	}
++	f, err := os.Open(filepath.Join(a.Dir, "x"+strconv.Itoa(a.S), filepath.FromSlash(e.HD)))
++	if err != nil {
++		return a.fail("%s：%v", e.ID, err)
++	}
++	defer f.Close()
++	im, err := png.Decode(f)
++	if err != nil {
++		return a.fail("%s：PNG 解碼失敗：%v", e.ID, err)
++	}
++	b := im.Bounds()
++	if b.Dx() != e.W*a.S || b.Dy() != e.H*a.S {
++		return a.fail("%s：PNG 是 %dx%d，清冊要求 %dx%d（%d 倍）", e.ID, b.Dx(), b.Dy(), e.W*a.S, e.H*a.S, a.S)
++	}
++	n, ok := im.(*image.NRGBA)
++	if !ok || b.Min != (image.Point{}) {
++		n = image.NewNRGBA(image.Rect(0, 0, b.Dx(), b.Dy()))
++		draw.Draw(n, n.Bounds(), im, b.Min, draw.Src)
++	}
++	return &Asset{Entry: e, Img: n, Pal: pal}
++}
+diff --git a/apps/hr/hd/capture.go b/apps/hr/hd/capture.go
+new file mode 100644
+index 0000000..91c4302
+--- /dev/null
++++ b/apps/hr/hd/capture.go
+@@ -0,0 +1,425 @@
++package hd
++
++import (
++	"fmt"
++	"sort"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++// Site 是一個掛鉤進入點（執行期位址，綁定 MAIN.EXE 的 SHA-256；IDA 位址 ＝ 執行期 ＋ 0x0EF0 段）。
++type Site struct {
++	Name     string
++	Seg, Off uint16
++	Kind     Kind
++}
++
++// MainSites 是 docs/spec/004 第 4.1 節的進入點表。
++var MainSites = []Site{
++	{"2B47:0022", 0x1C57, 0x0022, KindSprite},
++	{"3268:1155", 0x2378, 0x1155, KindCache24},
++	{"2E92:066A", 0x1FA2, 0x066A, KindStream},
++	{"348F:0005", 0x259F, 0x0005, KindPacked4},
++	{"2FB2:25A1", 0x20C2, 0x25A1, KindMap},
++}
++
++// CursorSite 是游標戳記的呼叫點（返回位址 19FB:08A2，IDA 28EB:08A2），唯一的 singleton。
++const CursorSite = uint32(0x19FB)<<16 | 0x08A2
++
++// 24x24 快取：程式碼段 2378，槽 n 在 cs:[0Eh + n × 168h]，共 6 槽，每槽 24 列 × 15 bytes。
++const (
++	cache24Seg   = 0x2378
++	cache24Base  = 0x0E
++	cache24Slot  = 0x168
++	cache24Slots = 6
++	gameRowShift = 40 // 遊戲區在 Px 的列偏移
++	streamWindow = 0x40000
++)
++
++// Stats 是掛鉤的統計。
++type Stats struct {
++	Entered    map[Kind]uint64
++	Created    uint64
++	DecodeErr  uint64 // 解碼失敗（資料不足、長度不符）
++	Skipped    uint64 // 旗標非 0、x 非 8 的倍數、槽號超出
++	Interrupt  uint64 // 返回鉤子對不上（SP 不符）或待定逾期而丟棄
++	Identified uint64 // 雜湊在清冊內
++	Unknown    uint64 // 雜湊不在清冊內
++}
++
++// UnknownEntry 是記錄模式下未識別的雜湊。
++type UnknownEntry struct {
++	Hash  string
++	Kind  Kind
++	W, H  int
++	Count uint64
++	Site  uint32
++	X, Y  int // 第一次出現的位置
++}
++
++type pending struct {
++	st           *Stamp // map 種類在返回時才建
++	kind         Kind
++	retIP, retCS uint16
++	sp           uint16 // 返回後預期的 SP（進入時 SP ＋ 4）
++	ss           uint16
++	entry        uint64
++}
++
++// Overlay 是掛鉤與戳記佇列。只由持有機器的 goroutine 呼叫（Pre、Post）。
++type Overlay struct {
++	Q     *Queue
++	A     *Assets // 用於識別（Lookup）；可為 nil
++	Stats Stats
++	// Check 大於 0 時，每個雜湊的前 Check 次出現在返回時用 Machine.Planar 量一次相符比例（開發與驗收用，很慢）。
++	Check int
++	// Record 為 true 時收集未識別的雜湊。
++	Record  bool
++	unknown map[string]*UnknownEntry
++	match   map[string]*MatchStat
++	Logf    func(string, ...any)
++
++	bits  [1024]uint64
++	sites map[uint16][]Site
++	pend  []pending
++}
++
++// MatchStat 是 Check 模式的量測：該雜湊在返回時與 VRAM 的相符情形。
++type MatchStat struct {
++	Hash       string
++	N          int
++	Opaque     int
++	Matched    int
++	Samples    int
++	FirstRatio float64
++	MinRatio   float64
++}
++
++// NewOverlay 建立掛鉤。a 可為 nil。
++func NewOverlay(a *Assets) *Overlay {
++	o := &Overlay{Q: NewQueue(0, CursorSite), A: a, sites: map[uint16][]Site{}, unknown: map[string]*UnknownEntry{}, match: map[string]*MatchStat{}}
++	o.Stats.Entered = map[Kind]uint64{}
++	for _, s := range MainSites {
++		o.bits[s.Off>>6] |= 1 << (s.Off & 63)
++		o.sites[s.Off] = append(o.sites[s.Off], s)
++	}
++	return o
++}
++
++func (o *Overlay) logf(format string, args ...any) {
++	if o.Logf != nil {
++		o.Logf(format, args...)
++	}
++}
++
++// Pending 回傳待定戳記數（呼叫者用它決定要不要呼叫 Post）。
++func (o *Overlay) Pending() int { return len(o.pend) }
++
++// Pre 在每一道指令執行之前呼叫：偵測進入點。只讀記憶體與暫存器。
++func (o *Overlay) Pre(m *machine.Machine) {
++	ip := m.CPU.IP
++	if o.bits[ip>>6]&(1<<(ip&63)) == 0 {
++		return
++	}
++	cs := m.CPU.Seg[cpu.CS]
++	for _, s := range o.sites[ip] {
++		if s.Seg == cs {
++			o.enter(m, s)
++			return
++		}
++	}
++}
++
++// Post 在每一道指令執行之後呼叫（只在 Pending() > 0 時需要）：偵測返回。
++func (o *Overlay) Post(m *machine.Machine) {
++	c := m.CPU
++	cs, ip, ss, sp := c.Seg[cpu.CS], c.IP, c.Seg[cpu.SS], c.R[cpu.SP]
++	for i := 0; i < len(o.pend); i++ {
++		p := &o.pend[i]
++		if cs != p.retCS || ip != p.retIP {
++			if m.Steps-p.entry > pendingTimeout {
++				o.Stats.Interrupt++
++				o.pend = append(o.pend[:i], o.pend[i+1:]...)
++				i--
++			}
++			continue
++		}
++		if ss == p.ss && sp == p.sp {
++			o.finish(m, p)
++		} else {
++			o.Stats.Interrupt++
++		}
++		o.pend = append(o.pend[:i], o.pend[i+1:]...)
++		i--
++	}
++}
++
++// pendingTimeout：待定逾期的指令數。串流解碼最慢的呼叫也遠小於此（BSTAGE 約數十萬道）。
++const pendingTimeout = 400_000_000
++
++func (o *Overlay) arg(m *machine.Machine, ss, sp uint16, n uint16) uint16 {
++	return m.Read16(cpu.Linear(ss, sp+4+n))
++}
++
++func (o *Overlay) enter(m *machine.Machine, s Site) {
++	o.Stats.Entered[s.Kind]++
++	c := m.CPU
++	ss, sp := c.Seg[cpu.SS], c.R[cpu.SP]
++	p := pending{kind: s.Kind, retIP: m.Read16(cpu.Linear(ss, sp)), retCS: m.Read16(cpu.Linear(ss, sp+2)), sp: sp + 4, ss: ss, entry: m.Steps}
++	site := uint32(p.retCS)<<16 | uint32(p.retIP)
++	var sp5 Sprite
++	var err error
++	x, y := 0, 0
++	switch s.Kind {
++	case KindSprite:
++		if flag := o.arg(m, ss, sp, 0); flag != 0 {
++			o.Stats.Skipped++
++			return
++		}
++		x, y = int(int16(o.arg(m, ss, sp, 2))), int(int16(o.arg(m, ss, sp, 4)))+gameRowShift
++		lin := uint32(o.arg(m, ss, sp, 8))<<4 + uint32(o.arg(m, ss, sp, 6))
++		sp5, err = decodeAt(m, lin, func(b []byte) (Sprite, error) { return DecodePlanarSprite(b) }, 5)
++	case KindCache24:
++		slot := int(o.arg(m, ss, sp, 0))
++		if slot >= cache24Slots {
++			o.Stats.Skipped++
++			return
++		}
++		x, y = int(int16(o.arg(m, ss, sp, 2))), int(int16(o.arg(m, ss, sp, 4)))+gameRowShift
++		lin := cpu.Linear(cache24Seg, uint16(cache24Base+slot*cache24Slot))
++		if lin+360 > uint32(len(m.Mem)) {
++			err = fmt.Errorf("快取超出記憶體")
++			break
++		}
++		buf := make([]byte, 5+360)
++		copy(buf, []byte{24, 0, 24, 0, 1})
++		copy(buf[5:], m.Mem[lin:lin+360])
++		sp5, err = DecodePlanarSprite(buf)
++	case KindStream:
++		lin := uint32(o.arg(m, ss, sp, 2))<<4 + uint32(o.arg(m, ss, sp, 0))
++		off := int(o.arg(m, ss, sp, 4))
++		x, y = (off%80)*8, off/80+gameRowShift
++		sp5, err = decodeStream(m, lin)
++	case KindPacked4:
++		lin := uint32(o.arg(m, ss, sp, 2))<<4 + uint32(o.arg(m, ss, sp, 0))
++		off := int(o.arg(m, ss, sp, 4))
++		x, y = (off%80)*8, off/80+gameRowShift
++		sp5, err = decodePacked4(m, lin)
++	case KindMap:
++		// 返回時讀 VRAM 整張矩形（第 4.1 節）
++		o.pend = append(o.pend, p)
++		return
++	}
++	if err != nil {
++		o.Stats.DecodeErr++
++		o.logf("掛鉤 %s 解碼失敗：%v", s.Name, err)
++		return
++	}
++	if x%8 != 0 {
++		o.Stats.Skipped++
++		return
++	}
++	p.st = &Stamp{Kind: s.Kind, X: x, Y: y, W: sp5.W, H: sp5.H, Hash: Hash(sp5.W, sp5.H, sp5.Idx), Site: site, E: sp5.Idx}
++	o.pend = append(o.pend, p)
++}
++
++func memLimit(m *machine.Machine) uint32 {
++	lim := uint32(machine.VideoSeg) * 16
++	if n := uint32(len(m.Mem)); n < lim {
++		lim = n
++	}
++	return lim
++}
++
++// decodeAt 讀 lin 起的標頭（hdr bytes）求長度後解碼（目前只給記憶體內精靈用）。
++func decodeAt(m *machine.Machine, lin uint32, dec func([]byte) (Sprite, error), hdr int) (Sprite, error) {
++	lim := memLimit(m)
++	if lin+uint32(hdr) > lim {
++		return Sprite{}, fmt.Errorf("精靈位址 %05X 超出記憶體", lin)
++	}
++	h := m.Mem[lin : lin+uint32(hdr)]
++	w, ht, flag := int(h[0])|int(h[1])<<8, int(h[2])|int(h[3])<<8, h[4]
++	if w == 0 || ht == 0 || w > 640 || ht > 480 || w%8 != 0 {
++		return Sprite{}, fmt.Errorf("不合理的精靈尺寸 %dx%d", w, ht)
++	}
++	n := uint32(RawSpriteSize(w, ht, flag))
++	if lin+n > lim {
++		return Sprite{}, fmt.Errorf("精靈 %dx%d 超出記憶體", w, ht)
++	}
++	return dec(m.Mem[lin : lin+n])
++}
++
++func decodeStream(m *machine.Machine, lin uint32) (Sprite, error) {
++	lim := memLimit(m)
++	if lin >= lim {
++		return Sprite{}, fmt.Errorf("串流位址 %05X 超出記憶體", lin)
++	}
++	end := lin + streamWindow
++	if end > lim {
++		end = lim
++	}
++	out, _, err := LZSSDecode(m.Mem[lin:end])
++	if err != nil {
++		return Sprite{}, err
++	}
++	return DecodeUnpacked(out)
++}
++
++func decodePacked4(m *machine.Machine, lin uint32) (Sprite, error) {
++	lim := memLimit(m)
++	if lin+5 > lim {
++		return Sprite{}, fmt.Errorf("資料位址 %05X 超出記憶體", lin)
++	}
++	h := m.Mem[lin : lin+5]
++	w, ht := int(h[0])|int(h[1])<<8, int(h[2])|int(h[3])<<8
++	if h[4] != 0x80 || w == 0 || ht == 0 || w > 640 || ht > 480 || w%2 != 0 {
++		return Sprite{}, fmt.Errorf("不是 packed4 資料：%dx%d 旗標 %02X", w, ht, h[4])
++	}
++	n := uint32(5 + w*ht/2)
++	if lin+n > lim {
++		return Sprite{}, fmt.Errorf("packed4 %dx%d 超出記憶體", w, ht)
++	}
++	return DecodeUnpacked(m.Mem[lin : lin+n])
++}
++
++// finish 在返回鉤子觸發時把待定戳記轉為有效。
++func (o *Overlay) finish(m *machine.Machine, p *pending) {
++	st := p.st
++	if p.kind == KindMap {
++		_, _, px := m.Planar()
++		const W, H = 640, 400
++		if px == nil || len(px) < 640*(gameRowShift+H) {
++			o.Stats.DecodeErr++
++			return
++		}
++		e := make([]byte, W*H)
++		copy(e, px[gameRowShift*640:(gameRowShift+H)*640])
++		st = &Stamp{Kind: KindMap, X: 0, Y: gameRowShift, W: W, H: H, Hash: Hash(W, H, e), Site: uint32(p.retCS)<<16 | uint32(p.retIP), E: e}
++	}
++	if st == nil {
++		return
++	}
++	o.Stats.Created++
++	if ev := o.Q.Add(st); ev != nil {
++		o.logf("戳記佇列已滿，丟棄最舊的 %s %dx%d@%d,%d", ev.Hash[:12], ev.W, ev.H, ev.X, ev.Y)
++	}
++	if o.A != nil {
++		if o.A.Lookup(st.Hash) != nil {
++			o.Stats.Identified++
++		} else {
++			o.Stats.Unknown++
++			if o.Record {
++				u := o.unknown[st.Hash]
++				if u == nil {
++					u = &UnknownEntry{Hash: st.Hash, Kind: st.Kind, W: st.W, H: st.H, Site: st.Site, X: st.X, Y: st.Y}
++					o.unknown[st.Hash] = u
++				}
++				u.Count++
++			}
++		}
++	}
++	if o.Check > 0 {
++		o.checkMatch(m, st)
++	}
++}
++
++func (o *Overlay) checkMatch(m *machine.Machine, st *Stamp) {
++	ms := o.match[st.Hash]
++	if ms == nil {
++		ms = &MatchStat{Hash: st.Hash, MinRatio: 2}
++		o.match[st.Hash] = ms
++	}
++	ms.N++
++	if ms.Samples >= o.Check {
++		return
++	}
++	w, _, px := m.Planar()
++	if px == nil {
++		return
++	}
++	op, ma := 0, 0
++	for j := 0; j < st.H; j++ {
++		y := st.Y + j
++		if y < 0 || y >= 480 {
++			continue
++		}
++		for i := 0; i < st.W; i++ {
++			x := st.X + i
++			e := st.E[j*st.W+i]
++			if e == Transparent || x < 0 || x >= w {
++				continue
++			}
++			op++
++			if px[y*w+x] == e {
++				ma++
++			}
++		}
++	}
++	ms.Samples++
++	ms.Opaque, ms.Matched = ms.Opaque+op, ms.Matched+ma
++	r := 1.0
++	if op > 0 {
++		r = float64(ma) / float64(op)
++	}
++	if r < 0.9 && o.Logf != nil {
++		// 診斷：位置可能算錯，在 ±80 像素、±64 列內找最相符的位移
++		bx, by, best := 0, 0, 0
++		for dy := -64; dy <= 64; dy++ {
++			for dx := -80; dx <= 80; dx += 8 {
++				n := 0
++				for j := 0; j < st.H; j += 2 {
++					y := st.Y + dy + j
++					if y < 0 || y >= 480 {
++						continue
++					}
++					for i := 0; i < st.W; i += 2 {
++						x := st.X + dx + i
++						e := st.E[j*st.W+i]
++						if e != Transparent && x >= 0 && x < w && px[y*w+x] == e {
++							n++
++						}
++					}
++				}
++				if n > best {
++					best, bx, by = n, dx, dy
++				}
++			}
++		}
++		o.logf("相符比例偏低 %s %s %dx%d@(%d,%d) 比例 %.3f，最佳位移 (%+d,%+d)（取樣相符 %d）", st.Kind, st.Hash[:12], st.W, st.H, st.X, st.Y, r, bx, by, best)
++	}
++	if ms.Samples == 1 {
++		ms.FirstRatio = r
++	}
++	if r < ms.MinRatio {
++		ms.MinRatio = r
++	}
++}
++
++// UnknownList 回傳記錄模式收集的未識別雜湊（依出現次數遞減）。
++func (o *Overlay) UnknownList() []*UnknownEntry {
++	l := make([]*UnknownEntry, 0, len(o.unknown))
++	for _, u := range o.unknown {
++		l = append(l, u)
++	}
++	sort.Slice(l, func(i, j int) bool {
++		if l[i].Count != l[j].Count {
++			return l[i].Count > l[j].Count
++		}
++		return l[i].Hash < l[j].Hash
++	})
++	return l
++}
++
++// MatchList 回傳 Check 模式的量測（依雜湊排序）。
++func (o *Overlay) MatchList() []*MatchStat {
++	l := make([]*MatchStat, 0, len(o.match))
++	for _, s := range o.match {
++		l = append(l, s)
++	}
++	sort.Slice(l, func(i, j int) bool { return l[i].Hash < l[j].Hash })
++	return l
++}
++
++// Snapshot 回傳目前有效戳記的複本（序號遞增）。
++func (o *Overlay) Snapshot() []*Stamp { return o.Q.Snapshot() }
+diff --git a/apps/hr/hd/compose.go b/apps/hr/hd/compose.go
+new file mode 100644
+index 0000000..feecfe5
+--- /dev/null
++++ b/apps/hr/hd/compose.go
+@@ -0,0 +1,307 @@
++package hd
++
++import "math/bits"
++
++// ComposeStats 是最近一次 Compose 的統計（驗收與紀錄用）。
++type ComposeStats struct {
++	Stamps int // 參與合成的戳記數
++	WithHD int // 其中有 HD 圖的
++	Pass   int // 通過驗證的像素總數
++	Fast   int // 快速路徑（全相符）的戳記數
++	Slow   int // 做了 3x3 的戳記數
++	Empty  int // 全不符的戳記數
++}
++
++// Composer 做 docs/spec/004 第 5 節的合成：基底層放大，再把有效戳記通過驗證的像素換成 HD。
++// 內部緩衝區重複使用，不可同時由多個執行緒使用。
++type Composer struct {
++	S     int
++	A     *Assets
++	Stats ComposeStats
++
++	vf   Verifier
++	accA []uint8
++	f4   []uint64
++}
++
++// NewComposer 建立合成器；a 可為 nil（只做基底層放大，戳記照樣遮蔽但沒有 HD 可畫）。
++func NewComposer(a *Assets, s int) *Composer {
++	if s < 1 {
++		s = 1
++	}
++	return &Composer{S: s, A: a}
++}
++
++// OutSize 回傳輸出的寬高。
++func (c *Composer) OutSize(pxW, pxH int) (int, int) { return pxW * c.S, pxH * c.S }
++
++// fadeTab 是 5.4 的縮放係數。
++type fadeTab struct {
++	k     [16][3]float32
++	ident bool
++}
++
++// makeFade 依第 5.4 節：R 是參考調色盤，N 是目前的顯示色（DAC[Map[i]]）。
++// R[i][c] ≥ 16 的通道用 N÷R；否則用整體比例 g[c]（該通道的 ΣR 為 0 時取三通道合計的比，合計也為 0 才取 1）。
++func makeFade(R, N *[16][3]uint8) fadeTab {
++	var ft fadeTab
++	ident := true
++	var sumR, sumN [3]int
++	var totR, totN int
++	for i := 0; i < 16; i++ {
++		for ch := 0; ch < 3; ch++ {
++			sumR[ch] += int(R[i][ch])
++			sumN[ch] += int(N[i][ch])
++			if R[i][ch] != N[i][ch] {
++				ident = false
++			}
++		}
++	}
++	if ident {
++		for i := range ft.k {
++			ft.k[i] = [3]float32{1, 1, 1}
++		}
++		ft.ident = true
++		return ft
++	}
++	for ch := 0; ch < 3; ch++ {
++		totR += sumR[ch]
++		totN += sumN[ch]
++	}
++	var g [3]float32
++	for ch := 0; ch < 3; ch++ {
++		switch {
++		case sumR[ch] > 0:
++			g[ch] = float32(sumN[ch]) / float32(sumR[ch])
++		case totR > 0:
++			g[ch] = float32(totN) / float32(totR)
++		default:
++			g[ch] = 1
++		}
++	}
++	for i := 0; i < 16; i++ {
++		for ch := 0; ch < 3; ch++ {
++			if R[i][ch] >= 16 {
++				ft.k[i][ch] = float32(N[i][ch]) / float32(R[i][ch])
++			} else {
++				ft.k[i][ch] = g[ch]
++			}
++		}
++	}
++	return ft
++}
++
++func (ft *fadeTab) scale(idx byte, v uint8, ch int) uint8 {
++	if ft.ident {
++		return v
++	}
++	x := float32(v)*ft.k[idx&15][ch] + 0.5
++	switch {
++	case x <= 0:
++		return 0
++	case x >= 255:
++		return 255
++	}
++	return uint8(x)
++}
++
++// Compose 把 px（pxW×pxH，值 0 至 15）依 mp 與 dac 轉成 RGBA 並整數倍放大，寫進 dst
++// （長度至少 pxW*S*pxH*S*4），再疊上 stamps（依序號遞增）。
++func (c *Composer) Compose(dst []byte, px []uint8, pxW, pxH int, mp [16]uint8, dac *[256][3]uint8, stamps []*Stamp) {
++	S := c.S
++	ow, oh := pxW*S, pxH*S
++	var base [16][3]uint8
++	for p := range base {
++		base[p] = dac[mp[p]]
++	}
++	// 基底層
++	for y := 0; y < pxH; y++ {
++		row := dst[(y*S)*ow*4 : (y*S+1)*ow*4]
++		for x := 0; x < pxW; x++ {
++			col := base[px[y*pxW+x]&15]
++			for u := 0; u < S; u++ {
++				o := (x*S + u) * 4
++				row[o], row[o+1], row[o+2], row[o+3] = col[0], col[1], col[2], 0xFF
++			}
++		}
++		for v := 1; v < S; v++ {
++			copy(dst[(y*S+v)*ow*4:(y*S+v+1)*ow*4], row)
++		}
++	}
++	c.Stats = ComposeStats{}
++	if len(stamps) == 0 {
++		return
++	}
++	vs := c.vf.Run(stamps, px, pxW, pxH)
++	c.Stats.Stamps = len(stamps)
++	c.Stats.Fast, c.Stats.Slow, c.Stats.Empty = c.vf.Fast, c.vf.Slow, c.vf.Empty
++	if cap(c.accA) < ow*oh {
++		c.accA = make([]uint8, ow*oh)
++	}
++	c.accA = c.accA[:ow*oh]
++	for i := range c.accA {
++		c.accA[i] = 0
++	}
++	tabs := map[*[16][3]uint8]*fadeTab{}
++	for i := len(stamps) - 1; i >= 0; i-- {
++		s, v := stamps[i], vs[i]
++		if v.Count() == 0 {
++			continue
++		}
++		var as *Asset
++		if c.A != nil {
++			as = c.A.Get(s.Hash)
++		}
++		if as != nil {
++			c.Stats.WithHD++
++		}
++		var ft *fadeTab
++		if as != nil {
++			ft = tabs[as.Pal]
++			if ft == nil {
++				t := makeFade(as.Pal, &base)
++				ft = &t
++				tabs[as.Pal] = ft
++			}
++		}
++		c.drawStamp(dst, px, pxW, pxH, &base, s, v, as, ft)
++	}
++}
++
++func (c *Composer) drawStamp(dst []byte, px []uint8, pxW, pxH int, base *[16][3]uint8, s *Stamp, v Mask, as *Asset, ft *fadeTab) {
++	S := c.S
++	ow := pxW * S
++	w, h, st := s.W, s.H, v.Stride
++	if as == nil {
++		// 沒有 HD：通過驗證的像素遮蔽序號較小的 HD（顯示基底層）
++		for j := 0; j < h; j++ {
++			for k := 0; k < st; k++ {
++				word := v.Bits[j*st+k]
++				for word != 0 {
++					i := k*64 + bits.TrailingZeros64(word)
++					word &= word - 1
++					c.Stats.Pass++
++					for dv := 0; dv < S; dv++ {
++						o := ((s.Y+j)*S+dv)*ow + (s.X+i)*S
++						for du := 0; du < S; du++ {
++							c.accA[o+du] = 255
++						}
++					}
++				}
++			}
++		}
++		return
++	}
++	img := as.Img
++	stride := img.Stride
++	pix := img.Pix
++	// 羽化候選：V 的四鄰擴張（只留透明像素）
++	need := st * h
++	if cap(c.f4) < need {
++		c.f4 = make([]uint64, need)
++	}
++	f4 := c.f4[:need]
++	for j := 0; j < h; j++ {
++		for k := 0; k < st; k++ {
++			x := v.Bits[j*st+k]
++			d := x<<1 | x>>1
++			if k > 0 {
++				d |= v.Bits[j*st+k-1] >> 63
++			}
++			if k+1 < st {
++				d |= v.Bits[j*st+k+1] << 63
++			}
++			if j > 0 {
++				d |= v.Bits[(j-1)*st+k]
++			}
++			if j+1 < h {
++				d |= v.Bits[(j+1)*st+k]
++			}
++			f4[j*st+k] = d &^ x
++		}
++	}
++	for j := 0; j < h; j++ {
++		for k := 0; k < st; k++ {
++			word := v.Bits[j*st+k] | f4[j*st+k]
++			for word != 0 {
++				i := k*64 + bits.TrailingZeros64(word)
++				word &= word - 1
++				if i >= w {
++					break
++				}
++				var idx byte
++				if v.Get(i, j) {
++					idx = s.E[j*w+i]
++					c.Stats.Pass++
++				} else {
++					// 羽化區：必須是透明像素，且取四鄰中通過驗證的不透明像素的索引（左、右、上、下）
++					if s.E[j*w+i] != Transparent {
++						continue
++					}
++					x, y := s.X+i, s.Y+j
++					if x < 0 || y < 0 || x >= pxW || y >= pxH {
++						continue
++					}
++					switch {
++					case v.Get(i-1, j):
++						idx = s.E[j*w+i-1]
++					case v.Get(i+1, j):
++						idx = s.E[j*w+i+1]
++					case v.Get(i, j-1):
++						idx = s.E[(j-1)*w+i]
++					case v.Get(i, j+1):
++						idx = s.E[(j+1)*w+i]
++					default:
++						continue
++					}
++				}
++				for dv := 0; dv < S; dv++ {
++					po := (S*j+dv)*stride + S*i*4
++					oy := (s.Y+j)*S + dv
++					for du := 0; du < S; du++ {
++						a := pix[po+du*4+3]
++						if a == 0 {
++							continue
++						}
++						ox := (s.X+i)*S + du
++						col := [3]uint8{pix[po+du*4], pix[po+du*4+1], pix[po+du*4+2]}
++						if !ft.ident {
++							for ch := 0; ch < 3; ch++ {
++								col[ch] = ft.scale(idx, col[ch], ch)
++							}
++						}
++						c.blend(dst, oy*ow+ox, col, a, base[px[((s.Y+j)*pxW)+s.X+i]&15])
++					}
++				}
++			}
++		}
++	}
++}
++
++// blend 做由前往後的 over 混合（第 5.3 第 5 步）：dst 在這裡是「已累積的前景 ＋ 基底 × 剩餘穿透率」，
++// 加入一層 (col, a) 後 dst += T × a × (col − base)，T 是剩餘穿透率，accA 累積不透明度。
++func (c *Composer) blend(dst []byte, p int, col [3]uint8, a uint8, base [3]uint8) {
++	t := 255 - int(c.accA[p])
++	if t == 0 {
++		return
++	}
++	f := int(a) * t
++	d := dst[p*4 : p*4+3]
++	for ch := 0; ch < 3; ch++ {
++		num := (int(col[ch]) - int(base[ch])) * f
++		var delta int
++		if num >= 0 {
++			delta = (num + 32512) / 65025
++		} else {
++			delta = -((-num + 32512) / 65025)
++		}
++		v := int(d[ch]) + delta
++		if v < 0 {
++			v = 0
++		} else if v > 255 {
++			v = 255
++		}
++		d[ch] = uint8(v)
++	}
++	c.accA[p] = uint8(int(c.accA[p]) + (f+127)/255)
++}
+diff --git a/apps/hr/hd/compose_test.go b/apps/hr/hd/compose_test.go
+new file mode 100644
+index 0000000..c346459
+--- /dev/null
++++ b/apps/hr/hd/compose_test.go
+@@ -0,0 +1,317 @@
++package hd
++
++import (
++	"fmt"
++	"image"
++	"image/png"
++	"math/rand"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++)
++
++func testPalette() *[16][3]uint8 {
++	var p [16][3]uint8
++	for i := range p {
++		p[i] = [3]uint8{uint8(i*16 + 16), uint8(255 - i*16), uint8(i * 8)}
++	}
++	return &p
++}
++
++func identityMap() (mp [16]uint8, dac [256][3]uint8) {
++	p := testPalette()
++	for i := 0; i < 16; i++ {
++		mp[i] = uint8(i)
++		dac[i] = p[i]
++	}
++	return
++}
++
++func solidAsset(w, h, S int, r, g, b, a uint8, pal *[16][3]uint8) *Asset {
++	im := image.NewNRGBA(image.Rect(0, 0, w*S, h*S))
++	for i := 0; i < len(im.Pix); i += 4 {
++		im.Pix[i], im.Pix[i+1], im.Pix[i+2], im.Pix[i+3] = r, g, b, a
++	}
++	return &Asset{Img: im, Pal: pal}
++}
++
++func TestComposeBase(t *testing.T) {
++	mp, dac := identityMap()
++	px := []uint8{0, 1, 2, 3, 4, 5}
++	c := NewComposer(nil, 2)
++	dst := make([]byte, 3*2*2*2*4)
++	c.Compose(dst, px, 3, 2, mp, &dac, nil)
++	for y := 0; y < 4; y++ {
++		for x := 0; x < 6; x++ {
++			p := px[(y/2)*3+x/2]
++			o := (y*6 + x) * 4
++			if dst[o] != dac[p][0] || dst[o+1] != dac[p][1] || dst[o+2] != dac[p][2] || dst[o+3] != 255 {
++				t.Fatalf("(%d,%d) 基底色錯誤", x, y)
++			}
++		}
++	}
++}
++
++// 沒有 HD 的戳記遮蔽序號較小的 HD；有 HD 的戳記在通過驗證的像素畫 HD；不符的像素維持基底層。
++func TestComposeStamps(t *testing.T) {
++	mp, dac := identityMap()
++	const W, H, S = 8, 4, 2
++	px := make([]uint8, W*H)
++	for i := range px {
++		px[i] = 1
++	}
++	pal := testPalette()
++	lo := &Stamp{Kind: KindSprite, X: 0, Y: 0, W: 4, H: 4, Hash: "lo", E: filled(16, 1), Seq: 1}
++	hi := &Stamp{Kind: KindSprite, X: 2, Y: 0, W: 4, H: 4, Hash: "hi", E: filled(16, 1), Seq: 2} // 與 lo 重疊 x=2..3，hi 沒有 HD
++	a := &Assets{S: S, cache: map[string]*Asset{"lo": solidAsset(4, 4, S, 200, 10, 10, 255, pal), "hi": nil}}
++	c := NewComposer(a, S)
++	dst := make([]byte, W*S*H*S*4)
++	c.Compose(dst, px, W, H, mp, &dac, []*Stamp{lo, hi})
++	at := func(x, y int) [3]uint8 { o := (y*W*S + x) * 4; return [3]uint8{dst[o], dst[o+1], dst[o+2]} }
++	// lo 獨有的 x=0..1（HD 座標 0..3）畫 HD；與 hi 重疊的 x=2..3（HD 座標 4..7）被 hi 遮蔽成基底層
++	if at(0, 0) != [3]uint8{200, 10, 10} || at(3, 3) != [3]uint8{200, 10, 10} {
++		t.Fatalf("lo 獨有區沒畫 HD：%v %v", at(0, 0), at(3, 3))
++	}
++	if at(4, 0) != dac[1] || at(7, 7) != dac[1] {
++		t.Fatalf("重疊區沒有被無 HD 的 hi 遮蔽：%v %v", at(4, 0), at(7, 7))
++	}
++	// 蓋住（不相符）：lo 的一部分被 VRAM 改成別的顏色，且 3x3 鄰域否決
++	px[0], px[1], px[W], px[W+1] = 9, 9, 9, 9
++	c.Compose(dst, px, W, H, mp, &dac, []*Stamp{lo})
++	if at(0, 0) == [3]uint8{200, 10, 10} {
++		t.Fatal("不相符的像素不應畫 HD")
++	}
++}
++
++func filled(n int, v byte) []byte {
++	b := make([]byte, n)
++	for i := range b {
++		b[i] = v
++	}
++	return b
++}
++
++// 由大到小的前往後混合與「序號由小到大逐一覆蓋」逐像素等價（容許取整誤差，第 5.3 第 5 步）。
++func TestComposeFrontToBackEqualsPainter(t *testing.T) {
++	r := rand.New(rand.NewSource(3))
++	mp, dac := identityMap()
++	const W, H, S = 40, 30, 2
++	pal := testPalette()
++	worst := 0
++	for round := 0; round < 150; round++ {
++		px := make([]uint8, W*H)
++		var stamps []*Stamp
++		cache := map[string]*Asset{}
++		n := 1 + r.Intn(7)
++		for k := 0; k < n; k++ {
++			w, h := 4+r.Intn(14), 4+r.Intn(10)
++			s := &Stamp{Kind: KindSprite, X: r.Intn(W-w+4) - 2, Y: r.Intn(H-h+4) - 2, W: w, H: h, Hash: fmt.Sprint("h", k), E: make([]byte, w*h), Seq: uint64(k + 1)}
++			for i := range s.E {
++				if r.Intn(6) == 0 {
++					s.E[i] = Transparent
++				} else {
++					s.E[i] = byte(r.Intn(4))
++				}
++			}
++			stamps = append(stamps, s)
++			if r.Intn(3) != 0 { // 三分之一沒有 HD
++				as := solidAsset(w, h, S, uint8(r.Intn(256)), uint8(r.Intn(256)), uint8(r.Intn(256)), 255, pal)
++				for i := 3; i < len(as.Img.Pix); i += 4 { // 羽化區與部分透明
++					if r.Intn(5) == 0 {
++						as.Img.Pix[i] = uint8(r.Intn(256))
++					}
++				}
++				cache[s.Hash] = as
++			} else {
++				cache[s.Hash] = nil
++			}
++		}
++		for _, s := range stamps { // 畫進 px，使多數相符
++			for j := 0; j < s.H; j++ {
++				for i := 0; i < s.W; i++ {
++					x, y := s.X+i, s.Y+j
++					if x >= 0 && y >= 0 && x < W && y < H && s.E[j*s.W+i] != Transparent && r.Intn(8) != 0 {
++						px[y*W+x] = s.E[j*s.W+i]
++					}
++				}
++			}
++		}
++		a := &Assets{S: S, cache: cache}
++		c := NewComposer(a, S)
++		got := make([]byte, W*S*H*S*4)
++		c.Compose(got, px, W, H, mp, &dac, stamps)
++		want := painter(a, px, W, H, S, mp, &dac, stamps)
++		for i := range got {
++			d := int(got[i]) - int(want[i])
++			if d < 0 {
++				d = -d
++			}
++			if d > worst {
++				worst = d
++			}
++			if d > 2 {
++				t.Fatalf("round %d：位元組 %d 前往後 %d、逐一覆蓋 %d", round, i, got[i], want[i])
++			}
++		}
++	}
++	t.Logf("最大差 %d", worst)
++}
++
++// painter 是序號由小到大逐一覆蓋的參考實作（用 Verifier 求 V，與 Compose 同一個 V）。
++func painter(a *Assets, px []uint8, W, H, S int, mp [16]uint8, dac *[256][3]uint8, stamps []*Stamp) []byte {
++	var base [16][3]uint8
++	for p := range base {
++		base[p] = dac[mp[p]]
++	}
++	out := make([]float64, W*S*H*S*3)
++	for y := 0; y < H*S; y++ {
++		for x := 0; x < W*S; x++ {
++			c := base[px[(y/S)*W+x/S]&15]
++			for ch := 0; ch < 3; ch++ {
++				out[(y*W*S+x)*3+ch] = float64(c[ch])
++			}
++		}
++	}
++	var vf Verifier
++	vs := vf.Run(stamps, px, W, H)
++	for k, s := range stamps {
++		v := vs[k]
++		as := a.cache[s.Hash]
++		for j := 0; j < s.H; j++ {
++			for i := 0; i < s.W; i++ {
++				var inV bool = v.Get(i, j)
++				var idxPix = -1
++				if inV {
++					idxPix = int(s.E[j*s.W+i])
++				} else if s.E[j*s.W+i] == Transparent {
++					x, y := s.X+i, s.Y+j
++					if x < 0 || y < 0 || x >= W || y >= H || as == nil {
++						continue
++					}
++					for _, d := range [][2]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
++						if v.Get(i+d[0], j+d[1]) {
++							idxPix = int(s.E[(j+d[1])*s.W+i+d[0]])
++							break
++						}
++					}
++				}
++				if idxPix < 0 {
++					continue
++				}
++				for dv := 0; dv < S; dv++ {
++					for du := 0; du < S; du++ {
++						o := (((s.Y+j)*S+dv)*W*S + (s.X+i)*S + du) * 3
++						if as == nil {
++							b := base[px[(s.Y+j)*W+s.X+i]&15]
++							for ch := 0; ch < 3; ch++ {
++								out[o+ch] = float64(b[ch])
++							}
++							continue
++						}
++						p := as.Img.Pix[(S*j+dv)*as.Img.Stride+(S*i+du)*4:]
++						al := float64(p[3]) / 255
++						for ch := 0; ch < 3; ch++ {
++							out[o+ch] = out[o+ch]*(1-al) + float64(p[ch])*al
++						}
++					}
++				}
++			}
++		}
++	}
++	res := make([]byte, W*S*H*S*4)
++	for i := 0; i < W*S*H*S; i++ {
++		for ch := 0; ch < 3; ch++ {
++			res[i*4+ch] = uint8(out[i*3+ch] + 0.5)
++		}
++		res[i*4+3] = 255
++	}
++	return res
++}
++
++func TestFade(t *testing.T) {
++	R := testPalette()
++	// 等於參考：恆等
++	ft := makeFade(R, R)
++	if !ft.ident {
++		t.Fatal("DAC 等於參考時應為恆等")
++	}
++	// DAC 全 0：任何顏色輸出皆 0
++	var zero [16][3]uint8
++	ft = makeFade(R, &zero)
++	for i := 0; i < 16; i++ {
++		for ch := 0; ch < 3; ch++ {
++			for _, v := range []uint8{0, 1, 77, 128, 255} {
++				if o := ft.scale(byte(i), v, ch); o != 0 {
++					t.Fatalf("DAC 全 0：索引 %d 通道 %d 值 %d 輸出 %d", i, ch, v, o)
++				}
++			}
++		}
++	}
++	// R 有全 0 的通道：g 改取三通道合計的比，DAC 全 0 時仍輸出 0
++	R2 := *R
++	for i := range R2 {
++		R2[i][2] = 0
++	}
++	ft = makeFade(&R2, &zero)
++	for i := 0; i < 16; i++ {
++		if o := ft.scale(byte(i), 200, 2); o != 0 {
++			t.Fatalf("藍色通道全 0 的參考調色盤、DAC 全 0：輸出 %d", o)
++		}
++	}
++	// 一半亮度：R≥16 的通道乘 N/R，R<16 的通道乘整體比例
++	var half [16][3]uint8
++	for i := range half {
++		for ch := 0; ch < 3; ch++ {
++			half[i][ch] = R[i][ch] / 2
++		}
++	}
++	ft = makeFade(R, &half)
++	if o := ft.scale(15, 200, 1); o < 95 || o > 105 { // R[15][1] = 15 → 小於 16，用 g≈0.5
++		t.Fatalf("g 縮放：%d", o)
++	}
++	if o := ft.scale(2, 200, 0); o < 95 || o > 105 { // R[2][0] = 48，N/R = 24/48
++		t.Fatalf("N/R 縮放：%d", o)
++	}
++}
++
++func TestLoadAssets(t *testing.T) {
++	dir := t.TempDir()
++	hash := strings.Repeat("a", 64)
++	hash2 := strings.Repeat("b", 64)
++	os.MkdirAll(filepath.Join(dir, "x2", "MRG"), 0o755)
++	os.WriteFile(filepath.Join(dir, "catalog.tsv"), []byte("hash\tid\tw\th\tkind\tpal\thd\tsingleton\n"+
++		hash+"\tA:0\t4\t2\tsprite\tMAIN\tMRG/a.png\t\n"+
++		hash2+"\tA:1\t4\t2\tsprite\tMAIN\tMRG/b.png\t\n"), 0o644)
++	os.WriteFile(filepath.Join(dir, "palettes.tsv"), []byte("name\tpalette16\nMAIN\t000000 000001 000002 000003 000004 000005 000006 000007 000008 000009 00000A 00000B 00000C 00000D 00000E FFFFFF\n"), 0o644)
++	write := func(name string, w, h int) {
++		f, _ := os.Create(filepath.Join(dir, "x2", name))
++		png.Encode(f, image.NewNRGBA(image.Rect(0, 0, w, h)))
++		f.Close()
++	}
++	write("MRG/a.png", 8, 4)
++	write("MRG/b.png", 7, 4) // 尺寸不符
++	a, err := LoadAssets(dir, 2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if a.Lookup(hash) == nil || a.Lookup(strings.Repeat("c", 64)) != nil {
++		t.Fatal("Lookup 結果不對")
++	}
++	if as := a.Get(hash); as == nil || as.Img.Bounds().Dx() != 8 || as.Pal[15] != [3]uint8{255, 255, 255} {
++		t.Fatalf("Get a：%+v", as)
++	}
++	if a.Get(hash2) != nil || len(a.Errors) != 1 || !strings.Contains(a.Errors[0], "清冊要求 8x4") {
++		t.Fatalf("尺寸不符應拒絕並記錄：%v", a.Errors)
++	}
++	if a.Get(hash2) != nil || len(a.Errors) != 1 {
++		t.Fatal("同一個雜湊的失敗只記一次")
++	}
++	if a.Get(strings.Repeat("c", 64)) != nil {
++		t.Fatal("不在清冊的雜湊不該有 HD")
++	}
++	// 清冊缺檔
++	if _, err := LoadAssets(filepath.Join(dir, "nope"), 2); err == nil {
++		t.Fatal("缺清冊應回錯誤")
++	}
++}
+diff --git a/apps/hr/hd/stamp.go b/apps/hr/hd/stamp.go
+new file mode 100644
+index 0000000..ff02f97
+--- /dev/null
++++ b/apps/hr/hd/stamp.go
+@@ -0,0 +1,125 @@
++package hd
++
++import "sort"
++
++// Kind 是戳記的來源（docs/spec/004 第 3.2 節）。
++type Kind uint8
++
++const (
++	KindSprite  Kind = iota + 1 // 2B47:0022 記憶體內精靈
++	KindCache24                 // 3268:1155 24x24 遮罩精靈快取
++	KindStream                  // 2E92:066A 壓縮串流（遮罩在列首）
++	KindPacked4                 // 348F:0005 已解壓 packed 4bpp
++	KindMap                     // 2FB2:25A1 GMAP，整張矩形
++)
++
++func (k Kind) String() string {
++	switch k {
++	case KindSprite:
++		return "sprite"
++	case KindCache24:
++		return "cache24"
++	case KindStream:
++		return "stream"
++	case KindPacked4:
++		return "packed4"
++	case KindMap:
++		return "map"
++	}
++	return "?"
++}
++
++// Stamp 記錄「遊戲在 Px 的 (X, Y) 畫過這張圖」。建立後不再修改，快照可以放心共用。
++// X、Y 是 Machine.Planar 輸出的座標（Y 已含遊戲區的 40 列偏移）。
++type Stamp struct {
++	Kind Kind
++	X, Y int
++	W, H int
++	Hash string
++	Site uint32 // 呼叫點：返回位址 seg<<16 | off
++	E    []byte // 期望像素，逐列每像素一個位元組，Transparent 為透明；長度 W*H
++	Seq  uint64
++}
++
++type stampKey struct {
++	x, y, w, h int
++	hash       string
++}
++
++// QueueMax 是戳記佇列的上限（docs/spec/004 第 4.2 節）。
++const QueueMax = 1024
++
++// Queue 是戳記佇列。只由持有機器的 goroutine 使用；Snapshot 回傳的切片可以交給其他執行緒讀。
++//
++// 規則（第 4.2 節）只有三條：去重（同 x、y、w、h、雜湊的新戳記取代舊的）、
++// singleton（同一個 singleton 呼叫點只留最新一個）、LRU（超過上限移除序號最小的）。
++// 沒有任何依事件的移除規則（第 2 節）。
++type Queue struct {
++	max        int
++	seq        uint64
++	list       []*Stamp // 依序號遞增
++	byKey      map[stampKey]*Stamp
++	singletons map[uint32]bool
++	bySite     map[uint32]*Stamp
++	Dropped    uint64 // 被 LRU 丟掉的戳記數
++	Replaced   uint64 // 被去重或 singleton 取代的戳記數
++}
++
++// NewQueue 建立佇列。singletons 是 singleton 呼叫點的集合；max ≤ 0 取 QueueMax。
++func NewQueue(max int, singletons ...uint32) *Queue {
++	if max <= 0 {
++		max = QueueMax
++	}
++	q := &Queue{max: max, byKey: map[stampKey]*Stamp{}, singletons: map[uint32]bool{}, bySite: map[uint32]*Stamp{}}
++	for _, s := range singletons {
++		q.singletons[s] = true
++	}
++	return q
++}
++
++func (q *Queue) remove(s *Stamp) {
++	i := sort.Search(len(q.list), func(i int) bool { return q.list[i].Seq >= s.Seq })
++	if i < len(q.list) && q.list[i] == s {
++		q.list = append(q.list[:i], q.list[i+1:]...)
++	}
++	delete(q.byKey, stampKey{s.X, s.Y, s.W, s.H, s.Hash})
++	if q.bySite[s.Site] == s {
++		delete(q.bySite, s.Site)
++	}
++}
++
++// Add 加入一個有效的戳記（待定的戳記在返回鉤子觸發後才加入），指派序號。
++// 回傳 LRU 丟掉的戳記（沒有就是 nil），供呼叫者寫紀錄。
++func (q *Queue) Add(s *Stamp) (evicted *Stamp) {
++	if old := q.byKey[stampKey{s.X, s.Y, s.W, s.H, s.Hash}]; old != nil {
++		q.remove(old)
++		q.Replaced++
++	}
++	if q.singletons[s.Site] {
++		if old := q.bySite[s.Site]; old != nil {
++			q.remove(old)
++			q.Replaced++
++		}
++		q.bySite[s.Site] = s
++	}
++	q.seq++
++	s.Seq = q.seq
++	q.list = append(q.list, s)
++	q.byKey[stampKey{s.X, s.Y, s.W, s.H, s.Hash}] = s
++	if len(q.list) > q.max {
++		evicted = q.list[0]
++		q.remove(evicted)
++		q.Dropped++
++	}
++	return evicted
++}
++
++// Len 回傳目前的戳記數。
++func (q *Queue) Len() int { return len(q.list) }
++
++// Snapshot 回傳依序號遞增的戳記複本（戳記本身不可變，共用指標）。
++func (q *Queue) Snapshot() []*Stamp {
++	out := make([]*Stamp, len(q.list))
++	copy(out, q.list)
++	return out
++}
+diff --git a/apps/hr/hd/verify.go b/apps/hr/hd/verify.go
+new file mode 100644
+index 0000000..a741d7a
+--- /dev/null
++++ b/apps/hr/hd/verify.go
+@@ -0,0 +1,248 @@
++package hd
++
++import "math/bits"
++
++// Mask 是戳記座標下的點陣：每列 Stride 個 uint64，第 i 個像素是第 i>>6 個字的第 i&63 位。
++type Mask struct {
++	W, H, Stride int
++	Bits         []uint64
++}
++
++// Get 回傳 (i, j) 是否為 1；範圍外為 false。
++func (m Mask) Get(i, j int) bool {
++	if i < 0 || j < 0 || i >= m.W || j >= m.H {
++		return false
++	}
++	return m.Bits[j*m.Stride+i>>6]>>(uint(i)&63)&1 != 0
++}
++
++// Count 回傳 1 的個數。
++func (m Mask) Count() int {
++	n := 0
++	for _, w := range m.Bits {
++		n += popcount(w)
++	}
++	return n
++}
++
++func popcount(x uint64) int { return bits.OnesCount64(x) }
++
++// Verifier 做 docs/spec/004 第 5.3 節第 1 至 2 步：每個戳記求通過驗證的像素 V。
++// 內部緩衝區重複使用，Run 回傳的 Mask 到下一次 Run 之前有效。不可同時由多個執行緒使用。
++type Verifier struct {
++	scr    []uint64 // 解釋點陣 X：整個 Px 的位元列
++	scrStr int
++	vbits  []uint64
++	o, m   []uint64
++	b, dh  []uint64
++	xl     []uint64
++	out    []Mask
++	// 統計（驗收用）
++	Fast, Slow, Empty int
++}
++
++// Run 對依序號遞增排列的 stamps 求每個戳記的 V（回傳切片與 stamps 同序）。
++// 規則：像素本身相符，且戳記內 3x3 鄰域中每個不透明像素也相符，或被「序號更大的戳記」解釋
++// （該位置被序號更大的戳記相符）。由序號最大的戳記往小處理並維護解釋點陣。
++// 範圍外（Px 之外）的像素視為不存在（第 1 節：落在範圍外的丟棄）。
++func (v *Verifier) Run(stamps []*Stamp, px []uint8, pxW, pxH int) []Mask {
++	v.Fast, v.Slow, v.Empty = 0, 0, 0
++	v.scrStr = (pxW + 63) >> 6
++	need := v.scrStr * pxH
++	if cap(v.scr) < need {
++		v.scr = make([]uint64, need)
++	}
++	v.scr = v.scr[:need]
++	for i := range v.scr {
++		v.scr[i] = 0
++	}
++	// V 的總容量
++	total := 0
++	for _, s := range stamps {
++		total += ((s.W + 63) >> 6) * s.H
++	}
++	if cap(v.vbits) < total {
++		v.vbits = make([]uint64, total)
++	}
++	v.vbits = v.vbits[:total]
++	for i := range v.vbits {
++		v.vbits[i] = 0
++	}
++	if cap(v.out) < len(stamps) {
++		v.out = make([]Mask, len(stamps))
++	}
++	v.out = v.out[:len(stamps)]
++	// 配置各戳記的 V 區段（依序號遞增排列）
++	off := 0
++	for i, s := range stamps {
++		st := (s.W + 63) >> 6
++		v.out[i] = Mask{W: s.W, H: s.H, Stride: st, Bits: v.vbits[off : off+st*s.H : off+st*s.H]}
++		off += st * s.H
++	}
++	for i := len(stamps) - 1; i >= 0; i-- {
++		v.one(stamps[i], px, pxW, pxH, v.out[i])
++	}
++	return v.out
++}
++
++func grow(b []uint64, n int) []uint64 {
++	if cap(b) < n {
++		return make([]uint64, n)
++	}
++	b = b[:n]
++	for i := range b {
++		b[i] = 0
++	}
++	return b
++}
++
++func (v *Verifier) one(s *Stamp, px []uint8, pxW, pxH int, vm Mask) {
++	w, h, st := s.W, s.H, vm.Stride
++	v.o = grow(v.o, st*h)
++	v.m = grow(v.m, st*h)
++	O, M := v.o, v.m
++	nO, nM := 0, 0
++	for j := 0; j < h; j++ {
++		y := s.Y + j
++		if y < 0 || y >= pxH {
++			continue
++		}
++		er := s.E[j*w : j*w+w]
++		pr := px[y*pxW : y*pxW+pxW]
++		orow := O[j*st : j*st+st]
++		mrow := M[j*st : j*st+st]
++		lo, hi := 0, w
++		if s.X < 0 {
++			lo = -s.X
++		}
++		if s.X+hi > pxW {
++			hi = pxW - s.X
++		}
++		for i := lo; i < hi; i++ {
++			e := er[i]
++			if e == Transparent {
++				continue
++			}
++			bit := uint64(1) << (uint(i) & 63)
++			orow[i>>6] |= bit
++			nO++
++			if pr[s.X+i] == e {
++				mrow[i>>6] |= bit
++				nM++
++			}
++		}
++	}
++	switch {
++	case nM == 0:
++		v.Empty++
++		return
++	case nM == nO:
++		v.Fast++
++		copy(vm.Bits, M)
++	default:
++		v.Slow++
++		v.neighborhood(s, vm, O, M)
++	}
++	v.orScreen(s, M, st)
++}
++
++// neighborhood 做第 2 步：B ＝ O 且非 M 且非 X，擴張 3x3，V ＝ M 且非 D。
++func (v *Verifier) neighborhood(s *Stamp, vm Mask, O, M []uint64) {
++	w, h, st := s.W, s.H, vm.Stride
++	v.b = grow(v.b, st*h)
++	v.dh = grow(v.dh, st*h)
++	v.xl = grow(v.xl, st)
++	B, Dh := v.b, v.dh
++	for j := 0; j < h; j++ {
++		y := s.Y + j
++		orow := O[j*st : j*st+st]
++		mrow := M[j*st : j*st+st]
++		brow := B[j*st : j*st+st]
++		for k := range v.xl {
++			v.xl[k] = 0
++		}
++		if y >= 0 && y < len(v.scr)/v.scrStr {
++			v.extract(v.xl, y, s.X, w)
++		}
++		for k := 0; k < st; k++ {
++			brow[k] = orow[k] &^ mrow[k] &^ v.xl[k]
++		}
++	}
++	// 水平擴張
++	for j := 0; j < h; j++ {
++		brow := B[j*st : j*st+st]
++		drow := Dh[j*st : j*st+st]
++		for k := 0; k < st; k++ {
++			x := brow[k]
++			d := x | x<<1 | x>>1
++			if k > 0 {
++				d |= brow[k-1] >> 63
++			}
++			if k+1 < st {
++				d |= brow[k+1] << 63
++			}
++			drow[k] = d
++		}
++	}
++	// 垂直擴張並求 V
++	for j := 0; j < h; j++ {
++		for k := 0; k < st; k++ {
++			d := Dh[j*st+k]
++			if j > 0 {
++				d |= Dh[(j-1)*st+k]
++			}
++			if j+1 < h {
++				d |= Dh[(j+1)*st+k]
++			}
++			vm.Bits[j*st+k] = M[j*st+k] &^ d
++		}
++	}
++}
++
++func (v *Verifier) wordAt(row, idx int) uint64 {
++	if idx < 0 || idx >= v.scrStr {
++		return 0
++	}
++	return v.scr[row*v.scrStr+idx]
++}
++
++// extract 把解釋點陣第 row 列從 x0 起的 n 個位元讀進 dst（尾端超出 n 的位元清 0）。
++func (v *Verifier) extract(dst []uint64, row, x0, n int) {
++	for k := range dst {
++		bit := x0 + 64*k
++		w0, sh := bit>>6, uint(bit&63)
++		x := v.wordAt(row, w0) >> sh
++		if sh > 0 {
++			x |= v.wordAt(row, w0+1) << (64 - sh)
++		}
++		dst[k] = x
++	}
++	if r := n & 63; r != 0 {
++		dst[len(dst)-1] &= (uint64(1) << uint(r)) - 1
++	}
++}
++
++// orScreen 把戳記座標下的 M 併進解釋點陣。
++func (v *Verifier) orScreen(s *Stamp, M []uint64, st int) {
++	rows := len(v.scr) / v.scrStr
++	for j := 0; j < s.H; j++ {
++		y := s.Y + j
++		if y < 0 || y >= rows {
++			continue
++		}
++		for k := 0; k < st; k++ {
++			x := M[j*st+k]
++			if x == 0 {
++				continue
++			}
++			bit := s.X + 64*k
++			w0, sh := bit>>6, uint(bit&63)
++			if w0 >= 0 && w0 < v.scrStr {
++				v.scr[y*v.scrStr+w0] |= x << sh
++			}
++			if sh > 0 && w0+1 >= 0 && w0+1 < v.scrStr {
++				v.scr[y*v.scrStr+w0+1] |= x >> (64 - sh)
++			}
++		}
++	}
++}
+diff --git a/apps/hr/hd/verify_test.go b/apps/hr/hd/verify_test.go
+new file mode 100644
+index 0000000..700eb2c
+--- /dev/null
++++ b/apps/hr/hd/verify_test.go
+@@ -0,0 +1,226 @@
++package hd
++
++import (
++	"math/rand"
++	"testing"
++)
++
++// naiveVerify 是 docs/spec/004 第 5.3 節第 2 步的逐像素定義：
++// 像素本身相符，且戳記內 3x3 鄰域中每個不透明像素也相符，或該位置被序號更大的戳記相符。
++func naiveVerify(stamps []*Stamp, px []uint8, pxW, pxH int) [][]bool {
++	match := func(s *Stamp, i, j int) (opaque, ok bool) {
++		if i < 0 || j < 0 || i >= s.W || j >= s.H {
++			return false, false
++		}
++		x, y := s.X+i, s.Y+j
++		if x < 0 || y < 0 || x >= pxW || y >= pxH {
++			return false, false
++		}
++		e := s.E[j*s.W+i]
++		if e == Transparent {
++			return false, false
++		}
++		return true, px[y*pxW+x] == e
++	}
++	res := make([][]bool, len(stamps))
++	for k, s := range stamps {
++		res[k] = make([]bool, s.W*s.H)
++		explained := func(x, y int) bool {
++			for t := k + 1; t < len(stamps); t++ {
++				u := stamps[t]
++				if op, ok := match(u, x-u.X, y-u.Y); op && ok {
++					return true
++				}
++			}
++			return false
++		}
++		for j := 0; j < s.H; j++ {
++			for i := 0; i < s.W; i++ {
++				if op, ok := match(s, i, j); !op || !ok {
++					continue
++				}
++				pass := true
++				for dj := -1; dj <= 1 && pass; dj++ {
++					for di := -1; di <= 1; di++ {
++						op, ok := match(s, i+di, j+dj)
++						// 範圍外（Px 之外）的像素視為不存在
++						if i+di < 0 || j+dj < 0 || i+di >= s.W || j+dj >= s.H {
++							continue
++						}
++						if x, y := s.X+i+di, s.Y+j+dj; x < 0 || y < 0 || x >= pxW || y >= pxH {
++							continue
++						}
++						if op && !ok && !explained(s.X+i+di, s.Y+j+dj) {
++							pass = false
++							break
++						}
++					}
++				}
++				res[k][j*s.W+i] = pass
++			}
++		}
++	}
++	return res
++}
++
++func randStamp(r *rand.Rand, pxW, pxH int) *Stamp {
++	w := 1 + r.Intn(150)
++	h := 1 + r.Intn(40)
++	s := &Stamp{W: w, H: h, X: r.Intn(pxW+60) - 30, Y: r.Intn(pxH+20) - 10, E: make([]byte, w*h)}
++	for i := range s.E {
++		if r.Intn(5) == 0 {
++			s.E[i] = Transparent
++		} else {
++			s.E[i] = byte(r.Intn(3))
++		}
++	}
++	return s
++}
++
++// 與逐像素定義逐位元對拍（含 Px 邊界外、跨 64 位元字界、負座標）。
++func TestVerifyMatchesNaive(t *testing.T) {
++	r := rand.New(rand.NewSource(7))
++	var vf Verifier
++	const pxW, pxH = 200, 60
++	for round := 0; round < 400; round++ {
++		px := make([]uint8, pxW*pxH)
++		mode := round % 4
++		for i := range px {
++			px[i] = byte(r.Intn(3))
++		}
++		n := 1 + r.Intn(8)
++		var stamps []*Stamp
++		for k := 0; k < n; k++ {
++			s := randStamp(r, pxW, pxH)
++			stamps = append(stamps, s)
++		}
++		// 讓戳記大半相符：把期望像素寫進 px（各種覆蓋順序），再擾動
++		for _, s := range stamps {
++			for j := 0; j < s.H; j++ {
++				for i := 0; i < s.W; i++ {
++					x, y := s.X+i, s.Y+j
++					if x < 0 || y < 0 || x >= pxW || y >= pxH || s.E[j*s.W+i] == Transparent {
++						continue
++					}
++					if mode == 3 && r.Intn(4) == 0 {
++						continue
++					}
++					px[y*pxW+x] = s.E[j*s.W+i]
++				}
++			}
++		}
++		if mode == 1 { // 隨機打洞
++			for i := 0; i < len(px)/20; i++ {
++				px[r.Intn(len(px))] = 9
++			}
++		}
++		for i, s := range stamps {
++			s.Seq = uint64(i + 1)
++		}
++		got := vf.Run(stamps, px, pxW, pxH)
++		want := naiveVerify(stamps, px, pxW, pxH)
++		for k, s := range stamps {
++			for j := 0; j < s.H; j++ {
++				for i := 0; i < s.W; i++ {
++					if got[k].Get(i, j) != want[k][j*s.W+i] {
++						t.Fatalf("round %d mode %d stamp %d (%d,%d) %dx%d：(%d,%d) 位元列 %v 逐像素 %v", round, mode, k, s.X, s.Y, s.W, s.H, i, j, got[k].Get(i, j), want[k][j*s.W+i])
++					}
++				}
++			}
++		}
++	}
++	if vf.Fast+vf.Slow+vf.Empty == 0 {
++		t.Fatal("沒有處理任何戳記")
++	}
++}
++
++// 全相符走快速路徑，全不符為空，部分相符走 3x3。
++func TestVerifyPaths(t *testing.T) {
++	const pxW, pxH = 64, 16
++	px := make([]uint8, pxW*pxH)
++	s := &Stamp{W: 8, H: 4, X: 3, Y: 2, E: make([]byte, 32), Seq: 1}
++	for i := range s.E {
++		s.E[i] = 5
++	}
++	var vf Verifier
++	for j := 0; j < 4; j++ {
++		for i := 0; i < 8; i++ {
++			px[(2+j)*pxW+3+i] = 5
++		}
++	}
++	m := vf.Run([]*Stamp{s}, px, pxW, pxH)
++	if vf.Fast != 1 || m[0].Count() != 32 {
++		t.Fatalf("全相符：Fast=%d count=%d", vf.Fast, m[0].Count())
++	}
++	for i := range px {
++		px[i] = 0
++	}
++	m = vf.Run([]*Stamp{s}, px, pxW, pxH)
++	if vf.Empty != 1 || m[0].Count() != 0 {
++		t.Fatalf("全不符：Empty=%d count=%d", vf.Empty, m[0].Count())
++	}
++	// 一個孤立的相符像素（鄰居都不符）：3x3 否決
++	px[(2+1)*pxW+3+1] = 5
++	m = vf.Run([]*Stamp{s}, px, pxW, pxH)
++	if vf.Slow != 1 || m[0].Count() != 0 {
++		t.Fatalf("孤立相符：Slow=%d count=%d", vf.Slow, m[0].Count())
++	}
++	// 大面積相符、一個角落被蓋：除了角落旁的像素之外都通過
++	for j := 0; j < 4; j++ {
++		for i := 0; i < 8; i++ {
++			px[(2+j)*pxW+3+i] = 5
++		}
++	}
++	px[(2+3)*pxW+3+7] = 9 // 右下角
++	m = vf.Run([]*Stamp{s}, px, pxW, pxH)
++	// 角落本身與其 3 個鄰居（左、上、左上）失去驗證
++	if got := m[0].Count(); got != 32-4 {
++		t.Fatalf("角落被蓋：通過 %d，預期 28", got)
++	}
++	// 蓋住角落的是序號更大且相符的另一個戳記：解釋規則讓鄰居不被否決
++	over := &Stamp{W: 1, H: 1, X: 3 + 7, Y: 2 + 3, E: []byte{9}, Seq: 2}
++	m = vf.Run([]*Stamp{s, over}, px, pxW, pxH)
++	if got := m[0].Count(); got != 31 {
++		t.Fatalf("被後序戳記解釋：通過 %d，預期 31（角落本身不相符）", got)
++	}
++}
++
++func TestQueue(t *testing.T) {
++	const cur = uint32(0x19FB08A2)
++	q := NewQueue(3, cur)
++	mk := func(x int, hash string, site uint32) *Stamp {
++		return &Stamp{X: x, Y: 0, W: 1, H: 1, Hash: hash, Site: site, E: []byte{1}}
++	}
++	q.Add(mk(0, "a", 1))
++	q.Add(mk(0, "a", 1)) // 去重
++	if q.Len() != 1 || q.Replaced != 1 {
++		t.Fatalf("去重：len=%d replaced=%d", q.Len(), q.Replaced)
++	}
++	s1 := mk(5, "c1", cur)
++	q.Add(s1)
++	s2 := mk(9, "c2", cur) // 同呼叫點、不同雜湊與位置：取代
++	q.Add(s2)
++	snap := q.Snapshot()
++	if q.Len() != 2 || snap[1] != s2 {
++		t.Fatalf("singleton：len=%d", q.Len())
++	}
++	q.Add(mk(1, "b", 2))
++	ev := q.Add(mk(2, "d", 3)) // 超過上限 3：丟序號最小的
++	if ev == nil || ev.Hash != "a" || q.Len() != 3 || q.Dropped != 1 {
++		t.Fatalf("LRU：evicted=%v len=%d dropped=%d", ev, q.Len(), q.Dropped)
++	}
++	snap = q.Snapshot()
++	for i := 1; i < len(snap); i++ {
++		if snap[i].Seq <= snap[i-1].Seq {
++			t.Fatal("序號沒有遞增")
++		}
++	}
++	// 被 LRU 丟掉後，singleton 追蹤要跟著清
++	q2 := NewQueue(1, cur)
++	q2.Add(mk(0, "x", cur))
++	q2.Add(mk(1, "y", 7))
++	q2.Add(mk(2, "z", cur))
++	if q2.Len() != 1 {
++		t.Fatalf("len=%d", q2.Len())
++	}
++}
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index a367678..8db4104 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -24,6 +24,9 @@ type game struct {
+ 	s       *hrrt.Session
+ 	dataDir string
+ 	linear  bool
++	hv      *hdView // 非 nil ＝ HD 疊層開啟（docs/spec/004）
++	scale   int     // 邏輯畫面相對遊戲區的倍率：HD 開啟時為 hv.S，否則 1
++	lim     hrrt.FrameLimiter
+ 
+ 	img    *ebiten.Image
+ 	rgba   []byte
+@@ -39,9 +42,12 @@ type game struct {
+ 	started time.Time
+ }
+ 
+-func newGame(s *hrrt.Session, dataDir string, linear bool) *game {
+-	g := &game{s: s, dataDir: dataDir, linear: linear, stopCh: make(chan *hrrt.Stop, 1), started: time.Now(), mx: -1}
+-	g.img = ebiten.NewImage(640, 480)
++func newGame(s *hrrt.Session, dataDir string, linear bool, hv *hdView) *game {
++	g := &game{s: s, dataDir: dataDir, linear: linear, hv: hv, scale: 1, stopCh: make(chan *hrrt.Stop, 1), started: time.Now(), mx: -1}
++	if hv != nil {
++		g.scale = hv.S
++	}
++	g.img = ebiten.NewImage(640*g.scale, 480*g.scale)
+ 	g.rgba = make([]byte, 640*480*4)
+ 	go func() { g.stopCh <- s.Run(context.Background()) }()
+ 	return g
+@@ -75,8 +81,9 @@ func (g *game) Update() error {
+ 	if g.stop != nil {
+ 		return nil
+ 	}
+-	// 滑鼠：Layout 回 640x400，所以 CursorPosition 就是遊戲區座標。
++	// 滑鼠：Layout 回遊戲區乘倍率，CursorPosition 除以倍率就是遊戲區座標。
+ 	x, y := ebiten.CursorPosition()
++	x, y = x/g.scale, y/g.scale
+ 	x, y = clamp(x, 0, gameW-1), clamp(y, 0, gameH-1)
+ 	if x != g.mx || y != g.my {
+ 		g.mx, g.my = x, y
+@@ -101,8 +108,14 @@ func (g *game) Update() error {
+ }
+ 
+ func (g *game) Draw(screen *ebiten.Image) {
+-	g.s.RequestFrame()
+-	if f := g.s.Frame(); f != nil && f.Seq != g.lastSq {
++	if g.lim.Allow(time.Now()) {
++		g.s.RequestFrame()
++	}
++	if g.hv != nil {
++		if seq, ok := g.hv.upload(g.lastSq, func(rgba []byte) { g.img.WritePixels(rgba) }); ok {
++			g.lastSq = seq
++		}
++	} else if f := g.s.Frame(); f != nil && f.Seq != g.lastSq {
+ 		g.lastSq = f.Seq
+ 		f.RGBA(g.rgba)
+ 		g.img.WritePixels(g.rgba)
+@@ -113,7 +126,8 @@ func (g *game) Draw(screen *ebiten.Image) {
+ 	} else {
+ 		op.Filter = ebiten.FilterNearest
+ 	}
+-	screen.DrawImage(g.img.SubImage(image.Rect(0, topBlank, 640, topBlank+gameH)).(*ebiten.Image), op)
++	sc := g.scale
++	screen.DrawImage(g.img.SubImage(image.Rect(0, topBlank*sc, 640*sc, (topBlank+gameH)*sc)).(*ebiten.Image), op)
+ 	if g.stop != nil && !g.stop.Normal() {
+ 		ebitenutil.DebugPrintAt(screen, "Stopped: "+stopKindName(g.stop.Kind)+" (details in the log). Close the window.", 4, 4)
+ 	}
+@@ -129,7 +143,7 @@ func (g *game) Draw(screen *ebiten.Image) {
+ 	}
+ }
+ 
+-func (g *game) Layout(w, h int) (int, int) { return gameW, gameH }
++func (g *game) Layout(w, h int) (int, int) { return gameW * g.scale, gameH * g.scale }
+ 
+ func (g *game) screenshot() {
+ 	f := g.s.Frame()
+@@ -141,7 +155,13 @@ func (g *game) screenshot() {
+ 		return
+ 	}
+ 	name := filepath.Join(dir, time.Now().Format("20060102-150405")+".png")
+-	if err := writeFramePNG(name, f); err != nil {
++	var err error
++	if g.hv != nil {
++		err = g.hv.writePNG(name)
++	} else {
++		err = writeFramePNG(name, f)
++	}
++	if err != nil {
+ 		fmt.Fprintln(os.Stderr, "截圖失敗：", err)
+ 		return
+ 	}
+diff --git a/apps/hr/play/hdview.go b/apps/hr/play/hdview.go
+new file mode 100644
+index 0000000..158ca08
+--- /dev/null
++++ b/apps/hr/play/hdview.go
+@@ -0,0 +1,93 @@
++package main
++
++import (
++	"image"
++	"image/png"
++	"os"
++	"sync"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++// hdView 在背景 goroutine 把執行層的快照合成成 HD 畫面（docs/spec/004 第 5 節），
++// 繪製執行緒只上傳最近一張完成的畫面，不等合成。
++type hdView struct {
++	s   *hrrt.Session
++	cmp *hd.Composer
++	S   int
++
++	mu       sync.Mutex
++	ready    []byte // 最近一張合成完成的 RGBA：(640*S) x (480*S)
++	readySeq uint64
++	work     []byte
++	stop     chan struct{}
++	wg       sync.WaitGroup
++}
++
++func newHDView(s *hrrt.Session, assets *hd.Assets, scale int) *hdView {
++	n := 640 * scale * 480 * scale * 4
++	v := &hdView{s: s, cmp: hd.NewComposer(assets, scale), S: scale, ready: make([]byte, n), work: make([]byte, n), stop: make(chan struct{})}
++	v.wg.Add(1)
++	go v.run()
++	return v
++}
++
++func (v *hdView) close() {
++	close(v.stop)
++	v.wg.Wait()
++}
++
++func (v *hdView) run() {
++	defer v.wg.Done()
++	tk := time.NewTicker(2 * time.Millisecond)
++	defer tk.Stop()
++	var last uint64
++	for {
++		select {
++		case <-v.stop:
++			return
++		case <-tk.C:
++		}
++		f := v.s.Frame()
++		if f == nil || f.Seq == last {
++			continue
++		}
++		last = f.Seq
++		v.cmp.Compose(v.work, f.Px, f.W, f.H, f.Map, &f.DAC, f.Stamps)
++		v.mu.Lock()
++		v.ready, v.work = v.work, v.ready
++		v.readySeq = f.Seq
++		v.mu.Unlock()
++	}
++}
++
++// upload 在有新畫面時呼叫 fn（持鎖，fn 必須在回傳前用完緩衝區），回傳是否有新畫面。
++func (v *hdView) upload(lastSeq uint64, fn func(rgba []byte)) (uint64, bool) {
++	v.mu.Lock()
++	defer v.mu.Unlock()
++	if v.readySeq == 0 || v.readySeq == lastSeq {
++		return lastSeq, false
++	}
++	fn(v.ready)
++	return v.readySeq, true
++}
++
++// writePNG 把最近一張合成畫面的遊戲區（第 40 至 439 列）存成 PNG（HD 解析度）。
++func (v *hdView) writePNG(path string) error {
++	w, h := 640*v.S, 400*v.S
++	img := image.NewRGBA(image.Rect(0, 0, w, h))
++	v.mu.Lock()
++	for y := 0; y < h; y++ {
++		src := ((y+40*v.S)*640*v.S)*4
++		copy(img.Pix[y*img.Stride:y*img.Stride+w*4], v.ready[src:src+w*4])
++	}
++	v.mu.Unlock()
++	out, err := os.Create(path)
++	if err != nil {
++		return err
++	}
++	defer out.Close()
++	return png.Encode(out, img)
++}
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index d47c736..6719185 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -12,11 +12,15 @@ import (
+ 
+ 	"github.com/hajimehoshi/ebiten/v2"
+ 
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
+ 	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
+ )
+ 
+ var version = "dev"
+ 
++// hdScale 是 HD 素材的倍率（docs/spec/004 第 1 節：素材以 S ＝ 2 製作）。
++const hdScale = 2
++
+ func main() {
+ 	orig := flag.String("orig", "", "原版檔案所在目錄（內含 MAIN.EXE）")
+ 	scale := flag.Int("scale", 2, "視窗倍率（遊戲區 640x400 的整數倍）")
+@@ -26,6 +30,8 @@ func main() {
+ 	interval := flag.Uint64("interval", 0, "計時器間隔（道指令／tick，分頻 65536）；0 ＝ 預設 300000")
+ 	noPatch := flag.Bool("no-stack-patch", false, "關掉堆疊補丁（診斷用）")
+ 	saves := flag.String("saves", "", "存檔目錄（預設在使用者資料目錄的 high_reward/saves）")
++	hdDir := flag.String("hd", "", "HD 素材目錄（內含 catalog.tsv、palettes.tsv、x2/）；預設找執行檔旁的 hd，找不到就不啟用")
++	noHD := flag.Bool("no-hd", false, "不啟用 HD 疊層（顯示原版畫面）")
+ 	showVer := flag.Bool("version", false, "顯示版本")
+ 	flag.Parse()
+ 	if *showVer {
+@@ -52,8 +58,19 @@ func main() {
+ 		saveDir = filepath.Join(dd, "saves")
+ 	}
+ 	logf := func(format string, a ...any) { fmt.Fprintf(os.Stderr, format+"\n", a...) }
++	var assets *hd.Assets
++	if !*noHD {
++		if dir := findHD(*hdDir); dir != "" {
++			if a, err := hd.LoadAssets(dir, hdScale); err != nil {
++				fmt.Fprintln(os.Stderr, "HD 素材載入失敗，改顯示原版畫面：", err)
++			} else {
++				assets = a
++				logf("HD 素材目錄：%s", dir)
++			}
++		}
++	}
+ 	s, err := hrrt.Open(root, hrrt.Options{
+-		SaveDir: saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf,
++		SaveDir: saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf, HDHooks: assets != nil, HDAssets: assets,
+ 	})
+ 	if err != nil {
+ 		fail(err, "hr-play: cannot start.", "", "The game folder is missing files or is a different version.", "See the message printed to the terminal (run hr-play from a terminal).", "", "Folder: "+root)
+@@ -67,7 +84,12 @@ func main() {
+ 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
+ 	ebiten.SetFullscreen(*full)
+ 	ebiten.SetTPS(60)
+-	g := newGame(s, dd, *linear)
++	var hv *hdView
++	if assets != nil {
++		hv = newHDView(s, assets, hdScale)
++		defer hv.close()
++	}
++	g := newGame(s, dd, *linear, hv)
+ 	g.fullscr = *full
+ 	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
+ 		fmt.Fprintln(os.Stderr, err)
+diff --git a/apps/hr/play/paths.go b/apps/hr/play/paths.go
+index 8e6f8f8..d139cd2 100644
+--- a/apps/hr/play/paths.go
++++ b/apps/hr/play/paths.go
+@@ -90,3 +90,29 @@ func rememberOriginal(root string) {
+ 	}
+ 	_ = os.WriteFile(filepath.Join(dd, "original_path"), []byte(abs+"\n"), 0o644)
+ }
++
++// findHD 找 HD 素材目錄（內含 catalog.tsv）。順序：-hd、環境變數 HR_HD、AppImage 檔案旁、
++// 執行檔旁的 hd、macOS app 的 Contents/Resources/hd、目前目錄的 hd。找不到回空字串（不啟用 HD，不是錯誤）。
++func findHD(flagVal string) string {
++	var cands []string
++	if flagVal != "" {
++		cands = append(cands, flagVal)
++	}
++	if v := os.Getenv("HR_HD"); v != "" {
++		cands = append(cands, v)
++	}
++	if ai := os.Getenv("APPIMAGE"); ai != "" {
++		cands = append(cands, filepath.Join(filepath.Dir(ai), "hd"))
++	}
++	if exe, err := os.Executable(); err == nil {
++		dir := filepath.Dir(exe)
++		cands = append(cands, filepath.Join(dir, "hd"), filepath.Join(dir, "..", "Resources", "hd"))
++	}
++	cands = append(cands, "hd")
++	for _, c := range cands {
++		if st, err := os.Stat(filepath.Join(c, "catalog.tsv")); err == nil && !st.IsDir() {
++			return c
++		}
++	}
++	return ""
++}
+diff --git a/apps/hr/runtime/hd_test.go b/apps/hr/runtime/hd_test.go
+new file mode 100644
+index 0000000..16068b5
+--- /dev/null
++++ b/apps/hr/runtime/hd_test.go
+@@ -0,0 +1,97 @@
++package runtime
++
++import (
++	"bytes"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++)
++
++// 冷啟動到新遊戲（docs/re/008 的收據路徑）：90,000,000 步，35,000,000 步時點「新遊戲」。
++func coldNewGame(t *testing.T, opt Options) *Session {
++	t.Helper()
++	opt.Interval = NativeInterval
++	s, err := Open(origRoot(t), opt)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if st := s.RunSteps(35_000_000); st.Kind != StopSteps {
++		t.Fatal(st.Msg)
++	}
++	s.Input(MouseButtonEvent(312, 211-40, 0, true))
++	s.Input(MouseButtonEvent(312, 211-40, 0, false))
++	if st := s.RunSteps(90_000_000); st.Kind != StopSteps {
++		t.Fatal(st.Msg)
++	}
++	return s
++}
++
++// docs/spec/004 第 7 節「不改變遊戲」：掛鉤開與關，同一輸入下畫面與 CPU 狀態逐位元相同。
++func TestHDHooksDoNotChangeTheGame(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	off := coldNewGame(t, Options{})
++	on := coldNewGame(t, Options{HDHooks: true})
++	if on.Overlay() == nil || off.Overlay() != nil {
++		t.Fatal("Overlay() 與 HDHooks 不一致")
++	}
++	if a, b := pngHash(t, off), pngHash(t, on); a != b {
++		t.Fatalf("畫面不同：關 %s，開 %s", a, b)
++	}
++	a, b := off.Machine(), on.Machine()
++	if a.Steps != b.Steps || a.CPU.IP != b.CPU.IP || a.CPU.Seg != b.CPU.Seg || a.CPU.R != b.CPU.R || !bytes.Equal(a.Mem, b.Mem) {
++		t.Fatal("CPU 狀態不同")
++	}
++	if on.Overlay().Stats.Created == 0 {
++		t.Fatal("掛鉤開著卻沒有建立任何戳記")
++	}
++}
++
++// 識別率與返回時相符比例：清冊用 HR_HD（含 catalog.tsv 與 palettes.tsv 的目錄）；沒有就 skip。
++func TestHDHooksColdStartIdentification(t *testing.T) {
++	if testing.Short() {
++		t.Skip("-short")
++	}
++	dir := os.Getenv("HR_HD")
++	if dir == "" {
++		dir = "/orig/hd-stage" // 容器內 workplace 的掛載點（tools/dosgolem.sh）
++	}
++	if _, err := os.Stat(filepath.Join(dir, "catalog.tsv")); err != nil {
++		t.Skipf("沒有清冊：%v", err)
++	}
++	a, err := hd.LoadAssets(dir, 2)
++	if err != nil {
++		t.Fatal(err)
++	}
++	s := coldNewGame(t, Options{HDHooks: true, HDAssets: a, HDRecord: true, HDCheck: 2})
++	ov := s.Overlay()
++	st := ov.Stats
++	if st.DecodeErr != 0 || st.Interrupt != 0 {
++		t.Fatalf("解碼失敗 %d、返回對不上 %d", st.DecodeErr, st.Interrupt)
++	}
++	for _, u := range ov.UnknownList() {
++		if u.Site != hd.CursorSite {
++			t.Errorf("未識別且不是游標：%s %s %dx%d 呼叫點 %04X:%04X", u.Hash[:12], u.Kind, u.W, u.H, u.Site>>16, u.Site&0xFFFF)
++		}
++	}
++	cur := 0
++	for _, sp := range ov.Snapshot() {
++		if sp.Site == hd.CursorSite {
++			cur++
++		}
++	}
++	if cur != 1 {
++		t.Errorf("佇列中的游標戳記 %d 個，預期 1", cur)
++	}
++	for _, m := range ov.MatchList() {
++		if m.Samples > 0 && m.MinRatio < 0.99 {
++			t.Errorf("雜湊 %s 返回時只有 %.3f 與 VRAM 相符", m.Hash[:12], m.MinRatio)
++		}
++	}
++	if st.Identified == 0 {
++		t.Error("沒有任何識別")
++	}
++}
+diff --git a/apps/hr/runtime/ratelimit.go b/apps/hr/runtime/ratelimit.go
+new file mode 100644
+index 0000000..a9ba316
+--- /dev/null
++++ b/apps/hr/runtime/ratelimit.go
+@@ -0,0 +1,26 @@
++package runtime
++
++import "time"
++
++// FrameLimiter 限制前端呼叫 RequestFrame 的頻率（docs/spec/004 第 5.1 節：至多 60 Hz）。
++// 前端的繪製率可能高於 60 Hz（關閉垂直同步、高更新率螢幕），每次繪製都要求快照會讓模擬 goroutine
++// 白白轉換畫面。不可同時由多個執行緒使用；時鐘由呼叫者傳入，測試用假時鐘。
++type FrameLimiter struct {
++	Min  time.Duration // 兩次要求的最短間隔；0 ＝ 16 ms
++	last time.Time
++	n    uint64
++}
++
++// Allow 回傳這一刻是否可以呼叫 RequestFrame；回傳 true 時記下這一刻。
++func (l *FrameLimiter) Allow(now time.Time) bool {
++	min := l.Min
++	if min <= 0 {
++		min = 16 * time.Millisecond
++	}
++	if l.n > 0 && now.Sub(l.last) < min {
++		return false
++	}
++	l.last = now
++	l.n++
++	return true
++}
+diff --git a/apps/hr/runtime/ratelimit_test.go b/apps/hr/runtime/ratelimit_test.go
+new file mode 100644
+index 0000000..ccad827
+--- /dev/null
++++ b/apps/hr/runtime/ratelimit_test.go
+@@ -0,0 +1,40 @@
++package runtime
++
++import (
++	"testing"
++	"time"
++)
++
++// docs/spec/004 第 7 節「快照限速」：Draw 以 144 Hz 呼叫時間隔 ≥ 16 ms；不超過 60 Hz 時每次都呼叫。
++func TestFrameLimiter(t *testing.T) {
++	t0 := time.Unix(1000, 0)
++	var l FrameLimiter
++	var allowed []time.Time
++	for i := 0; i < 1440; i++ { // 10 秒、144 Hz
++		now := t0.Add(time.Duration(i) * time.Second / 144)
++		if l.Allow(now) {
++			allowed = append(allowed, now)
++		}
++	}
++	if len(allowed) < 400 || len(allowed) > 625 { // 嚴格 ≥ 16 ms：144 Hz 的格距 6.9 ms，每 3 格放行一次，約 48 Hz
++		t.Fatalf("10 秒內放行 %d 次，預期 400 至 625", len(allowed))
++	}
++	for i := 1; i < len(allowed); i++ {
++		if d := allowed[i].Sub(allowed[i-1]); d < 16*time.Millisecond {
++			t.Fatalf("間隔 %v 小於 16 ms", d)
++		}
++	}
++	var l2 FrameLimiter
++	for i := 0; i < 600; i++ { // 60 Hz：每次都放行
++		now := t0.Add(time.Duration(i) * time.Second / 60)
++		if !l2.Allow(now) {
++			t.Fatalf("60 Hz 的第 %d 次被擋", i)
++		}
++	}
++	var l3 FrameLimiter
++	for i := 0; i < 300; i++ { // 30 Hz：每次都放行
++		if !l3.Allow(t0.Add(time.Duration(i) * time.Second / 30)) {
++			t.Fatalf("30 Hz 的第 %d 次被擋", i)
++		}
++	}
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 8031e38..bcead2f 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -16,6 +16,7 @@ import (
+ 	"sync/atomic"
+ 	"time"
+ 
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
+ 	"github.com/wicanr2/dosgolem/apps/hr/patch"
+ 	"github.com/wicanr2/dosgolem/internal/cpu"
+ 	"github.com/wicanr2/dosgolem/internal/dos"
+@@ -53,6 +54,14 @@ type Options struct {
+ 	Log func(format string, args ...any)
+ 	// NoPacing 讓 Run 不依牆鐘限速（測試用）。
+ 	NoPacing bool
++	// HDHooks 開啟 docs/spec/004 的進入點掛鉤與戳記佇列（Frame.Stamps）。關閉時每步不多做任何事。
++	HDHooks bool
++	// HDAssets 是清冊與 HD 圖（用於識別統計；合成由前端用同一份）。可為 nil。
++	HDAssets *hd.Assets
++	// HDCheck 大於 0 時，每個雜湊的前幾次出現量一次與 VRAM 的相符比例（驗收用，很慢）。
++	HDCheck int
++	// HDRecord 收集未識別的雜湊（hd.Overlay.UnknownList）。
++	HDRecord bool
+ }
+ 
+ // StopKind 是停機種類。
+@@ -92,6 +101,7 @@ type Frame struct {
+ 	Steps uint64
+ 	Ticks uint64
+ 	Seq   uint64
++	Stamps []*hd.Stamp // 有效戳記（序號遞增；沒開掛鉤時為 nil）
+ }
+ 
+ // RGBA 把畫面轉成每像素 4 bytes 的 RGBA（alpha 255）寫進 dst（長度至少 W*H*4）。
+@@ -151,6 +161,7 @@ type Session struct {
+ 	inbox  []Event
+ 	stats  Stats
+ 	frame  atomic.Pointer[Frame]
++	ov     *hd.Overlay
+ 	want   atomic.Bool
+ 	frmSeq uint64
+ 
+@@ -223,9 +234,17 @@ func Open(root string, opt Options) (*Session, error) {
+ 		s.interval = s.m.IRQ0Every
+ 	}
+ 	s.nextTrim = trimEvery
++	if opt.HDHooks {
++		s.ov = hd.NewOverlay(opt.HDAssets)
++		s.ov.Check, s.ov.Record, s.ov.Logf = opt.HDCheck, opt.HDRecord, s.logf
++	}
+ 	return s, nil
+ }
+ 
++// Overlay 回傳 HD 掛鉤（沒開 HDHooks 時為 nil）。統計與記錄由持有機器的迴圈寫入，
++// 只在迴圈停下來之後（RunSteps 回傳、Run 結束）讀取。
++func (s *Session) Overlay() *hd.Overlay { return s.ov }
++
+ // setInterval 把分頻 65536 時的間隔設為 e。IRQ0Base 的標定分頻是 17,000
+ // （machine.recalcIRQ0），所以要 IRQ0Base ＝ e × 17000 ÷ 65536 再 RecalcIRQ0。
+ func (s *Session) setInterval(e uint64) {
+@@ -305,7 +324,7 @@ func (s *Session) idleForTrim() bool {
+ 
+ // stepBatch 執行至多 n 道指令，回傳停機原因（nil ＝ 還沒停）。
+ func (s *Session) stepBatch(n int) *Stop {
+-	m, d := s.m, s.d
++	m, d, ov := s.m, s.d, s.ov
+ 	for i := 0; i < n; i++ {
+ 		c := m.CPU
+ 		if s.stackTop == 0 && m.Steps > 200 {
+@@ -323,9 +342,15 @@ func (s *Session) stepBatch(n int) *Stop {
+ 		if a := cpu.Linear(c.Seg[cpu.CS], c.IP); a >= machine.VideoSeg*16 && a < machine.MemSize {
+ 			return &Stop{Kind: StopOutOfRange, Msg: fmt.Sprintf("跑出可用記憶體：CS:IP ＝ %04X:%04X", c.Seg[cpu.CS], c.IP)}
+ 		}
++		if ov != nil {
++			ov.Pre(m)
++		}
+ 		if err := m.Step(); err != nil {
+ 			return &Stop{Kind: StopCPUError, Msg: "CPU 錯誤：" + err.Error()}
+ 		}
++		if ov != nil && ov.Pending() > 0 {
++			ov.Post(m)
++		}
+ 		if d.Exited {
+ 			switch d.ExitCode {
+ 			case 1:
+@@ -387,6 +412,9 @@ func (s *Session) snapshot() {
+ 	for i := range f.Map {
+ 		f.Map[i] = s.m.VGA.DACIndex(uint8(i))
+ 	}
++	if s.ov != nil {
++		f.Stamps = s.ov.Snapshot()
++	}
+ 	s.frmSeq++
+ 	f.Seq = s.frmSeq
+ 	s.lastSnap = time.Now()
+-- 
+2.43.0
+

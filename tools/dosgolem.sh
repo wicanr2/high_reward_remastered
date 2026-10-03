@@ -6,6 +6,7 @@
 #   tools/dosgolem.sh soak <hrsoak 參數…>       在容器內跑長跑驅動（apps/hr/cmd/hrsoak，輸出到 /out/soak）
 #   tools/dosgolem.sh go <go 參數…>             在容器內跑任意 go 指令（例如 test ./internal/cpu）
 #   tools/dosgolem.sh explore <hrexplore 參數…> 在容器內跑介面探索器（apps/hr/cmd/hrexplore）
+#   tools/dosgolem.sh hd <hrhd 參數…>          在容器內跑 HD 疊層驗收工具（apps/hr/cmd/hrhd，輸出到 /out/hd）
 #
 # 原版目錄在容器內是 /orig/orig（唯讀），例如：
 #   tools/dosgolem.sh probe -exe /orig/orig/MAIN.EXE -root /orig/orig -steps 20000000
@@ -22,9 +23,10 @@ export DOSGOLEM_EXTRA_MOUNT="$ROOT/workplace/out:/out"
 export DOSGOLEM_TIMEOUT="${DOSGOLEM_TIMEOUT:-10m}" DOSGOLEM_CPUS="${DOSGOLEM_CPUS:-2}" DOSGOLEM_MEM="${DOSGOLEM_MEM:-2g}"
 cd "$DG"
 case "${1:-}" in
-  build) tools/go.sh build -o /out/probe ./cmd/probe && tools/go.sh build -o /out/hrsoak ./apps/hr/cmd/hrsoak && tools/go.sh build -o /out/hrexplore ./apps/hr/cmd/hrexplore ;;
+  build) tools/go.sh build -o /out/probe ./cmd/probe && tools/go.sh build -o /out/hrsoak ./apps/hr/cmd/hrsoak && tools/go.sh build -o /out/hrexplore ./apps/hr/cmd/hrexplore && tools/go.sh build -o /out/hrhd ./apps/hr/cmd/hrhd ;;
   soak)  shift; DOSGOLEM_GO_CMD=/out/hrsoak tools/go.sh -exe /orig/orig/MAIN.EXE -root /orig/orig "$@" ;;
   explore) shift; DOSGOLEM_GO_CMD=/out/hrexplore tools/go.sh -root /orig/orig "$@" ;;
+  hd)    shift; DOSGOLEM_GO_CMD=/out/hrhd tools/go.sh -orig /orig/orig "$@" ;;
   probe) shift; DOSGOLEM_GO_CMD=/out/probe tools/go.sh "$@" ;;
   go)    shift; tools/go.sh "$@" ;;
   *) sed -n 2,12p "$0" >&2; exit 2 ;;
