@@ -91,3 +91,9 @@
 
 - 使用者表示「HD 我都接受」。`hd/provenance.tsv` 的 595 列由 `candidate` 改為 `accepted`，新增 `accepted_by`、`accepted_date` 兩欄；`packaging/HD_NOTICE.txt`、AGENTS.md、`docs/re/014`、`docs/re/015` 同步。這是看過代表畫面（六個合成畫面與四張局部放大）後的整體接受，不是逐張審查。
 - 使用者另外授權在 private repo 建立 Release（含 HD 的發行包）、把 Buck Rogers 分支整合進目前的 `hr` 分支（之後由使用者處理 dosgolem main 的合併），並要求安排「真的遊玩兩小時」的當機測試。含 HD 的包因 `provenance.tsv` 與 NOTICE 改變而重建。
+
+### Release、Buck Rogers 合併（2026-10-03，續七）
+
+- 在 private repo 建立 Release `v0.1.0-hd`（預發行，目標 commit `9d4f0f0`）：三個含 HD 的包與 `SHA256SUMS.txt`（`docs/re/013` 第 4.2 節）。HD 素材 595 張全部 `accepted` 後重建，版本 `9d4f0f0-dg8eb277d-hd`。
+- 使用者授權把 Buck Rogers 分支整合進 fork 的 `hr` 分支。從公開 repo 以 URL 抓 `buck-rogers-cht-output-overlay`（tip `beca734`，354 個提交、459 個檔案，與 `hr` 的共同祖先 `d9c0c27`），打標籤 `hr-pre-buckrogers` 後合併，合併提交 `50ffc62`。衝突三處：`internal/dos/int21.go` 的 `AH=2Ah`（保留 `d.Date`，沒設才用 `virtualDate()`）、`internal/machine/state.go` 的 `SaveState`（保留 hr 的 CPU 欄位並加 Buck Rogers 的 VGA 與時脈欄位）、`docs/spec/000-index.md`（兩邊條目都留）。根模組現在需要 ebiten 與 `golang.org/x/sys`，離線建置要用含模組快取的映像（`DOSGOLEM_GO_IMAGE=eob-remake-go:1.26.7-ebiten2.9.9`，`tools/go.sh` 轉送 `GOPROXY`、`GOSUMDB`、`GOTOOLCHAIN`，模組快取從該映像複製到 `workplace/gomodcache`）。
+- 驗證：`go build ./...` 通過；`go test ./internal/... ./apps/hr/...` 全部通過（hr 的收據 A、B 畫面雜湊、堆疊補丁、`internal/cpu` 386 形式都在內）；`apps/hr/play` 的前端仍能建置。沒有推送。

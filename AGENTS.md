@@ -55,7 +55,7 @@
 | 遊戲專屬 | `workplace/dosgolem` 本地分支 `hr` 的 `apps/hr`；證據在本 repo | 堆疊補丁（`apps/hr/patch`）、執行層（`apps/hr/runtime`）、長跑與探索工具（`apps/hr/cmd`）；圖像格式解碼在本 repo 的 `tools/img` |
 | 前端與打包 | `apps/hr/play`（獨立 Go 模組，ebiten）；打包腳本在本 repo | 視窗、輸入、倍率、三平台封裝。不重實作遊戲規則 |
 
-- Go 的 `internal` 規則要求遊戲專屬程式碼與 dosgolem 在同一個模組樹，所以它們放在 `workplace/dosgolem` 的 `hr` 分支，本 repo 的 `engine/patches/` 是 `git format-patch` 備份（每次提交該分支後重新產生）。把該分支推到 `wicanr2/dosgolem` 尚未授權。
+- Go 的 `internal` 規則要求遊戲專屬程式碼與 dosgolem 在同一個模組樹，所以它們放在 `workplace/dosgolem` 的 `hr` 分支，本 repo 的 `engine/patches/` 是 `git format-patch` 備份（hr 專屬的提交，套在基底 `2f44a68` 上；每次提交該分支後重新產生）。2026-10-03 使用者授權把 Buck Rogers 分支（`buck-rogers-cht-output-overlay`，tip `beca734`）整合進 `hr`，合併提交 `50ffc62`（合併前的標籤 `hr-pre-buckrogers`），合併不在補丁備份內：重建要先套補丁再 merge 該分支並依 WORKLOG 的衝突解法處理。`hr` 推到 `wicanr2/dosgolem`（公開 repo）被分類器擋下，使用者自行處理 dosgolem main 的合併。
 - 動手前讀 `/home/anr2/cht/dosgolem/CLAUDE.md`、`README.md` 與 `docs/spec/000-index.md`。引用規格要連號碼帶檔名，例如 `docs/spec/010-overlay-loading`，因為同一號碼底下有多份不同主題的規格。
 - 「用 dosgolem」不表示它已支援本遊戲。缺的服務先在本 repo 留下最小重現與 DRAFT 規格，再補進 dosgolem。
 - 本專案使用的 dosgolem 是 `workplace/dosgolem` 的獨立 git 副本，取自已提交的 commit，不帶原目錄的未提交改動。不得修改 `/home/anr2/cht/dosgolem`，副本的 `upstream` 推送位址設為 `DISABLED`。
