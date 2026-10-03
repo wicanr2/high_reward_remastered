@@ -75,15 +75,15 @@
 
 ### 4.2 含 HD 素材的發行包（2026-10-03）
 
-使用者 2026-10-03 授權發行含 HD 素材的版本。`HR_WITH_HD=1 tools/package.sh all` 把 `hd/`（清冊、調色盤表、`provenance.tsv`、595 張 `x2/` PNG）放進包內，產物在 `dist-all/with-hd/`，版本字串加 `-hd`，包內附 `hd/NOTICE.txt`（說明這些圖是原版美術的衍生物，只供私人流通）與 README 的 HD 段。版本 `d3fea9e-dg8eb277d-hd`（本 repo commit `d3fea9e`，dosgolem 分支 `hr` 的 commit `8eb277d`，工作樹乾淨）。位置：AppImage 的 `usr/bin/hd`、Windows zip 的 `hd/`、macOS 的 `Contents/Resources/hd`。
+使用者 2026-10-03 授權發行含 HD 素材的版本，隨後表示「HD 我都接受」（`hd/provenance.tsv` 全部 `accepted`）。`HR_WITH_HD=1 tools/package.sh all` 把 `hd/`（清冊、調色盤表、`provenance.tsv`、595 張 `x2/` PNG）放進包內，產物在 `dist-all/with-hd/`，版本字串加 `-hd`，包內附 `hd/NOTICE.txt`（說明這些圖是原版美術的衍生物，只供私人流通）與 README 的 HD 段。版本 `9d4f0f0-dg8eb277d-hd`（本 repo commit `9d4f0f0`，dosgolem 分支 `hr` 的 commit `8eb277d`，工作樹乾淨）。位置：AppImage 的 `usr/bin/hd`、Windows zip 的 `hd/`、macOS 的 `Contents/Resources/hd`。
 
 | 產物 | 大小（bytes） | SHA-256 |
 |---|---|---|
-| `HighReward-d3fea9e-dg8eb277d-hd-x86_64.AppImage` | 30,472,696 | `edf4ea43cfe331c8422909aec9ed0ba4c6b078ad36fe4b8f95019dba7f58402d` |
-| `HighReward-d3fea9e-dg8eb277d-hd-win64.zip` | 30,088,708 | `981f06f48b5b26e9294588edcdff5fe2aeeee5c533a2516571c8ec6ec207b562` |
-| `HighReward-d3fea9e-dg8eb277d-hd-macos.zip` | 33,608,361 | `2f949ab1e9accbabea83ff810cc687715ec13009d3896b5b927052308558b980` |
+| `HighReward-9d4f0f0-dg8eb277d-hd-x86_64.AppImage` | 30,472,696 | `816dcaa5373e26e4bbcb14bd7238c5608a8406d51b8ca38f8254074e0296002c` |
+| `HighReward-9d4f0f0-dg8eb277d-hd-win64.zip` | 30,089,890 | `d581fc5569d278fc40f5b00c2e61d9ddff4347c886d3fd7409547968be4e415d` |
+| `HighReward-9d4f0f0-dg8eb277d-hd-macos.zip` | 33,609,545 | `6ef4b1baa59ef276b1ec651b5b1c89c524de74a61871a7f5c8e4c0900da5462c` |
 
-驗收：外洩掃描三個包命中 0（HD 的 PNG 不在原版清冊內，掃描對象是原版檔名與 SHA-256）；macOS 只驗結構（`lipo` 含 x86_64 與 arm64）。AppImage 在 Xvfb 內啟動，不另外掛 HD 目錄，內附的 `hd/` 被自動找到，新遊戲畫面顯示 HD（`pkg-appimage-withhd-newgame.png`）；Windows zip 在 Wine 加 Xvfb 內啟動，不帶 `-hd`，標題畫面顯示 HD（`pkg-wine-withhd-title.png`，與先前掛目錄的 HD 輸出逐位元相同）。不含 HD 的包（4.1）不受影響。macOS 與兩個平台的實機沒有驗證。權利：含原版美術衍生物的包不得公開散布；轉公開、公開 Release 前要先處理 git 歷史並更新 `LICENSE` 第 2 條 (c)（`AGENTS.md` 第 2 節）。
+驗收：外洩掃描三個包命中 0（HD 的 PNG 不在原版清冊內，掃描對象是原版檔名與 SHA-256）；macOS 只驗結構（`lipo` 含 x86_64 與 arm64）。AppImage 在 Xvfb 內啟動，不另外掛 HD 目錄，內附的 `hd/` 被自動找到，新遊戲畫面顯示 HD（`pkg-appimage-withhd2-newgame.png`）；Windows zip 在 Wine 加 Xvfb 內啟動，不帶 `-hd`，標題畫面顯示 HD（`pkg-wine-withhd2-title.png`）。不含 HD 的包（4.1）不受影響。macOS 與兩個平台的實機沒有驗證。權利：含原版美術衍生物的包不得公開散布；轉公開、公開 Release 前要先處理 git 歷史並更新 `LICENSE` 第 2 條 (c)（`AGENTS.md` 第 2 節）。
 
 外洩掃描：`tools/pkg/leakscan.py` 依 `docs/re/source-inventory.tsv` 的檔名與 SHA-256 掃描三個包的暫存目錄，命中 0。
 
