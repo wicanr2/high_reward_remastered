@@ -82,6 +82,12 @@
 
 `tools/pkg/verify_hd.sh workplace/out/hr-play-hd workplace/hd-stage workplace/out/hd/gui`：Linux、cgo、Xvfb 1280x800。標題畫面顯示 HD 的 `GMAP`，標題選單與游標（無 HD，還原成基底層）正常；點「新遊戲」後的第一個畫面顯示 `FACE` 的 HD 肖像與地圖、對話框、錢數字。截圖 `workplace/out/hd/gui-title.png`、`gui-newgame.png`。這台機器在量測時負載 22 至 28，前端自動把計時器間隔降到 150,000（`docs/spec/003` 第 4 節）。
 
+發行包（`97c1b13-dg8118664`，`docs/re/013` 第 4.1 節）的 HD 路徑：AppImage 在 Xvfb 內把 HD 目錄掛在 `.AppImage` 旁的 `hd`（`HR_HD_DIR=workplace/hd-real tools/pkg/verify_appimage.sh`），新遊戲畫面顯示 HD（`pkg-appimage-hd-newgame.png`）；Windows zip 在 Wine 加 Xvfb 內以 `-hd Z:\hd` 啟動（`HR_HD_DIR=workplace/hd-real tools/pkg/verify_wine.sh`），標題畫面顯示 HD 的 `GMAP` 與游標（`pkg-wine-hd-title.png`），Wine 與軟體繪圖下每 2 秒只有 1 個 tick，只證明 `CGO_ENABLED=0` 的 Windows 建置能載入並顯示 HD。`workplace/hd-real` 是 `hd-stage` 把符號連結換成實體檔的副本（31 MB，618 張 PNG）。
+
+素材完整性：`TestAllCatalogAssetsLoad`（容器內，清冊目錄 `/orig/hd-stage`）載入清冊 595 列的全部 HD 圖，PNG 存在、尺寸等於清冊尺寸的 2 倍、參考調色盤存在，無一失敗（1.65 s）。全部載入後的解碼大小約 262 MB（含不在清冊的 `CFONT` 字型總表 54 MB），實際遊玩只載入遇到的圖；沒有量長時間遊玩的常駐記憶體。
+
+驗收用對照總表：`tools/hd/art_review_sheets.py` 把原版解碼圖（最近鄰放大 2 倍）與 HD 圖並排，依群組分頁，輸出 `workplace/out/hd/review-sheets/`（36 張總表、618 張圖，`index.tsv` 列出）。執行：`tools/hd/run.sh art_review_sheets.py /w/re-img/out /w/hd-work/x2-v2 /w/out/hd/review-sheets 2`。我看過 `BC32`（140 張）與 `FACE`（29 張）兩張總表，輪廓與色調與原版一致，抖色被抹平；逐張的使用者目視尚未做。
+
 ## 6. 效能（容器內，受主機負載影響大）
 
 | 項目 | 結果 |
@@ -98,7 +104,7 @@
 - 「目視」：使用者尚未看過。HD 素材尚未驗收，`hd/` 未建立，發行包不含 HD 素材。
 - `2378:1155`、`2E92:0414`（排除）、旗標非 0 與 x 非 8 的倍數的路徑（略過並計數）：未觸發或未驗證。
 - 游標的 HD 圖是工具直接處理的結果，沒有人工修整，使用者尚未看過。
-- macOS 與 Windows 上的 HD 前端：沒有實機。Windows 與 macOS 的發行包尚未重建，`hr-play` 在其中仍是不含 HD 的舊版。
+- macOS 上的 HD 前端：沒有實機。Windows 的 HD 前端只在 Wine 加 Xvfb 內驗過標題畫面（見第 5 節），沒有實機。
 - 長時間遊玩下戳記佇列、HD 圖快取的記憶體用量：未量。
 
 ## 8. 重跑

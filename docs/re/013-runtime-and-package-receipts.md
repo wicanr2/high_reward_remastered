@@ -71,7 +71,7 @@
 | `HighReward-97c1b13-dg8118664-win64.zip` | 3,778,966 | `3bbd9d216371e58f4c0dfb527ea946678c10e1aa61dc95f47a5145d5be7704e3` |
 | `HighReward-97c1b13-dg8118664-macos.zip` | 7,303,692 | `7454f466b3cb288ea0aa348b2facb8c78689950556bf844acb47a8d04a37e6cd` |
 
-驗收（本次重建後重跑）：外洩掃描三個包命中 0；AppImage 在 Xvfb 內啟動並點新遊戲，原版目錄在 `.AppImage` 旁（`pkg-appimage-newgame.png`），另以 `HR_HD_DIR` 把 HD 目錄掛在 `.AppImage` 旁重跑，新遊戲畫面顯示 HD（`pkg-appimage-hd-newgame.png`）；Windows 以 `tools/pkg/verify_wine.sh` 在 Wine 加 Xvfb 內啟動，顯示標題畫面（`pkg-wine-title.png`，沒有 `hd/`，所以是原版畫面）；macOS 只驗結構（`lipo` 含 x86_64 與 arm64），沒有實機。HD 前端在 Windows 與 macOS 沒有驗過。
+驗收（本次重建後重跑）：外洩掃描三個包命中 0；AppImage 在 Xvfb 內啟動並點新遊戲，原版目錄在 `.AppImage` 旁（`pkg-appimage-newgame.png`），另以 `HR_HD_DIR` 把 HD 目錄掛在 `.AppImage` 旁重跑，新遊戲畫面顯示 HD（`pkg-appimage-hd-newgame.png`）；Windows 以 `tools/pkg/verify_wine.sh` 在 Wine 加 Xvfb 內啟動，顯示標題畫面（`pkg-wine-title.png`，沒有 `hd/`，所以是原版畫面）；macOS 只驗結構（`lipo` 含 x86_64 與 arm64），沒有實機。HD 前端在 Windows 以 Wine 驗過標題畫面（`docs/re/014` 第 5 節），macOS 沒有驗過。
 
 外洩掃描：`tools/pkg/leakscan.py` 依 `docs/re/source-inventory.tsv` 的檔名與 SHA-256 掃描三個包的暫存目錄，命中 0。
 
