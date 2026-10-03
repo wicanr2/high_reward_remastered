@@ -88,7 +88,7 @@
 
 ### 4.2 戳記佇列與規則
 
-戳記欄位：種類、x、y、w、h、雜湊、呼叫點、期望像素（索引色，16 為透明）、序號、狀態（待定或有效）、是否有 HD。
+戳記欄位：種類、x、y、w、h、雜湊、呼叫點、期望像素（索引色，16 為透明）、序號、狀態（待定或有效）。戳記不帶素材資訊，HD 圖在合成時以雜湊向 `Assets` 取得，所以 theme 能在合成時切換（`docs/spec/006` 第 4 節）。
 
 - **去重**：以 `(x, y, w, h, 雜湊)` 為鍵，同鍵的新戳記取代舊的並取新序號。
 - **singleton**：呼叫點在 `apps/hr/hd` 的 singleton 表內的戳記（第一版只有游標 `19FB:08A2`，綁定 `MAIN.EXE` 的 SHA-256），同一個呼叫點同時只留最新一個，不論雜湊與尺寸。以呼叫點而不是雜湊當鍵，因為游標靠右緣時雜湊會變（第 3.3 節）。
@@ -101,11 +101,11 @@
 
 快照由前端以拉取方式要求（前端每次繪製前設一個旗標；前端用 `runtime.FrameLimiter` 把要求間隔限制在至少 16 ms，`apps/hr/play/game.go` 的 `Draw` 經它呼叫 `RequestFrame`），模擬 goroutine 在**下一次滑鼠輪詢指令剛執行完**的那一刻產生（`stepBatch` 逐指令檢查 `d.Mouse.Polls` 的長度，不是批次邊界）。審查實測：批次邊界取樣時游標完整的比例只有 8% 至 9%，輪詢瞬間是 5884／5884、2240／2240、684／684（三組取樣，待定戳記數為 0）。滑鼠 100 毫秒內沒有輪詢（動畫、載入）時退回牆鐘 100 毫秒的快照（這條路徑未量測，列入驗收）。拉取式把快照次數限制在前端的繪製率：審查實測 `PlanarRGB` 一次 1.8 至 3.3 ms，每 8 ms 一次的推送式快照會吃掉兩到四成的單核。
 
-`Frame` 的內容（取代 `docs/spec/003` 第 3 節的「RGB」）：`Px`（`Machine.Planar` 的 `640x480` 像素值，0 至 15）、`Map`（16 個像素值到 DAC 索引的對應，EGA 屬性暫存器，`VGA.DACIndex`）、`DAC`（256 個 8 位元 RGB），像素值 `p` 的顯示色是 `DAC[Map[p]]`（與 `apps/hr/runtime/session.go` 的 `Frame` 一致）、有效戳記的不可變複本（位置、期望像素、HD 圖指標）、步數與序號。基底 RGB 與疊層合成在前端執行緒做，不在模擬 goroutine。
+`Frame` 的內容（取代 `docs/spec/003` 第 3 節的「RGB」）：`Px`（`Machine.Planar` 的 `640x480` 像素值，0 至 15）、`Map`（16 個像素值到 DAC 索引的對應，EGA 屬性暫存器，`VGA.DACIndex`）、`DAC`（256 個 8 位元 RGB），像素值 `p` 的顯示色是 `DAC[Map[p]]`（與 `apps/hr/runtime/session.go` 的 `Frame` 一致）、有效戳記的不可變複本（位置、期望像素、雜湊等欄位，不含素材指標）、步數與序號。基底 RGB 與疊層合成在前端執行緒做，不在模擬 goroutine。
 
 ### 5.2 基底層
 
-`Px` 經 AC 到 DAC 對應與 `DAC` 轉 RGB，整數倍放大（最近鄰，或選用的平滑濾鏡）。與 `Machine.PlanarRGB` 逐像素相同（驗收項）。
+`Px` 經 AC 到 DAC 對應與 `DAC` 轉 RGB，整數倍放大（`Composer` 的基底層恆為最近鄰；`-linear` 只影響 `original` theme 的 2 倍步驟，`docs/spec/006` 第 4 節）。與 `Machine.PlanarRGB` 逐像素相同（驗收項）。
 
 ### 5.3 疊層
 

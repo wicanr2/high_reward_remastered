@@ -173,8 +173,8 @@ func (s *Session) RequestDiag(reason string)  // 任何執行緒可呼叫；原�
 
 ## 8. 前端、機器人與玩家路徑
 
-- 前端以 `Options{DiagDir: <資料目錄>/crash, HangSeconds: 30, OnDiag: …}` 開啟。診斷目錄印在標準錯誤與 `play.log`，並在 `F1` 說明列出最近一份（`DebugPrint`，字串必須是 ASCII）。
-- 手動觸發是 **Ctrl+D**，不送進遊戲：Ctrl 按住的那一幀前端不送 `AppendInputChars` 與特殊鍵給遊戲（前端測試）。這是對 `docs/spec/003` 第 7 節保留鍵表的修訂：保留鍵為 F1、F11、F12、Alt+Enter、Ctrl+Q、Ctrl+D，本規格升 READY 的同一提交一併修訂 003。選 Ctrl+D 而不選 F9，因為 F9 目前當遊戲按鍵送出（掃描碼 `0x43`）；遊戲是否讀 Ctrl+D 的 `0x04` 與 F9 同樣未普查，這是已知差異。
+- 前端以 `Options{DiagDir: <資料目錄>/crash, HangSeconds: 30, OnDiag: …}` 開啟。診斷目錄印在標準錯誤與 `play.log`，並在 `F1` 說明列出最近一份（使用內嵌字型繪製，不再限 ASCII，`docs/spec/006` 第 3 節）。
+- 手動觸發是 **Ctrl+D**，不送進遊戲：Ctrl 按住的那一幀前端不送 `AppendInputChars` 與特殊鍵給遊戲（前端測試）。這是對 `docs/spec/003` 第 7 節保留鍵表的修訂：完整保留鍵清單與修飾鍵組合以 `docs/spec/006` 第 2 節為準，本規格升 READY 的同一提交一併修訂 003。選 Ctrl+D 而不選 F9，因為 F9 目前當遊戲按鍵送出（掃描碼 `0x43`）；遊戲是否讀 Ctrl+D 的 `0x04` 與 F9 同樣未普查，這是已知差異。
 - 存檔影響：診斷不修改遊戲記憶體、檔案與存檔。
 - 診斷含 `screen.png`、`state.state` 與記憶體位元組，是原版內容的衍生物。回報當機時請提供目錄給作者，不要貼到公開的 issue。
 - 注入只存在於機器人與測試的旗標，前端永不注入。`hrbot` 新增：`-hang-seconds`（預設 30，0 關閉；傳給 `Options.HangSeconds`，診斷目錄在 `<out>/diag`）、`-hang-routine SEG:OFF`（十六進位的執行期位址；遊戲時間到 `-hang-after-minutes`（預設 1）之後的第一個輪詢點，把該處兩個位元組改成 `EB FE`，模擬那個 routine 進入後不返回，讓 hang 發生在遊玩途中）、`-inject-hang-minutes`（既有）。機器人的 `summary.json` 增加 `t2` 物件：`enabled`、`evals`、`max_silent_sec`、`dumps`。

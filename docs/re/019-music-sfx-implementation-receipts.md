@@ -1,7 +1,7 @@
 # 019 音樂與音效播放的實作收據
 
-日期：2026-10-03
-狀態：收據（`docs/spec/007` 的實作驗證）。規格仍是 DRAFT（第四版，待第四輪重審）；收據記錄的是目前實作在目前輸入下實際量到的結果，不構成「已支援」的宣稱（見第 7 節）。
+日期：2026-10-03 至 2026-10-04
+狀態：收據（`docs/spec/007` 的實作驗證）。規格 `docs/spec/007` 是 READY 第五版（2026-10-04，第四輪審查的 W1 與 V1 至 V5 已處理，第五輪窄範圍確認審查通過）；收據記錄的是目前實作在目前輸入下實際量到的結果，不構成「已支援」的宣稱（見第 7 節）。
 輸入：`MAIN.EXE` SHA-256 `08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e`；dosgolem 分支 `hr` 基準提交 `223ed99`，實作為其上的未提交修改（提交後補提交號）；Go 容器 `golang:1.24-bookworm`（`tools/dosgolem.sh`）、`eob-remake-go:1.26.7-ebiten2.9.9`（`tools/play.sh`）；`linux/amd64`。
 
 ## 1. 單元測試（不需原版）
@@ -41,7 +41,7 @@
 | 冷啟動（HD 掛鉤） | 1.027 ± 0.005（無 HD 掛鉤）、1.011 ± 0.006（HD 掛鉤） | 0.875 ± 0.005 | 0.998 ± 0.007 |
 | 戰鬥佈陣（HD 掛鉤） | 1.029 ± 0.006（無 HD 掛鉤）、0.978 ± 0.004（HD 掛鉤） | 0.926 ± 0.006 | 0.986 ± 0.005 |
 
-全部在閘門 1.05 之內。不被抵銷的掛鉤成本約為零（冷啟動 −0.2%、戰鬥佈陣 −1.4%，在誤差內）。診斷開對 NoDiag 的對照欄是 `docs/spec/005` 的量測，每次重跑有 ±2% 的主機負載波動。
+全部在閘門 1.05 之內。不被抵銷的掛鉤成本沒有量到：冷啟動 −0.2%（在誤差內），戰鬥佈陣 −1.4%（約 2.8 個標準誤，方向是比無聲音掛鉤略快，不是額外成本）。診斷開對 NoDiag 的對照欄是 `docs/spec/005` 的量測，每次重跑有 ±2% 的主機負載波動。
 
 ### MID 緩衝的位址與複製路徑
 
@@ -53,7 +53,7 @@
 
 重跑：`tools/dosgolem.sh build && tools/dosgolem.sh music -out /out/music/wav -expect /out/music/midisum.tsv -check`（`midisum.tsv` 由 `tools/music/run.sh midisum` 產生，已存為 `docs/re/data/018-midisum.tsv`）。輸出表存為 `docs/re/data/019-hrmusic-report.tsv`：每個非空 MID 的曲長（解析器與獨立工具）、音符數（兩者）、峰值、RMS、近乎削波取樣數、聲部取代次數、活動音符數與窗 RMS 的相關、聽得到的比例、`Engine.Read` 與離線轉檔是否逐取樣相同、WAV 的 SHA-256 前 16 碼（限 `linux/amd64` 同一建置，不跨 `GOARCH`）。
 
-結果：27 個檔全部通過 `-check`：曲長與獨立工具相符（0.1% 加 2 毫秒內）、音符數全部相等、聲部取代 0、近乎削波 0、峰值 0.210 到 0.701、RMS 0.039 到 0.193、活動相關 0.30（`PRINCESS`）到 0.96、聽得到的比例全部 100%、兩次轉檔相同、`Engine.Read` 與離線轉檔逐取樣相同。
+結果：27 個檔全部通過 `-check`：曲長與獨立工具相符（0.1% 加 2 毫秒內）、音符數全部相等、聲部取代 0、近乎削波 0、峰值 0.210 到 0.701、RMS 0.039 到 0.193、活動相關 0.30（`PRINCESS`）到 0.96、聽得到的比例 99%（`SCOUT`）到 100%（其餘 25 個非空檔）、兩次轉檔相同、`Engine.Read` 與離線轉檔逐取樣相同。
 
 基頻抽查（`apps/hr/cmd/hrmusic/pitch.go`，判準只來自 SMF 的音高與時間，不依賴合成器參數）：26 個非空檔，真渲染器 798/799 個音符通過（期望音高的調和累加至少是 ±12 個半音內最大值的 70%，要求每檔至少 90%）；偵測器自測用壞渲染器（每個音符播固定 440 Hz 正弦、起訖準時），26/799 通過，低於 60% 的上限。`-pitch-debug` 可列出不符的音符。`ALCOHOL.MID` 是 0 byte 檔，略過。
 
@@ -97,7 +97,7 @@
 
 ## 6. 洩漏掃描
 
-`tools/pkg/leakscan.py` 加入音訊判準（副檔名 `.wav` 等、檔頭 `RIFF…WAVE` 與 `MThd`、與清冊 `.MID`／`.PCM` 同名的檔）。控制組：一個假 `SCOUT.wav`（`RIFF…WAVE` 檔頭）與一個改了副檔名的 `MThd` 檔，掃描回報 4 項命中；同目錄的 `README.txt` 無命中。HD 素材檔名與音訊檔名沒有碰撞（以 `required.tsv` 的 `.MID`、`.PCM` 檔名主幹比對 `hd/` 下全部檔案）。
+`tools/pkg/leakscan.py` 加入音訊判準（副檔名 `.wav` 等、檔頭 `RIFF…WAVE` 與 `MThd`、與清冊 `.MID`／`.PCM` 同名的檔）。控制組（2026-10-04，日誌 `workplace/out/final007-leakscan.log`，檔案為手寫的假檔頭，不含原版內容）：正對照目錄放 `SCOUT.wav`（`RIFF…WAVE` 檔頭）、`track.bin`（同檔頭，改副檔名）、`notes.dat`（`MThd` 檔頭）、`x.mid` 與 `README.txt`，掃描回報 7 項命中（`SCOUT.wav` 三項：副檔名、檔頭、與原版音訊同名；`track.bin`、`notes.dat` 各一項檔頭；`x.mid` 兩項：副檔名、檔頭），結束碼 1，`README.txt` 無命中；反對照目錄只有 `README.txt`，命中 0，結束碼 0。HD 素材檔名與音訊檔名沒有碰撞（以 `required.tsv` 的 `.MID`、`.PCM` 檔名主幹比對 `hd/` 下全部檔案）。
 
 ## 7. 尚未覆蓋、不能稱為已支援的路徑
 
@@ -183,3 +183,17 @@
 | 前端 | `tools/play.sh gui`（`final007-gui.log`） | 見第 4 節。ALSA 沒有 `default` 裝置，前端靜音運行；日誌另有一行 `跑不到 18.2 Hz（2 秒內 21 個 tick，應有 36）：間隔 300000 → 270000`，是 Xvfb 軟體繪圖加主機負載下既有的計時器降頻（`Session.Lowered`），與聲音無關 |
 
 結論範圍：Linux、無音訊裝置、`NullSink` 與離線轉檔。真實音訊裝置輸出、macOS、`GOLD.MID` 與 `ALCOHOL.MID` 路徑、逐 id 的點擊音收據仍在第 7 節，使用者尚未試聽。
+
+### 10.1 突變驗證的做法
+
+腳本 `workplace/mutate-007.sh`（gitignore，由 `workplace/final-verify-007.sh` 呼叫）：先備份 `engine.go` 與 `audio.go`，每項突變只改一處、跑對應測試、預期失敗，之後還原並印出雜湊核對。改動內容：
+
+| 項 | 改動 | 對應測試 |
+|---|---|---|
+| M1 | `engine.go` 第一處 `if e.cur.SongDone() {`（`cFade` 內）改成 `if false && e.cur.SongDone() {`，即拿掉 Z1 修正 | `TestEngineFadeAfterNaturalEndIsNoop`、`TestSoundEngineSessionIntegration` |
+| M2 | `audio.go` 的 `if r.gen != r.s.gen {` 改成 `if false && r.gen != r.s.gen {`，即拿掉拉取世代檢查 | `TestPullSourceOldGenerationGetsSilenceAndDoesNotAdvance`、`TestAudioStalledBackendIsTakenOver` |
+| M3 | `engine.go` 的 `SFX` 在送命令前加 `e.epoch++` 與寫狀態字 | `TestEngineSFXDoesNotBumpEpoch` |
+| M4 | `engine.go` 的 `send` 內 `if c.kind == cStart {` 改成 `if false && c.kind == cStart {`，即丟棄 `cStart` 時不回復狀態字 | `TestEngineDroppedStartDoesNotLeavePlayingState` |
+| M5 | `audio.go` 第一處 `a.handover()`（裝置回報 died 的分支）改成 `_ = 0`，即不接手 | `TestAudioDiedBackendHandover` |
+
+每項在改動後用 `grep -c` 確認改動確實命中一處（日誌的 `1`）。M5 在 5.00 秒失敗，代表測試等到逾時仍未見曲子推進；`TestAudioDiedBackendHandover` 沒有調小 `stallAfter`，所以若只拿掉 `case <-a.be.died` 一個分支而保留看門狗，看門狗約 2 至 2.5 秒也會接手，這個測試對「只拿掉 died 通道分支」的突變可能無鑑別力（M5 的實際改動是拿掉 `handover()` 呼叫，與此不同；對 died 通道分支的鑑別力未驗）。
