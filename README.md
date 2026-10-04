@@ -49,7 +49,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 當機與 hang 的診斷紀錄 | 遊戲停機、疑似 hang（遊戲碼的服務中斷靜默 30 遊戲秒）或按 Ctrl+D 時，存一份診斷：暫存器、呼叫鏈、最近的呼叫與服務中斷、最後呼叫的 routine、畫面與狀態檔。模擬 hang 的收據見報告 | `docs/spec/005`、`docs/re/017` |
 | 自動遊玩測試 | 機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各兩個種子，每組 2 遊戲小時：沒有當機與凍結，原版堆疊最深用到約一半。沒有走到 `docs/re/011` 的溢位路徑，不等於人類遊玩，也不能排除該溢位 | `docs/re/016` |
 | HD 圖層 | 595 張 2 倍圖，使用者看過六個代表畫面的合成圖後整體接受。精靈、頭像、戰鬥舞台背景、標題地圖與游標有替換，大地形底圖、文字與框線仍是原版像素 | `docs/spec/004`、`docs/re/014`、`docs/re/015` |
-| 發行包 | Linux AppImage、Windows zip、macOS universal。Linux 與 Windows 已啟動驗收（Windows 在 Wine 內只驗標題畫面），macOS 只驗檔案結構，沒有實機 | `docs/re/013` |
+| 發行包 | Linux AppImage、Windows zip、macOS universal。本機另有含原版與 HD 的 `v.0.1.0-20261004` 完整封包及 36 秒推廣影片，僅供私人驗收；Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.0-20261004/smoke/RESULTS.txt` |
 
 ## 主要成果
 

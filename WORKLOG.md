@@ -277,3 +277,10 @@
 - 用既有解析器與窗口表，依規格第 3.5 節的展開慣例在 Docker 內重算六個文字資料檔。`ESPMES` 的含 `%s` 行 67、展開後超過 30 bytes 的 36；`SYSTEM.MES` 為 121 與 49，與先前獨立審查量測相同。原文 `R_item > H` 有 22 項，id 與列數見 `docs/re/031` 第 9 節。`_vsprintf` 的實際實參長度與結尾位元組尚未量，20 bytes 仍是假設。
 - Docker-only 邊界勘誤：本輪接手時曾在主機直接用 `rg`、`sed` 讀取規格與工作樹檔案，違反主機只做 Docker、Git、狀態檢查與檔案編輯的規則。這些讀取未寫檔；發現後的搜尋與分析改為唯讀掛載到 Docker 容器執行。之後每次切換工作項目先確認讀取命令的執行位置。
 - `_vsprintf` 真實實參抽樣：`ESPMES#118.2` 在 bot 檢查點重播的第 6,512,222,690 步進入執行期 `0110:4BA1`，前一條是 `148B:01D3` 的遠呼叫。堆疊三組引數可回查目的緩衝、格式字串與可變參數列表；兩個 `%s` 指向的 NUL 結尾字串長 6、12 bytes，尾位元組 `A6`、`CE`。以 45-byte 原槽位含 NUL 扣除兩個 `%s`、加上實參，得到 58 個內容位元組，吻合既有繪圖緩衝量測。詳細位址、雜湊與限制見 `docs/re/031` 第 10 節；這只是一個項目，不能把 20-byte 預算假設改成 12。
+
+### 三平台本機完整版與推廣影片（2026-10-04）
+
+- 使用者要求先 commit、push，再做含原版遊戲的 Linux AppImage、Windows ZIP、macOS ZIP 與推廣影片。打包入口及影片工具提交為 `1bc6793`、`647f70c`，已推送 private repo；最後從乾淨的 `647f70c` 重建。dosgolem fork 為 `ac4d9b5`。版號 `v.0.1.0-20261004`，成品只在 `dist-all/v.0.1.0-20261004/`，沒有建立 Release 或上傳原版、影片。譯文表與語言包仍不入包。
+- `tools/package_full_local.sh` 在 Docker 內編排三平台建置；`tools/pkg/full_local.py` 對 `docs/re/source-inventory.tsv` 核對 148 個原版檔案的大小與 SHA-256，三包都附 595 張 HD 圖。Linux 最終 AppImage 在 Xvfb 靠包內 `original` 顯示標題並點入新遊戲，抽取後再核對 148 檔與 595 圖；Windows 最終 ZIP 與先前驗收包 SHA-256 相同，在 Wine 靠包內檔案顯示 640×400、16 色標題；macOS ZIP 與驗收包逐位元相同，universal Mach-O、plist、權限、原版與 HD 靜態核對通過，未在 macOS 實機啟動。畫面與精確範圍在 `smoke/RESULTS.txt`。
+- `tools/promo.sh` 以這版 AppImage 的標題、新遊戲畫面、已接受的戰鬥 HD 對照與 `MAP2.wav` 合成 36 秒 720p H.264／AAC 影片。聯絡表已目視檢查；FFprobe、長黑幀、長靜音與音量收據在 `promo/`，平均 -15.7 dB、峰值 -3.5 dB。素材權利分級為 local-only，見 `promo/rights.json`。`tools/finalize_full_local.sh` 產生四件交付檔的大小與 SHA-256：`SHA256SUMS.json`。
+- 重跑時修正 AppImage／macOS 的 `original` 驗證路徑、Windows／macOS ZIP 的固定暫存路徑、Go 離線模組快取、macOS 短版號。Wine 原版 VGA 畫面恰為 16 色，測試原先要求超過 16 色而誤判，改以非單色加尺寸驗收。影片初版的 FFmpeg 讀走容器腳本標準輸入，導致偵錯日誌暴增；加 `-nostdin` 後正常完成，並依對照圖實際 2568×800 修正右半裁切。本輪 32 MB 錯置 ZIP 暫存與兩個解包目錄已清除。外洩掃描仍只有既有 12 筆命中；Git 追蹤檔沒有 `workplace/`、`l10n/` 或 `dist-all/`。收尾時四件成品的 manifest 雜湊全通過，檔案 UID/GID 均為 1000:1000，沒有 root-owned 交付檔或遺留的 `hr-*` Docker 容器。
