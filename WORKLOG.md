@@ -319,3 +319,8 @@
 - 在 Docker 的 Xvfb 前端以原版檔案與本機單張 AI theme 正常點擊新遊戲，畫面 `workplace/out/m8-face-newgame.png` 顯示新肖像；用既有 HD theme 同法擷取 `m8-face-hd-newgame.png`。兩張肖像裁切對照在 `workplace/ai-hd/technical/face-player-compare.png`。這只驗證 `FACE000` 的正常玩家畫面；其餘八張的實際出現位置與功能路徑尚未驗。
 - 使用者在 13／14／15 像素樣張後選擇 M10 字模 B 案：新語言字模全由 OFL 的 Noto Sans CJK 產生，先做本機試作；補丁發行授權另議。`docs/spec/008` 第 3.4、12 節已記錄這項部分決定，L2 仍為 DRAFT。
 - `workplace/m10-font-coverage.py` 用固定 SHA-256 `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a` 的 Noto Sans CJK TTC、fontTools 4.66.1 與 Pillow 12.3.0，掃四語各 17 項候選的字集。簡中 200、日文 168、韓文 176、英文 32 個非單位元組白名單字元在對應字面都可找到。13 像素遮罩無一超過 15×15；14 像素簡中有 3 個超格，15 像素簡中 47、日文 15、韓文 2 個超格。韓文與英文各有一個無墨跡字元，均為空白 U+0020；這是 L3 詞距問題，不算字型缺字。完整碼位與量測在 `workplace/m10-font-coverage.json`。13 像素仍需可讀性與遊戲畫面驗證，並未定為正式光柵參數；L2 的保留碼掃描、動態閘門與成對探針尚未完成。
+
+### M10 自訂字碼保留集合初測（2026-10-04，續）
+
+- `tools/l10n/reservedscan.go` 重用 L1 的七個資料檔解析器，逐項按 Big5 邊界配對；對 `MAIN.EXE`、`OP.EXE`、`END.EXE` 使用 IDA 的嚴格字串匯出，並在 `UNK` 資料段依 `tools/text/loose.go` 的規則掃兩字以上的寬鬆連續片段。`MAIN.EXE` 的寬鬆掃描限於 FBOV 前的 MZ 區，不把 overlay 的 IDA 線性位址直接當檔案位移。入口 `tools/l10n/reservedscan.sh` 在既有 Go 容器執行，對 `docs/re/source-inventory.tsv` 驗證十個輸入的大小與 SHA-256，輸出只寫 `workplace/out/re-text/`。`m10-reserved-audit.json` 留輸入、六份 IDA 匯出的雜湊、Go 1.26.7 與容器映像識別；`m10-reserved-codes.tsv` 只留保留碼及來源，兩檔都不含原版文字或字形。重跑得到相同 102 碼，兩檔 SHA-256 分別為 `ea16d325224ca8589c199a904178b35adc78aea023a6802a4fc2745ede450547`、`23954078522c8ea147eeb28de9139c8ec37797c26661b51f87e9611d153ad552`。工具源碼可入版控，來源與輸出仍只在本機。
+- 初測得到自訂碼範圍 3276 碼中的 102 碼候選保留集合，靜態剩餘 3174 碼；錯位 `A1 E0 40` 與孤立雙位元組的負對照通過。102 碼中 79 碼只來自 IDA 嚴格匯出，該匯出包含 `CODE` 類別，可能過度保留。這是容量估計，不是 L2 正式保留集合：overlay 的寬鬆資料區、執行期 `198C:05A2` 字碼閘門及四組 `E0` 至 `F9` 成對路徑收據仍缺，不能據此製作正式字模補丁。
