@@ -55,7 +55,7 @@
 | 層 | 位置 | 職責 |
 |---|---|---|
 | 機器與觀測 | dosgolem | CPU、DOS 與 BIOS 服務、視訊、輸入、快照、`OnCall`。不放本遊戲的位址 |
-| 遊戲專屬 | `workplace/dosgolem` 本地分支 `hr` 的 `apps/hr`；證據在本 repo | 堆疊補丁（`apps/hr/patch`）、執行層（`apps/hr/runtime`）、長跑與探索工具（`apps/hr/cmd`）；圖像格式解碼在本 repo 的 `tools/img` |
+| 遊戲專屬 | `workplace/dosgolem` 本地分支 `hr` 的 `apps/hr`；證據在本 repo | 堆疊補丁（`apps/hr/patch`）、執行層（`apps/hr/runtime`）、長跑與探索工具（`apps/hr/cmd`）、遊戲內文字語言包建置器（`apps/hr/l10n`、`apps/hr/l10n/verify`、命令列 `apps/hr/cmd/hrl10n`，含洩漏判準 `leakscan`）；圖像格式解碼在本 repo 的 `tools/img` |
 | 前端與打包 | `apps/hr/play`（獨立 Go 模組，ebiten）；打包腳本在本 repo | 視窗、輸入、倍率、三平台封裝。不重實作遊戲規則 |
 
 - Go 的 `internal` 規則要求遊戲專屬程式碼與 dosgolem 在同一個模組樹，所以它們放在 `workplace/dosgolem` 的 `hr` 分支，本 repo 的 `engine/patches/` 是 `git format-patch` 備份（hr 專屬的提交，套在基底 `2f44a68` 上；每次提交該分支後重新產生）。2026-10-03 使用者授權把 Buck Rogers 分支（`buck-rogers-cht-output-overlay`，tip `beca734`）整合進 `hr`，合併提交 `50ffc62`（合併前的標籤 `hr-pre-buckrogers`），合併不在補丁備份內：重建要先套補丁再 merge 該分支並依 WORKLOG 的衝突解法處理。`hr` 推到 `wicanr2/dosgolem`（公開 repo）被分類器擋下，使用者自行處理 dosgolem main 的合併。
@@ -121,7 +121,8 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | `docs/re/` | 證據：位址、雜湊、樣本、推論等級、重跑方法。編號 `NNN-主題.md` 為報告，`data/` 放原始輸出，`source-inventory.tsv` 是原版清冊 |
 | `docs/spec/` | DRAFT、READY、CONFORMED 規格 |
 | `docs/images/` | README 用的執行截圖（含原版畫面與 HD 衍生物，private，見第 2 節） |
-| `tools/` | 容器包裝腳本與清冊工具 |
+| `tools/` | 容器包裝腳本與清冊工具；`tools/l10n/`：洩漏判準入口 `leakscan.sh`、登記檔 `leakscan-allow.tsv`、字集產生器 `gencharmap/` |
+| `l10n/` | 譯文表（`l10n/<代碼>/<資料檔名>.tsv`），預設不進版控（`.gitignore` 已含），不進發行包；語言包由建置器產生在使用者資料目錄的 `l10n-packs/`，不進版控 |
 | `workplace/` | 唯一可寫的研究工作區，已 gitignore：原版壓縮檔、解包、dosgolem 副本、探針輸出、截圖草稿 |
 | `hd/` | HD 素材（候選與已驗收），版控，private：`catalog.tsv`、`palettes.tsv`、`provenance.tsv`、`x2/`（595 張 PNG）。驗收前的草稿與對照圖在 `workplace/hd-work/` |
 | `engine/patches/` | `workplace/dosgolem` 分支 `hr` 的 `git format-patch` 備份 |
@@ -142,6 +143,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 - commit message 用繁體中文，不放 `Claude-Session:` 連結，`Co-Authored-By` 行可以留。
 - GitHub repo 是 `wicanr2/high_reward_remastered`，private。使用者 2026-10-02 授權建立此 repo，2026-10-03 授權對此 repo 做 git push。授權範圍只有對本 repo 的一般 push，不含 force push、刪除分支與其他 repo。改公開性、Issue、Release、PR、變更授權、公開任何原版衍生內容，仍依使用者明確授權的範圍執行，不擴張解讀。
 - 每次 push 前確認 `gh repo view` 的可見性仍是 PRIVATE，並用 `git ls-files` 確認沒有原版素材。
+- 每次 push 前另跑 `tools/l10n/leakscan.sh`（內容判準：原版資料檔與 `OP*.TXT` 的對白是否出現在本 repo 與 fork 的追蹤檔，`docs/spec/008` 第 3.9 節）。原版缺席或雜湊不符時失敗，不略過。命中須為 0 或已登記於 `tools/l10n/leakscan-allow.tsv`。使用者尚未回答 U8（登記政策）：2026-10-04 基準掃描的 12 筆命中（`docs/re/028`，只有路徑與單位身分）暫列為已知待決，push 前命中清單必須與基準逐項相同，任何新增命中先處理再 push。內容判準不涵蓋 `MAIN.EXE`、`OP.EXE`、`END.EXE` 的硬編碼字串，`docs/re` 對這類字串的引用靠人工複核。全歷史掃描（`tools/l10n/leakscan.sh --history`）不是 push 條件，轉公開前必跑，處理方式由使用者決定。
 - 每次工作結束前檢查：工作樹狀態、原版素材是否被誤追蹤（`git ls-files`）、Docker 清理狀態、文件現況是否一致。
 
 ## 11. 子代理分工
@@ -184,7 +186,7 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 
 | M8 | AI theme：codex 以原版為底重新繪製（`hd-ai/`） | 暫停（2026-10-03）：第一次 codex 試作被權限分類器擋下（原版美術外送），等使用者放行。放行後的步驟：試作代表圖、使用者過目、全量、契約檢查（尺寸、遮罩、羽化帶）、逐張 provenance；成品先是 candidate，使用者確認才 accepted。輸入準備腳本 `tools/ai/prep_inputs.sh` 已寫好（Docker 內，不外送） |
 | M9 | 前端 F1 功能說明、F2 切換 theme（原版、HD、AI）、F3 聲音開關、F4 切換介面語言 | 進行中：規格 `docs/spec/006`（READY 第七版，2026-10-04，七輪審查，與 `docs/spec/007` 同一提交升 READY）；靜態普查完成（`docs/re/021`：`MAIN.EXE` 的讀鍵呼叫點都不使用鍵值，保留 F2、F3、F4 不影響遊戲，強推論）；實作已提交 fork 的 `hr` 分支（`c9c8ec3` hd 與 runtime、`aaaf999` play，補丁 `engine/patches/0026`、`0028`）：hd 與 runtime 40 與 15 項測試、play 132 項測試（含 `-race`）、突變驗證、`gui-lang` 與 `gui-theme` 端對端（HD 差異像素 87.8%，門檻 50%）通過；未驗：真實雙核容器內的 `Lowered`（此容器的 Xvfb 軟體繪圖本身跑不到 18.2 Hz，斷言無效）、預載時間與 RSS 收據、macOS 與 Windows 的執行、`-scale 1`、`-linear`、全螢幕。F3 是本專案為聲音開關選的鍵，使用者沒有指定；`docs/spec/003` 的保留鍵表已同步。遊戲內文字的 F4 語意見 M10 |
-| M10 | 遊戲內文字多語系（繁體、簡體、韓文、英文、日文） | 進行中：文字管線與字型路徑的證據完成（`docs/re/020`、`023` 至 `025`）；規格 `docs/spec/008`（READY 第八版，2026-10-04，八輪審查；READY 範圍是 L0（dosgolem 語言層）與 L1（語言包建置器、`1676` 模擬器、洩漏防線、前端接線、17 項試點），只涵蓋檔案類文字；L2 字模補丁與 L3 逐語言導入不在範圍；硬編碼字串與存檔段 4073 另立規格 009）；預設設定下沒有譯文表與補丁隨包發行，一般玩家沒有可用的遊戲內語言包，語言包只有使用者自己的機器能建；L0 已實作並提交 fork 的 `hr` 分支（`fabe4f2`，補丁 `engine/patches/0029`，收據 `docs/re/027`：單元測試、突變驗證與 `LangDir` 為空的冷啟動 90M 步 A/B 通過；冷啟動只開到 `CFONT.15` 與 `ESPMES.MRG`，其餘六個資料檔只有合成測試；Windows 與 macOS 未實跑），L1 尚未實作；`docs/spec/008` 第 12 節 U1 至 U8 尚未回答，暫以預設值推進（記在此列而不是第 12 節定案表，因為預設值不是使用者的定案）；譯文與字模的權利處理待使用者決定；不散布改過的原版檔案 |
+| M10 | 遊戲內文字多語系（繁體、簡體、韓文、英文、日文） | 進行中：文字管線與字型路徑的證據完成（`docs/re/020`、`023` 至 `025`）；規格 `docs/spec/008`（READY 第八版，2026-10-04，八輪審查；READY 範圍是 L0（dosgolem 語言層）與 L1（語言包建置器、`1676` 模擬器、洩漏防線、前端接線、17 項試點），只涵蓋檔案類文字；L2 字模補丁與 L3 逐語言導入不在範圍；硬編碼字串與存檔段 4073 另立規格 009）；預設設定下沒有譯文表與補丁隨包發行，一般玩家沒有可用的遊戲內語言包，語言包只有使用者自己的機器能建；L0 已實作並提交 fork 的 `hr` 分支（`fabe4f2`，補丁 `engine/patches/0029`，收據 `docs/re/027`：單元測試、突變驗證與 `LangDir` 為空的冷啟動 90M 步 A/B 通過；冷啟動只開到 `CFONT.15` 與 `ESPMES.MRG`，其餘六個資料檔只有合成測試；Windows 與 macOS 未實跑）；L1 的程式庫與命令列已實作並提交 fork（`ca3611f`，補丁 `engine/patches/0030`，收據 `docs/re/028`：預算與 `1676` 模擬器、七個資料檔解析與序列化、譯文表、轉碼、洩漏判準 `tools/l10n/leakscan.sh`、建置器與 manifest 驗證，各經唯讀審查與突變驗證；基準掃描 12 筆命中待 U8），L1 尚未做的部分是前端接線、17 項試點與玩家端冷建置；`docs/spec/008` 第 12 節 U1 至 U8 尚未回答，暫以預設值推進（記在此列而不是第 12 節定案表，因為預設值不是使用者的定案）；譯文與字模的權利處理待使用者決定；不散布改過的原版檔案 |
 | M11 | 原版音樂與音效播放 | 進行中：規格 `docs/spec/007`（READY 第五版（2026-10-04，五輪審查，與 `docs/spec/006` 同一提交升 READY）；最終驗證收據在 `docs/re/019` 第 10 節）；證據 `docs/re/018`、收據 `docs/re/019`（27 個 MID 離線驗收通過，機器人 2 遊戲小時 x 2 種子 completed）；實作已提交 fork 的 `hr` 分支（`adeb3e4`，補丁 `engine/patches/0027`）。聽感由使用者試聽（`workplace/out/music/wav/`），音色是本專案自寫的 FM 近似，沒有原版錄音可對拍；真實音訊裝置、macOS、GOLD 與 ALCOHOL 路徑、存檔 A/B 未驗 |
 
 M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。M8 至 M11 彼此獨立，F2 的 AI theme 要等 M8 有成品才有東西可切。
@@ -197,5 +199,5 @@ M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。M8 至 M11 �
 - Linux 是 AppImage（`tools/pkg/verify_appimage.sh` 在 Xvfb 內啟動並點新遊戲）。Windows 是 `CGO_ENABLED=0` 交叉編譯的 zip，以 Wine 驗收（Wine 與軟體繪圖下很慢，只驗證能啟動並顯示標題）。macOS 以 osxcross 建 arm64 與 x86_64，`lipo` 合成 universal `.app`，未簽章，只驗結構（`tools/pkg/verify_macos.sh`），沒有實機測試。
 - 發行包不含原版素材。原版放在程式旁的方式與第一次啟動的雜湊核對，在 M7 的規格定案。是否含 HD 素材見第 2 節：`HR_WITH_HD=1 tools/package.sh` 把 `hd/` 放進包內（AppImage 的 `usr/bin/hd`、Windows zip 的 `hd/`、macOS 的 `Contents/Resources/hd`），產物放 `dist-all/with-hd/`，版本字串加 `-hd`，包內附 `hd/NOTICE.txt` 與 README 的 HD 段；這種包含原版美術的衍生物，只供私人流通。
 - `LICENSE` 要出現在每個發行包、發行根目錄與 AppImage 的 `usr/share/doc/`。
-- 外洩掃描：以原版檔案雜湊與檔名比對整個包，命中即失敗並刪除產物。
+- 外洩掃描：以原版檔案雜湊與檔名比對整個包，命中即失敗並刪除產物。另跑內容判準（`tools/package.sh` 的 `leak_scan` 呼叫 `tools/l10n/leakscan.sh`，原版缺席時失敗，不略過），並拒絕包內出現 `l10n`、`l10n-packs` 路徑（譯文表與語言包不隨包，`docs/spec/008` 第 3.9 節）。
 - 驗收實際打包的產物，在它自己的執行環境：解開 AppImage 或 zip，在唯讀 cwd 與相對路徑下冷開機，存檔寫到使用者可寫的目錄。

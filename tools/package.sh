@@ -108,6 +108,11 @@ leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
   if ! tools/pkg/py.sh leakscan.py "/w/pkg-stage/inventory.tsv" "/w/${1#workplace/}"; then
     echo "可散布的包夾帶原版檔，中止" >&2; exit 1
   fi
+  # 內容判準（docs/spec/008 第 3.9 節）：原版資料檔與 OP*.TXT 的對白。原版缺席時失敗，不略過。
+  test -f workplace/orig/MAIN.EXE || { echo "缺 workplace/orig/MAIN.EXE：內容判準無法執行，閘門失敗" >&2; exit 1; }
+  if ! tools/l10n/leakscan.sh "$1"; then
+    echo "可散布的包含原版文字（內容判準），中止" >&2; exit 1
+  fi
   echo "[package] 外洩掃描通過：$1"
 }
 

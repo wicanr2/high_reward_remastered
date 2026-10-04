@@ -94,7 +94,7 @@
 | 堆疊補丁 | `docs/spec/002` 第 6 節 | 全數通過 |
 | 結束 | 系統選單選「終了」 | 結束碼 1，視窗關閉；存檔不遺失 |
 | 三平台建置 | `tools/package.sh`（M7 另立規格） | 各平台產物啟動後在 10 秒內到標題畫面（Linux 以 Xvfb 驗證，Windows 以 Wine，macOS 只驗證建置與 Mach-O 結構，無實機） |
-| 外洩掃描 | 發行包內容比對 `docs/re/source-inventory.tsv` 的檔名與雜湊 | 沒有任何原版檔案或其衍生物 |
+| 外洩掃描 | 發行包內容比對 `docs/re/source-inventory.tsv` 的檔名與雜湊；另跑內容判準 `tools/l10n/leakscan.sh <包目錄>`（原版資料檔與 `OP*.TXT` 的對白，`docs/spec/008` 第 3.9 節）。路徑規則含 `l10n`、`l10n-packs`。閘門失敗關閉：原版缺席、雜湊不符、掃描範圍為空都失敗，不略過 | 沒有任何原版檔案或其衍生物 |
 
 ## 9. 聲音（`docs/spec/007`）
 

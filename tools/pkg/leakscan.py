@@ -26,7 +26,12 @@ with open(inv, encoding="utf-8") as f:
             if c[1] != "0":
                 hashes.add(c[2])
 hit = []
-for r, _, files in os.walk(root):
+# 譯文表與語言包的路徑不得出現在發行包內（docs/spec/008 第 3.9 節第 6 項；語言包含原版位元組，譯文表是衍生著作）。
+L10N_DIRS = {"l10n", "l10n-packs"}
+for r, dirs, files in os.walk(root):
+    for d in dirs:
+        if d.lower() in L10N_DIRS:
+            hit.append(("譯文表或語言包路徑", os.path.join(r, d)))
     for n in files:
         p = os.path.join(r, n)
         if n.upper() in names:
