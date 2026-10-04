@@ -12,6 +12,9 @@
 #   tools/play.sh gui-error        找不到原版時的錯誤視窗（workplace/out/gui-error.png）
 #   tools/play.sh gui-lang         docs/spec/006 第 10 節端對端：F4 循環五種語言的 F1 面板截圖（workplace/out/gui-lang-*.png，含原版畫面，不進 docs/）
 #   tools/play.sh gui-theme        docs/spec/006 第 10 節端對端：F2 切換 original 與 HD（需要 hd/；掛 -v hd:/hd:ro；workplace/out/gui-theme-*.png）
+#   tools/play.sh gui-ingame       docs/spec/008 第 3.8 節端對端：F1「遊戲內文字」一行與 F4 提示（預設、-ingame-lang identity、F4 一圈、竄改包、違規譯文表；
+#                                  合法的 accepted 譯文表；workplace/out/l1-wire2/gui-ingame-*.png，含原版畫面，不進 docs/；資料目錄在 /out/l1-wire2/home，不寫 ~）
+#   tools/play.sh gui-lang-cmp     比對兩組 gui-lang 截圖（HR_CMP_OLD、HR_CMP_NEW：/out 之下的目錄）的 F1 面板，逐行列出差異
 #
 # 映像：本機已有的 eob-remake-go:1.26.7-ebiten2.9.9（Go、ebiten 2.9.9 模組快取、X11／GL 標頭檔、Xvfb、xdotool、import）。
 # 用 HR_GO_IMAGE 覆蓋。預設 --network none；go.sum 由本機模組快取產生（GOSUMDB=off，未經校驗資料庫核對）。
@@ -332,5 +335,219 @@ exit $FAIL
 EOS
 )
     run "$GUI_BODY" ;;
+  gui-ingame)
+    # docs/spec/008 第 3.2、3.8 節的前端端對端：F1「遊戲內文字」一行與 F4 提示。資料目錄用 XDG_CONFIG_HOME 指到 /out/l1-wire2/home/<階段>/.config
+    # （語言包含原版位元組，只放 workplace/out；不寫 ~）。截圖與日誌在 /out/l1-wire2/gui-ingame-*。
+    #   (a) 預設啟動（沒有 l10n/）：F1 是 (1) 原版，且沒有建置（不出現 l10n-packs）；
+    #   (b) -ingame-lang identity：冷建置 identity 包，F1 是 (2) 驗證用；第二次啟動重用；
+    #   (c) F4 一圈（不設 HR_TEST_FREEZE_UI，toast 才會畫）：ko、ja 的 toast 是「尚無語言包」、F1 是 (4) no-table；
+    #       之後放入資料目錄的 l10n/zh-TW/，F4 回 zh-TW：F1 是 (3)、toast 是「下次啟動生效」（真值表列 20）；
+    #   (d1) 竄改包：預先放一個同名而竄改一個位元組的 identity 包，不被搬動，前端改建 -2，F1 是 (2)；
+    #   (d2) -ingame-lang zh-TW 而譯文表有一列違規（accepted、字集外的字）：建置失敗，F1 是 (4) 建置失敗，遊戲仍啟動；
+    #   (e)  -l10n 指向 zh-TW 譯文表有一列合法的 accepted：table 模式、採用列數 1，F1 是 (2) 部分翻譯；F4 到 zh-CN（沒有表）是 (4) no-table（列 6、7）。
+    GUI_BODY=$(cat <<'EOS'
+set -e
+for c in convert identify xdotool import Xvfb sha256sum cmp dd stat; do command -v "$c" >/dev/null 2>&1 || { echo "缺工具：$c" >&2; exit 1; }; done
+O=/out/l1-wire2
+# (d2)、(e) 的譯文表要綁定 ESPMES#121.0 的原項目雜湊（src_sha256 前 16 碼）。它是原版衍生值，不進版控：
+# 由 workplace/out/l1-wire2/src-sha-esp121-0.txt 讀入（產生方法見 tools/l10n/srcsha/main.go 檔頭）。
+SRCSHA_FILE="$O/src-sha-esp121-0.txt"
+[ -s "$SRCSHA_FILE" ] || { echo "缺 workplace/out/l1-wire2/src-sha-esp121-0.txt（ESPMES#121.0 的 src_sha256 前 16 碼；產生方法見 tools/l10n/srcsha/main.go）" >&2; exit 1; }
+SRCSHA=$(head -c 16 "$SRCSHA_FILE")
+cd /src/apps/hr/play
+go build -o /out/bin/hr-play .
+mkdir -p /tmp/.X11-unix "$O"
+Xvfb :99 -screen 0 1280x800x24 -nolisten tcp -ac >/tmp/xvfb.log 2>&1 &
+XPID=$!
+sleep 2
+export DISPLAY=:99
+shot() { import -window root "$1"; }
+crop() { convert "$1" -crop "$2" +repage "$3"; }
+sigfile() { convert "$1" -depth 8 -format "%#" info:; }
+press() { xdotool keydown "$1"; sleep 0.15; xdotool keyup "$1"; sleep "${2:-1}"; }
+quitgame() {
+  xdotool keydown ctrl; sleep 0.3; xdotool keydown q; sleep 0.3; xdotool keyup q; xdotool keyup ctrl
+  i=0; while kill -0 "$1" 2>/dev/null && [ $i -lt 20 ]; do sleep 1; i=$((i+1)); done
+  if kill -0 "$1" 2>/dev/null; then echo "Ctrl+Q 後 20 秒仍未結束，強制結束" >&2; kill "$1"; fi
+  rc=0; wait "$1" || rc=$?; echo "結束碼：$rc"
+}
+waitlog() {
+  i=0
+  while [ $i -lt $4 ]; do
+    n=$(grep -c "$2" "$1" || true)
+    if [ "${n:-0}" -ge "$3" ]; then echo "$2 已出現 $n 次（$i 秒）"; return 0; fi
+    sleep 1; i=$((i+1))
+  done
+  echo "逾時：$2（$4 秒內未出現 $3 次）" >&2; return 1
+}
+newhome() { rm -rf "$O/home/$1"; mkdir -p "$O/home/$1/.config"; }
+# start <階段名稱> <日誌檔> [hr-play 旗標…]：背景啟動，PID 放在 $PID
+start() {
+  sname=$1; slog=$2; shift 2
+  XDG_CONFIG_HOME="$O/home/$sname/.config" /out/bin/hr-play -orig /orig/orig -saves "$O/saves" -scale 2 -lang zh-TW "$@" >"$slog" 2>&1 &
+  PID=$!
+}
+FAIL=0
+F1LINE=1248x32+16+368   # 面板第 rowStatus + 2 ＝ 11 行：y ＝ 16 + 11 x 32
+TOAST=1248x32+16+752
+HD=high_reward
+export HR_TEST_FREEZE_UI=1
+
+echo "######## (a) 預設啟動：沒有 l10n/"
+newhome a
+start a "$O/gui-ingame-a.log"
+sleep 15
+press F1 1
+shot "$O/gui-ingame-a.png"; crop "$O/gui-ingame-a.png" $F1LINE "$O/gui-ingame-a-f1line.png"
+echo "== 日誌（ingame:）"; grep 'ingame:' "$O/gui-ingame-a.log" || true
+grep -q 'ingame: C=zh-TW explicit=false table=false plan=none' "$O/gui-ingame-a.log" || { echo "失敗：(a) 日誌沒有預期的計畫行" >&2; FAIL=1; }
+if [ -d "$O/home/a/.config/$HD/l10n-packs" ]; then echo "失敗：(a) 預設路徑不該建置（出現了 l10n-packs）" >&2; FAIL=1; else echo "(a) 沒有 l10n-packs 目錄：預設路徑沒有建置"; fi
+quitgame $PID
+
+echo "######## (b) -ingame-lang identity：冷建置"
+newhome b
+start b "$O/gui-ingame-b.log" -ingame-lang identity
+waitlog "$O/gui-ingame-b.log" "ingame: pack-active" 1 90 || FAIL=1
+sleep 3
+press F1 1
+shot "$O/gui-ingame-b.png"; crop "$O/gui-ingame-b.png" $F1LINE "$O/gui-ingame-b-f1line.png"
+echo "== 日誌（ingame:）"; grep 'ingame:' "$O/gui-ingame-b.log" || true
+echo "== play.log（時間 與 內容）"; grep 'ingame:' "$O/home/b/.config/$HD/play.log" | cut -f1,3 || true
+echo "== l10n-packs"; ls -la "$O/home/b/.config/$HD/l10n-packs/" || true
+for p in "$O"/home/b/.config/$HD/l10n-packs/identity-*; do ls "$p" "$p/files"; done
+grep -q 'ingame: pack-ready' "$O/gui-ingame-b.log" || { echo "失敗：(b) 沒有建置完成的日誌" >&2; FAIL=1; }
+grep -q 'ingame: pack-active' "$O/gui-ingame-b.log" || { echo "失敗：(b) LangStatus 沒有生效的日誌" >&2; FAIL=1; }
+grep -q 'reused=false' "$O/gui-ingame-b.log" || { echo "失敗：(b) 第一次應是冷建置（reused=false）" >&2; FAIL=1; }
+if [ "$(sigfile "$O/gui-ingame-a-f1line.png")" = "$(sigfile "$O/gui-ingame-b-f1line.png")" ]; then echo "失敗：(b) F1 的遊戲內文字一行與 (a) 相同" >&2; FAIL=1; fi
+quitgame $PID
+echo "== (b2) 第二次啟動：重用同一個包"
+start b "$O/gui-ingame-b2.log" -ingame-lang identity
+waitlog "$O/gui-ingame-b2.log" "ingame: pack-active" 1 90 || FAIL=1
+grep 'ingame:' "$O/gui-ingame-b2.log" || true
+grep -q 'reused=true' "$O/gui-ingame-b2.log" || { echo "失敗：(b2) 第二次啟動應重用（reused=true）" >&2; FAIL=1; }
+quitgame $PID
+
+echo "######## (c) F4 一圈（不設 HR_TEST_FREEZE_UI）"
+unset HR_TEST_FREEZE_UI
+newhome c
+start c "$O/gui-ingame-c.log"
+sleep 15
+press F1 1
+shot "$O/gui-ingame-c-0.png"
+for n in 1 2 3 4; do
+  press F4 0.6
+  shot "$O/gui-ingame-c-$n.png"
+  crop "$O/gui-ingame-c-$n.png" $F1LINE "$O/gui-ingame-c-$n-f1line.png"
+  crop "$O/gui-ingame-c-$n.png" $TOAST "$O/gui-ingame-c-$n-toast.png"
+done
+crop "$O/gui-ingame-c-0.png" $TOAST "$O/gui-ingame-c-0-toast.png"
+echo "toast 區域簽章：F4 前 $(sigfile "$O/gui-ingame-c-0-toast.png")；ko（第 2 次）$(sigfile "$O/gui-ingame-c-2-toast.png")；ja（第 4 次）$(sigfile "$O/gui-ingame-c-4-toast.png")"
+if [ "$(sigfile "$O/gui-ingame-c-0-toast.png")" = "$(sigfile "$O/gui-ingame-c-2-toast.png")" ]; then echo "失敗：(c) F4 到 ko 之後 toast 區域沒有變化" >&2; FAIL=1; fi
+if [ "$(sigfile "$O/gui-ingame-c-2-toast.png")" = "$(sigfile "$O/gui-ingame-c-4-toast.png")" ]; then echo "失敗：(c) ko 與 ja 的 toast 相同" >&2; FAIL=1; fi
+echo "== 列 20：放入 l10n/zh-TW/（資料目錄；只放一個佔位的譯文表檔，這次啟動不建置），F4 回 zh-TW"
+mkdir -p "$O/home/c/.config/$HD/l10n/zh-TW"
+printf 'id\n' > "$O/home/c/.config/$HD/l10n/zh-TW/SP.MES.tsv"
+press F4 0.6
+shot "$O/gui-ingame-c-5.png"
+crop "$O/gui-ingame-c-5.png" $F1LINE "$O/gui-ingame-c-5-f1line.png"
+crop "$O/gui-ingame-c-5.png" $TOAST "$O/gui-ingame-c-5-toast.png"
+quitgame $PID
+echo "== 日誌（ingame:）"; grep 'ingame:' "$O/gui-ingame-c.log" || true
+if [ -d "$O/home/c/.config/$HD/l10n-packs" ]; then echo "失敗：(c) 預設路徑 F4 不該建置（出現了 l10n-packs）" >&2; FAIL=1; fi
+
+echo "######## (d1) 竄改包：同名的 identity 包被竄改一個位元組"
+export HR_TEST_FREEZE_UI=1
+newhome d1
+BP="$O/home/b/.config/$HD/l10n-packs"
+D1="$O/home/d1/.config/$HD/l10n-packs"
+P=$(ls "$BP" | grep '^identity-' | head -1)
+echo "包名：$P"
+mkdir -p "$D1"
+cp -a "$BP/$P" "$D1/$P"
+printf '\377' | dd of="$D1/$P/files/SP.MES" bs=1 seek=100 conv=notrunc 2>/dev/null
+nd=$(cmp -l "$BP/$P/files/SP.MES" "$D1/$P/files/SP.MES" | wc -l)
+if [ "$nd" -eq 0 ]; then printf '\000' | dd of="$D1/$P/files/SP.MES" bs=1 seek=100 conv=notrunc 2>/dev/null; nd=$(cmp -l "$BP/$P/files/SP.MES" "$D1/$P/files/SP.MES" | wc -l); fi
+echo "竄改後與原包不同的位元組數：$nd（應為 1）"
+[ "$nd" -eq 1 ] || { echo "失敗：(d1) 竄改的位元組數不是 1" >&2; FAIL=1; }
+before=$(cd "$D1/$P" && find . -type f | sort | xargs sha256sum | sha256sum)
+ino=$(stat -c %i "$D1/$P")
+start d1 "$O/gui-ingame-d1.log" -ingame-lang identity
+waitlog "$O/gui-ingame-d1.log" "ingame: pack-active" 1 90 || FAIL=1
+sleep 3
+press F1 1
+shot "$O/gui-ingame-d1.png"; crop "$O/gui-ingame-d1.png" $F1LINE "$O/gui-ingame-d1-f1line.png"
+quitgame $PID
+echo "== 日誌（ingame:）"; grep 'ingame:' "$O/gui-ingame-d1.log" || true
+echo "== l10n-packs"; ls -la "$D1" || true
+after=$(cd "$D1/$P" && find . -type f | sort | xargs sha256sum | sha256sum)
+ino2=$(stat -c %i "$D1/$P")
+[ "$before" = "$after" ] && [ "$ino" = "$ino2" ] || { echo "失敗：(d1) 被竄改的舊目錄被搬動或改動（inode $ino → $ino2）" >&2; FAIL=1; }
+test -d "$D1/$P-2" || { echo "失敗：(d1) 沒有改建 $P-2" >&2; FAIL=1; }
+grep -q "pack-ready dir=$D1/$P-2 " "$O/gui-ingame-d1.log" || { echo "失敗：(d1) 日誌的 dir 不是 $P-2" >&2; FAIL=1; }
+
+echo "######## (d2) -ingame-lang zh-TW，譯文表有一列違規"
+newhome d2
+BAD="$O/l10n-bad"
+rm -rf "$BAD"; mkdir -p "$BAD/zh-TW"
+TXT='简简简'
+ACC=$(printf '%s' "$TXT" | sha256sum | cut -c1-16)
+printf 'id\tsrc_sha256\ttext\tstatus\tacc_sha\tby\tbatch\tdate\tnote\nESPMES#121.0\t%s\t%s\taccepted\t%s\tgui\tgui-ingame\t2026-10-04\t\n' "$SRCSHA" "$TXT" "$ACC" > "$BAD/zh-TW/ESPMES.MRG.tsv"
+start d2 "$O/gui-ingame-d2.log" -ingame-lang zh-TW -l10n "$BAD"
+sleep 15
+press F1 1
+shot "$O/gui-ingame-d2.png"; crop "$O/gui-ingame-d2.png" $F1LINE "$O/gui-ingame-d2-f1line.png"
+echo "== 日誌（ingame:）"; grep 'ingame:' "$O/gui-ingame-d2.log" || true
+grep -q 'ingame: violation' "$O/gui-ingame-d2.log" || { echo "失敗：(d2) 沒有違規項目的日誌" >&2; FAIL=1; }
+grep -q 'ingame: build-failed' "$O/gui-ingame-d2.log" || { echo "失敗：(d2) 沒有 build-failed 的日誌" >&2; FAIL=1; }
+if grep -q 'ingame: pack-active' "$O/gui-ingame-d2.log"; then echo "失敗：(d2) 建置失敗卻啟用了語言包" >&2; FAIL=1; fi
+kill -0 $PID 2>/dev/null || { echo "失敗：(d2) 建置失敗後遊戲沒有啟動" >&2; FAIL=1; }
+quitgame $PID
+if grep -qE 'panic|goroutine ' "$O/gui-ingame-d2.log"; then echo "失敗：(d2) 日誌有 panic" >&2; FAIL=1; fi
+
+echo "######## (e) -l10n：zh-TW 譯文表有一列 accepted 且合法（table 模式，採用列數 1；沒有 -ingame-lang，啟用規則 3），F4 到 zh-CN（真值表列 6、7）"
+unset HR_TEST_FREEZE_UI
+newhome e
+GOOD="$O/l10n-good"
+rm -rf "$GOOD"; mkdir -p "$GOOD/zh-TW"
+GT='一二三四六八十大'
+GACC=$(printf '%s' "$GT" | sha256sum | cut -c1-16)
+printf 'id\tsrc_sha256\ttext\tstatus\tacc_sha\tby\tbatch\tdate\tnote\nESPMES#121.0\t%s\t%s\taccepted\t%s\tgui\tgui-ingame\t2026-10-04\t\n' "$SRCSHA" "$GT" "$GACC" > "$GOOD/zh-TW/ESPMES.MRG.tsv"
+start e "$O/gui-ingame-e.log" -l10n "$GOOD"
+waitlog "$O/gui-ingame-e.log" "ingame: pack-active" 1 90 || FAIL=1
+sleep 3
+press F1 1
+shot "$O/gui-ingame-e-0.png"; crop "$O/gui-ingame-e-0.png" $F1LINE "$O/gui-ingame-e-0-f1line.png"
+press F4 0.6
+shot "$O/gui-ingame-e-1.png"; crop "$O/gui-ingame-e-1.png" $F1LINE "$O/gui-ingame-e-1-f1line.png"; crop "$O/gui-ingame-e-1.png" $TOAST "$O/gui-ingame-e-1-toast.png"
+quitgame $PID
+echo "== 日誌（ingame:）"; grep 'ingame:' "$O/gui-ingame-e.log" || true
+grep -q 'ingame: C=zh-TW explicit=false table=true plan=table' "$O/gui-ingame-e.log" || { echo "失敗：(e) 計畫行不是 (zh-TW, 非明示, 有表, table)" >&2; FAIL=1; }
+grep -q 'ingame: pack-ready .* mode=table code=zh-TW adopted=1 ' "$O/gui-ingame-e.log" || { echo "失敗：(e) 建置結果不是 table 模式、採用列數 1" >&2; FAIL=1; }
+grep -q 'ingame: pack-active' "$O/gui-ingame-e.log" || { echo "失敗：(e) LangStatus 沒有生效的日誌" >&2; FAIL=1; }
+
+kill $XPID 2>/dev/null || true
+if [ $FAIL -eq 0 ]; then echo "gui-ingame：通過"; else echo "gui-ingame：失敗"; fi
+exit $FAIL
+EOS
+)
+    run "$GUI_BODY" ;;
+  gui-lang-cmp)
+    # 比對兩組 gui-lang 截圖（舊：HR_CMP_OLD，新：HR_CMP_NEW，都是 /out 之下的目錄，內含 gui-lang-0.png 至 gui-lang-5.png）的 F1 面板：
+    # 21 行逐行比差異像素，列出有差異的行（面板在邏輯畫面 x ＝ 16、y ＝ 16 起，每行 1248x32）。不啟動遊戲，只用映像內的 ImageMagick。
+    EXTRA+=(-e "HR_CMP_OLD=${HR_CMP_OLD:?HR_CMP_OLD（/out 之下的舊截圖目錄）}" -e "HR_CMP_NEW=${HR_CMP_NEW:?HR_CMP_NEW（/out 之下的新截圖目錄）}")
+    run 'set -e
+      command -v compare >/dev/null 2>&1 || { echo "缺工具：compare" >&2; exit 1; }
+      OLD=/out/$HR_CMP_OLD; NEW=/out/$HR_CMP_NEW
+      for n in 0 1 2 3 4 5; do
+        test -f "$OLD/gui-lang-$n.png" && test -f "$NEW/gui-lang-$n.png" || { echo "缺 gui-lang-$n.png" >&2; exit 1; }
+        diffs=""; total=0; i=0
+        while [ $i -lt 21 ]; do
+          y=$((16 + i*32))
+          d=$(compare -metric AE "$OLD/gui-lang-$n.png[1248x32+16+$y]" "$NEW/gui-lang-$n.png[1248x32+16+$y]" null: 2>&1 | cut -d" " -f1 || true)
+          if [ "${d:-0}" != "0" ]; then diffs="$diffs 第${i}行($d)"; total=$((total+1)); fi
+          i=$((i+1))
+        done
+        echo "gui-lang-$n：有差異的面板行 $total 行：${diffs:-（無）}"
+      done' ;;
   *) sed -n 2,9p "$0" >&2; exit 2 ;;
 esac
