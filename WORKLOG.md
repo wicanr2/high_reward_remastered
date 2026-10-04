@@ -261,3 +261,8 @@
 - 預設建置政策採用 17 列，`hrl10n verify` 通過 8 檔；Linux Xvfb 前端以 `-scale 1 -ingame-lang zh-TW -l10n /l10n` 冷建置，日誌記 `reused=false`、`adopted=17`、`pack-active`。前端與命令列的 manifest 和八個檔案逐位相同。譯文表仍由 `.gitignore` 排除，語言包只留在 `workplace/` 的使用者資料目錄；未將其加入版控或發行包。
 - 第一次同步 `AGENTS.md` 與 READY 規格的文書修改被自動審查拒絕，理由是它判定會放行譯文入版控及隨包發行。核對使用者授權與原規則後，改為只記錄 Codex 文字處理例外、17 項接受及收據入口，並明示版控與發行規則維持原樣；窄範圍修改通過。
 - 仍待：Windows Wine 玩家端冷建置、AppImage 實包與 macOS 實機；L2 字模與 L3 其他語言尚未 READY，U1、U3 至 U6、U8 及 U7 其餘語言驗收方式未定。AI theme 的原版美術外送另有獨立權限阻擋，未以 M10 文字授權推定放行。
+
+### M10 Wine identity 冷建置（2026-10-04，續）
+
+- 用目前前端交叉編譯的 Windows 程式製作測試 ZIP，並在 Wine Docker 容器內解包、啟動。`-ingame-lang identity` 從唯讀原版冷建置，日誌記 `reused=false`、`adopted=0`、`pack-active`；Windows manifest 與 Linux 以同一旗標冷建置的 manifest SHA-256 同為 `ac84830e64ffc962f4b33f3a7b7d7a21201757f02d39c61352eebd0c0f96e5ac`。截到 640×400、16 色的實際遊戲主選單。收據見 `docs/re/031` 第 7 節。
+- `tools/pkg/verify_wine.sh` 改成等待語言包啟用與遊戲視窗，確認畫面尺寸和非空白，保存 manifest；ZIP 解包移入容器。先前固定等待後抓 Xvfb 根視窗可能抓到黑畫面或裁切畫面。正式 Windows 發行 ZIP、AppImage 實包與 macOS 實機尚未驗；上一節「Windows Wine 玩家端冷建置待驗」是該時點的紀錄。
