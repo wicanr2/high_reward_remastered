@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# 發行包（docs/spec/003 第 8 節）。產出放 dist-all/，每個平台只留最新一份。
+# 發行包（docs/spec/003 第 8 節）。一般包產出放 dist-all/，每個平台只留最新一份。
+# HR_FULL_LOCAL=1 且 HR_VERSION 為正式版號時，另產出 dist-all/<版本>/full-local/；
+# 原版逐檔核對 docs/re/source-inventory.tsv，僅供本機交付，絕不提交或上傳。
 #
 #   tools/package.sh appimage   Linux：HighReward-<版本>-x86_64.AppImage
 #   tools/package.sh windows    HighReward-<版本>-win64.zip
 #   tools/package.sh macos      HighReward-<版本>-macos.zip（universal：arm64 加 x86_64，未簽章）
 #   tools/package.sh all
 #
-# 發行包不含原版素材（AGENTS.md 第 2 節）：玩家自備，放在執行檔旁的 original/。
+# 一般發行包不含原版素材（AGENTS.md 第 2 節）：玩家自備，放在執行檔旁的 original/。
 # 產出前以 tools/pkg/leakscan.py 依 docs/re/source-inventory.tsv 的檔名與雜湊掃描，有命中就不出包。
 # 建置一律在 Docker（--rm、目前 UID、--network none）。映像用本機已有的：
 #   Go 與 ebiten 2.9.9：eob-remake-go:1.26.7-ebiten2.9.9      （HR_GO_IMAGE）
@@ -19,13 +21,21 @@ cd "$ROOT"
 TARGET="${1:-all}"
 DG="workplace/dosgolem"
 WITH_HD="${HR_WITH_HD:-0}"   # 1 ＝ 把 hd/ 放進包內（含原版美術的衍生物，只供私人流通）
+FULL_LOCAL="${HR_FULL_LOCAL:-0}" # 1 ＝ 本機完整版
 HRV="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 DGV="$(git -C "$DG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 VER="${HR_VERSION:-$HRV-dg$DGV}"
-if [ "$WITH_HD" = 1 ]; then VER="$VER-hd"; fi
-DIST="dist-all"
-if [ "$WITH_HD" = 1 ]; then DIST="dist-all/with-hd"; fi
-STAGE="workplace/pkg-stage"
+if [ "$FULL_LOCAL" = 1 ]; then
+  [[ "$VER" =~ ^v\.[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}$ ]] || { echo "完整版需要 HR_VERSION=v.<主>.<次>.<修訂>-YYYYMMDD" >&2; exit 2; }
+  test -d workplace/orig || { echo "缺 workplace/orig" >&2; exit 2; }
+  DIST="dist-all/$VER/full-local"
+  STAGE="workplace/pkg-stage-full-local"
+else
+  if [ "$WITH_HD" = 1 ]; then VER="$VER-hd"; fi
+  DIST="dist-all"
+  if [ "$WITH_HD" = 1 ]; then DIST="dist-all/with-hd"; fi
+  STAGE="workplace/pkg-stage"
+fi
 GO_IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"
 MAC_IMAGE="${HR_MAC_IMAGE:-psychicwar-osxcross:latest}"
 APPIMAGE_IMAGE="${HR_APPIMAGE_IMAGE:-psychicwar-appimage:latest}"
@@ -51,6 +61,7 @@ drun() { # 用法：drun <映像> [額外 docker 參數…] -- <指令…>
 }
 
 keep_latest() { # $1 glob，$2 這次要留的檔
+  [ "$FULL_LOCAL" = 1 ] && return 0
   local f
   for f in $1; do
     [ -e "$f" ] || continue
@@ -60,7 +71,7 @@ keep_latest() { # $1 glob，$2 這次要留的檔
 
 # 第三方授權：從建置映像的模組快取與 Go 發行版讀授權全文（不是憑記憶寫）。
 make_notices() { # $1 輸出檔
-  drun "$GO_IMAGE" -v "$ROOT/workplace:/w" -e HOME=/tmp -- sh -c '
+  drun "$GO_IMAGE" -v "$ROOT/workplace:/w:ro" -e HOME=/tmp -- sh -c '
     set -e
     M=/go/pkg/mod
     echo "本程式靜態連結下列第三方軟體。授權全文如下。"
@@ -86,10 +97,17 @@ make_notices() { # $1 輸出檔
 
 stage_common() { # $1 目的目錄
   mkdir -p "$1/original"
-  cp packaging/README.dist.txt "$1/README.txt"
+  if [ "$FULL_LOCAL" = 1 ]; then
+    python3 tools/pkg/full_local.py "$INV" workplace/orig
+    cp -R workplace/orig/. "$1/original/"
+    python3 tools/pkg/full_local.py "$INV" "$1/original"
+    cp packaging/README.full-local.txt "$1/README.txt"
+  else
+    cp packaging/README.dist.txt "$1/README.txt"
+    cp packaging/PUT_ORIGINAL_FILES_HERE.txt "$1/original/PUT_ORIGINAL_FILES_HERE.txt"
+  fi
   if [ "$WITH_HD" = 1 ]; then cat packaging/README.hd.txt >> "$1/README.txt"; fi
   cp LICENSE "$1/LICENSE"
-  cp packaging/PUT_ORIGINAL_FILES_HERE.txt "$1/original/PUT_ORIGINAL_FILES_HERE.txt"
   make_notices "$1/THIRD_PARTY_NOTICES.txt"
 }
 
@@ -104,6 +122,11 @@ stage_hd() { # $1 包內放 hd 的位置（HR_WITH_HD=1 才做）
 }
 
 leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
+  if [ "$FULL_LOCAL" = 1 ]; then
+    python3 tools/pkg/full_local.py "$INV" "$1/original"
+    test ! -e "$1/l10n" && test ! -e "$1/l10n-packs" || { echo "完整版不得夾帶譯文表或語言包" >&2; exit 1; }
+    return
+  fi
   cp "$INV" "$STAGE/inventory.tsv"
   if ! tools/pkg/py.sh leakscan.py "/w/pkg-stage/inventory.tsv" "/w/${1#workplace/}"; then
     echo "可散布的包夾帶原版檔，中止" >&2; exit 1
@@ -117,7 +140,7 @@ leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
 }
 
 go_build() { # $1 GOOS $2 CGO $3 輸出（/out 內）$4 額外 ldflags
-  drun "$GO_IMAGE" -v "$ROOT/$DG:/src" -v "$ROOT/workplace/out:/out" -v "$ROOT/workplace/gocache:/gocache" \
+  drun "$GO_IMAGE" -v "$ROOT/$DG:/src:ro" -v "$ROOT/workplace/out:/out" -v "$ROOT/workplace/gocache:/gocache" \
     -e HOME=/tmp -e GOCACHE=/gocache -e GOFLAGS=-mod=mod -e GOPROXY=off -e GOSUMDB=off \
     -e CGO_ENABLED="$2" -e GOOS="$1" -e GOARCH=amd64 \
     -e "HR_LDFLAGS=-s -w -X main.version=$VER $4" -e "HR_OUT=$3" -w /src/apps/hr/play -- \
@@ -156,12 +179,12 @@ DESKTOP
   leak_scan "$app"
   docker image inspect "$APPIMAGE_IMAGE" >/dev/null 2>&1 || { echo "缺映像 $APPIMAGE_IMAGE" >&2; exit 3; }
   keep_latest "$DIST/HighReward-*-x86_64.AppImage" "$out"
-  drun "$APPIMAGE_IMAGE" -e HOME=/tmp -v "$ROOT:/src" -w /src -- sh -c "
+  drun "$APPIMAGE_IMAGE" -e HOME=/tmp -v "$ROOT/$STAGE:/stage:ro" -v "$ROOT/$DIST:/out" -- sh -c "
     set -eu
-    mksquashfs '$app' /tmp/app.squashfs -root-owned -noappend -no-progress -comp zstd -Xcompression-level 19
-    cat /opt/runtime-x86_64 /tmp/app.squashfs > '$out'
-    chmod +x '$out'
-    file '$out'"
+    mksquashfs /stage/HighReward.AppDir /tmp/app.squashfs -root-owned -noappend -no-progress -comp zstd -Xcompression-level 19
+    cat /opt/runtime-x86_64 /tmp/app.squashfs > '/out/$(basename "$out")'
+    chmod +x '/out/$(basename "$out")'
+    file '/out/$(basename "$out")'"
   rm -rf "$app" "$STAGE/icons"
   echo "$out"
 }
@@ -197,7 +220,7 @@ do_macos() {
   icons "$STAGE/mac-icons"
   tools/pkg/py.sh icns.py "/w/${STAGE#workplace/}/mac-icons" "/w/${STAGE#workplace/}/mac/HighReward.app/Contents/Resources/hr-play.icns" >/dev/null
   drun "$MAC_IMAGE" -e HOME=/tmp -e "HR_VER=$VER" -e "HR_MIN=$min" -e HR_OUT=/src-out/hr-play-mac \
-    -v "$ROOT/$DG:/src" -v "$ROOT/workplace/out:/src-out" -v "$ROOT/workplace/gocache:/gocache" -v "$ROOT/workplace/gomodcache:/gomodcache" \
+    -v "$ROOT/$DG:/src:ro" -v "$ROOT/workplace/out:/src-out" -v "$ROOT/workplace/gocache:/gocache" -v "$ROOT/workplace/gomodcache:/gomodcache" \
     --tmpfs "/tmp:exec,uid=$(id -u),gid=$(id -g),size=2g" -w /src/apps/hr/play -- bash -c '
       set -euo pipefail
       eval "$(osxcross-conf)"
