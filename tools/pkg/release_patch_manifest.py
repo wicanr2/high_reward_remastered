@@ -16,9 +16,9 @@ if not all(re.fullmatch(r"[0-9a-f]{40}", value) for value in (source_commit, dos
     raise ValueError("invalid source commit")
 
 names = (
-    f"HighReward-{version}-x86_64.AppImage",
-    f"HighReward-{version}-win64.zip",
-    f"HighReward-{version}-macos.zip",
+    f"patch/HighReward-{version}-x86_64.AppImage",
+    f"patch/HighReward-{version}-win64.zip",
+    f"patch/HighReward-{version}-macos.zip",
 )
 files = []
 for name in names:
@@ -29,7 +29,7 @@ for name in names:
     with path.open("rb") as source:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
-    files.append({"name": name, "bytes": path.stat().st_size, "sha256": digest.hexdigest()})
+    files.append({"path": name, "bytes": path.stat().st_size, "sha256": digest.hexdigest()})
 
 manifest = {
     "version": version,

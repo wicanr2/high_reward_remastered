@@ -50,6 +50,10 @@ MAC_IMAGE="${HR_MAC_IMAGE:-psychicwar-osxcross:latest}"
 APPIMAGE_IMAGE="${HR_APPIMAGE_IMAGE:-psychicwar-appimage:latest}"
 INV="docs/re/source-inventory.tsv"
 mkdir -p "$DIST" "$STAGE" workplace/gocache workplace/out
+if [ "$RELEASE_PATCH" = 1 ]; then
+  cp LICENSE "dist-all/$VER/LICENSE"
+  cp LICENSE "$DIST/LICENSE"
+fi
 
 for img in "$GO_IMAGE"; do
   docker image inspect "$img" >/dev/null 2>&1 || { echo "缺映像 $img" >&2; exit 3; }
@@ -177,6 +181,8 @@ do_appimage() {
   cp workplace/out/pkg-hr-play-linux "$app/usr/bin/hr-play"; chmod +x "$app/usr/bin/hr-play"
   stage_common "$app/usr/bin"
   stage_hd "$app/usr/bin"
+  mkdir -p "$app/usr/share/doc"
+  cp LICENSE "$app/usr/share/doc/LICENSE"
   icons "$STAGE/icons"
   cp "$STAGE/icons/icon_256.png" "$app/hr-play.png"
   cat > "$app/AppRun" <<'SH'
