@@ -324,3 +324,7 @@
 
 - `tools/l10n/reservedscan.go` 重用 L1 的七個資料檔解析器，逐項按 Big5 邊界配對；對 `MAIN.EXE`、`OP.EXE`、`END.EXE` 使用 IDA 的嚴格字串匯出，並在 `UNK` 資料段依 `tools/text/loose.go` 的規則掃兩字以上的寬鬆連續片段。`MAIN.EXE` 的寬鬆掃描限於 FBOV 前的 MZ 區，不把 overlay 的 IDA 線性位址直接當檔案位移。入口 `tools/l10n/reservedscan.sh` 在既有 Go 容器執行，對 `docs/re/source-inventory.tsv` 驗證十個輸入的大小與 SHA-256，輸出只寫 `workplace/out/re-text/`。`m10-reserved-audit.json` 留輸入、六份 IDA 匯出的雜湊、Go 1.26.7 與容器映像識別；`m10-reserved-codes.tsv` 只留保留碼及來源，兩檔都不含原版文字或字形。重跑得到相同 102 碼，兩檔 SHA-256 分別為 `ea16d325224ca8589c199a904178b35adc78aea023a6802a4fc2745ede450547`、`23954078522c8ea147eeb28de9139c8ec37797c26661b51f87e9611d153ad552`。工具源碼可入版控，來源與輸出仍只在本機。
 - 初測得到自訂碼範圍 3276 碼中的 102 碼候選保留集合，靜態剩餘 3174 碼；錯位 `A1 E0 40` 與孤立雙位元組的負對照通過。102 碼中 79 碼只來自 IDA 嚴格匯出，該匯出包含 `CODE` 類別，可能過度保留。這是容量估計，不是 L2 正式保留集合：overlay 的寬鬆資料區、執行期 `198C:05A2` 字碼閘門及四組 `E0` 至 `F9` 成對路徑收據仍缺，不能據此製作正式字模補丁。
+
+### M10 冷啟動字模呼叫抽樣（2026-10-05）
+
+- 用 `tools/dosgolem.sh probe` 從 `MAIN.EXE` 冷啟動，於 35M 步點新遊戲，跑滿 90M 步並以 `-call-args 198C:05A2:2:0:90000000` 記錄字模呼叫。`workplace/out/re-text/dyn-glyph-cold-m10.txt` SHA-256 為 `9281d1adb206f406ad7257915621bed4ed165aee37800560ae5a15a79833fb51`，共 86 次呼叫、39 種 `(lead, trail)`，皆在本節可配的 `E0` 至 `F9` 範圍外；程式在步數上限仍存活。這個樣本只證明原版冷啟動沒有碰到候選保留碼，不能替代 L2 的動態閘門及負對照。`docs/spec/008` 第 3.4 節因此明確把閘門限定在可配範圍，避免把一般原版 Big5 字碼誤判為違規。
