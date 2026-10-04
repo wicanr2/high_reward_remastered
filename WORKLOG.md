@@ -328,3 +328,9 @@
 ### M10 冷啟動字模呼叫抽樣（2026-10-05）
 
 - 用 `tools/dosgolem.sh probe` 從 `MAIN.EXE` 冷啟動，於 35M 步點新遊戲，跑滿 90M 步並以 `-call-args 198C:05A2:2:0:90000000` 記錄字模呼叫。`workplace/out/re-text/dyn-glyph-cold-m10.txt` SHA-256 為 `9281d1adb206f406ad7257915621bed4ed165aee37800560ae5a15a79833fb51`，共 86 次呼叫、39 種 `(lead, trail)`，皆在本節可配的 `E0` 至 `F9` 範圍外；程式在步數上限仍存活。這個樣本只證明原版冷啟動沒有碰到候選保留碼，不能替代 L2 的動態閘門及負對照。`docs/spec/008` 第 3.4 節因此明確把閘門限定在可配範圍，避免把一般原版 Big5 字碼誤判為違規。
+
+### M8 其餘 586 張本機 AI theme（2026-10-05）
+
+- 使用者明確授權其餘 586 張原版衍生圖送至 OpenAI，成品只留本機作定稿，不含公開發行。輸入、來源圖與清冊雜湊在 `workplace/ai-hd/remaining-586-manifest.json`；585 張成功生成。`VS.MRG:23` 在圖像服務輸入階段被拒絕，未繞過；這一項在本機主題使用已驗收的 HD 圖。
+- `workplace/ai-hd/adapt-all.py` 產生 `technical/full-theme/`，595 項對應 `hd/catalog.tsv`。來源雜湊、2 倍尺寸、原版透明遮罩與圖像契約由 `technical/full-theme/adapt-report.json` 和 `provenance.tsv` 記錄。11 張 MAP 加 `GMAP.PXS` 保留 HD 地形與標記位置，只取 AI 局部紋理；`SPOINT`、`LTIME` 和三張 `RUNTIME:CURSOR` 保留既有幾何；文字圖保留原字形。`FACE.MRG:66` 因書頁字形無法安全對齊，使用已驗收 HD；空白臉譜也保留原樣。`VS.MRG:14` 與 `VS.MRG:20` 的第二版恢復原圖重要地標。83 張背景與地圖的目視紀錄在 `workplace/ai-hd/bg-visual-review.json`。
+- `workplace/ai-hd/verify-final.py` 在 Docker 驗得 595 項齊全、594 項通過格式契約、1 項服務拒絕而 HD 回退；來源、候選與輸出 SHA-256、尺寸、遮罩、地圖及細小圖示的幾何界限均通過。Linux Xvfb 以 `-hd-ai` 啟動，F2 切回原版，兩張畫面差異 247,032 像素；樣張在 `workplace/out/m8-ai-gui.png` 與 `m8-after-f2.png`。這只驗證啟動與切換，沒有逐畫面遊戲路徑、Windows 或 macOS 驗收。本機素材、腳本與樣張均在忽略版控的 `workplace/`；未放入 Git、Release 或發行包。
