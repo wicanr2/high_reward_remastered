@@ -22,14 +22,23 @@ TARGET="${1:-all}"
 DG="workplace/dosgolem"
 WITH_HD="${HR_WITH_HD:-0}"   # 1 ＝ 把 hd/ 放進包內（含原版美術的衍生物，只供私人流通）
 FULL_LOCAL="${HR_FULL_LOCAL:-0}" # 1 ＝ 本機完整版
+RELEASE_PATCH="${HR_RELEASE_PATCH:-0}" # 1 ＝ 正式版號、不含原版的私人 Release 包
 HRV="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 DGV="$(git -C "$DG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 VER="${HR_VERSION:-$HRV-dg$DGV}"
-if [ "$FULL_LOCAL" = 1 ]; then
+if [ "$FULL_LOCAL" = 1 ] || [ "$RELEASE_PATCH" = 1 ]; then
   [[ "$VER" =~ ^v\.[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}$ ]] || { echo "完整版需要 HR_VERSION=v.<主>.<次>.<修訂>-YYYYMMDD" >&2; exit 2; }
+fi
+if [ "$FULL_LOCAL" = 1 ] && [ "$RELEASE_PATCH" = 1 ]; then
+  echo "HR_FULL_LOCAL 與 HR_RELEASE_PATCH 不能同時使用" >&2; exit 2
+fi
+if [ "$FULL_LOCAL" = 1 ]; then
   test -d workplace/orig || { echo "缺 workplace/orig" >&2; exit 2; }
   DIST="dist-all/$VER/full-local"
   STAGE="workplace/pkg-stage-full-local"
+elif [ "$RELEASE_PATCH" = 1 ]; then
+  DIST="dist-all/$VER/patch"
+  STAGE="workplace/pkg-stage-release-patch"
 else
   if [ "$WITH_HD" = 1 ]; then VER="$VER-hd"; fi
   DIST="dist-all"
@@ -61,7 +70,7 @@ drun() { # 用法：drun <映像> [額外 docker 參數…] -- <指令…>
 }
 
 keep_latest() { # $1 glob，$2 這次要留的檔
-  [ "$FULL_LOCAL" = 1 ] && return 0
+  { [ "$FULL_LOCAL" = 1 ] || [ "$RELEASE_PATCH" = 1 ]; } && return 0
   local f
   for f in $1; do
     [ -e "$f" ] || continue
@@ -131,7 +140,7 @@ leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
     return
   fi
   cp "$INV" "$STAGE/inventory.tsv"
-  if ! tools/pkg/py.sh leakscan.py "/w/pkg-stage/inventory.tsv" "/w/${1#workplace/}"; then
+  if ! tools/pkg/py.sh leakscan.py "/w/${STAGE#workplace/}/inventory.tsv" "/w/${1#workplace/}"; then
     echo "可散布的包夾帶原版檔，中止" >&2; exit 1
   fi
   # 內容判準（docs/spec/008 第 3.9 節）：原版資料檔與 OP*.TXT 的對白。原版缺席時失敗，不略過。

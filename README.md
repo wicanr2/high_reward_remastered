@@ -23,9 +23,15 @@
 
 本專案取得的版本是否就是彩虹 1996 年版，沒有查證。`MAIN.EXE` 內的 `Borland C++ - Copyright 1993` 是編譯器的版權年份，不是遊戲的發行年份。
 
+### 故事
+
+科學與貿易正在改變這片大陸。舊貴族逐漸失勢，商路糾紛與地方叛亂卻讓傭兵有了生意。主角的父親去世後，家族留下高達一千萬的債務。世界銀行定期上門收款，主角只好與夥伴組成傭兵團，從有限的資金開始接工作、養隊伍，設法還清債款。（[PC-98 版遊戲背景與玩法資料](https://refuge.tokyo/pc9801/pc98/01913.html)；本專案 DOS 版的債額見下方「新遊戲開場」截圖。）
+
+這趟旅程沒有指定的賺錢路線。鎮壓叛軍、運送貨物、交易與演出都能帶來收入；每筆報酬也得支付裝備、兵員與還款。遊戲讓玩家自行決定如何經營這支傭兵團。（[PC-98 版玩法資料](https://refuge.tokyo/pc9801/pc98/01913.html)）
+
 ### 玩法
 
-主角在父親過世後揹上巨額債務，與夥伴組成傭兵團，靠接案還債。PC-98 資料頁把它歸為即時模擬遊戲，世界觀是槍械而非劍與魔法（[PC98 資料頁](https://refuge.tokyo/pc9801/pc98/01913.html)）。1998 年的一篇日文評論把目標寫成還債，而且是非常龐大的債，並說沒有一條線的劇情，無視事件也有可能破關（[ぼやき部屋，1998-09-30](http://kareha-azuretune.blogspot.com/1998/09/blog-post_30.html)）。
+PC-98 資料頁把它歸為即時模擬遊戲，世界觀是槍械與火砲（[PC98 資料頁](https://refuge.tokyo/pc9801/pc98/01913.html)）。1998 年的一篇日文評論也指出，還債是主要目標，事件沒有固定的單一路線（[ぼやき部屋，1998-09-30](http://kareha-azuretune.blogspot.com/1998/09/blog-post_30.html)）。
 
 本專案取得的 DOS 版，開場畫面顯示債金總額 10,000,000，所持金 8,000（見下方截圖）。已知的玩法元素：
 
@@ -49,7 +55,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 當機與 hang 的診斷紀錄 | 遊戲停機、疑似 hang（遊戲碼的服務中斷靜默 30 遊戲秒）或按 Ctrl+D 時，存一份診斷：暫存器、呼叫鏈、最近的呼叫與服務中斷、最後呼叫的 routine、畫面與狀態檔。模擬 hang 的收據見報告 | `docs/spec/005`、`docs/re/017` |
 | 自動遊玩測試 | 機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各兩個種子，每組 2 遊戲小時：沒有當機與凍結，原版堆疊最深用到約一半。沒有走到 `docs/re/011` 的溢位路徑，不等於人類遊玩，也不能排除該溢位 | `docs/re/016` |
 | HD 圖層 | 595 張 2 倍圖，使用者看過六個代表畫面的合成圖後整體接受。精靈、頭像、戰鬥舞台背景、標題地圖與游標有替換，大地形底圖、文字與框線仍是原版像素 | `docs/spec/004`、`docs/re/014`、`docs/re/015` |
-| 發行包 | Linux AppImage、Windows zip、macOS universal。本機另有含原版與 HD 的 `v.0.1.0-20261004` 完整封包及 36 秒推廣影片，僅供私人驗收；Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.0-20261004/smoke/RESULTS.txt` |
+| 發行包 | [私人 Release `v.0.1.0-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.0-20261004) 提供 Linux AppImage、Windows zip、macOS universal，含 HD 圖層，不含原版遊戲檔案。本機另有含原版的完整封包及 36 秒推廣影片，僅供私人驗收。Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.0-20261004/smoke/RESULTS.txt` |
 
 ## 主要成果
 
@@ -101,6 +107,16 @@ HD 圖由演算法放大並去除抖色，處理方法見 `docs/re/015-hd-art-me
 
 含 HD 的 AppImage（版本 `034771b-dg49d5eed-hd`）在 Xvfb 內啟動，原版放在 `.AppImage` 旁的 `original`，點新遊戲後的視窗（1280x800，HD 自動啟用）。驗收說明見 `docs/re/013` 第 4.3 節。
 
+### v.0.1.0 新版前端
+
+![v.0.1.0 的 HD 標題選單](docs/images/release-v.0.1.0-title.png)
+
+![v.0.1.0 的新遊戲對話與資金欄](docs/images/release-v.0.1.0-newgame.png)
+
+![v.0.1.0 的 F1 功能面板](docs/images/release-v.0.1.0-help.png)
+
+這三張畫面取自 `v.0.1.0-20261004` Linux AppImage 的 Xvfb 驗收：冷啟動標題、點選新遊戲、開啟 F1 功能面板。面板顯示前端按鍵、目前的 HD 與語言狀態，以及診斷資訊。驗收紀錄在 `dist-all/v.0.1.0-20261004/smoke/RESULTS.txt`。
+
 ### 自動遊玩
 
 ![遊玩機器人遊玩約 40 遊戲分鐘時的世界地圖](docs/images/play-worldmap.png)
@@ -111,7 +127,7 @@ HD 圖由演算法放大並去除抖色，處理方法見 `docs/re/015-hd-art-me
 
 ### 使用發行包
 
-1. 取得發行包。含 HD 的包在 private repo 的 Release，不含 HD 的包由 `tools/package.sh all` 建置。
+1. 從 [v.0.1.0-20261004 私人 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.0-20261004) 取得對應平台的發行包。包內有 HD 圖層，沒有原版遊戲檔案。
 2. 把原版（內含 `MAIN.EXE` 的資料夾內容）放進程式旁的 `original` 資料夾，或用 `hr-play -orig <資料夾>` 指定。Linux AppImage 把 `original` 放在 `.AppImage` 旁。macOS 放進 `HighReward.app/Contents/Resources/original`。
 3. 執行 `hr-play`，用滑鼠操作遊戲。找到 `hd/` 目錄會自動啟用 HD，`-no-hd` 可看原版畫面。
 
@@ -130,6 +146,8 @@ macOS 版沒有簽章，首次開啟請右鍵選「打開」。
 | `tools/play.sh gui` | 在 Xvfb 內啟動視窗、點新遊戲並截圖 |
 | `tools/package.sh all` | 建三平台發行包，並以原版雜湊與檔名掃描外洩 |
 | `HR_WITH_HD=1 tools/package.sh all` | 同上，包內含 `hd/`，產物在 `dist-all/with-hd/` |
+| `HR_VERSION=v.0.1.0-20261004 bash tools/package_release_patch.sh` | 在 Docker 內建立不含原版的三平台私人 Release 包，輸出至 `dist-all/<版本>/patch/` |
+| `HR_VERSION=v.0.1.0-20261004 bash tools/finalize_release_patch.sh` | 在 Docker 內記錄 Release 包的大小、SHA-256 與兩份來源提交 |
 | `HR_VERSION=v.0.1.0-20261004 bash tools/package_full_local.sh` | 在 Docker 內以 `tools/pkg/full_local.py` 對照原版清冊，建置只留本機的三平台完整版；包內說明見 `packaging/README.full-local.txt`，不可提交或上傳 |
 | `HR_VERSION=v.0.1.0-20261004 bash tools/promo.sh` | 在 Docker 內以本版 AppImage 畫面及既有 HD 戰鬥對照製作本機推廣影片；影片含原版美術與音樂衍生內容，不可公開上傳 |
 | `HR_VERSION=v.0.1.0-20261004 bash tools/finalize_full_local.sh` | 三平台包與影片驗收後，在 Docker 內產生 `dist-all/<版本>/SHA256SUMS.json` |
