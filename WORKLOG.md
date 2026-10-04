@@ -305,3 +305,17 @@
 - M10 用現成 `workplace/l10n-src/pilot-17.tsv` 製作 `l10n/zh-CN/`、`l10n/ja/`、`l10n/ko/`、`l10n/en/` 各 16 項對白與 1 項據點描述。共 68 列都標 `candidate`，來源 ID 與雜湊逐列核對，沒有改動 17 項已接受的繁中譯文。草稿含暫定人名與地名，未經母語者審閱；英文與韓文空白、所有新語言的字模、字碼、畫面與玩家路徑未驗，不製成正式語言包。
 - 以已固定 SHA-256 `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a` 的 Noto Sans CJK TTC 與 `yuan-analysis:1` 映像，從四個字面製作 13、14、15 像素三組 15×15 字模小樣。`workplace/m10-font-prototype.py`、`m10-font-prototype.png` 與 `m10-font-prototype.json` 記錄方法和結果；96 個示例均有筆畫，15 像素組有 5 個來源遮罩高 16 像素，超過格子。重跑後樣張 SHA-256 維持 `e2880879e8ac350c0ec9f215942c6780d68b1f13eb3f3b75124ecf7ee0b811fb`。這只是 L2 光柵化參數探索；規格 008 第 3.4 節的 U5、保留碼量測、動態閘門與四組成對探針尚未完成，L2、L3 仍非 READY。
 - 本輪曾在主機用一次 `rg` 讀取規格，與 Docker-only 規則不符；後續讀取與分析改到唯讀掛載的 Docker。新增檔案的 UID/GID 為 1000:1000，`hr-*` 容器無殘留。
+
+### M8 擴至八張代表素材（2026-10-04，續）
+
+- 使用者接受 `FACE000` 重繪作為風格樣板，並逐項列明授權其餘八張來源圖送至內建圖像生成功能，限本機候選、不含公開發行。來源縮圖為 `workplace/ai-hd/remaining-eight-inputs.png`；本輪沒有外送其他素材。
+- 八張各產生一張候選，檔案與來源雜湊、尺寸、候選雜湊列在 `workplace/ai-hd/m8-eight-candidates.json`。`ED0` 第一次生成結果被圖像服務以性內容擋下；改用全齡服裝提示後成功，但服裝與原圖不同。`GMAP` 第一版把地形改成海岸與山脈，不可用；第二版較接近原圖，仍須核對地形與地名。總覽 `workplace/ai-hd/m8-eight-compare-overview-v2.png` 每列左原圖、右候選，地圖右圖用第二版。八張尚待使用者美術審看，無一放入 `hd-ai/`。
+- 依 `docs/spec/004-hd-overlay.md` 第 6 節與 `hd/catalog.tsv` 量九張圖的正式目標尺寸及遮罩。生成圖均是尺寸不符的 RGB；五張原版精靈有透明區，不能直接進遊戲。數字與檔案模式見 `workplace/ai-hd/m8-contract-audit.json`。已接受美術方向的 `FACE000` 原版沒有透明區，縮至目標 256×320、轉 RGBA 後，使用現有 `hdlib.check_contract` 驗證通過，輸出留在 `workplace/ai-hd/technical/x2/MRG/FACE.MRG/FACE.MRG_000.png`，SHA-256 `f6ead032ff979823d547b8467f1843a1e771b654e0b788238218113a4d9c1689`。尚未做遊戲內畫面與正常玩家路徑驗證。
+
+### M8 九張技術試作與 M10 字模 B 案（2026-10-04，續）
+
+- 使用者看過 `workplace/ai-hd/m8-eight-compare-overview-v2.png`，回覆「八張美術方向都接受」。總覽使用地圖第二版，問題已明示 `ED0` 服裝變更與 `GMAP` 地形精度待核。接受範圍是九張代表圖的美術方向，未授權外送其餘素材或公開發行。
+- `workplace/ai-hd/technical/adapt-nine.py` 把九張候選縮至 `hd/catalog.tsv` 所列的 2 倍尺寸，透明度取原圖二值遮罩並以最近鄰放大。九張均通過 `hdlib.check_contract`，獨立跑 `tools/hd/validate.py` 得到「檢查 9 張，違規 0 張」。輸出與雜湊在 `workplace/ai-hd/technical/nine-format-report.json`；對照在 `technical/nine-mask-overview.png`。遮罩檢查只證明尺寸與透明範圍，不能證明圖像內容和原版對齊。目視比較顯示小圖主體大致對齊，但 `GMAP` 第二版的地形布局仍明顯不同，不能作忠實地圖替換。這些圖都只在忽略版控的 `workplace/` 試作。
+- 在 Docker 的 Xvfb 前端以原版檔案與本機單張 AI theme 正常點擊新遊戲，畫面 `workplace/out/m8-face-newgame.png` 顯示新肖像；用既有 HD theme 同法擷取 `m8-face-hd-newgame.png`。兩張肖像裁切對照在 `workplace/ai-hd/technical/face-player-compare.png`。這只驗證 `FACE000` 的正常玩家畫面；其餘八張的實際出現位置與功能路徑尚未驗。
+- 使用者在 13／14／15 像素樣張後選擇 M10 字模 B 案：新語言字模全由 OFL 的 Noto Sans CJK 產生，先做本機試作；補丁發行授權另議。`docs/spec/008` 第 3.4、12 節已記錄這項部分決定，L2 仍為 DRAFT。
+- `workplace/m10-font-coverage.py` 用固定 SHA-256 `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a` 的 Noto Sans CJK TTC、fontTools 4.66.1 與 Pillow 12.3.0，掃四語各 17 項候選的字集。簡中 200、日文 168、韓文 176、英文 32 個非單位元組白名單字元在對應字面都可找到。13 像素遮罩無一超過 15×15；14 像素簡中有 3 個超格，15 像素簡中 47、日文 15、韓文 2 個超格。韓文與英文各有一個無墨跡字元，均為空白 U+0020；這是 L3 詞距問題，不算字型缺字。完整碼位與量測在 `workplace/m10-font-coverage.json`。13 像素仍需可讀性與遊戲畫面驗證，並未定為正式光柵參數；L2 的保留碼掃描、動態閘門與成對探針尚未完成。
