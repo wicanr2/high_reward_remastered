@@ -1,0 +1,1716 @@
+From f03fc830ed10417bf98389c233cbb064cbe2510a Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sun, 4 Oct 2026 11:40:06 +0800
+Subject: [PATCH] =?UTF-8?q?apps/hr/runtime=E3=80=81cmd/hrbot=EF=BC=9A?=
+ =?UTF-8?q?=E8=AA=9E=E8=A8=80=E5=8C=85=E9=A9=97=E8=AD=89=E6=8E=A5=E7=B7=9A?=
+ =?UTF-8?q?=EF=BC=88docs/spec/008=20=E7=AC=AC=E5=85=AB=E7=89=88=20L1?=
+ =?UTF-8?q?=EF=BC=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Options 新增 LangDigest、SkipLangDigest；Session.Open 的語言層綁定改用
+  apps/hr/l10n/verify（取代 L0 的暫時做法）
+- 驗證失敗（目錄不存在、LangDir 最後一段不是 files、manifest 驗證失敗）時
+  Open 不回錯，以空語言層開啟，Session.LangStatus() 回報 verify-failed
+- LangDir 非空而 LangDigest 為空且未明示 SkipLangDigest 時 Open 回錯
+- info.txt 語言層區段在回退時記原因鍵；匯出 LangLayerText
+- hrbot：-lang-dir 明示 SkipLangDigest，原因鍵非空時非零結束，
+  -allow-lang-fail 只供負對照；結束報告記 LangDir、原因鍵與命中層
+
+identity 包（hrl10n 建置）冷啟動 90M 步的畫面、暫存器與 machine.StateDigest
+與 L0 基準逐位元相同；差一列的 table 包畫面雜湊改變；竄改一個位元組的包
+verify 失敗且 hrbot 非零結束。
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
+---
+ apps/hr/cmd/hrbot/lang.go         |  93 ++++-
+ apps/hr/cmd/hrbot/lang_test.go    | 214 ++++++++++-
+ apps/hr/cmd/hrbot/main.go         |  80 +++-
+ apps/hr/runtime/lang.go           | 168 +++++++--
+ apps/hr/runtime/lang_pack_test.go |  79 ++++
+ apps/hr/runtime/lang_test.go      | 608 ++++++++++++++++++++++++++----
+ apps/hr/runtime/session.go        |  18 +-
+ 7 files changed, 1108 insertions(+), 152 deletions(-)
+ create mode 100644 apps/hr/runtime/lang_pack_test.go
+
+diff --git a/apps/hr/cmd/hrbot/lang.go b/apps/hr/cmd/hrbot/lang.go
+index 5f49457..d3bddc9 100644
+--- a/apps/hr/cmd/hrbot/lang.go
++++ b/apps/hr/cmd/hrbot/lang.go
+@@ -1,16 +1,87 @@
+ package main
+ 
+-import "fmt"
++import (
++	"errors"
++	"fmt"
+ 
+-// checkLangBound 是 `-lang-dir` 的暫時防護（hr `docs/spec/008` §3.1，L0）：要求語言層真的綁上了。
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++	"github.com/wicanr2/dosgolem/internal/dos"
++)
++
++// 語言層（hr `docs/spec/008` 第 3.1、3.2 節，L1 接線）。
++
++// langFailError 是 `-lang-dir` 的語言層沒有如預期啟用：`Session.LangStatus()` 的原因鍵非空，或沒有語言層也沒有原因鍵。
++// `main` 以退出碼 1 結束（與當機同碼；設定錯誤與其他失敗是 2）。
++type langFailError struct{ msg string }
++
++func (e *langFailError) Error() string { return e.msg }
++
++// exitCode 是 `run` 的錯誤對應的退出碼：語言層沒有啟用是 1，其他是 2。
++func exitCode(err error) int {
++	var lf *langFailError
++	if errors.As(err, &lf) {
++		return 1
++	}
++	return 2
++}
++
++// langGate 檢查 `Session.Open` 之後的語言層狀態（規格第 3.2 節：經 `Session.Open` 且傳了 `LangDir` 的無頭工具，
++// `LangStatus()` 回報非空原因鍵時非零結束，負對照路徑明示例外）。want 是 `-lang-dir` 的值，st 是 `Session.LangStatus()`，
++// allowFail 是 `-allow-lang-fail`。
+ //
+-// `hrrt.Open` 對不存在的目錄清空生效值、記一行、不回錯（前端不能因語言包消失而擋遊戲），
+-// 而 hrbot 沒有給 `Options.Log`，那一行被丟掉：路徑打錯時機器人以原版跑完、退出碼 0，
+-// 收據會看起來像語言包的結果。所以 `-lang-dir` 非空而 `Session` 的生效 `LangDir` 為空就回錯，拒絕執行。
+-// L1 的 `Session.LangStatus()` 上線、非空原因鍵時非零結束（規格第 3.2 節）之後，換掉這個防護。
+-func checkLangBound(want, effective string) error {
+-	if want != "" && effective == "" {
+-		return fmt.Errorf("-lang-dir %q 沒有綁上語言層（目錄不存在或不是目錄？Session 退成了原版），拒絕執行", want)
+-	}
+-	return nil
++// 回傳的 note 非空時，呼叫端要印出並記錄（驗證失敗但 `-allow-lang-fail` 明示放行）；err 非空時拒絕執行。
++//   - 沒給 `-lang-dir`：什麼都不檢查。
++//   - 原因鍵非空：預設拒絕；`-allow-lang-fail` 放行，只供負對照（證明驗證失敗時回退原版、畫面等於基準）。
++//   - `-lang-dir` 非空而生效的 `LangDir` 為空，原因鍵也為空：`Open` 的契約不允許（空的生效值一定伴隨原因鍵），
++//     出現就是程式錯誤，一律拒絕，`-allow-lang-fail` 也不放行。
++func langGate(want string, st hrrt.LangStatus, allowFail bool) (note string, err error) {
++	if want == "" {
++		return "", nil
++	}
++	if st.Reason == "" && st.LangDir == "" {
++		return "", &langFailError{fmt.Sprintf("-lang-dir %q：Session 的生效 LangDir 為空而原因鍵也為空（Open 的契約不允許），拒絕執行", want)}
++	}
++	if st.Reason == "" {
++		return "", nil
++	}
++	msg := fmt.Sprintf("-lang-dir %q：語言包沒有啟用，原因鍵 %s，生效 LangDir %q（遊戲內文字是原版）", want, st.Reason, st.LangDir)
++	if allowFail {
++		return msg + "；-allow-lang-fail 已明示，繼續（只供負對照）", nil
++	}
++	return "", &langFailError{msg + "，拒絕執行（負對照請明示 -allow-lang-fail）"}
++}
++
++// langSnapshot 是某個 Session 的語言層結束報告資料：`LangStatus()` 與 `DOS.OpenedLayers` 的複本
++// （機器人結束遊戲就重開 Session，結束報告要用最後一個 Session 的值，所以在 `endSession` 時留一份）。
++type langSnapshot struct {
++	Status hrrt.LangStatus
++	Layers map[string]dos.OpenedLayer
++}
++
++func snapshotLang(s *hrrt.Session) langSnapshot {
++	src := s.DOS().OpenedLayers
++	layers := make(map[string]dos.OpenedLayer, len(src))
++	for k, v := range src {
++		layers[k] = v
++	}
++	return langSnapshot{Status: s.LangStatus(), Layers: layers}
++}
++
++// text 是結束報告的語言層區段：生效的 `LangDir`、原因鍵與各資料檔與 `CFONT.15` 的命中層
++// （命中層的行格式與診斷 `info.txt` 的「語言層」區段共用 `hrrt.LangLayerText`）。
++func (l langSnapshot) text() string {
++	reason := l.Status.Reason
++	if reason == "" {
++		reason = "（無）"
++	}
++	return fmt.Sprintf("語言層：LangDir＝%q  原因鍵＝%s\n開檔命中層：\n%s", l.Status.LangDir, reason, hrrt.LangLayerText(l.Layers))
++}
++
++// summary 是 summary.json 的 "lang" 欄：生效的 LangDir、原因鍵與全部開過的檔名的首次與最近命中層。
++func (l langSnapshot) summary() map[string]any {
++	layers := make(map[string]any, len(l.Layers))
++	for k, v := range l.Layers {
++		layers[k] = map[string]string{"first": v.First, "last": v.Last}
++	}
++	return map[string]any{"lang_dir": l.Status.LangDir, "reason": l.Status.Reason, "layers": layers}
+ }
+diff --git a/apps/hr/cmd/hrbot/lang_test.go b/apps/hr/cmd/hrbot/lang_test.go
+index 87548ad..351f75e 100644
+--- a/apps/hr/cmd/hrbot/lang_test.go
++++ b/apps/hr/cmd/hrbot/lang_test.go
+@@ -1,20 +1,216 @@
+ package main
+ 
+ import (
++	"errors"
++	"os"
++	"path/filepath"
+ 	"strings"
+ 	"testing"
++
++	"github.com/wicanr2/dosgolem/apps/hr/l10n"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++	"github.com/wicanr2/dosgolem/internal/dos"
+ )
+ 
+-// -lang-dir 非空而 Session 沒有綁上語言層（目錄不存在被清空）：拒絕執行，不退成原版收據。
+-func TestCheckLangBound(t *testing.T) {
+-	if err := checkLangBound("", ""); err != nil {
+-		t.Errorf("沒有給 -lang-dir：%v", err)
++// 語言層接線（docs/spec/008 第 3.2 節，L1）。langGate 與報告文字是純函式（不需原版）；
++// openSession 與 run 的測試需要原版，缺檔 skip（原版只在測試執行時讀，不進儲存庫）。
++
++func origRoot(t *testing.T) string {
++	t.Helper()
++	root := os.Getenv("HR_ORIG")
++	if root == "" {
++		root = "/orig/orig"
++	}
++	if _, err := os.Stat(filepath.Join(root, "MAIN.EXE")); err != nil {
++		t.Skipf("沒有原版目錄（%s）：%v", root, err)
++	}
++	return root
++}
++
++// buildIdentityPack 用真的建置器造 identity 語言包，回傳 files/（也就是 -lang-dir 的值）。
++func buildIdentityPack(t *testing.T, root string) string {
++	t.Helper()
++	res, err := l10n.Build(l10n.Config{OrigDir: root, PackRoot: t.TempDir(), Code: "zh-TW", Mode: l10n.ModeIdentity})
++	if err != nil {
++		t.Fatal(err)
++	}
++	return res.FilesDir()
++}
++
++func tamper(t *testing.T, files string) {
++	t.Helper()
++	p := filepath.Join(files, "SP.MES")
++	b, err := os.ReadFile(p)
++	if err != nil {
++		t.Fatal(err)
+ 	}
+-	if err := checkLangBound("/p/zh/files", "/p/zh/files"); err != nil {
+-		t.Errorf("語言層已綁定：%v", err)
++	b[0] ^= 0xFF
++	if err := os.WriteFile(p, b, 0o644); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func newTestBot(t *testing.T, o options) *bot {
++	t.Helper()
++	o.interval = hrrt.DefaultInterval
++	o.hangSeconds = 30
++	out := t.TempDir()
++	lf, err := os.Create(filepath.Join(out, "actions.jsonl"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { lf.Close() })
++	return &bot{opt: o, out: out, log: lf, opens: map[string]int{}}
++}
++
++// langGate：沒給 -lang-dir 不檢查；原因鍵非空預設拒絕、-allow-lang-fail 放行；空的生效值而沒有原因鍵永遠拒絕。
++func TestLangGate(t *testing.T) {
++	const dir = "/p/zh/files"
++	cases := []struct {
++		name     string
++		want     string
++		st       hrrt.LangStatus
++		allow    bool
++		wantErr  bool
++		wantNote string // 子字串；空字串 ＝ 不該有 note
++	}{
++		{"沒給 -lang-dir", "", hrrt.LangStatus{}, false, false, ""},
++		{"沒給 -lang-dir 也不理會 allow", "", hrrt.LangStatus{}, true, false, ""},
++		{"語言層已啟用", dir, hrrt.LangStatus{LangDir: dir}, false, false, ""},
++		{"驗證失敗：預設拒絕", dir, hrrt.LangStatus{Reason: hrrt.LangReasonVerifyFailed}, false, true, ""},
++		{"驗證失敗：-allow-lang-fail 放行並留 note", dir, hrrt.LangStatus{Reason: hrrt.LangReasonVerifyFailed}, true, false, hrrt.LangReasonVerifyFailed},
++		{"原因鍵非空即失敗，即使生效值非空（矛盾的狀態不放行）", dir, hrrt.LangStatus{LangDir: dir, Reason: hrrt.LangReasonVerifyFailed}, false, true, ""},
++		{"生效值與原因鍵都空：不可能發生，拒絕", dir, hrrt.LangStatus{}, false, true, ""},
++		{"生效值與原因鍵都空：-allow-lang-fail 也不放行", dir, hrrt.LangStatus{}, true, true, ""},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			note, err := langGate(c.want, c.st, c.allow)
++			if (err != nil) != c.wantErr {
++				t.Fatalf("err ＝ %v，預期 wantErr ＝ %v", err, c.wantErr)
++			}
++			if err != nil {
++				var lf *langFailError
++				if !errors.As(err, &lf) || exitCode(err) != 1 {
++					t.Errorf("應是 *langFailError，退出碼 1：%T，%d", err, exitCode(err))
++				}
++				if c.st.Reason != "" && !strings.Contains(err.Error(), c.st.Reason) {
++					t.Errorf("訊息應點名原因鍵 %q：%v", c.st.Reason, err)
++				}
++				if !strings.Contains(err.Error(), c.want) {
++					t.Errorf("訊息應點名 -lang-dir：%v", err)
++				}
++			}
++			if (c.wantNote == "") != (note == "") || (c.wantNote != "" && !strings.Contains(note, c.wantNote)) {
++				t.Errorf("note ＝ %q，預期含 %q", note, c.wantNote)
++			}
++		})
++	}
++}
++
++func TestExitCode(t *testing.T) {
++	if got := exitCode(&langFailError{"x"}); got != 1 {
++		t.Errorf("langFailError 的退出碼 ＝ %d，預期 1", got)
++	}
++	if got := exitCode(errors.New("其他錯誤")); got != 2 {
++		t.Errorf("其他錯誤的退出碼 ＝ %d，預期 2", got)
++	}
++	wrapped := errors.Join(errors.New("外層"), &langFailError{"x"})
++	if got := exitCode(wrapped); got != 1 {
++		t.Errorf("包在別的錯誤裡的 langFailError 的退出碼 ＝ %d，預期 1", got)
++	}
++}
++
++// 結束報告的語言層區段：生效 LangDir、原因鍵、各資料檔與 CFONT.15 的命中層（格式與 info.txt 共用 hrrt.LangLayerText）。
++func TestLangSnapshotText(t *testing.T) {
++	ok := langSnapshot{
++		Status: hrrt.LangStatus{LangDir: "/p/zh/files"},
++		Layers: map[string]dos.OpenedLayer{"CFONT.15": {First: "lang", Last: "lang"}, "ESPMES.MRG": {First: "lang", Last: "lang"}, "MAIN.EXE": {First: "root", Last: "root"}},
++	}
++	got := ok.text()
++	for _, want := range []string{
++		"語言層：LangDir＝\"/p/zh/files\"  原因鍵＝（無）\n", "開檔命中層：\n",
++		"  CFONT.15  首次 lang  最近 lang\n", "  ESPMES.MRG  首次 lang  最近 lang\n", "  SP.MES  未開啟\n",
++	} {
++		if !strings.Contains(got, want) {
++			t.Errorf("報告缺 %q：\n%s", want, got)
++		}
++	}
++	if !strings.HasSuffix(got, hrrt.LangLayerText(ok.Layers)) {
++		t.Errorf("命中層應與 hrrt.LangLayerText 相同：\n%s", got)
++	}
++	failed := langSnapshot{Status: hrrt.LangStatus{Reason: hrrt.LangReasonVerifyFailed}, Layers: map[string]dos.OpenedLayer{"CFONT.15": {First: "root", Last: "root"}}}
++	got = failed.text()
++	for _, want := range []string{"語言層：LangDir＝\"\"  原因鍵＝verify-failed\n", "  CFONT.15  首次 root  最近 root\n"} {
++		if !strings.Contains(got, want) {
++			t.Errorf("驗證失敗的報告缺 %q：\n%s", want, got)
++		}
++	}
++	sum := failed.summary()
++	if sum["reason"] != hrrt.LangReasonVerifyFailed || sum["lang_dir"] != "" {
++		t.Errorf("summary ＝ %v", sum)
++	}
++}
++
++// openSession（需原版）：通過驗證的包正常開啟；驗證失敗預設拒絕（*langFailError，退出碼 1），
++// -allow-lang-fail 時能開啟且原因鍵是 verify-failed；沒給 -lang-dir 不受影響；-lang-dir 指向不存在的目錄同樣被擋。
++func TestOpenSessionLangGate(t *testing.T) {
++	root := origRoot(t)
++	good := buildIdentityPack(t, root)
++	bad := buildIdentityPack(t, root)
++	tamper(t, bad)
++	missing := filepath.Join(t.TempDir(), "nope", "files")
++
++	t.Run("通過驗證（明示 SkipLangDigest，不需要摘要）", func(t *testing.T) {
++		s, err := newTestBot(t, options{orig: root, langDir: good}).openSession(nil)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if st := s.LangStatus(); st != (hrrt.LangStatus{LangDir: filepath.Clean(good)}) {
++			t.Errorf("LangStatus ＝ %+v", st)
++		}
++	})
++	t.Run("沒給 -lang-dir", func(t *testing.T) {
++		s, err := newTestBot(t, options{orig: root}).openSession(nil)
++		if err != nil || s.LangStatus() != (hrrt.LangStatus{}) {
++			t.Fatalf("err ＝ %v 狀態 %+v", err, s.LangStatus())
++		}
++	})
++	for name, dir := range map[string]string{"竄改過的包": bad, "不存在的目錄": missing} {
++		t.Run(name+"：預設拒絕", func(t *testing.T) {
++			s, err := newTestBot(t, options{orig: root, langDir: dir}).openSession(nil)
++			var lf *langFailError
++			if err == nil || !errors.As(err, &lf) || exitCode(err) != 1 || s != nil {
++				t.Fatalf("應回 *langFailError：err ＝ %v s ＝ %v", err, s)
++			}
++			if !strings.Contains(err.Error(), hrrt.LangReasonVerifyFailed) {
++				t.Errorf("訊息應點名原因鍵：%v", err)
++			}
++		})
++		t.Run(name+"：-allow-lang-fail 放行，原因鍵記在 LangStatus", func(t *testing.T) {
++			s, err := newTestBot(t, options{orig: root, langDir: dir, allowLangFail: true}).openSession(nil)
++			if err != nil {
++				t.Fatal(err)
++			}
++			if st := s.LangStatus(); st != (hrrt.LangStatus{Reason: hrrt.LangReasonVerifyFailed}) {
++				t.Errorf("LangStatus ＝ %+v", st)
++			}
++		})
++	}
++}
++
++// run 的失敗路徑（需原版）：語言包被竄改時 run 在遊戲開跑之前回 *langFailError，main 以退出碼 1 結束。
++func TestRunLangFailExitsNonZero(t *testing.T) {
++	root := origRoot(t)
++	bad := buildIdentityPack(t, root)
++	tamper(t, bad)
++	// maxActions：突變使 run 不再拒絕時，遊戲只多玩一個動作就結束，測試以失敗收場而不是玩滿一個遊戲小時。
++	err := run(options{orig: root, out: t.TempDir(), langDir: bad, hours: 1, maxActions: 1, seed: 1, interval: hrrt.DefaultInterval, hangSeconds: 30})
++	var lf *langFailError
++	if err == nil || !errors.As(err, &lf) {
++		t.Fatalf("run 應回 *langFailError：%v", err)
+ 	}
+-	err := checkLangBound("/p/typo/files", "")
+-	if err == nil || !strings.Contains(err.Error(), "/p/typo/files") {
+-		t.Fatalf("-lang-dir 沒綁上應回錯並點名路徑：%v", err)
++	if exitCode(err) != 1 {
++		t.Errorf("退出碼 ＝ %d，預期 1", exitCode(err))
+ 	}
+ }
+diff --git a/apps/hr/cmd/hrbot/main.go b/apps/hr/cmd/hrbot/main.go
+index aa5b3b4..4744840 100644
+--- a/apps/hr/cmd/hrbot/main.go
++++ b/apps/hr/cmd/hrbot/main.go
+@@ -53,6 +53,7 @@ var keyNames = []string{"Enter", "Esc", "Space"}
+ type options struct {
+ 	orig, out          string
+ 	langDir            string
++	allowLangFail      bool
+ 	hours              float64
+ 	seed               int64
+ 	interval           uint64
+@@ -117,12 +118,15 @@ type bot struct {
+ 	diags        int
+ 	noPollStart  uint64
+ 	ckpts        []string
++
++	lang langSnapshot // 最近一個已結束的 Session 的語言層狀態（-lang-dir 結束報告用）
+ }
+ 
+ func main() {
+ 	var o options
+ 	flag.StringVar(&o.orig, "orig", "/orig/orig", "原版檔案目錄（唯讀）")
+-	flag.StringVar(&o.langDir, "lang-dir", "", "唯讀的語言層目錄（語言包的 files/，docs/spec/008 第 3.1 節），傳給 hrrt.Options.LangDir；L0 要求上一層有 manifest.json（不驗證內容）")
++	flag.StringVar(&o.langDir, "lang-dir", "", "唯讀的語言層目錄（語言包的 files/，docs/spec/008 第 3.1 節），傳給 hrrt.Options.LangDir（同時明示 SkipLangDigest：只略過輸入摘要，manifest 與檔案照常驗證）；語言包沒有啟用（LangStatus 的原因鍵非空）就印出原因並以退出碼 1 結束")
++	flag.BoolVar(&o.allowLangFail, "allow-lang-fail", false, "只供負對照：-lang-dir 驗證失敗（回退原版）時不結束，照常執行並在報告記原因鍵；用來證明驗證失敗時遊戲維持原版。正式收據不得使用")
+ 	flag.StringVar(&o.out, "out", "/out/bot", "輸出目錄")
+ 	flag.Float64Var(&o.hours, "game-hours", 2, "要玩的遊戲時間（小時，計時器 tick ÷ 18.2065）")
+ 	flag.Int64Var(&o.seed, "seed", 1, "亂數種子（同程式、同種子可重現）")
+@@ -144,7 +148,7 @@ func main() {
+ 	flag.Parse()
+ 	if err := run(o); err != nil {
+ 		fmt.Fprintln(os.Stderr, "hrbot:", err)
+-		os.Exit(2)
++		os.Exit(exitCode(err))
+ 	}
+ }
+ 
+@@ -226,6 +230,9 @@ loop:
+ 	b.summary(status, time.Since(wall0))
+ 	fmt.Printf("結束：%s，遊戲時間 %.2f 小時，動作 %d，重開 %d，結束遊戲 %d，不同畫面 %d，最低 SP %04X，疑似凍結 %d，耗時 %.0f 秒\n",
+ 		status, float64(b.gameTicks)/tickHz/3600, b.actionsN, b.restarts, b.quits, len(b.sigsEver), b.minSP, len(b.freezes), time.Since(wall0).Seconds())
++	if o.langDir != "" {
++		fmt.Print(b.langNow().text())
++	}
+ 	if strings.HasPrefix(status, "crash") || status == "frozen" {
+ 		os.Exit(1)
+ 	}
+@@ -286,23 +293,10 @@ func (b *bot) startGame() (*hrrt.Stop, error) {
+ 			Log: func(f string, a ...any) { b.logEvent("sound", fmt.Sprintf(f, a...)) },
+ 		}
+ 	}
+-	s, err := hrrt.Open(b.opt.orig, hrrt.Options{
+-		Sound:   snd,
+-		LangDir: b.opt.langDir,
+-		SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch, Stklen: uint16(b.opt.stklen),
+-		DiagDir: filepath.Join(b.out, "diag"), HangSeconds: b.opt.hangSeconds,
+-		OnDiag: func(dir, reason string) {
+-			b.diags++
+-			b.logEvent("diag", dir+"："+reason)
+-			fmt.Printf("診斷：%s（%s）\n", dir, reason)
+-		},
+-	})
++	s, err := b.openSession(snd)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	if err := checkLangBound(b.opt.langDir, s.DOS().LangDir); err != nil { // L0 的暫時防護，見 checkLangBound
+-		return nil, err
+-	}
+ 	b.s = s
+ 	sess = s
+ 	b.restarts++
+@@ -338,6 +332,50 @@ func (b *bot) startGame() (*hrrt.Stop, error) {
+ 	return b.runTicks(120), nil
+ }
+ 
++// openSession 開一個 Session 並檢查語言層。`-lang-dir` 傳給 `Options.LangDir`，同時明示 `SkipLangDigest`
++// （工具路徑只略過輸入摘要這一項，manifest 與檔案照常驗證，docs/spec/008 第 3.2 節）。
++// `Open` 對驗證失敗不回錯（以原版開啟，原因在 `LangStatus()`），所以每次開 Session 都要過 langGate：
++// 機器人結束遊戲就重開，不能只檢查第一次。
++func (b *bot) openSession(snd hrrt.SoundSink) (*hrrt.Session, error) {
++	s, err := hrrt.Open(b.opt.orig, hrrt.Options{
++		Sound:   snd,
++		LangDir: b.opt.langDir, SkipLangDigest: true,
++		SaveDir: filepath.Join(b.out, "saves"), Interval: b.opt.interval, NoStackPatch: b.opt.noPatch, Stklen: uint16(b.opt.stklen),
++		DiagDir: filepath.Join(b.out, "diag"), HangSeconds: b.opt.hangSeconds,
++		OnDiag: func(dir, reason string) {
++			b.diags++
++			b.logEvent("diag", dir+"："+reason)
++			fmt.Printf("診斷：%s（%s）\n", dir, reason)
++		},
++		Log: func(f string, a ...any) { // 只轉出語言包的那一行（含原因鍵與 verify.Error.Detail），其餘執行層紀錄維持不印
++			if l := fmt.Sprintf(f, a...); strings.Contains(l, "語言包") {
++				b.logEvent("lang", l)
++				fmt.Fprintln(os.Stderr, "hrbot:", l)
++			}
++		},
++	})
++	if err != nil {
++		return nil, err
++	}
++	note, err := langGate(b.opt.langDir, s.LangStatus(), b.opt.allowLangFail)
++	if err != nil {
++		return nil, err
++	}
++	if note != "" {
++		b.logEvent("lang-fail-allowed", note)
++		fmt.Fprintln(os.Stderr, "hrbot:", note)
++	}
++	return s, nil
++}
++
++// langNow 是結束報告用的語言層狀態：Session 還活著就取它，否則取最近一個已結束的 Session 的快照。
++func (b *bot) langNow() langSnapshot {
++	if b.s != nil {
++		return snapshotLang(b.s)
++	}
++	return b.lang
++}
++
+ func (b *bot) latestSave() int {
+ 	best, bestT := -1, time.Time{}
+ 	for k := 0; k < 5; k++ {
+@@ -351,6 +389,7 @@ func (b *bot) latestSave() int {
+ 
+ func (b *bot) endSession() {
+ 	if b.s != nil {
++		b.lang = snapshotLang(b.s)
+ 		b.base += b.s.Machine().Ticks
+ 		b.t2EvalsDone += b.t2EvalsCur
+ 		b.t2EvalsCur = 0
+@@ -726,13 +765,18 @@ func (b *bot) summary(status string, wall time.Duration) {
+ 	for k, v := range b.opens {
+ 		opens[k] = v
+ 	}
+-	j, _ := json.MarshalIndent(map[string]any{
++	sum := map[string]any{
+ 		"status": status, "game_hours": float64(b.gameTicks) / tickHz / 3600, "actions": b.actionsN, "restarts": b.restarts, "quits": b.quits,
+ 		"unique_screens": len(b.sigsEver), "min_sp": fmt.Sprintf("%04X", b.minSP), "max_same_sig_streak": b.maxSame, "suspect_freezes": b.freezes,
+ 		"t2":    map[string]any{"enabled": b.opt.hangSeconds > 0, "hang_seconds": b.opt.hangSeconds, "evals": b.t2EvalsDone + b.t2EvalsCur, "max_silent_sec": b.t2Max, "dumps": b.diags},
+ 		"sound": soundSummary(b.opt.sound, b.soundPrev, b.s),
+ 		"crash": b.crashInfo, "no_stack_patch": b.opt.noPatch, "stklen": b.opt.stklen, "seed": b.opt.seed, "interval": b.opt.interval, "wall_seconds": wall.Seconds(), "file_opens": opens,
+-	}, "", "  ")
++	}
++	if b.opt.langDir != "" {
++		sum["lang"] = b.langNow().summary()
++		sum["allow_lang_fail"] = b.opt.allowLangFail
++	}
++	j, _ := json.MarshalIndent(sum, "", "  ")
+ 	_ = os.WriteFile(filepath.Join(b.out, "summary.json"), j, 0o644)
+ }
+ 
+diff --git a/apps/hr/runtime/lang.go b/apps/hr/runtime/lang.go
+index fd87429..931b542 100644
+--- a/apps/hr/runtime/lang.go
++++ b/apps/hr/runtime/lang.go
+@@ -1,17 +1,40 @@
+ package runtime
+ 
+ import (
+-	"crypto/sha256"
+-	"encoding/hex"
++	"errors"
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
+ 	"strings"
++
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/verify"
++	"github.com/wicanr2/dosgolem/internal/dos"
+ )
+ 
+-// 語言層（hr `docs/spec/008` 第 3.1 節，L0）。
++// 語言層（hr `docs/spec/008` 第 3.1、3.2 節：L0 的綁定，L1 的 manifest 驗證與 `LangStatus`）。
++//
++// 本檔 import `apps/hr/l10n/verify`（葉層套件，只依賴標準庫）；不得 import `apps/hr/l10n`，它已經 import 本套件。
++
++// LangReasonVerifyFailed 是 `LangStatus.Reason` 的值：`LangDir` 非空，但語言包沒有通過驗證
++// （目錄不存在或不是目錄、manifest 驗證失敗），這個 Session 以空的語言層（原版）開啟。
++// 建置錯誤 `build-failed` 發生在 `Open` 之前，由前端自己記，不經過這裡。
++const LangReasonVerifyFailed = "verify-failed"
++
++// LangStatus 是 `Session.LangStatus()` 的回傳：語言層綁定的結果。
++type LangStatus struct {
++	// LangDir 是生效的語言層目錄（正規化後；沒有語言層或驗證失敗時為空）。
++	LangDir string
++	// Reason 是空字串（沒有失敗），或 LangReasonVerifyFailed。
++	Reason string
++}
++
++// LangStatus 回報 `Open` 對 `Options.LangDir` 的處理結果。`Open` 之後不變。
++func (s *Session) LangStatus() LangStatus {
++	return LangStatus{LangDir: s.d.LangDir, Reason: s.langReason}
++}
+ 
+-// normDir 把目錄正規化成 `filepath.Abs` 加 `filepath.Clean`。
++// normDir 把目錄正規化成 `filepath.Abs` 加 `filepath.Clean`（與 `verify.NormalizeDir` 同一條規則，
++// `cmd/probe`、`apps/hr/cmd/hrsoak` 各自再實作一份）。
+ func normDir(p string) (string, error) {
+ 	abs, err := filepath.Abs(p)
+ 	if err != nil {
+@@ -25,31 +48,75 @@ var langDataFiles = []string{
+ 	"COUNTRY.MES", "SP.MES", "SYSTEM.MES", "UWASA.MES", "POWERMES.MES", "ESPMES.MRG", "SHOPTAB.TBL", "CFONT.15",
+ }
+ 
+-// bindLang 在 `dos.Install` 之前把 Options.LangDir 綁到 DOS 的語言層，之後執行中不變。
+-//
+-// L0 的暫時做法：**不驗證 manifest 的內容**，只讀 `<LangDir>/../manifest.json` 的原始位元組算 SHA-256
+-// 當 `LangManifest`（缺檔回錯）。L1 換成 `apps/hr/l10n/verify` 的 manifest 驗證，驗證失敗時以空 LangDir 開啟，
+-// 並經 `Session.LangStatus()` 回報原因。
++// requiredInputHashes 取語言包建置的九個原版輸入（`verify.InputNames()`）的預期 SHA-256，來源是內嵌的 required.tsv。
++// 組法與 `apps/hr/l10n` 的 `requiredInputHashes` 相同（`l10n` 不能被本套件 import，所以各寫一份）：
++// 檔名轉大寫，只取九個輸入，缺任何一個回錯。
++func requiredInputHashes() (map[string]string, error) {
++	all := make(map[string]string)
++	for _, rf := range RequiredFiles() {
++		all[strings.ToUpper(rf.Name)] = rf.SHA256
++	}
++	out := make(map[string]string, len(verify.InputNames()))
++	for _, n := range verify.InputNames() {
++		h, ok := all[n]
++		if !ok {
++			return nil, fmt.Errorf("required.tsv 沒有原版輸入 %s", n)
++		}
++		out[n] = h
++	}
++	return out, nil
++}
++
++// checkLangDigest 是 `LangDigest` 的缺漏檢查（`docs/spec/008` 第 3.2 節）：`LangDir` 非空而 `LangDigest` 為空
++// 且沒有明示 `SkipLangDigest`，是呼叫端的程式錯誤（前端漏傳預期輸入摘要），回錯；不映射成 `verify-failed`，
++// 否則漏傳會無聲變成「語言包驗證失敗」。這個檢查先於任何存在性檢查（`Open` 一開頭呼叫，`bindLang` 開頭再呼叫一次，
++// 單獨呼叫 `bindLang` 時也成立）。
++func checkLangDigest(dir, digest string, skip bool) error {
++	if dir != "" && digest == "" && !skip {
++		return errors.New("Options.LangDir 非空而 Options.LangDigest 為空，且沒有明示 SkipLangDigest（前端漏傳預期輸入摘要？）")
++	}
++	return nil
++}
++
++// langFailed 記錄語言包驗證失敗：生效的 LangDir 與 LangManifest 維持空（Session 以原版開啟），
++// 原因鍵記進 `LangStatus`，記一行（參數只放原因鍵、檔名、數字與雜湊，不含原版或譯文）。
++func (s *Session) langFailed(format string, a ...any) {
++	s.langReason = LangReasonVerifyFailed
++	s.logf("語言包驗證失敗（%s），遊戲內文字維持原版：%s", LangReasonVerifyFailed, fmt.Sprintf(format, a...))
++}
++
++// bindLang 在 `dos.Install` 之前把 `Options.LangDir` 綁到 DOS 的語言層，之後執行中不變。
+ //
+-// `LangDir` 正規化成 `filepath.Abs` 加 `filepath.Clean`。指向不存在的目錄（或不是目錄）時，
+-// 生效值清為空字串（LangManifest 一併清空，不去讀它的 manifest），記一行，不回錯：
+-// 狀態檔記錄的是生效值，所以這個 Session 與沒有語言包的 Session 載入同一個狀態檔。
+-// 與 `cmd/probe`、`apps/hr/cmd/hrsoak` 各自實作同一組規則（它們是通用工具，不能 import 本套件的驗證碼），
+-// 測試以同一個目錄斷言三者算出相同值。
++// 包根是 `LangDir` 的上一層（含 `manifest.json` 與 `files/`），所以 `LangDir` 的最後一段必須是 `files`
++// （`verify.Verify` 驗的是 `<包根>/files`，兩者不同就是驗了別的目錄）。依序：
++//  1. `LangDir` 為空：不動。
++//  2. `checkLangDigest`：缺漏回錯（不映射成 verify-failed）。
++//  3. 正規化成 `filepath.Abs` 加 `filepath.Clean`。
++//  4. 不存在或不是目錄：生效值留空，`LangStatus().Reason ＝ verify-failed`，記一行，不回錯。
++//  5. 層重疊防呆：正規化之後等於原版目錄（root）或暫存層（saveDir，空字串不比）就回錯。
++//     整個原版目錄變成語言層時，寫入模式開檔一律被拒，與原版目錄「寫入只記帳」的行為不同；
++//     暫存層與語言層同一目錄則存檔會寫進語言層。設定錯誤的保險，正式路徑（`l10n-packs/<名稱>/files`）不會遇到。
++//  6. `verify.Verify`：manifest 與檔案、原版輸入雜湊（取 required.tsv）、輸入摘要（`skip` 為真時略過，
++//     這時 `digest` 被忽略，其餘驗證照常）。任何原因鍵的失敗都一樣：生效值留空，Reason ＝ verify-failed，
++//     記一行（原因鍵與 `verify.Error.Detail`），不回錯。`bad-options` 例外：它只在呼叫端沒給必要選項時出現
++//     （第 2 步與 `requiredInputHashes` 已擋掉），代表程式錯誤，回錯。
++//  7. 通過：`LangDir` ＝ 正規化後的值，`LangManifest` ＝ `verify.ManifestSHA256(包根)`。
+ //
+-// 層重疊防呆：正規化之後的 `LangDir` 等於原版目錄（root）或暫存層（saveDir，空字串不比）就回錯。
+-// 整個原版目錄變成語言層時，寫入模式開檔一律被拒，與原版目錄「寫入只記帳」的行為不同；
+-// 暫存層與語言層同一目錄則存檔會寫進語言層。設定錯誤的保險，正式路徑（`l10n-packs/<名稱>/files`）不會遇到。
+-func (s *Session) bindLang(dir, root, saveDir string) error {
++// `cmd/probe` 與 `apps/hr/cmd/hrsoak` 是通用工具，不 import 本套件與驗證碼，各自以 `<LangDir>/../manifest.json`
++// 的原始位元組算 SHA-256，規則與第 3、7 步相同；它們不驗 manifest，載入的目錄由 `hrl10n verify` 先驗。
++func (s *Session) bindLang(dir, root, saveDir, digest string, skip bool) error {
+ 	if dir == "" {
+ 		return nil
+ 	}
++	if err := checkLangDigest(dir, digest, skip); err != nil {
++		return err
++	}
+ 	abs, err := normDir(dir)
+ 	if err != nil {
+ 		return fmt.Errorf("語言層目錄 %q：%w", dir, err)
+ 	}
+ 	if st, err := os.Stat(abs); err != nil || !st.IsDir() {
+-		s.logf("語言層目錄不存在或不是目錄，遊戲內文字維持原版：%s", abs)
++		s.langFailed("LangDir 不存在或不是目錄：%s", abs)
+ 		return nil
+ 	}
+ 	for _, other := range []struct{ name, path string }{{"原版目錄", root}, {"暫存層（SaveDir）", saveDir}} {
+@@ -64,33 +131,72 @@ func (s *Session) bindLang(dir, root, saveDir string) error {
+ 			return fmt.Errorf("語言層目錄與%s是同一個目錄（%s）", other.name, abs)
+ 		}
+ 	}
+-	raw, err := os.ReadFile(filepath.Join(abs, "..", "manifest.json"))
++	if filepath.Base(abs) != verify.FilesDir {
++		s.langFailed("LangDir 的最後一段不是 %s：%s", verify.FilesDir, abs)
++		return nil
++	}
++	packRoot := filepath.Dir(abs)
++	hashes, err := requiredInputHashes()
+ 	if err != nil {
+-		return fmt.Errorf("語言包缺 manifest.json（%s 的上一層）：%w", abs, err)
++		return err
++	}
++	vo := verify.Options{OrigHashes: hashes, SkipDigest: skip}
++	if !skip {
++		vo.ExpectDigest = digest
+ 	}
+-	sum := sha256.Sum256(raw)
+-	s.d.LangDir, s.d.LangManifest = abs, hex.EncodeToString(sum[:])
++	if _, err := verify.Verify(packRoot, vo); err != nil {
++		var ve *verify.Error
++		if !errors.As(err, &ve) {
++			s.langFailed("%v", err)
++			return nil
++		}
++		if ve.Code == verify.CodeBadOptions {
++			return err
++		}
++		s.langFailed("原因 %s，%s", ve.Code, ve.Detail)
++		return nil
++	}
++	sum, err := verify.ManifestSHA256(packRoot)
++	if err != nil { // Verify 剛讀過同一個檔，只有檔案在兩次讀取之間消失才會到這裡
++		s.langFailed("原因 %s，%s", verify.CodeNoManifest, verify.ManifestName)
++		return nil
++	}
++	s.d.LangDir, s.d.LangManifest = abs, sum
+ 	return nil
+ }
+ 
++// LangLayerText 是各資料檔與 CFONT.15 的命中層文字（`docs/spec/005` 第 5 節「語言層」區段的第三項），
++// 每個檔一行：`  <檔名>  首次 <層>  最近 <層>`，沒開過的寫「未開啟」。layers 取自 `DOS.OpenedLayers`。
++// 診斷區段與無頭工具（`hrbot`）的結束報告共用這個函式，兩邊的格式不會漂移。
++func LangLayerText(layers map[string]dos.OpenedLayer) string {
++	var b strings.Builder
++	for _, name := range langDataFiles {
++		if e, ok := layers[name]; ok {
++			fmt.Fprintf(&b, "  %s  首次 %s  最近 %s\n", name, e.First, e.Last)
++		} else {
++			fmt.Fprintf(&b, "  %s  未開啟\n", name)
++		}
++	}
++	return b.String()
++}
++
+ // langSection 是診斷 info.txt 的「語言層」區段（`docs/spec/005` 第 5 節）：三項是 LangDir 的值、
+ // 語言包 manifest 的 SHA-256、各資料檔與 CFONT.15 的命中層（取自 `DOS.OpenedLayers`，首次與最近一次）。
+-// 沒有語言包時三項皆空。三個 trigger（T1 CrashDump、T2、T3）都經 diagSections，所以都有這一區段。
++// 沒有語言包且沒有失敗時三項皆空。驗證失敗回退原版的 Session（`LangStatus().Reason` 非空）在第一項另記原因鍵，
++// 其餘兩項仍為空。三個 trigger（T1 CrashDump、T2、T3）都經 diagSections，所以都有這一區段。
+ func (s *Session) langSection() string {
+ 	var b strings.Builder
+ 	d := s.d
+ 	b.WriteString("\n== 語言層 ==\n")
+ 	if d.LangDir == "" {
++		if s.langReason != "" {
++			fmt.Fprintf(&b, "LangDir：（空，LangStatus 原因鍵 %s）\nmanifest SHA-256：\n開檔命中層：\n", s.langReason)
++			return b.String()
++		}
+ 		b.WriteString("LangDir：\nmanifest SHA-256：\n開檔命中層：\n")
+ 		return b.String()
+ 	}
+ 	fmt.Fprintf(&b, "LangDir：%s\nmanifest SHA-256：%s\n開檔命中層：\n", d.LangDir, d.LangManifest)
+-	for _, name := range langDataFiles {
+-		if e, ok := d.OpenedLayers[name]; ok {
+-			fmt.Fprintf(&b, "  %s  首次 %s  最近 %s\n", name, e.First, e.Last)
+-		} else {
+-			fmt.Fprintf(&b, "  %s  未開啟\n", name)
+-		}
+-	}
++	b.WriteString(LangLayerText(d.OpenedLayers))
+ 	return b.String()
+ }
+diff --git a/apps/hr/runtime/lang_pack_test.go b/apps/hr/runtime/lang_pack_test.go
+new file mode 100644
+index 0000000..2b2cbb4
+--- /dev/null
++++ b/apps/hr/runtime/lang_pack_test.go
+@@ -0,0 +1,79 @@
++package runtime_test
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/apps/hr/l10n"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++// 外部測試套件：可以同時 import apps/hr/l10n 與 runtime（內部測試套件不行，l10n import runtime）。
++// 用真的建置器造 identity 語言包，確認建置端寫出的 manifest 與輸入摘要，正是 Session.Open 的驗證接受的那一種
++// （手造 manifest 的內部測試涵蓋不到建置端與驗證端的欄位漂移）。需原版，缺檔 skip。
++
++func extOrigRoot(t *testing.T) string {
++	t.Helper()
++	root := os.Getenv("HR_ORIG")
++	if root == "" {
++		root = "/orig/orig"
++	}
++	if _, err := os.Stat(filepath.Join(root, "MAIN.EXE")); err != nil {
++		t.Skipf("沒有原版目錄（%s）：%v", root, err)
++	}
++	return root
++}
++
++func TestOpenWithBuiltIdentityPack(t *testing.T) {
++	root := extOrigRoot(t)
++	cfg := l10n.Config{OrigDir: root, PackRoot: t.TempDir(), Code: "zh-TW", Mode: l10n.ModeIdentity}
++	res, err := l10n.Build(cfg)
++	if err != nil {
++		t.Fatal(err)
++	}
++	digest, err := l10n.ExpectedDigest(cfg)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if digest != res.Digest {
++		t.Fatalf("ExpectedDigest ＝ %s，Build 的 Digest ＝ %s", digest, res.Digest)
++	}
++	files := res.FilesDir()
++
++	s, err := hrrt.Open(root, hrrt.Options{LangDir: files, LangDigest: digest})
++	if err != nil {
++		t.Fatal(err)
++	}
++	if st := s.LangStatus(); st != (hrrt.LangStatus{LangDir: filepath.Clean(files)}) {
++		t.Fatalf("真建置器造的包應通過 Open 的驗證：%+v", st)
++	}
++	if got := s.DOS().LangManifest; got != res.ManifestSHA256 {
++		t.Errorf("DOS.LangManifest ＝ %s，Build 回報的 manifest 雜湊 ＝ %s", got, res.ManifestSHA256)
++	}
++
++	// 預期摘要不符（譯文表或政策改了而目錄沒換）：回退原版。
++	s2, err := hrrt.Open(root, hrrt.Options{LangDir: files, LangDigest: digest + "0"})
++	if err != nil || s2.LangStatus() != (hrrt.LangStatus{Reason: hrrt.LangReasonVerifyFailed}) {
++		t.Errorf("摘要不符應回退：err ＝ %v 狀態 %+v", err, s2.LangStatus())
++	}
++	// 明示略過摘要：摘要不符的包仍可啟用。
++	s3, err := hrrt.Open(root, hrrt.Options{LangDir: files, LangDigest: "ignored", SkipLangDigest: true})
++	if err != nil || s3.LangStatus().LangDir != filepath.Clean(files) {
++		t.Errorf("明示略過摘要後應啟用：err ＝ %v 狀態 %+v", err, s3.LangStatus())
++	}
++	// 竄改包內檔案：即使略過摘要也必須被拒。
++	p := filepath.Join(files, "SP.MES")
++	b, err := os.ReadFile(p)
++	if err != nil {
++		t.Fatal(err)
++	}
++	b[0] ^= 0xFF
++	if err := os.WriteFile(p, b, 0o644); err != nil {
++		t.Fatal(err)
++	}
++	s4, err := hrrt.Open(root, hrrt.Options{LangDir: files, SkipLangDigest: true})
++	if err != nil || s4.LangStatus() != (hrrt.LangStatus{Reason: hrrt.LangReasonVerifyFailed}) {
++		t.Errorf("竄改過的包應被拒：err ＝ %v 狀態 %+v", err, s4.LangStatus())
++	}
++}
+diff --git a/apps/hr/runtime/lang_test.go b/apps/hr/runtime/lang_test.go
+index d90316d..6ee556c 100644
+--- a/apps/hr/runtime/lang_test.go
++++ b/apps/hr/runtime/lang_test.go
+@@ -3,35 +3,112 @@ package runtime
+ import (
+ 	"crypto/sha256"
+ 	"encoding/hex"
++	"fmt"
+ 	"os"
+ 	"path/filepath"
+ 	"strings"
+ 	"testing"
+ 
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/verify"
+ 	"github.com/wicanr2/dosgolem/internal/dos"
+ 	"github.com/wicanr2/dosgolem/internal/machine"
+ 	"github.com/wicanr2/dosgolem/internal/state"
+ )
+ 
+-// 語言層（docs/spec/008 第 3.1 節，L0）在執行層的部分：LangDir 綁定、診斷「語言層」區段、開檔層報告。
+-// 需要原版的測試缺檔就 skip（origRoot）。原版檔案只在測試執行時複製進 t.TempDir() 的臨時語言包，不進儲存庫。
++// 語言層（docs/spec/008 第 3.1、3.2 節，L0 與 L1 接線）在執行層的部分：LangDir 綁定與 manifest 驗證、LangStatus、
++// 診斷「語言層」區段、開檔層報告。需要原版的測試缺檔就 skip（origRoot）。原版檔案只在測試執行時複製進 t.TempDir()
++// 的臨時語言包，不進儲存庫。
++//
++// 驗證規則的測試都在 bindLang 層（裸 Session，不需要原版、毫秒級）；Open 層只確認接線（需原版）。
++// 本檔是內部測試套件，不能 import apps/hr/l10n（它 import 本套件）：語言包用 verify.Manifest 手造，
++// 真建置器造的包由外部套件 lang_pack_test.go 涵蓋。
+ 
+-// helloSHA 是 manifest 內容 "hello" 的 SHA-256。probe、hrsoak、Session 三處的測試用同一個固定值，
+-// 斷言三處對同一個目錄算出相同的 LangManifest。
++// helloSHA 是內容 "hello" 的 SHA-256。cmd/probe 與 apps/hr/cmd/hrsoak 的測試用同一個固定值，斷言它們對
++// `<dir>/../manifest.json` 的原始位元組取同一種雜湊；本檔用 TestLangIdentityRules 對 Session 側（verify.ManifestSHA256
++// 與 normDir）斷言同一個值。
+ const helloSHA = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+ 
+-// makePack 造語言包目錄：<pack>/manifest.json（內容 "hello"，在 files/ 之外）與 <pack>/files/。
+-// names 是要放進 files/ 的原版檔名，內容取自原版目錄 root（root 為空則放合成內容）。
++// testDigest 是手造 manifest 的 input_digest（任意字串，Verify 只比對相等）。
++const testDigest = "test-input-digest-0001"
++
++// errLangDigestPhrase 是 LangDigest 缺漏錯誤訊息獨有的片語（見 TestOpenLangDigestCheckComesFirst 的說明）。
++const errLangDigestPhrase = "沒有明示 SkipLangDigest"
++
++func sha256Of(b []byte) string {
++	h := sha256.Sum256(b)
++	return hex.EncodeToString(h[:])
++}
++
++func fileSHA(t *testing.T, p string) string {
++	t.Helper()
++	b, err := os.ReadFile(p)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return sha256Of(b)
++}
++
++// packManifest 掃 <pack>/files/ 內的檔案，造出通過驗證的 manifest（雜湊與位元組數取實際內容，
++// 九個原版輸入雜湊取 required.tsv，input_digest 取 digest）。
++func packManifest(t *testing.T, pack, digest string) *verify.Manifest {
++	t.Helper()
++	hashes, err := requiredInputHashes()
++	if err != nil {
++		t.Fatal(err)
++	}
++	ents, err := os.ReadDir(filepath.Join(pack, verify.FilesDir))
++	if err != nil {
++		t.Fatal(err)
++	}
++	var files []verify.FileEntry
++	for _, e := range ents {
++		b, err := os.ReadFile(filepath.Join(pack, verify.FilesDir, e.Name()))
++		if err != nil {
++			t.Fatal(err)
++		}
++		files = append(files, verify.FileEntry{Name: e.Name(), SHA256: sha256Of(b), Size: int64(len(b))})
++	}
++	return &verify.Manifest{
++		Format: verify.ManifestFormat, Code: "zh-TW", Policy: verify.Policy{Mode: "identity"},
++		Files: files, OrigInputs: hashes, TableFormat: "tsv-1", BuilderVersion: "test", InputDigest: digest,
++	}
++}
++
++func writeManifest(t *testing.T, pack string, m *verify.Manifest) {
++	t.Helper()
++	b, err := m.Marshal()
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(pack, verify.ManifestName), b, 0o644); err != nil {
++		t.Fatal(err)
++	}
++}
++
++// rewriteManifest 讀回 pack 的 manifest，交給 mutate 改，再寫回（其餘欄位不變，結果仍是格式正確的 manifest）。
++func rewriteManifest(t *testing.T, pack string, mutate func(*verify.Manifest)) {
++	t.Helper()
++	raw, err := os.ReadFile(filepath.Join(pack, verify.ManifestName))
++	if err != nil {
++		t.Fatal(err)
++	}
++	m, err := verify.ParseManifest(raw)
++	if err != nil {
++		t.Fatal(err)
++	}
++	mutate(m)
++	writeManifest(t, pack, m)
++}
++
++// makePack 造通過驗證的語言包：<pack>/manifest.json（在 files/ 之外，input_digest ＝ testDigest）與 <pack>/files/。
++// names 是要放進 files/ 的檔名，內容取自原版目錄 root（root 為空則放合成內容）。回傳 files/（也就是 LangDir）。
+ func makePack(t *testing.T, root string, names ...string) (filesDir string) {
+ 	t.Helper()
+ 	pack := t.TempDir()
+-	filesDir = filepath.Join(pack, "files")
++	filesDir = filepath.Join(pack, verify.FilesDir)
+ 	if err := os.MkdirAll(filesDir, 0o755); err != nil {
+ 		t.Fatal(err)
+ 	}
+-	if err := os.WriteFile(filepath.Join(pack, "manifest.json"), []byte("hello"), 0o644); err != nil {
+-		t.Fatal(err)
+-	}
+ 	for _, n := range names {
+ 		body := []byte("synthetic " + n)
+ 		if root != "" {
+@@ -45,90 +122,296 @@ func makePack(t *testing.T, root string, names ...string) (filesDir string) {
+ 			t.Fatal(err)
+ 		}
+ 	}
++	writeManifest(t, pack, packManifest(t, pack, testDigest))
+ 	return filesDir
+ }
+ 
++func flipByte(t *testing.T, p string) {
++	t.Helper()
++	b, err := os.ReadFile(p)
++	if err != nil {
++		t.Fatal(err)
++	}
++	b[0] ^= 0xFF
++	if err := os.WriteFile(p, b, 0o644); err != nil {
++		t.Fatal(err)
++	}
++}
++
++// bindSession 造不經 Open 的裸 Session（bindLang 只用 d 與 logf）。logs 收的是已格式化的行。
+ func bindSession() (*Session, *[]string) {
+ 	var logs []string
+-	s := &Session{d: dos.New(machine.New(), "."), logf: func(f string, a ...any) { logs = append(logs, f) }}
++	s := &Session{d: dos.New(machine.New(), "."), logf: func(f string, a ...any) { logs = append(logs, fmt.Sprintf(f, a...)) }}
+ 	return s, &logs
+ }
+ 
+-// bindLang：空值不動；不存在或不是目錄時生效值清為空（不回錯、記一行）；正規化；manifest 雜湊；缺 manifest 回錯。
++// wantFallback 斷言驗證失敗的標準結果：Open 不回錯（由呼叫端斷言）、生效值全空、Reason ＝ verify-failed、
++// 記了一行（含原因鍵 verify-failed 與 code，code 為空則不查）。
++func wantFallback(t *testing.T, s *Session, logs []string, code string) {
++	t.Helper()
++	if st := s.LangStatus(); st.LangDir != "" || st.Reason != LangReasonVerifyFailed {
++		t.Errorf("LangStatus ＝ %+v，預期 {LangDir:\"\" Reason:%q}", st, LangReasonVerifyFailed)
++	}
++	if s.d.LangDir != "" || s.d.LangManifest != "" {
++		t.Errorf("生效值應為空：LangDir ＝ %q LangManifest ＝ %q", s.d.LangDir, s.d.LangManifest)
++	}
++	if len(logs) != 1 || !strings.Contains(logs[0], LangReasonVerifyFailed) || (code != "" && !strings.Contains(logs[0], code)) {
++		t.Errorf("應記一行，含 %q 與 %q：%q", LangReasonVerifyFailed, code, logs)
++	}
++}
++
++// 九個原版輸入的預期雜湊：恰好 verify.InputNames() 的九個鍵，值是 64 碼小寫十六進位。
++func TestRequiredInputHashes(t *testing.T) {
++	h, err := requiredInputHashes()
++	if err != nil {
++		t.Fatal(err)
++	}
++	names := verify.InputNames()
++	if len(names) != 9 || len(h) != 9 {
++		t.Fatalf("輸入 %d 個、雜湊 %d 個，預期都是 9", len(names), len(h))
++	}
++	for _, n := range names {
++		v, ok := h[n]
++		if !ok || len(v) != 64 || v != strings.ToLower(v) {
++			t.Errorf("%s 的雜湊 %q 不合格", n, v)
++		}
++	}
++	for _, rf := range RequiredFiles() { // 與 required.tsv 同源：MAIN.EXE 與 CFONT.15 取同一個值
++		if want, ok := h[strings.ToUpper(rf.Name)]; ok && want != rf.SHA256 {
++			t.Errorf("%s：%s 與 required.tsv 的 %s 不同", rf.Name, want, rf.SHA256)
++		}
++	}
++}
++
++// LangDigest 缺漏檢查：LangDir 非空、LangDigest 為空、未明示略過才是錯誤。
++func TestCheckLangDigest(t *testing.T) {
++	cases := []struct {
++		dir, digest string
++		skip        bool
++		wantErr     bool
++	}{
++		{"", "", false, false},
++		{"", "x", false, false},
++		{"/p/files", "", false, true},
++		{"/p/files", "", true, false},
++		{"/p/files", "x", false, false},
++		{"/p/files", "x", true, false},
++	}
++	for _, c := range cases {
++		err := checkLangDigest(c.dir, c.digest, c.skip)
++		if (err != nil) != c.wantErr {
++			t.Errorf("checkLangDigest(%q, %q, %v) ＝ %v", c.dir, c.digest, c.skip, err)
++		}
++		if err != nil && !strings.Contains(err.Error(), errLangDigestPhrase) {
++			t.Errorf("錯誤訊息應點名 LangDigest 與 SkipLangDigest：%v", err)
++		}
++	}
++}
++
++// bindLang：空值不動；通過驗證才綁定；正規化；不存在或不是目錄時生效值留空並回報 verify-failed（不回錯）。
+ func TestBindLang(t *testing.T) {
+ 	t.Run("空字串", func(t *testing.T) {
+ 		s, logs := bindSession()
+-		if err := s.bindLang("", "/r", "/s"); err != nil || s.d.LangDir != "" || s.d.LangManifest != "" || len(*logs) != 0 {
+-			t.Errorf("err ＝ %v LangDir ＝ %q 記錄 %v", err, s.d.LangDir, *logs)
++		if err := s.bindLang("", "/r", "/s", "", false); err != nil || s.d.LangDir != "" || s.d.LangManifest != "" || len(*logs) != 0 || s.LangStatus() != (LangStatus{}) {
++			t.Errorf("err ＝ %v LangDir ＝ %q 記錄 %v 狀態 %+v", err, s.d.LangDir, *logs, s.LangStatus())
+ 		}
+ 	})
+-	t.Run("目錄不存在：生效值清為空，不回錯，記一行", func(t *testing.T) {
++	t.Run("通過驗證：LangDir 正規化，LangManifest 是 manifest.json 位元組的 SHA-256", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES", "CFONT.15")
+ 		s, logs := bindSession()
+-		if err := s.bindLang(filepath.Join(t.TempDir(), "nope", "files"), "", ""); err != nil {
+-			t.Fatalf("不存在的目錄不該回錯：%v", err)
++		if err := s.bindLang(files, t.TempDir(), t.TempDir(), testDigest, false); err != nil {
++			t.Fatal(err)
+ 		}
+-		if s.d.LangDir != "" || s.d.LangManifest != "" || len(*logs) != 1 {
+-			t.Errorf("LangDir ＝ %q LangManifest ＝ %q 記錄 %v", s.d.LangDir, s.d.LangManifest, *logs)
++		want := fileSHA(t, filepath.Join(filepath.Dir(files), "manifest.json")) // 獨立於 verify 套件的算法
++		if s.d.LangDir != filepath.Clean(files) || s.d.LangManifest != want {
++			t.Errorf("LangDir ＝ %q LangManifest ＝ %q，預期 %q 與 %s", s.d.LangDir, s.d.LangManifest, filepath.Clean(files), want)
++		}
++		if st := s.LangStatus(); st.LangDir != filepath.Clean(files) || st.Reason != "" || len(*logs) != 0 {
++			t.Errorf("LangStatus ＝ %+v 記錄 %v", st, *logs)
+ 		}
+ 	})
+-	t.Run("不是目錄", func(t *testing.T) {
++	t.Run("路徑拼法：不乾淨的路徑與相對路徑", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		messy := files + string(filepath.Separator) + ".." + string(filepath.Separator) + "files" + string(filepath.Separator)
+ 		s, _ := bindSession()
+-		f := filepath.Join(t.TempDir(), "afile")
++		if err := s.bindLang(messy, "", "", testDigest, false); err != nil || s.d.LangDir != filepath.Clean(files) {
++			t.Errorf("err ＝ %v LangDir ＝ %q，預期 %q", err, s.d.LangDir, filepath.Clean(files))
++		}
++		t.Chdir(filepath.Dir(files))
++		s2, _ := bindSession()
++		if err := s2.bindLang("files", "", "", testDigest, false); err != nil || s2.d.LangDir != filepath.Clean(files) || s2.d.LangManifest != s.d.LangManifest {
++			t.Errorf("相對路徑：err ＝ %v LangDir ＝ %q LangManifest ＝ %q", err, s2.d.LangDir, s2.d.LangManifest)
++		}
++	})
++	t.Run("目錄不存在：生效值留空，不回錯，記一行，Reason ＝ verify-failed", func(t *testing.T) {
++		s, logs := bindSession()
++		if err := s.bindLang(filepath.Join(t.TempDir(), "nope", "files"), "", "", testDigest, false); err != nil {
++			t.Fatalf("不存在的目錄不該回錯：%v", err)
++		}
++		wantFallback(t, s, *logs, "")
++	})
++	t.Run("不是目錄", func(t *testing.T) {
++		s, logs := bindSession()
++		f := filepath.Join(t.TempDir(), "files")
+ 		if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+ 			t.Fatal(err)
+ 		}
+-		if err := s.bindLang(f, "", ""); err != nil || s.d.LangDir != "" {
+-			t.Errorf("err ＝ %v LangDir ＝ %q", err, s.d.LangDir)
++		if err := s.bindLang(f, "", "", testDigest, false); err != nil {
++			t.Fatal(err)
+ 		}
++		wantFallback(t, s, *logs, "")
+ 	})
+-	t.Run("正規化與 manifest 雜湊", func(t *testing.T) {
++	t.Run("LangDir 的最後一段不是 files：驗的會是別的目錄，所以拒絕", func(t *testing.T) {
+ 		files := makePack(t, "", "SP.MES")
+-		s, _ := bindSession()
+-		messy := files + string(filepath.Separator) + ".." + string(filepath.Separator) + "files" + string(filepath.Separator)
+-		if err := s.bindLang(messy, t.TempDir(), t.TempDir()); err != nil {
++		other := filepath.Join(filepath.Dir(files), "other")
++		if err := os.Rename(files, other); err != nil { // 包根的 files/ 已不存在
+ 			t.Fatal(err)
+ 		}
+-		if s.d.LangDir != filepath.Clean(files) {
+-			t.Errorf("LangDir ＝ %q，預期 %q", s.d.LangDir, filepath.Clean(files))
++		if err := os.MkdirAll(files, 0o755); err != nil { // 包根仍有一個合法但空的 files/：不能拿它當驗證對象
++			t.Fatal(err)
+ 		}
+-		if s.d.LangManifest != helloSHA {
+-			t.Errorf("LangManifest ＝ %s，預期 %s", s.d.LangManifest, helloSHA)
++		s, logs := bindSession()
++		if err := s.bindLang(other, "", "", testDigest, false); err != nil {
++			t.Fatal(err)
+ 		}
+-		raw := sha256.Sum256([]byte("hello"))
+-		if hex.EncodeToString(raw[:]) != helloSHA {
+-			t.Fatal("測試常數 helloSHA 與 sha256(\"hello\") 不符")
++		wantFallback(t, s, *logs, verify.FilesDir)
++	})
++}
++
++// manifest 驗證（規格第 8 節 manifest 驗證那一列）：竄改、缺檔、多餘檔、原版輸入雜湊不符、輸入摘要不符、
++// manifest 缺或壞，都不啟用語言包：Open 不回錯（這裡是 bindLang 回 nil）、生效值為空、Reason ＝ verify-failed。
++func TestBindLangVerifyMatrix(t *testing.T) {
++	zeros := strings.Repeat("0", 64)
++	cases := []struct {
++		name     string
++		prep     func(t *testing.T, files string)
++		digest   string // 空字串 ＝ testDigest
++		wantCode string // 空字串 ＝ 通過
++	}{
++		{name: "對照組：沒有問題", prep: func(*testing.T, string) {}},
++		{"竄改一個位元組", func(t *testing.T, f string) { flipByte(t, filepath.Join(f, "SP.MES")) }, "", verify.CodeFileHash},
++		{"檔案大小不符", func(t *testing.T, f string) {
++			p := filepath.Join(f, "SP.MES")
++			b, _ := os.ReadFile(p)
++			if err := os.WriteFile(p, append(b, 0), 0o644); err != nil {
++				t.Fatal(err)
++			}
++		}, "", verify.CodeFileSize},
++		{"manifest 列出的檔案不存在", func(t *testing.T, f string) {
++			if err := os.Remove(filepath.Join(f, "CFONT.15")); err != nil {
++				t.Fatal(err)
++			}
++		}, "", verify.CodeFileMissing},
++		{"manifest 沒列的多餘檔", func(t *testing.T, f string) {
++			if err := os.WriteFile(filepath.Join(f, "EXTRA.BIN"), []byte("x"), 0o644); err != nil {
++				t.Fatal(err)
++			}
++		}, "", verify.CodeFileExtra},
++		{"原版輸入雜湊不符", func(t *testing.T, f string) {
++			rewriteManifest(t, filepath.Dir(f), func(m *verify.Manifest) { m.OrigInputs["MAIN.EXE"] = zeros })
++		}, "", verify.CodeOrigHash},
++		{"manifest 的原版輸入多一項", func(t *testing.T, f string) {
++			rewriteManifest(t, filepath.Dir(f), func(m *verify.Manifest) { m.OrigInputs["EXTRA.BIN"] = zeros })
++		}, "", verify.CodeOrigHash},
++		{"manifest 的輸入摘要不等於 LangDigest", func(*testing.T, string) {}, "another-digest", verify.CodeDigestMismatch},
++		{"沒有 manifest", func(t *testing.T, f string) {
++			if err := os.Remove(filepath.Join(filepath.Dir(f), "manifest.json")); err != nil {
++				t.Fatal(err)
++			}
++		}, "", verify.CodeNoManifest},
++		{"manifest 不是合法的 manifest", func(t *testing.T, f string) {
++			if err := os.WriteFile(filepath.Join(filepath.Dir(f), "manifest.json"), []byte("hello"), 0o644); err != nil {
++				t.Fatal(err)
++			}
++		}, "", verify.CodeBadManifest},
++	}
++	for _, c := range cases {
++		t.Run(c.name, func(t *testing.T) {
++			files := makePack(t, "", "SP.MES", "CFONT.15")
++			c.prep(t, files)
++			digest := c.digest
++			if digest == "" {
++				digest = testDigest
++			}
++			s, logs := bindSession()
++			if err := s.bindLang(files, "", "", digest, false); err != nil {
++				t.Fatalf("驗證失敗不該回錯：%v", err)
++			}
++			if c.wantCode == "" {
++				if s.LangStatus() != (LangStatus{LangDir: filepath.Clean(files)}) || len(*logs) != 0 {
++					t.Errorf("對照組應啟用：%+v 記錄 %v", s.LangStatus(), *logs)
++				}
++				return
++			}
++			wantFallback(t, s, *logs, c.wantCode)
++		})
++	}
++}
++
++// SkipLangDigest：只略過輸入摘要這一項。摘要不符的包仍可啟用；傳入的 LangDigest 被忽略；檔案雜湊不符的包照樣被拒。
++func TestBindLangSkipDigest(t *testing.T) {
++	t.Run("摘要不符的包仍可啟用", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		s, logs := bindSession()
++		if err := s.bindLang(files, "", "", "another-digest", true); err != nil {
++			t.Fatal(err)
++		}
++		if s.LangStatus() != (LangStatus{LangDir: filepath.Clean(files)}) || len(*logs) != 0 || s.d.LangManifest == "" {
++			t.Errorf("狀態 %+v 記錄 %v", s.LangStatus(), *logs)
+ 		}
+ 	})
+-	t.Run("相對路徑轉成絕對路徑", func(t *testing.T) {
+-		files := makePack(t, "")
+-		t.Chdir(filepath.Dir(files))
++	t.Run("LangDigest 為空也可以（明示略過）", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
+ 		s, _ := bindSession()
+-		if err := s.bindLang("files", "", ""); err != nil {
+-			t.Fatal(err)
++		if err := s.bindLang(files, "", "", "", true); err != nil || s.d.LangDir != filepath.Clean(files) {
++			t.Errorf("err ＝ %v LangDir ＝ %q", err, s.d.LangDir)
+ 		}
+-		if s.d.LangDir != filepath.Clean(files) || s.d.LangManifest != helloSHA {
+-			t.Errorf("LangDir ＝ %q LangManifest ＝ %q", s.d.LangDir, s.d.LangManifest)
++	})
++	t.Run("檔案雜湊不符的包必須被拒", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		flipByte(t, filepath.Join(files, "SP.MES"))
++		s, logs := bindSession()
++		if err := s.bindLang(files, "", "", "", true); err != nil {
++			t.Fatal(err)
+ 		}
++		wantFallback(t, s, *logs, verify.CodeFileHash)
+ 	})
+-	t.Run("缺 manifest 回錯", func(t *testing.T) {
+-		files := makePack(t, "")
+-		if err := os.Remove(filepath.Join(filepath.Dir(files), "manifest.json")); err != nil {
++	t.Run("原版輸入雜湊不符的包必須被拒", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		rewriteManifest(t, filepath.Dir(files), func(m *verify.Manifest) { m.OrigInputs["CFONT.15"] = strings.Repeat("f", 64) })
++		s, logs := bindSession()
++		if err := s.bindLang(files, "", "", "", true); err != nil {
+ 			t.Fatal(err)
+ 		}
+-		s, _ := bindSession()
+-		err := s.bindLang(files, "", "")
+-		if err == nil || !strings.Contains(err.Error(), "manifest.json") {
+-			t.Fatalf("缺 manifest 應回錯並點名檔名：%v", err)
++		wantFallback(t, s, *logs, verify.CodeOrigHash)
++	})
++}
++
++// LangDir 非空、LangDigest 為空、未明示略過：回錯，先於存在性檢查（目錄不存在也回同一個錯），且不映射成 verify-failed。
++func TestBindLangMissingDigestIsAnError(t *testing.T) {
++	existing := makePack(t, "", "SP.MES")
++	missing := filepath.Join(t.TempDir(), "nope", "files")
++	var first string
++	for _, dir := range []string{existing, missing} {
++		s, logs := bindSession()
++		err := s.bindLang(dir, "", "", "", false)
++		if err == nil || !strings.Contains(err.Error(), errLangDigestPhrase) {
++			t.Fatalf("%s：應回錯並點名 LangDigest 與 SkipLangDigest：%v", dir, err)
+ 		}
+-		if s.d.LangDir != "" {
+-			t.Errorf("回錯時不該綁定：LangDir ＝ %q", s.d.LangDir)
++		if first == "" {
++			first = err.Error()
++		} else if err.Error() != first {
++			t.Errorf("存在與不存在的目錄應回同一個錯：%q 與 %q", first, err.Error())
+ 		}
+-	})
++		if s.LangStatus() != (LangStatus{}) || len(*logs) != 0 {
++			t.Errorf("程式錯誤不映射成 verify-failed：%+v 記錄 %v", s.LangStatus(), *logs)
++		}
++	}
+ }
+ 
+ // 層重疊防呆：LangDir 與原版目錄或暫存層（SaveDir）正規化後相同就回錯（不論路徑怎麼拼），不綁定。
+ func TestBindLangRefusesOverlappingLayers(t *testing.T) {
+-	files := makePack(t, "")
++	files := makePack(t, "", "SP.MES")
+ 	unclean := files + string(filepath.Separator) + "." + string(filepath.Separator) + ".." + string(filepath.Separator) + "files"
+ 	other := t.TempDir()
+ 	cases := []struct {
+@@ -145,7 +428,7 @@ func TestBindLangRefusesOverlappingLayers(t *testing.T) {
+ 	for _, c := range cases {
+ 		t.Run(c.name, func(t *testing.T) {
+ 			s, _ := bindSession()
+-			err := s.bindLang(files, c.root, c.saves)
++			err := s.bindLang(files, c.root, c.saves, testDigest, false)
+ 			if c.wantErr == "" {
+ 				if err != nil || s.d.LangDir != filepath.Clean(files) {
+ 					t.Fatalf("不該回錯：err ＝ %v LangDir ＝ %q", err, s.d.LangDir)
+@@ -155,36 +438,151 @@ func TestBindLangRefusesOverlappingLayers(t *testing.T) {
+ 			if err == nil || !strings.Contains(err.Error(), c.wantErr) || !strings.Contains(err.Error(), "同一個目錄") {
+ 				t.Fatalf("應回錯並點名 %s：%v", c.wantErr, err)
+ 			}
+-			if s.d.LangDir != "" || s.d.LangManifest != "" {
+-				t.Errorf("回錯時不該綁定：LangDir ＝ %q", s.d.LangDir)
++			if s.d.LangDir != "" || s.d.LangManifest != "" || s.LangStatus().Reason != "" {
++				t.Errorf("回錯時不該綁定：LangDir ＝ %q 狀態 %+v", s.d.LangDir, s.LangStatus())
+ 			}
+ 		})
+ 	}
+ }
+ 
++// LangManifest 與正規化後的 LangDir 在 probe、hrsoak、Session 三處對同一個目錄算出相同值（規格第 3.2 節）。
++// probe 與 hrsoak 是通用工具，不能 import 本套件的驗證碼，各自把 `<dir>/../manifest.json` 的原始位元組取 SHA-256、
++// 路徑取 filepath.Abs 加 filepath.Clean；它們的測試對內容 "hello" 的 manifest 斷言 helloSHA（cmd/probe/langdir_test.go、
++// apps/hr/cmd/hrsoak/langdir_test.go，兩邊不驗證 manifest 內容）。本測試對 Session 側用的兩個函式
++// （verify.ManifestSHA256、normDir 與 verify.NormalizeDir）對同一個固定值與同一種路徑拼法斷言，所以三處斷言的是同一個值。
++// 端到端的對拍（同一個真包，三個工具各印一次）在收據 l1-wire1-report.md。
++func TestLangIdentityRules(t *testing.T) {
++	pack := t.TempDir()
++	files := filepath.Join(pack, "files")
++	if err := os.MkdirAll(files, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(pack, "manifest.json"), []byte("hello"), 0o644); err != nil {
++		t.Fatal(err)
++	}
++	if sha256Of([]byte("hello")) != helloSHA {
++		t.Fatal("測試常數 helloSHA 與 sha256(\"hello\") 不符")
++	}
++	if got, err := verify.ManifestSHA256(pack); err != nil || got != helloSHA {
++		t.Errorf("verify.ManifestSHA256 ＝ %q，%v，預期 %s", got, err, helloSHA)
++	}
++	messy := files + string(filepath.Separator) + ".." + string(filepath.Separator) + "files" + string(filepath.Separator)
++	for _, in := range []string{files, messy} {
++		a, err := normDir(in)
++		b, err2 := verify.NormalizeDir(in)
++		if err != nil || err2 != nil || a != filepath.Clean(files) || b != a {
++			t.Errorf("normDir(%q) ＝ %q（%v），verify.NormalizeDir ＝ %q（%v），預期 %q", in, a, err, b, err2, filepath.Clean(files))
++		}
++	}
++	t.Chdir(pack)
++	if a, err := normDir("files"); err != nil || a != filepath.Clean(files) {
++		t.Errorf("相對路徑 normDir ＝ %q，%v", a, err)
++	}
++}
++
++// Open 的 LangDigest 缺漏檢查在讀 MAIN.EXE 之前（不需要原版）：缺漏時回的是它，不是「讀不到 MAIN.EXE」；
++// 明示 SkipLangDigest 之後才輪到後面的檢查（這裡是讀不到 MAIN.EXE）。
++//
++// 比對錯誤訊息用 errLangDigestPhrase 而不是 "LangDigest"：t.TempDir() 的路徑含測試函式名，路徑會出現在「讀不到 MAIN.EXE」
++// 的訊息裡，單比對函式名會讓檢查被移到存在性檢查之後的突變也通過。
++func TestOpenLangDigestCheckComesFirst(t *testing.T) {
++	noRoot := filepath.Join(t.TempDir(), "no-such-root")
++	missing := filepath.Join(t.TempDir(), "nope", "files")
++	if _, err := Open(noRoot, Options{LangDir: missing}); err == nil || !strings.Contains(err.Error(), errLangDigestPhrase) || strings.Contains(err.Error(), "MAIN.EXE") {
++		t.Fatalf("LangDigest 缺漏應先於存在性檢查：%v", err)
++	}
++	if _, err := Open(noRoot, Options{LangDir: missing, SkipLangDigest: true}); err == nil || !strings.Contains(err.Error(), "MAIN.EXE") {
++		t.Fatalf("明示略過之後應往下走到讀 MAIN.EXE：%v", err)
++	}
++	if _, err := Open(noRoot, Options{}); err == nil || !strings.Contains(err.Error(), "MAIN.EXE") {
++		t.Fatalf("沒有 LangDir 不受這個檢查影響：%v", err)
++	}
++}
++
+ // Open 層：LangDir 等於原版目錄或 SaveDir 時拒絕開啟（需原版）。
+ func TestOpenRefusesLangDirEqualToRootOrSaveDir(t *testing.T) {
+ 	root := origRoot(t)
+-	if _, err := Open(root, Options{LangDir: root}); err == nil || !strings.Contains(err.Error(), "同一個目錄") {
++	if _, err := Open(root, Options{LangDir: root, SkipLangDigest: true}); err == nil || !strings.Contains(err.Error(), "同一個目錄") {
+ 		t.Errorf("LangDir 等於原版目錄應拒絕：%v", err)
+ 	}
+ 	files := makePack(t, "", "SP.MES")
+-	if _, err := Open(root, Options{LangDir: files, SaveDir: files}); err == nil || !strings.Contains(err.Error(), "同一個目錄") {
++	if _, err := Open(root, Options{LangDir: files, SaveDir: files, SkipLangDigest: true}); err == nil || !strings.Contains(err.Error(), "同一個目錄") {
+ 		t.Errorf("LangDir 等於 SaveDir 應拒絕：%v", err)
+ 	}
+ }
+ 
+-// 診斷的「語言層」區段（docs/spec/005 第 5 節）：沒有語言包時三項皆空；有時列出三項與各資料檔的命中層。
++// Open 層的接線（需原版）：LangStatus 的四種結果，驗證失敗時 Open 不回錯。
++func TestOpenLangStatus(t *testing.T) {
++	root := origRoot(t)
++	t.Run("沒有 LangDir：LangDigest 被忽略", func(t *testing.T) {
++		s, err := Open(root, Options{LangDigest: "ignored"})
++		if err != nil || s.LangStatus() != (LangStatus{}) {
++			t.Fatalf("err ＝ %v 狀態 %+v", err, s.LangStatus())
++		}
++	})
++	t.Run("通過驗證", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		s, err := Open(root, Options{LangDir: files, LangDigest: testDigest})
++		if err != nil {
++			t.Fatal(err)
++		}
++		want := fileSHA(t, filepath.Join(filepath.Dir(files), "manifest.json"))
++		if st := s.LangStatus(); st != (LangStatus{LangDir: filepath.Clean(files)}) || s.DOS().LangDir != filepath.Clean(files) || s.DOS().LangManifest != want {
++			t.Errorf("狀態 %+v LangDir ＝ %q LangManifest ＝ %q，預期 %s", st, s.DOS().LangDir, s.DOS().LangManifest, want)
++		}
++	})
++	t.Run("輸入摘要不符：Open 不回錯，回退原版，原因進診斷", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		var logs []string
++		s, err := Open(root, Options{LangDir: files, LangDigest: "another-digest", Log: func(f string, a ...any) { logs = append(logs, fmt.Sprintf(f, a...)) }})
++		if err != nil {
++			t.Fatalf("驗證失敗不該回錯：%v", err)
++		}
++		found := false
++		for _, l := range logs {
++			found = found || (strings.Contains(l, "verify-failed") && strings.Contains(l, verify.CodeDigestMismatch))
++		}
++		if st := s.LangStatus(); st != (LangStatus{Reason: LangReasonVerifyFailed}) || !found {
++			t.Errorf("狀態 %+v 記錄 %v", st, logs)
++		}
++		if got := s.langSection(); !strings.Contains(got, "LangDir：（空，LangStatus 原因鍵 verify-failed）\n") {
++			t.Errorf("診斷的語言層區段第一項應記原因鍵：%q", got)
++		}
++	})
++	t.Run("明示略過摘要：摘要不符仍啟用，檔案竄改仍被拒", func(t *testing.T) {
++		files := makePack(t, "", "SP.MES")
++		s, err := Open(root, Options{LangDir: files, LangDigest: "ignored-and-wrong", SkipLangDigest: true})
++		if err != nil || s.LangStatus() != (LangStatus{LangDir: filepath.Clean(files)}) {
++			t.Fatalf("err ＝ %v 狀態 %+v", err, s.LangStatus())
++		}
++		flipByte(t, filepath.Join(files, "SP.MES"))
++		s, err = Open(root, Options{LangDir: files, SkipLangDigest: true})
++		if err != nil || s.LangStatus() != (LangStatus{Reason: LangReasonVerifyFailed}) {
++			t.Fatalf("err ＝ %v 狀態 %+v", err, s.LangStatus())
++		}
++	})
++}
++
++// 診斷的「語言層」區段（docs/spec/005 第 5 節）：沒有語言包時三項皆空；驗證失敗回退原版時第一項另記原因鍵，
++// 其餘兩項仍空；有語言包時列出三項與各資料檔的命中層。
+ func TestLangSection(t *testing.T) {
+ 	s, _ := bindSession()
+-	if got, want := s.langSection(), "\n== 語言層 ==\nLangDir：\nmanifest SHA-256：\n開檔命中層：\n"; got != want {
+-		t.Errorf("沒有語言包：\n%q\n預期 %q", got, want)
++	const none = "\n== 語言層 ==\nLangDir：\nmanifest SHA-256：\n開檔命中層：\n"
++	if got := s.langSection(); got != none {
++		t.Errorf("沒有語言包：\n%q\n預期 %q", got, none)
+ 	}
+ 	// 沒有語言包時，即使開過檔也不列命中層（三項皆空）。
+ 	s.d.OpenedLayers = map[string]dos.OpenedLayer{"CFONT.15": {First: "root", Last: "root"}}
+-	if got := s.langSection(); strings.Contains(got, "CFONT.15") {
++	if got := s.langSection(); got != none {
+ 		t.Errorf("沒有語言包時不該列命中層：%q", got)
+ 	}
++	// 驗證失敗回退原版：第一項帶原因鍵，其餘兩項為空。
++	s.langReason = LangReasonVerifyFailed
++	want := "\n== 語言層 ==\nLangDir：（空，LangStatus 原因鍵 verify-failed）\nmanifest SHA-256：\n開檔命中層：\n"
++	if got := s.langSection(); got != want {
++		t.Errorf("驗證失敗：\n%q\n預期 %q", got, want)
++	}
++	s.langReason = ""
+ 	s.d.LangDir, s.d.LangManifest = "/p/zh/files", helloSHA
+ 	s.d.OpenedLayers = map[string]dos.OpenedLayer{
+ 		"CFONT.15":    {First: "lang", Last: "lang"},
+@@ -201,6 +599,24 @@ func TestLangSection(t *testing.T) {
+ 			t.Errorf("語言層區段缺 %q：\n%s", want, got)
+ 		}
+ 	}
++	if strings.Contains(got, "verify-failed") {
++		t.Errorf("成功的 Session 不該有原因鍵：%q", got)
++	}
++}
++
++// LangLayerText：八個檔各一行（固定順序），沒開過的寫未開啟，不列表外的檔名；診斷區段與 hrbot 共用。
++func TestLangLayerText(t *testing.T) {
++	got := LangLayerText(map[string]dos.OpenedLayer{
++		"CFONT.15": {First: "lang", Last: "lang"}, "ESPMES.MRG": {First: "root", Last: "scratch"}, "MAIN.EXE": {First: "root", Last: "root"},
++	})
++	want := "  COUNTRY.MES  未開啟\n  SP.MES  未開啟\n  SYSTEM.MES  未開啟\n  UWASA.MES  未開啟\n  POWERMES.MES  未開啟\n" +
++		"  ESPMES.MRG  首次 root  最近 scratch\n  SHOPTAB.TBL  未開啟\n  CFONT.15  首次 lang  最近 lang\n"
++	if got != want {
++		t.Errorf("\n%q\n預期 %q", got, want)
++	}
++	if LangLayerText(nil) == "" {
++		t.Error("空表也要列出八個檔")
++	}
+ }
+ 
+ // OpenedLayers 不被 TrimDiagnostics 清（Opened 會被清）：ESPMES.MRG 每兩遊戲小時開上百次，環或清除會洗掉只開一次的 CFONT.15。
+@@ -218,30 +634,38 @@ func TestTrimKeepsOpenedLayers(t *testing.T) {
+ 	}
+ }
+ 
+-func TestOpenLangDirMissingManifestFails(t *testing.T) {
++// 缺 manifest：L0 是回錯拒絕啟動，L1 改成回退原版、Reason ＝ verify-failed（規格第 3.2 節，Open 不回錯）。
++func TestOpenLangDirMissingManifestFallsBack(t *testing.T) {
+ 	root := origRoot(t)
+ 	files := makePack(t, "", "SP.MES")
+ 	if err := os.Remove(filepath.Join(filepath.Dir(files), "manifest.json")); err != nil {
+ 		t.Fatal(err)
+ 	}
+-	if _, err := Open(root, Options{LangDir: files}); err == nil || !strings.Contains(err.Error(), "manifest.json") {
+-		t.Fatalf("缺 manifest 應拒絕啟動：%v", err)
++	s, err := Open(root, Options{LangDir: files, SkipLangDigest: true})
++	if err != nil {
++		t.Fatalf("缺 manifest 不該回錯：%v", err)
++	}
++	if s.LangStatus() != (LangStatus{Reason: LangReasonVerifyFailed}) || s.DOS().LangDir != "" || s.DOS().LangManifest != "" {
++		t.Errorf("狀態 %+v LangDir ＝ %q", s.LangStatus(), s.DOS().LangDir)
+ 	}
+ }
+ 
+ func TestOpenNonexistentLangDirClearsToEmpty(t *testing.T) {
+ 	root := origRoot(t)
+ 	var logs []string
+-	s, err := Open(root, Options{LangDir: filepath.Join(t.TempDir(), "nope", "files"), Log: func(f string, a ...any) { logs = append(logs, f) }})
++	s, err := Open(root, Options{LangDir: filepath.Join(t.TempDir(), "nope", "files"), LangDigest: testDigest, Log: func(f string, a ...any) { logs = append(logs, fmt.Sprintf(f, a...)) }})
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+ 	if s.DOS().LangDir != "" || s.DOS().LangManifest != "" {
+ 		t.Errorf("生效值應清為空：LangDir ＝ %q LangManifest ＝ %q", s.DOS().LangDir, s.DOS().LangManifest)
+ 	}
++	if st := s.LangStatus(); st != (LangStatus{Reason: LangReasonVerifyFailed}) {
++		t.Errorf("LangStatus ＝ %+v", st)
++	}
+ 	found := false
+ 	for _, l := range logs {
+-		found = found || strings.Contains(l, "語言層目錄")
++		found = found || (strings.Contains(l, "語言包驗證失敗") && strings.Contains(l, "不存在或不是目錄"))
+ 	}
+ 	if !found {
+ 		t.Errorf("應記一行：%v", logs)
+@@ -271,10 +695,10 @@ func openWithClick(t *testing.T, root string, opt Options) *Session {
+ func TestColdStartOpensDataFilesFromLangLayer(t *testing.T) {
+ 	root := origRoot(t)
+ 	files := makePack(t, root, langDataFiles...)
+-	s := openWithClick(t, root, Options{LangDir: files, NoPacing: true})
++	s := openWithClick(t, root, Options{LangDir: files, LangDigest: testDigest, NoPacing: true})
+ 	d := s.DOS()
+-	if d.LangDir != filepath.Clean(files) || d.LangManifest != helloSHA {
+-		t.Fatalf("LangDir ＝ %q LangManifest ＝ %q", d.LangDir, d.LangManifest)
++	if want := fileSHA(t, filepath.Join(filepath.Dir(files), "manifest.json")); d.LangDir != filepath.Clean(files) || d.LangManifest != want {
++		t.Fatalf("LangDir ＝ %q LangManifest ＝ %q，預期 %q 與 %s", d.LangDir, d.LangManifest, filepath.Clean(files), want)
+ 	}
+ 	opened := 0
+ 	for _, n := range langDataFiles {
+@@ -306,7 +730,7 @@ func TestColdStartOpensDataFilesFromLangLayer(t *testing.T) {
+ 			rest = append(rest, n)
+ 		}
+ 	}
+-	s2 := openWithClick(t, root, Options{LangDir: makePack(t, root, rest...), NoPacing: true})
++	s2 := openWithClick(t, root, Options{LangDir: makePack(t, root, rest...), LangDigest: testDigest, NoPacing: true})
+ 	if e := s2.DOS().OpenedLayers["ESPMES.MRG"]; e.First != "root" || e.Last != "root" {
+ 		t.Errorf("語言包沒有 ESPMES.MRG，應落回原版：%+v", e)
+ 	}
+@@ -319,11 +743,12 @@ func TestColdStartOpensDataFilesFromLangLayer(t *testing.T) {
+ func TestDiagLangSectionWithPack(t *testing.T) {
+ 	root := origRoot(t)
+ 	files := makePack(t, root, "CFONT.15")
++	manifestSHA := fileSHA(t, filepath.Join(filepath.Dir(files), "manifest.json"))
+ 	check := func(t *testing.T, text string) {
+ 		t.Helper()
+ 		hasInfoSections(t, text)
+ 		for _, want := range []string{
+-			"LangDir：" + filepath.Clean(files) + "\n", "manifest SHA-256：" + helloSHA + "\n",
++			"LangDir：" + filepath.Clean(files) + "\n", "manifest SHA-256：" + manifestSHA + "\n",
+ 			"  CFONT.15  首次 lang  最近 lang\n", "  ESPMES.MRG  未開啟\n",
+ 		} {
+ 			if !strings.Contains(text, want) {
+@@ -332,7 +757,7 @@ func TestDiagLangSectionWithPack(t *testing.T) {
+ 		}
+ 	}
+ 	t.Run("T1", func(t *testing.T) {
+-		s := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
++		s := openDiag(t, Options{Interval: NativeInterval, LangDir: files, LangDigest: testDigest})
+ 		s.RunSteps(5_000_000)
+ 		dir := filepath.Join(t.TempDir(), "crash")
+ 		if err := s.CrashDump(dir, "測試"); err != nil {
+@@ -345,7 +770,7 @@ func TestDiagLangSectionWithPack(t *testing.T) {
+ 		check(t, string(b))
+ 	})
+ 	t.Run("T2", func(t *testing.T) {
+-		h := newHangWith(t, Options{HangSeconds: 3, LangDir: files})
++		h := newHangWith(t, Options{HangSeconds: 3, LangDir: files, LangDigest: testDigest})
+ 		cs, ip := h.patchHere(0xEB, 0xFE)
+ 		h.run(t, 3.6)
+ 		h.checkOne(t, cs, ip)
+@@ -357,7 +782,7 @@ func TestDiagLangSectionWithPack(t *testing.T) {
+ 	})
+ 	t.Run("T3", func(t *testing.T) {
+ 		var dirs []string
+-		s := openDiag(t, Options{LangDir: files, DiagDir: filepath.Join(t.TempDir(), "crash"), OnDiag: func(dir, reason string) { dirs = append(dirs, dir) }})
++		s := openDiag(t, Options{LangDir: files, LangDigest: testDigest, DiagDir: filepath.Join(t.TempDir(), "crash"), OnDiag: func(dir, reason string) { dirs = append(dirs, dir) }})
+ 		s.RunSteps(2_000_000)
+ 		before := s.m.Steps
+ 		s.RequestDiag("按鍵")
+@@ -371,13 +796,35 @@ func TestDiagLangSectionWithPack(t *testing.T) {
+ 		}
+ 		check(t, string(b))
+ 	})
++	// 驗證失敗回退原版的 Session：三個 trigger 的 info.txt 第一項都帶原因鍵（T1 為代表，T2、T3 經同一個 diagSections）。
++	t.Run("驗證失敗：info.txt 記原因鍵", func(t *testing.T) {
++		bad := makePack(t, root, "CFONT.15")
++		flipByte(t, filepath.Join(bad, "CFONT.15"))
++		s := openDiag(t, Options{Interval: NativeInterval, LangDir: bad, LangDigest: testDigest})
++		if s.LangStatus() != (LangStatus{Reason: LangReasonVerifyFailed}) {
++			t.Fatalf("前置：驗證應失敗：%+v", s.LangStatus())
++		}
++		s.RunSteps(2_000_000)
++		dir := filepath.Join(t.TempDir(), "crash")
++		if err := s.CrashDump(dir, "驗證失敗"); err != nil {
++			t.Fatal(err)
++		}
++		b, err := os.ReadFile(filepath.Join(dir, "info.txt"))
++		if err != nil {
++			t.Fatal(err)
++		}
++		hasInfoSections(t, string(b))
++		if !strings.Contains(string(b), "== 語言層 ==\nLangDir：（空，LangStatus 原因鍵 verify-failed）\nmanifest SHA-256：\n開檔命中層：\n") {
++			t.Errorf("info.txt 的語言層區段應在第一項記原因鍵：\n%s", b)
++		}
++	})
+ }
+ 
+ // 語言包 Session 存下的狀態檔（診斷現場的 state.state）只能在同一語言層載入：不同的 Session 在任何狀態變更之前被拒。
+ func TestSessionStateFileBindsToLangLayer(t *testing.T) {
+ 	root := origRoot(t)
+ 	files := makePack(t, root, "CFONT.15")
+-	s := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
++	s := openDiag(t, Options{Interval: NativeInterval, LangDir: files, LangDigest: testDigest})
+ 	s.RunSteps(3_000_000)
+ 	dir := filepath.Join(t.TempDir(), "crash")
+ 	if err := s.CrashDump(dir, "狀態檔綁定"); err != nil {
+@@ -394,18 +841,19 @@ func TestSessionStateFileBindsToLangLayer(t *testing.T) {
+ 	if plain.m.Steps != before {
+ 		t.Error("拒絕之後機器被改動")
+ 	}
+-	same := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
++	same := openDiag(t, Options{Interval: NativeInterval, LangDir: files, LangDigest: testDigest})
+ 	if err := state.Load(path, same.m, same.d); err != nil {
+ 		t.Fatalf("同一語言層的 Session 應載得進：%v", err)
+ 	}
+ 	if same.m.Steps != s.m.Steps {
+ 		t.Errorf("載入後步數 %d，預期 %d", same.m.Steps, s.m.Steps)
+ 	}
+-	// 另一份 manifest（同一個 files 目錄，雜湊不同）也拒絕。
+-	if err := os.WriteFile(filepath.Join(filepath.Dir(files), "manifest.json"), []byte("changed"), 0o644); err != nil {
+-		t.Fatal(err)
++	// 另一份 manifest（同一個 files 目錄，仍是通過驗證的 manifest，只有 code 欄位不同所以雜湊不同）也拒絕。
++	rewriteManifest(t, filepath.Dir(files), func(m *verify.Manifest) { m.Code = "other" })
++	other := openDiag(t, Options{Interval: NativeInterval, LangDir: files, LangDigest: testDigest})
++	if other.LangStatus().LangDir != filepath.Clean(files) {
++		t.Fatalf("前置：改過 code 的 manifest 仍應通過驗證：%+v", other.LangStatus())
+ 	}
+-	other := openDiag(t, Options{Interval: NativeInterval, LangDir: files})
+ 	if err := state.Load(path, other.m, other.d); err == nil {
+ 		t.Error("manifest 雜湊不同的 Session 應拒絕載入")
+ 	}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 9d0bcec..b1f0ff0 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -44,9 +44,16 @@ type Options struct {
+ 	SaveDir string
+ 	// LangDir 是語言層目錄（語言包的 files/，docs/spec/008 第 3.1 節）；空字串 ＝ 沒有語言層，行為與沒有這個欄位時相同。
+ 	// 解析順序是暫存層、語言層、原版目錄，語言層缺檔回退原版，以寫入模式開語言層的檔回存取被拒。
+-	// Open 時綁定一次，執行中不變。L0 的暫時做法：LangDir 的上一層必須有 manifest.json（只讀位元組算雜湊，
+-	// 不驗證內容），目錄不存在時當作空（見 bindLang）。
++	// Open 時綁定一次，執行中不變。LangDir 必須是語言包根底下的 `files/`（包根含 manifest.json），
++	// Open 以 apps/hr/l10n/verify 驗證 manifest 與檔案（docs/spec/008 第 3.2 節）：通過才綁定，
++	// 目錄不存在或驗證失敗時 Open 不回錯，以空的語言層（原版）開啟，原因由 LangStatus 回報（見 bindLang）。
+ 	LangDir string
++	// LangDigest 是預期的輸入摘要（前端以 l10n.ExpectedDigest 算好），必須等於 manifest 記錄的輸入摘要。
++	// LangDir 非空而 LangDigest 為空，且 SkipLangDigest 不為真時，Open 回錯（程式錯誤，不映射成驗證失敗）。
++	LangDigest string
++	// SkipLangDigest 為真時略過輸入摘要這一項，LangDigest 被忽略，其餘驗證照常。只供經 Open 的無頭工具
++	// （hrbot、測試入口）明示使用；前端不得設。
++	SkipLangDigest bool
+ 	// Interval 是分頻 65536 時每個計時器中斷間隔幾道指令。0 ＝ DefaultInterval，
+ 	// NativeInterval ＝ 維持 dosgolem 預設。
+ 	Interval uint64
+@@ -177,6 +184,8 @@ type Session struct {
+ 	opt  Options
+ 	logf func(string, ...any)
+ 
++	langReason string // LangStatus().Reason：Open 之後不變
++
+ 	imageSHA string
+ 	patchRes patch.Result
+ 
+@@ -226,6 +235,9 @@ type Session struct {
+ 
+ // Open 驗證原版、載入 MAIN.EXE、套用補丁並安裝 DOS 服務。
+ func Open(root string, opt Options) (*Session, error) {
++	if err := checkLangDigest(opt.LangDir, opt.LangDigest, opt.SkipLangDigest); err != nil { // 先於任何存在性檢查
++		return nil, err
++	}
+ 	s := &Session{opt: opt, logf: opt.Log, minSP: 0xFFFF}
+ 	if s.logf == nil {
+ 		s.logf = func(string, ...any) {}
+@@ -258,7 +270,7 @@ func Open(root string, opt Options) (*Session, error) {
+ 		s.logf("%s", res)
+ 	}
+ 	s.d = dos.New(s.m, root)
+-	if err := s.bindLang(opt.LangDir, root, opt.SaveDir); err != nil { // 語言層在 Install 之前綁定，之後不變
++	if err := s.bindLang(opt.LangDir, root, opt.SaveDir, opt.LangDigest, opt.SkipLangDigest); err != nil { // 語言層在 Install 之前綁定，之後不變
+ 		return nil, err
+ 	}
+ 	s.d.Install()
+-- 
+2.43.0
+
