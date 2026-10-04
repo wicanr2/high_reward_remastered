@@ -297,3 +297,11 @@
 - 實際解開修訂版 AppImage，`usr/share/doc/LICENSE` 與 `usr/bin/LICENSE` 均與專案 `LICENSE` 位元組相同，595 張 HD 圖齊全，原版遊戲檔案未入包。Windows 與 macOS ZIP 的壓縮完整性、包內授權、595 圖與原版排除通過；交付根目錄與 `patch/` 各有授權檔。三包建置階段的外洩掃描都是 0 命中，根目錄 `SHA256SUMS.json` 的三包大小與 SHA-256 重算通過。
 - Linux 修訂版 AppImage 在 Xvfb 冷啟動並點新遊戲，Windows 修訂版 ZIP 在 Wine 顯示標題。兩者 identity 語言包冷建置 manifest SHA-256 一致，畫面與紀錄在 `dist-all/v.0.1.1-20261004/smoke/`。另從修訂版 AppImage 重拍 F1 面板，README 的三張新版畫面均取自此版。macOS 仍只做 universal Mach-O、bundle 與 ZIP 靜態驗收，沒有實機試玩。
 - [私人預發行版 `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 附三平台包、`SHA256SUMS.json` 與 `LICENSE`。GitHub 回報的三包 SHA-256 與本機清冊相同。舊版保留，新版 Release 說明指向修訂版。原版遊戲與推廣影片仍只留本機；推送前洩漏掃描仍是基準的同 12 筆，沒有新增。
+
+### M8 單張手繪試作與 M10 四語草稿（2026-10-04）
+
+- 在 private repo 登記 [Issue #1：M10 五語遊戲內文字](https://github.com/wicanr2/high_reward_remastered/issues/1) 與 [Issue #2：M8 AI 重繪](https://github.com/wicanr2/high_reward_remastered/issues/2)。Issue 只記任務、規格與權利邊界，沒有原版文字或圖片。
+- 使用者針對 `workplace/ai-hd/in/FACE000.png` 單張外送問題回覆「你直接產生 不用使用 codex」。因此直接用內建圖像生成功能產生一張候選，未處理其餘八張。來源 768×960，SHA-256 `437c5484d1318851178a1311a9e700e412b926e59e2b011b9d6f645863ae77f3`；候選 1122×1402，SHA-256 `c5c2f54ab88a19f6500a8ce4bb929d002cb78c2187a7b329b53b774cad2f8f8e`。兩圖與對照留在 `workplace/ai-hd/FACE000-candidate-v1.png`、`FACE000-compare-v1.png`，未放入 `hd-ai/`、未提交或發行。對照圖右側只為並排審看而縮成來源尺寸。生成圖更動了部分衣褶與髮絲，是否採用由使用者看圖決定；尺寸、遮罩與遊戲內合成尚未驗。
+- M10 用現成 `workplace/l10n-src/pilot-17.tsv` 製作 `l10n/zh-CN/`、`l10n/ja/`、`l10n/ko/`、`l10n/en/` 各 16 項對白與 1 項據點描述。共 68 列都標 `candidate`，來源 ID 與雜湊逐列核對，沒有改動 17 項已接受的繁中譯文。草稿含暫定人名與地名，未經母語者審閱；英文與韓文空白、所有新語言的字模、字碼、畫面與玩家路徑未驗，不製成正式語言包。
+- 以已固定 SHA-256 `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a` 的 Noto Sans CJK TTC 與 `yuan-analysis:1` 映像，從四個字面製作 13、14、15 像素三組 15×15 字模小樣。`workplace/m10-font-prototype.py`、`m10-font-prototype.png` 與 `m10-font-prototype.json` 記錄方法和結果；96 個示例均有筆畫，15 像素組有 5 個來源遮罩高 16 像素，超過格子。重跑後樣張 SHA-256 維持 `e2880879e8ac350c0ec9f215942c6780d68b1f13eb3f3b75124ecf7ee0b811fb`。這只是 L2 光柵化參數探索；規格 008 第 3.4 節的 U5、保留碼量測、動態閘門與四組成對探針尚未完成，L2、L3 仍非 READY。
+- 本輪曾在主機用一次 `rg` 讀取規格，與 Docker-only 規則不符；後續讀取與分析改到唯讀掛載的 Docker。新增檔案的 UID/GID 為 1000:1000，`hr-*` 容器無殘留。
