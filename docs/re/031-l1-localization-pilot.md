@@ -70,7 +70,7 @@
 
 最後一版候選稿在 `-with-candidates` 下建包，摘要 `68cca8b476e2c5806df2737a3684fe54085258198a47a1717f265ae4644fdbb0`，manifest SHA-256 `a89ef8f0bba11d0fbfaf9e68f46d4c141abbbda5b8beb24c26a52716762d0f6f`。使用者接受後，兩份被忽略的譯文表 SHA-256 分別是 `ESPMES.MRG.tsv` 的 `ccb92a1babfade8dde722ba7ae7fd60bae53887c9b58631318f9e7544deacfb3`、`SP.MES.tsv` 的 `bc3fb2c7b23b2994c8cfc929f8167cd808f8798f314154725dff558bb9e9ff46`。不帶 `-with-candidates` 的正式政策建包採用 17 列，摘要 `92e3bad71b7e8337437a0576908dfa748b48a7542db50bea5150da779ca6bc52`，manifest SHA-256 `e97a9a166bde8b32ea0671abd8a1d9c981bdd3879b6f87688e1114b4d2f7c5ae`；`hrl10n verify` 通過 8 檔。正式政策包與最後候選包的 `files/` 逐檔相同，只有建置政策與 manifest／摘要不同。
 
-在 `eob-remake-go:1.26.7-ebiten2.9.9` 容器的 Xvfb 內重建 `apps/hr/play`，執行 `hr-play -orig /orig -saves /out/re-l10n-pilot/player-saves -scale 1 -ingame-lang zh-TW -l10n /l10n`。前端從唯讀原版與被忽略的譯文表冷建置，日誌有 `pack-ready ... reused=false mode=table code=zh-TW adopted=17` 與 `pack-active`，manifest SHA-256 與命令列建包相同；八個 `files/` 逐檔相同。前端二進位 SHA-256 `d4fe0612b834bc4340e7cfc3d43d4a8eb063292e00ab5f6a79710e5058161088`，日誌與 F1 畫面在 `workplace/out/re-l10n-pilot/player-cold.log`、`player-cold-f1.png`。Linux Xvfb 的此路徑通過；Windows Wine 的 identity 冷建置見第 7 節。AppImage 實包及 macOS 實機仍待驗，不能由本收據代替。
+在 `eob-remake-go:1.26.7-ebiten2.9.9` 容器的 Xvfb 內重建 `apps/hr/play`，執行 `hr-play -orig /orig -saves /out/re-l10n-pilot/player-saves -scale 1 -ingame-lang zh-TW -l10n /l10n`。前端從唯讀原版與被忽略的譯文表冷建置，日誌有 `pack-ready ... reused=false mode=table code=zh-TW adopted=17` 與 `pack-active`，manifest SHA-256 與命令列建包相同；八個 `files/` 逐檔相同。前端二進位 SHA-256 `d4fe0612b834bc4340e7cfc3d43d4a8eb063292e00ab5f6a79710e5058161088`，日誌與 F1 畫面在 `workplace/out/re-l10n-pilot/player-cold.log`、`player-cold-f1.png`。Linux Xvfb 的此路徑通過；Windows Wine 的 identity 冷建置見第 7 節，AppImage 測試包見第 8 節。正式平台包及 macOS 實機仍待驗，不能由本收據代替。
 
 `1676` 的冷啟動字面前綴 13 個新增變體見 `docs/re/025` 第 8 節，含真實 `%s` 展開的六組變體見第 9 節。它們證明指定窗口的預測與實測一致，不代表全部文字窗口都已驗。譯文表與語言包仍只放使用者機器，不進版控或發行包。
 
@@ -80,4 +80,12 @@
 
 Wine manifest 在 `workplace/out/re-l10n-wine-fixture4-identity-manifest.json`，與 Linux 前端以相同 `-ingame-lang identity` 冷建置的 `workplace/out/re-l10n-pilot/linux-identity-manifest.json`，SHA-256 都是 `ac84830e64ffc962f4b33f3a7b7d7a21201757f02d39c61352eebd0c0f96e5ac`。截圖 `workplace/out/re-l10n-wine-fixture4-title.png` SHA-256 `8092ce3e49b890b07b4c0b3d3c9ca6789f836fceb030006a5c5d9065cd3968c5`；視窗是 640×400、16 色，人工檢視確認顯示遊戲主選單。日誌在同前綴的 `-identity.log`。這些檔案擁有權是執行者 UID/GID `1000:1000`，不進版控。
 
-驗證腳本原先只等候固定時間並截整個 Xvfb 根視窗，可能收進空白或裁切畫面。本輪改為等待語言包啟用、辨識 `hr-play.exe` 視窗、確認 640×400 畫面有多於一色，並保存 manifest；解包也改在有界容器內執行。正式 Windows ZIP、AppImage 實包與 macOS 實機仍未驗。
+驗證腳本原先只等候固定時間並截整個 Xvfb 根視窗，可能收進空白或裁切畫面。本輪改為等待語言包啟用、辨識 `hr-play.exe` 視窗、確認 640×400 畫面有多於一色，並保存 manifest；解包也改在有界容器內執行。正式 Windows ZIP 與 macOS 實機仍未驗。AppImage 測試包見第 8 節。
+
+## 8 Linux AppImage 測試包
+
+以目前 `apps/hr/play` 建置 Linux 執行檔，SHA-256 `11437ca89d4854e06bf9f5daf34ccb39085aa9f0da73f67607610a697656d5e8`。在 `psychicwar-appimage:latest` 容器內製成只供測試的 AppImage，SHA-256 `5c8a92f87b6d013250f72fdc6e5c0556a2f3f9f9865d7054bff31f4f6e`。測試包位於 `workplace/out/re-l10n-pilot/HR-m10-test.AppImage`，不在正式交付目錄，也未經正式封包的授權檔、manifest 與外洩驗收。
+
+修訂後的 `tools/pkg/verify_appimage.sh` 在 `eob-remake-go:1.26.7-ebiten2.9.9` 容器的 Xvfb 內，以唯讀原版及 `-ingame-lang identity` 從測試包冷啟動。日誌記錄 `reused=false mode=identity code=identity adopted=0` 與 `pack-active`。AppImage manifest 在 `workplace/out/re-l10n-appimage-final-identity-manifest.json`，SHA-256 `ac84830e64ffc962f4b33f3a7b7d7a21201757f02d39c61352eebd0c0f96e5ac`，與 Linux 原生前端及 Wine 的 identity manifest 相同。
+
+主選單截圖 `workplace/out/re-l10n-appimage-final-title.png` SHA-256 `c685fa8f613305de51f9dd1597735970bd0ce63978ababf3053a6a1d8bdc8c1e`；用正常滑鼠點「新遊戲」後的截圖 `workplace/out/re-l10n-appimage-final-newgame.png` SHA-256 `3c494d786e218d06d35c41c5db5a65d8b99a6bfe16e58db9b5cde5896176488b`。兩張均為 1280×800、16 色，已人工檢視畫面內容。腳本現在等待語言包啟用、確認非空白畫面並保存 manifest；原有的新遊戲點擊仍通過。三個輸出檔擁有權是執行者 UID/GID `1000:1000`，只留在 `workplace/`。正式 AppImage 發行包與 macOS 實機仍未驗。
