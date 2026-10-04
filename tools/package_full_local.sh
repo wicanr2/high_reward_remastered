@@ -4,6 +4,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${HR_VERSION:?請設定 HR_VERSION=v.<主>.<次>.<修訂>-YYYYMMDD}"
+TARGET="${1:-all}"
+case "$TARGET" in all|appimage|windows|macos) ;; *) echo "目標需為 all、appimage、windows 或 macos" >&2; exit 2;; esac
 IMAGE="eob-remake-release:1.26.7-ebiten2.9.9-audio"
 test -d "$ROOT/workplace" && test -d "$ROOT/workplace/orig" && test -d "$ROOT/dist-all"
 test -f "$ROOT/tools/package.sh" && test -f "$ROOT/workplace/orig/MAIN.EXE"
@@ -20,4 +22,4 @@ exec timeout "${HR_FULL_TIMEOUT:-3h}" docker run --rm --name hr-full-local-build
   -v "$ROOT/workplace:$ROOT/workplace" \
   -v "$ROOT/workplace/orig:$ROOT/workplace/orig:ro" \
   -v "$ROOT/dist-all:$ROOT/dist-all" \
-  -w "$ROOT" --entrypoint bash "$IMAGE" tools/package.sh all
+  -w "$ROOT" --entrypoint bash "$IMAGE" tools/package.sh "$TARGET"

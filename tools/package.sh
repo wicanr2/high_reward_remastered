@@ -123,7 +123,10 @@ stage_hd() { # $1 包內放 hd 的位置（HR_WITH_HD=1 才做）
 
 leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
   if [ "$FULL_LOCAL" = 1 ]; then
-    python3 tools/pkg/full_local.py "$INV" "$1/original"
+    local original="$1/original"
+    if [ -d "$1/usr/bin/original" ]; then original="$1/usr/bin/original"; fi
+    if [ -d "$1/Contents/Resources/original" ]; then original="$1/Contents/Resources/original"; fi
+    python3 tools/pkg/full_local.py "$INV" "$original"
     test ! -e "$1/l10n" && test ! -e "$1/l10n-packs" || { echo "完整版不得夾帶譯文表或語言包" >&2; exit 1; }
     return
   fi
@@ -139,9 +142,16 @@ leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
   echo "[package] 外洩掃描通過：$1"
 }
 
+prepare_gomodcache() {
+  [ -d workplace/gomodcache/github.com/hajimehoshi ] && return 0
+  mkdir -p workplace/gomodcache
+  drun "$GO_IMAGE" -v "$ROOT/workplace/gomodcache:/dst" -- sh -c 'cp -R /go/pkg/mod/. /dst/'
+}
+
 go_build() { # $1 GOOS $2 CGO $3 輸出（/out 內）$4 額外 ldflags
-  drun "$GO_IMAGE" -v "$ROOT/$DG:/src:ro" -v "$ROOT/workplace/out:/out" -v "$ROOT/workplace/gocache:/gocache" \
-    -e HOME=/tmp -e GOCACHE=/gocache -e GOFLAGS=-mod=mod -e GOPROXY=off -e GOSUMDB=off \
+  prepare_gomodcache
+  drun "$GO_IMAGE" -v "$ROOT/$DG:/src:ro" -v "$ROOT/workplace/out:/out" -v "$ROOT/workplace/gocache:/gocache" -v "$ROOT/workplace/gomodcache:/gomodcache" \
+    -e HOME=/tmp -e GOCACHE=/gocache -e GOMODCACHE=/gomodcache -e GOFLAGS=-mod=readonly -e GOPROXY=off -e GOSUMDB=off \
     -e CGO_ENABLED="$2" -e GOOS="$1" -e GOARCH=amd64 \
     -e "HR_LDFLAGS=-s -w -X main.version=$VER $4" -e "HR_OUT=$3" -w /src/apps/hr/play -- \
     sh -c 'go build -trimpath -ldflags "$HR_LDFLAGS" -o "$HR_OUT" .'
@@ -199,7 +209,7 @@ do_windows() {
   leak_scan "$dir"
   keep_latest "$DIST/HighReward-*-win64.zip" "$out"
   rm -f "$out"
-  tools/pkg/py.sh zipdir.py "/w/${dir#workplace/}" "/w/pkg-stage/out.zip" "HighReward-$VER-win64" >/dev/null
+  tools/pkg/py.sh zipdir.py "/w/${dir#workplace/}" "/w/${STAGE#workplace/}/out.zip" "HighReward-$VER-win64" >/dev/null
   mv "$STAGE/out.zip" "$out"
   rm -rf "$STAGE/win"
   echo "$out"
@@ -209,12 +219,8 @@ do_macos() {
   local app="$STAGE/mac/HighReward.app" out="$DIST/HighReward-$VER-macos.zip" min="${HR_MACOS_MIN:-11.0}"
   docker image inspect "$MAC_IMAGE" >/dev/null 2>&1 || { echo "缺映像 $MAC_IMAGE" >&2; exit 3; }
   rm -rf "$STAGE/mac"; mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources" "$STAGE/mac-icons"
-  # 模組快取：osxcross 映像沒有 ebiten，從 Go 映像複製一份（唯讀來源，寫到 workplace/gomodcache）。
-  if [ ! -d workplace/gomodcache/github.com/hajimehoshi ]; then
-    echo "[package] 準備 workplace/gomodcache（取自 $GO_IMAGE 的 /go/pkg/mod）"
-    mkdir -p workplace/gomodcache
-    drun "$GO_IMAGE" -v "$ROOT/workplace/gomodcache:/dst" -- sh -c 'cp -a /go/pkg/mod/. /dst/'
-  fi
+  # osxcross 映像沒有 ebiten：沿用 go_build 準備的離線模組快取。
+  prepare_gomodcache
   stage_common "$app/Contents/Resources"
   stage_hd "$app/Contents/Resources"
   icons "$STAGE/mac-icons"
@@ -240,7 +246,13 @@ do_macos() {
       x86_64-apple-$OSXCROSS_TARGET-lipo -create /tmp/hr-play-arm64 /tmp/hr-play-amd64 -output "$HR_OUT"
       x86_64-apple-$OSXCROSS_TARGET-lipo -info "$HR_OUT"'
   cp workplace/out/hr-play-mac "$app/Contents/MacOS/hr-play"; chmod +x "$app/Contents/MacOS/hr-play"
-  local short; short="$(printf '%s' "$VER" | sed -n 's/^v\{0,1\}\([0-9][0-9.]*\).*/\1/p')"; [ -n "$short" ] || short="0.0.0"
+  local short
+  if [[ "$VER" =~ ^v\.([0-9]+\.[0-9]+\.[0-9]+)- ]]; then
+    short="${BASH_REMATCH[1]}"
+  else
+    short="$(printf '%s' "$VER" | sed -n 's/^v\{0,1\}\([0-9][0-9.]*\).*/\1/p')"
+    [ -n "$short" ] || short="0.0.0"
+  fi
   cat > "$app/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -267,7 +279,7 @@ PLIST
   keep_latest "$DIST/HighReward-*-macos.zip" "$out"
   rm -f "$out"
   # zip 的頂層是 HighReward.app：從 mac 目錄壓，不加額外資料夾。
-  tools/pkg/py.sh zipdir.py "/w/pkg-stage/mac" "/w/pkg-stage/out.zip" "" >/dev/null
+  tools/pkg/py.sh zipdir.py "/w/${STAGE#workplace/}/mac" "/w/${STAGE#workplace/}/out.zip" "" >/dev/null
   mv "$STAGE/out.zip" "$out"
   rm -rf "$STAGE/mac" "$STAGE/mac-icons"
   echo "$out"

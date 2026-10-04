@@ -131,6 +131,8 @@ macOS 版沒有簽章，首次開啟請右鍵選「打開」。
 | `tools/package.sh all` | 建三平台發行包，並以原版雜湊與檔名掃描外洩 |
 | `HR_WITH_HD=1 tools/package.sh all` | 同上，包內含 `hd/`，產物在 `dist-all/with-hd/` |
 | `HR_VERSION=v.0.1.0-20261004 bash tools/package_full_local.sh` | 在 Docker 內以 `tools/pkg/full_local.py` 對照原版清冊，建置只留本機的三平台完整版；包內說明見 `packaging/README.full-local.txt`，不可提交或上傳 |
+| `HR_VERSION=v.0.1.0-20261004 bash tools/promo.sh` | 在 Docker 內以本版 AppImage 畫面及既有 HD 戰鬥對照製作本機推廣影片；影片含原版美術與音樂衍生內容，不可公開上傳 |
+| `HR_VERSION=v.0.1.0-20261004 bash tools/finalize_full_local.sh` | 三平台包與影片驗收後，在 Docker 內產生 `dist-all/<版本>/SHA256SUMS.json` |
 | `tools/bot.sh run <名稱>` | 執行遊玩機器人；`-hang-routine SEG:OFF` 模擬某個 routine 進入後不返回 |
 | `tools/play.sh test-diag` | 診斷功能的測試 |
 | `tools/play.sh gui-diag` | Xvfb 內啟動視窗、按 Ctrl+D，確認診斷產生 |
