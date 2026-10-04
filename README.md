@@ -55,7 +55,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 當機與 hang 的診斷紀錄 | 遊戲停機、疑似 hang（遊戲碼的服務中斷靜默 30 遊戲秒）或按 Ctrl+D 時，存一份診斷：暫存器、呼叫鏈、最近的呼叫與服務中斷、最後呼叫的 routine、畫面與狀態檔。模擬 hang 的收據見報告 | `docs/spec/005`、`docs/re/017` |
 | 自動遊玩測試 | 機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各兩個種子，每組 2 遊戲小時：沒有當機與凍結，原版堆疊最深用到約一半。沒有走到 `docs/re/011` 的溢位路徑，不等於人類遊玩，也不能排除該溢位 | `docs/re/016` |
 | HD 圖層 | 595 張 2 倍圖，使用者看過六個代表畫面的合成圖後整體接受。精靈、頭像、戰鬥舞台背景、標題地圖與游標有替換，大地形底圖、文字與框線仍是原版像素 | `docs/spec/004`、`docs/re/014`、`docs/re/015` |
-| 發行包 | [私人 Release `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 提供 Linux AppImage、Windows zip、macOS universal，含 HD 圖層，不含原版遊戲檔案。本機 `v.0.1.0-20261004` 完整封包含原版，36 秒推廣影片也只供私人驗收。Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.0-20261004/smoke/RESULTS.txt` |
+| 發行包 | [私人 Release `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 提供 Linux AppImage、Windows zip、macOS universal，含 HD 圖層，不含原版遊戲檔案。本機 `v.0.1.0-20261004` 完整封包含原版，36 秒推廣影片也只供私人驗收。Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.1-20261004/smoke/RESULTS.txt` |
 
 ## 主要成果
 
@@ -107,15 +107,15 @@ HD 圖由演算法放大並去除抖色，處理方法見 `docs/re/015-hd-art-me
 
 含 HD 的 AppImage（版本 `034771b-dg49d5eed-hd`）在 Xvfb 內啟動，原版放在 `.AppImage` 旁的 `original`，點新遊戲後的視窗（1280x800，HD 自動啟用）。驗收說明見 `docs/re/013` 第 4.3 節。
 
-### v.0.1.0 新版前端
+### v.0.1.1 新版前端
 
-![v.0.1.0 的 HD 標題選單](docs/images/release-v.0.1.0-title.png)
+![v.0.1.1 的 HD 標題選單](docs/images/release-v.0.1.1-title.png)
 
-![v.0.1.0 的新遊戲對話與資金欄](docs/images/release-v.0.1.0-newgame.png)
+![v.0.1.1 的新遊戲對話與資金欄](docs/images/release-v.0.1.1-newgame.png)
 
-![v.0.1.0 的 F1 功能面板](docs/images/release-v.0.1.0-help.png)
+![v.0.1.1 的 F1 功能面板](docs/images/release-v.0.1.1-help.png)
 
-這三張畫面取自 `v.0.1.0-20261004` Linux AppImage 的 Xvfb 驗收：冷啟動標題、點選新遊戲、開啟 F1 功能面板。面板顯示前端按鍵、目前的 HD 與語言狀態，以及診斷資訊。驗收紀錄在 `dist-all/v.0.1.0-20261004/smoke/RESULTS.txt`。
+這三張畫面取自 `v.0.1.1-20261004` Linux AppImage 的 Xvfb 驗收：冷啟動標題、點選新遊戲、開啟 F1 功能面板。面板顯示前端按鍵、目前的 HD 與語言狀態，以及診斷資訊。驗收紀錄在 `dist-all/v.0.1.1-20261004/smoke/RESULTS.txt`。
 
 ### 自動遊玩
 

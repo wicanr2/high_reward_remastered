@@ -290,3 +290,10 @@
 - 使用者要求建立 Release，為 README 補遊戲故事與新版 UI 截圖。從 PC-98 版背景與玩法資料及本專案 DOS 開場畫面撰寫故事；三張截圖取自 `v.0.1.0-20261004` 本機 AppImage 的標題、新遊戲與 F1 面板驗收，原始畫面逐檔複製到 `docs/images/`，SHA-256 一致，repo 保持 private。提交 `996d1e0` 已推送；tag `v.0.1.0-20261004` 指向該提交。
 - 從乾淨的 `996d1e0` 用 `tools/package_release_patch.sh` 重建 `patch/` 三平台包。各包含 595 張 HD 圖、`LICENSE` 與說明，不含原版檔案或語言包；三次建置階段的原版檔案與文字外洩掃描各為零命中。Windows 與 macOS ZIP 完整性、595 圖與原版排除通過；Linux 最終 AppImage 在 Xvfb 冷啟動並點進新遊戲，Windows 最終 ZIP 在 Wine 顯示標題。兩者 identity 語言包冷建置 manifest SHA-256 相同（`ac84830e64ff…`）；macOS universal Mach-O 與 bundle 結構通過，未在實機啟動。
 - `tools/finalize_release_patch.sh` 產生 `patch/SHA256SUMS.json`，記錄版號、專案與 dosgolem 提交、三包大小與 SHA-256。private repo 的 [預發行版 `v.0.1.0-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.0-20261004) 已上傳三包及清冊，GitHub 回報的三包 digest 逐一與清冊相符。原版遊戲與推廣影片只留本機。推送前內容掃描仍為 `docs/re/028` 的同一批 12 筆已知命中，沒有新增；Git 沒有追蹤 `workplace/`、`l10n/`、`dist-all/` 或原版執行檔。
+
+### 同日修訂：補齊授權檔（2026-10-04）
+
+- 上節首個私人預發行版建立後，回查第 14 節發行契約，發現 AppImage 的 `LICENSE` 僅在 `usr/bin/`，缺 `usr/share/doc/` 副本，交付根目錄也缺 `LICENSE`。已發布的 `v.0.1.0-20261004` tag 與 Release 沒有移動、覆寫或刪除。依同日修訂規則，從乾淨提交 `f6af61e` 重建 `v.0.1.1-20261004`，修正 AppImage 與交付根目錄授權檔，manifest 改放版本根目錄。首版的 `patch/` 清冊仍是當時的歷史收據；本節修訂不改寫它。
+- 實際解開修訂版 AppImage，`usr/share/doc/LICENSE` 與 `usr/bin/LICENSE` 均與專案 `LICENSE` 位元組相同，595 張 HD 圖齊全，原版遊戲檔案未入包。Windows 與 macOS ZIP 的壓縮完整性、包內授權、595 圖與原版排除通過；交付根目錄與 `patch/` 各有授權檔。三包建置階段的外洩掃描都是 0 命中，根目錄 `SHA256SUMS.json` 的三包大小與 SHA-256 重算通過。
+- Linux 修訂版 AppImage 在 Xvfb 冷啟動並點新遊戲，Windows 修訂版 ZIP 在 Wine 顯示標題。兩者 identity 語言包冷建置 manifest SHA-256 一致，畫面與紀錄在 `dist-all/v.0.1.1-20261004/smoke/`。另從修訂版 AppImage 重拍 F1 面板，README 的三張新版畫面均取自此版。macOS 仍只做 universal Mach-O、bundle 與 ZIP 靜態驗收，沒有實機試玩。
+- [私人預發行版 `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 附三平台包、`SHA256SUMS.json` 與 `LICENSE`。GitHub 回報的三包 SHA-256 與本機清冊相同。舊版保留，新版 Release 說明指向修訂版。原版遊戲與推廣影片仍只留本機；推送前洩漏掃描仍是基準的同 12 筆，沒有新增。
