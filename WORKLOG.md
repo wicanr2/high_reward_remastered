@@ -271,3 +271,8 @@
 
 - 在既有 Docker 工具鏈內從目前前端建置 Linux 執行檔與只供測試的 AppImage，均放 `workplace/`。`tools/pkg/verify_appimage.sh` 加上 `-ingame-lang identity`，等待 `pack-active`、核對冷建置日誌、保存 manifest，並要求主選單截圖非空白。測試包的 identity manifest 與 Linux 原生前端、Wine 的 SHA-256 相同；正常點「新遊戲」的截圖確認已進入對白畫面。輸入與畫面雜湊見 `docs/re/031` 第 8 節。
 - 測試包沒有正式包的授權檔、封包 manifest 與發行前外洩驗收，不算正式 AppImage 發行包驗收。正式 Windows ZIP、AppImage、macOS 實機及 M10 的 L2、L3 仍待後續工作。
+
+### M10 預算基準統計（2026-10-04，續）
+
+- 用既有解析器與窗口表，依規格第 3.5 節的展開慣例在 Docker 內重算六個文字資料檔。`ESPMES` 的含 `%s` 行 67、展開後超過 30 bytes 的 36；`SYSTEM.MES` 為 121 與 49，與先前獨立審查量測相同。原文 `R_item > H` 有 22 項，id 與列數見 `docs/re/031` 第 9 節。`_vsprintf` 的實際實參長度與結尾位元組尚未量，20 bytes 仍是假設。
+- Docker-only 邊界勘誤：本輪接手時曾在主機直接用 `rg`、`sed` 讀取規格與工作樹檔案，違反主機只做 Docker、Git、狀態檢查與檔案編輯的規則。這些讀取未寫檔；發現後的搜尋與分析改為唯讀掛載到 Docker 容器執行。之後每次切換工作項目先確認讀取命令的執行位置。

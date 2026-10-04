@@ -89,3 +89,26 @@ Wine manifest 在 `workplace/out/re-l10n-wine-fixture4-identity-manifest.json`�
 修訂後的 `tools/pkg/verify_appimage.sh` 在 `eob-remake-go:1.26.7-ebiten2.9.9` 容器的 Xvfb 內，以唯讀原版及 `-ingame-lang identity` 從測試包冷啟動。日誌記錄 `reused=false mode=identity code=identity adopted=0` 與 `pack-active`。AppImage manifest 在 `workplace/out/re-l10n-appimage-final-identity-manifest.json`，SHA-256 `ac84830e64ffc962f4b33f3a7b7d7a21201757f02d39c61352eebd0c0f96e5ac`，與 Linux 原生前端及 Wine 的 identity manifest 相同。
 
 主選單截圖 `workplace/out/re-l10n-appimage-final-title.png` SHA-256 `c685fa8f613305de51f9dd1597735970bd0ce63978ababf3053a6a1d8bdc8c1e`；用正常滑鼠點「新遊戲」後的截圖 `workplace/out/re-l10n-appimage-final-newgame.png` SHA-256 `3c494d786e218d06d35c41c5db5a65d8b99a6bfe16e58db9b5cde5896176488b`。兩張均為 1280×800、16 色，已人工檢視畫面內容。腳本現在等待語言包啟用、確認非空白畫面並保存 manifest；原有的新遊戲點擊仍通過。三個輸出檔擁有權是執行者 UID/GID `1000:1000`，只留在 `workplace/`。正式 AppImage 發行包與 macOS 實機仍未驗。
+
+## 9 原文預算統計
+
+在 `eob-remake-go:1.26.7-ebiten2.9.9` 容器內，以 `apps/hr/l10n.Parse` 讀取六個文字資料檔、`ESPWindowClass` 與 `budget.WindowFor` 取得窗口。一次性統計程式依規格第 3.5 節的 `%s = 20`、`%d = 6`、`%ld = 11`，以及寬度／精度取較大值的慣例逐行展開；`R_item` 是每行 `max(1, ceil(展開位元組數 / 窗口容量))` 的總和。程式在被忽略的 `workplace/out/re-l10n-pilot/budget-stats.go`，SHA-256 `5bb504357318028bfd0194c582ab103204f5844ede92e8b62b6563c18fc6d485`；只含 id 與計數的輸出 `budget-stats.json` SHA-256 `e294d8b93433a70c2cdf7a53853baedde5e995be5f5ac747b0cd5bae4b81a2c9`。原版唯讀掛載，雜湊見第 1 節與 `docs/re/source-inventory.tsv`。`SHOPTAB.TBL` 沒有窗口，依規格不列入渲染預算。
+
+| 檔案 | 項目數 | 含 `%s` 行 | 按慣例展開後超過 30 bytes 的含 `%s` 行 | `R_item > H` 項目數 |
+|---|---:|---:|---:|---:|
+| `COUNTRY.MES` | 11 | 0 | 0 | 0 |
+| `SP.MES` | 116 | 0 | 0 | 0 |
+| `SYSTEM.MES` | 314 | 121 | 49 | 0 |
+| `UWASA.MES` | 110 | 0 | 0 | 0 |
+| `POWERMES.MES` | 192 | 0 | 0 | 0 |
+| `ESPMES.MRG` | 1,024 | 67 | 36 | 22 |
+
+`R_item > H` 的全部 22 項如下。欄位只有 id、預估渲染列數 `R_item`、窗口行數 `H`，不含原文。
+
+| `R_item/H` | id |
+|---|---|
+| 9/8 | `ESPMES#44.1`、`#44.2`、`#120.70` |
+| 6/4 | `ESPMES#120.69` |
+| 5/4 | `ESPMES#120.67`、`#121.46`、`#122.1`、`#122.13`、`#122.32`、`#122.62`、`#122.66`、`#122.86`、`#122.87`、`#122.129`、`#122.174`、`#122.357`、`#122.367`、`#122.368`、`#122.375`、`#122.376`、`#122.379`、`#122.405` |
+
+含 `%s` 行的 36／67 與 49／121 和規格第 3.5 節記錄的獨立審查量測相同。這是以 20 bytes 假設推得的預算統計，不是執行期實參長度；`_vsprintf` 實參長度與結尾位元組遙測仍待做，不據此宣稱 20 bytes 假設已獲驗證。
