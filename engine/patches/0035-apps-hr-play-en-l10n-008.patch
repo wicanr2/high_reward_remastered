@@ -1,0 +1,818 @@
+From 1c8128c318be773b14d0ac1f68b49bd0eed141be Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Mon, 5 Oct 2026 21:16:51 +0800
+Subject: [PATCH] =?UTF-8?q?=E6=8E=A5=E9=80=9A=E8=8B=B1=E6=96=87=E5=89=8D?=
+ =?UTF-8?q?=E7=AB=AF=E8=AA=9E=E8=A8=80=E5=8C=85=E8=88=87=E5=90=8C=E6=BA=90?=
+ =?UTF-8?q?=E5=AD=97=E6=A8=A1=E6=8E=A2=E6=B8=AC?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/play/game.go                |  11 +-
+ apps/hr/play/ingame.go              |  14 +-
+ apps/hr/play/ingame_en_test.go      | 297 ++++++++++++++++++++++++++++
+ apps/hr/play/ingame_en_unix_test.go |  25 +++
+ apps/hr/play/ingame_game_test.go    |  12 +-
+ apps/hr/play/ingame_start.go        |  82 ++++++--
+ apps/hr/play/ingame_start_test.go   |  24 +--
+ apps/hr/play/ingame_test.go         |  21 +-
+ apps/hr/play/main.go                |   4 +-
+ apps/hr/play/main_test.go           |  32 +--
+ 10 files changed, 461 insertions(+), 61 deletions(-)
+ create mode 100644 apps/hr/play/ingame_en_test.go
+ create mode 100644 apps/hr/play/ingame_en_unix_test.go
+
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index f29f912..b26bb96 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -68,8 +68,8 @@ type ingameRuntime struct {
+ 	E         effective
+ 	StartFail startFail
+ 	Override  bool
+-	Fixed     ingameCode            // C 的代碼：Override 為真時它就是選擇 S（F4 不改它）
+-	FindTable func(ingameCode) bool // 某代碼的譯文表是否存在（FindTableDirFor）；nil ＝ 沒有任何譯文表
++	Fixed     ingameCode // C 的代碼：Override 為真時它就是選擇 S（F4 不改它）
++	Avail     availFn    // 共用逐語言探測；nil ＝ 沒有表或補丁
+ }
+ 
+ // gameConfig 是 newGame 的參數。
+@@ -190,7 +190,12 @@ func (g *game) availFn() availFn {
+ 		if r, ok := g.ingAvail[x]; ok {
+ 			return r
+ 		}
+-		r := availFor(x, g.ing.FindTable, l2Supported, patchInHand)
++		r := availResult{}
++		if g.ing.Avail != nil {
++			r = g.ing.Avail(x)
++		} else {
++			r = availFor(x, nil, l2SupportedFor(x), false)
++		}
+ 		g.ingAvail[x] = r
+ 		return r
+ 	}
+diff --git a/apps/hr/play/ingame.go b/apps/hr/play/ingame.go
+index 9af3444..afccdf3 100644
+--- a/apps/hr/play/ingame.go
++++ b/apps/hr/play/ingame.go
+@@ -69,12 +69,9 @@ const (
+ // reasonKeys 是原因列舉的全部五個值（顯示用的字串表鍵是 "ingame.reason."＋鍵）。
+ var reasonKeys = []reasonKey{reasonNoTable, reasonBuildFailed, reasonVerifyFailed, reasonNoPatch, reasonUnsupported}
+ 
+-// l2Supported 與 patchInHand：L2（字模補丁與自訂碼）尚未實作，所以其他語言一律不建置（規則 4），
+-// 補丁恆不在手。L2 實作後 l2Supported 改為 true，patchInHand 改為「補丁檔存在」。
+-const (
+-	l2Supported = false
+-	patchInHand = false
+-)
++// l2SupportedFor 是正式路徑的逐語言支援範圍（docs/spec/008 第 3.2.2 節）。
++// 繁中沿用 L1；本輪 L2 只接英文，簡中、韓文與日文仍不可用。
++func l2SupportedFor(c ingameCode) bool { return c == icEN }
+ 
+ // unavailReason 是 avail(X) 為假時的原因鍵，依序判定、先中先停（docs/spec/008 第 3.8 節）：
+ // 沒有該語言的譯文表 → no-table；L2 尚未實作 → unsupported-language；補丁不在手 → no-patch。
+@@ -210,7 +207,7 @@ const (
+ 	effOtherPack                   // 其他語言包（L2 之後；帶語言代碼）
+ )
+ 
+-// effective 是生效 E。Code 是語言包 manifest 的代碼（原版時為空）：identity 種類的包是 zh-TW 或 identity。
++// effective 是生效 E。Code 是語言包 manifest 的代碼（原版時為空）；零採用英文表包也屬 identity 種類。
+ type effective struct {
+ 	Kind effKind
+ 	Code ingameCode
+@@ -302,6 +299,7 @@ type ingameOut struct {
+ //	S ＝ zh-TW       且 E 為 identity 種類的包或 zh-TW 表包
+ //	S ＝ zh-TW       且 E ＝ 原版且 avail(zh-TW) 為假（沒有譯文表：原版與 zh-TW 視為相同）
+ //	S ＝ 其他語言 X  且 E ＝ X 的語言包
++//	S ＝ en          且 E ＝ en 的零採用 identity 種類包
+ //
+ // 只有「S ＝ zh-TW 且 E ＝ 原版」這一格讀 avail，而且只讀 avail(zh-TW)。
+ func sameSelection(s ingameCode, e effective, avail availFn) bool {
+@@ -319,7 +317,7 @@ func sameSelection(s ingameCode, e effective, avail availFn) bool {
+ 		}
+ 		return false
+ 	}
+-	return e.Kind == effOtherPack && e.Code == s
++	return e.Code == s && (e.Kind == effOtherPack || s == icEN && e.Kind == effIdentityPack)
+ }
+ 
+ // ingameStatus 決定 F1「遊戲內文字」的值與 F4 的提示（docs/spec/008 第 3.8 節）。輸入：
+diff --git a/apps/hr/play/ingame_en_test.go b/apps/hr/play/ingame_en_test.go
+new file mode 100644
+index 0000000..ca5f42d
+--- /dev/null
++++ b/apps/hr/play/ingame_en_test.go
+@@ -0,0 +1,297 @@
++package main
++
++import (
++	"errors"
++	"os"
++	"path/filepath"
++	"reflect"
++	"strings"
++	"testing"
++
++	"github.com/hajimehoshi/ebiten/v2"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++// Presence 不驗內容。這些檔案故意不是有效補丁，讓測試區分探測與 builder 驗證。
++func addGlyphPatch(t *testing.T, root, code string) string {
++	t.Helper()
++	dir := filepath.Join(root, code, "glyph-patch")
++	if err := os.MkdirAll(dir, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	for _, name := range []string{"glyphs-" + code + ".bin", "charmap-" + code + ".tsv", "reserved-codes.tsv", "OFL.txt", "SOURCE.txt"} {
++		if err := os.WriteFile(filepath.Join(dir, name), []byte("presence-only\n"), 0o644); err != nil {
++			t.Fatal(err)
++		}
++	}
++	return dir
++}
++
++func TestGlyphPatchPresenceBoundary(t *testing.T) {
++	for _, kind := range []string{"valid-shape", "missing-dir", "missing-file", "wrong-case", "file-is-dir", "directory-link", "file-link", "extra-file"} {
++		t.Run(kind, func(t *testing.T) {
++			root := mkTables(t, "en")
++			dir := addGlyphPatch(t, root, "en")
++			name := filepath.Join(dir, "SOURCE.txt")
++			want := kind == "valid-shape" || kind == "extra-file"
++			switch kind {
++			case "missing-dir":
++				if err := os.RemoveAll(dir); err != nil {
++					t.Fatal(err)
++				}
++			case "missing-file":
++				if err := os.Remove(name); err != nil {
++					t.Fatal(err)
++				}
++			case "wrong-case":
++				if err := os.Rename(name, filepath.Join(dir, "source.txt")); err != nil {
++					t.Fatal(err)
++				}
++			case "file-is-dir":
++				if err := os.Remove(name); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.Mkdir(name, 0o755); err != nil {
++					t.Fatal(err)
++				}
++			case "directory-link":
++				real := dir + "-real"
++				if err := os.Rename(dir, real); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.Symlink(real, dir); err != nil {
++					t.Fatal(err)
++				}
++			case "file-link":
++				if err := os.Remove(name); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.Symlink("OFL.txt", name); err != nil {
++					t.Fatal(err)
++				}
++			case "extra-file":
++				if err := os.WriteFile(filepath.Join(dir, "extra"), nil, 0o644); err != nil {
++					t.Fatal(err)
++				}
++			}
++			if got := glyphPatchPresent(dir, icEN); got != want {
++				t.Fatalf("presence=%v want=%v", got, want)
++			}
++		})
++	}
++}
++
++func TestEnglishProbeDoesNotMixSources(t *testing.T) {
++	high, low := mkTables(t, "en"), mkTables(t, "en")
++	lowPatch := addGlyphPatch(t, low, "en")
++	search := l10n.TableSearch{Flag: high, Env: low}
++	p := probeIngame(search, icEN)
++	if !p.HasTable || p.TableDir != filepath.Join(high, "en") || p.PatchDir != filepath.Join(high, "en", "glyph-patch") || p.PatchInHand {
++		t.Fatalf("補丁不得取自低優先來源：%+v", p)
++	}
++	fb := &fakeBuilder{}
++	out := prepareIngame(ingameInput{Choice: ingameChoice{Code: icEN}, Search: search, Builder: fb})
++	if out.Plan != (ingamePlan{Kind: planNone, Reason: reasonNoPatch}) || fb.calls() != 0 {
++		t.Fatalf("缺同源補丁應零建置：%+v calls=%d", out, fb.calls())
++	}
++	if err := os.Remove(filepath.Join(high, "en", "SP.MES.tsv")); err != nil {
++		t.Fatal(err)
++	}
++	p = probeIngame(search, icEN)
++	if p.HasTable {
++		t.Fatalf("明示來源存在但沒有表時不得往下找：%+v", p)
++	}
++	search.Flag = ""
++	p = probeIngame(search, icEN)
++	if p.TableDir != filepath.Join(low, "en") || p.PatchDir != lowPatch || !p.PatchInHand {
++		t.Fatalf("沒有明示來源時才選一般候選：%+v", p)
++	}
++	search = l10n.TableSearch{Env: high, ExeDir: filepath.Dir(low)}
++	p = probeIngame(search, icEN)
++	if p.TableDir != filepath.Join(low, "en") || p.PatchDir != lowPatch || !p.PatchInHand {
++		t.Fatalf("一般高優先來源沒有表才改選完整低優先來源：%+v", p)
++	}
++}
++
++func TestPrepareIngameProductionPerCode(t *testing.T) {
++	for _, code := range ingameCycle {
++		for _, tables := range []bool{false, true} {
++			for _, patch := range []bool{false, true} {
++				root := mkTables(t)
++				if tables {
++					addTable(t, root, string(code))
++				}
++				if patch {
++					addGlyphPatch(t, root, string(code))
++				}
++				fb := &fakeBuilder{digest: strings.Repeat("a", 64), res: mkResult("/packs/p", strings.Repeat("a", 64), "table", 1, string(code))}
++				in, _ := newInput(t, ingameChoice{Code: code}, fb, root)
++				out := prepareIngame(in)
++				want := planIngame(in.Choice, tables, code == icEN, patch)
++				if out.Plan != want {
++					t.Fatalf("code=%s table=%v patch=%v: %+v want=%+v", code, tables, patch, out.Plan, want)
++				}
++				wantCalls := 0
++				if want.Kind == planTable {
++					wantCalls = 2
++				}
++				if fb.calls() != wantCalls {
++					t.Fatalf("%s calls=%d want=%d", code, fb.calls(), wantCalls)
++				}
++				if got := availabilityFunc(in.Search)(code); got != availFor(code, func(ingameCode) bool { return tables }, code == icEN, patch) {
++					t.Fatalf("%s：啟動和 F4 探測不同：%+v", code, got)
++				}
++			}
++		}
++	}
++}
++
++func TestPrepareEnglishConfigAndZeroAdoption(t *testing.T) {
++	for _, explicit := range []bool{false, true} {
++		for _, adopted := range []int{0, 17} {
++			root := mkTables(t, "en")
++			patch := addGlyphPatch(t, root, "en")
++			digest := strings.Repeat("b", 64)
++			fb := &fakeBuilder{digest: digest, res: mkResult("/packs/en", digest, "table", adopted, "en")}
++			in, _ := newInput(t, ingameChoice{icEN, explicit}, fb, root)
++			out := prepareIngame(in)
++			if out.Failed || len(fb.cfgs) != 2 || !reflect.DeepEqual(fb.cfgs[0], fb.cfgs[1]) {
++				t.Fatalf("建置設定不一致：%+v %+v", out, fb.cfgs)
++			}
++			cfg := fb.cfgs[0]
++			if cfg.Code != "en" || cfg.Mode != l10n.ModeTable || cfg.TableDir != filepath.Join(root, "en") || cfg.PatchDir != patch || cfg.Policy != (l10n.Policy{}) {
++				t.Fatalf("英文設定：%+v", cfg)
++			}
++			e, sf := out.finish(hrrt.LangStatus{LangDir: out.LangDir}, nil)
++			want := partial(icEN)
++			if adopted == 0 {
++				want = verifyUse(icEN)
++			}
++			status := ingameStatus(icEN, e, sf, explicit, availabilityFunc(in.Search))
++			toast := toastSame
++			if explicit {
++				toast = toastFlag
++			}
++			if status.F1 != want || status.Toast != toast {
++				t.Fatalf("英文零／正採用：%+v want=%+v toast=%d", status, want, toast)
++			}
++		}
++	}
++}
++
++func TestEnglishConfigUsesActualTableDirectory(t *testing.T) {
++	root := mkTables(t, "en")
++	addGlyphPatch(t, root, "en")
++	actual := filepath.Join(root, "EN")
++	if err := os.Rename(filepath.Join(root, "en"), actual); err != nil {
++		t.Fatal(err)
++	}
++	digest := strings.Repeat("e", 64)
++	fb := &fakeBuilder{digest: digest, res: mkResult("/packs/en", digest, "table", 17, "en")}
++	in, _ := newInput(t, ingameChoice{Code: icEN}, fb, root)
++	out := prepareIngame(in)
++	if out.Failed || fb.calls() != 2 {
++		t.Fatalf("大小寫不同的實際表目錄：%+v", out)
++	}
++	for _, cfg := range fb.cfgs {
++		if cfg.TableDir != actual || cfg.PatchDir != filepath.Join(actual, "glyph-patch") {
++			t.Fatalf("必須使用 FindTableDirFor 所选的實際路徑：%+v", cfg)
++		}
++	}
++}
++
++func TestPrepareEnglishBuildAndVerifyFallback(t *testing.T) {
++	digest := strings.Repeat("c", 64)
++	for _, tc := range []struct {
++		name                string
++		digestErr, buildErr error
++		resultDigest        string
++	}{
++		{"無效補丁", errors.New("invalid glyph patch"), nil, digest},
++		{"presence 後路徑移除", errors.New("glyph patch path absent"), nil, digest},
++		{"缺預烘字組", nil, errors.New("SP#56: U+0041 U+0042: missing pair"), digest},
++		{"兩次摘要不符", nil, nil, strings.Repeat("d", 64)},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			root := mkTables(t, "en")
++			addGlyphPatch(t, root, "en")
++			fb := &fakeBuilder{digest: digest, digestErr: tc.digestErr, buildErr: tc.buildErr, res: mkResult("/packs/en", tc.resultDigest, "table", 17, "en")}
++			in, _ := newInput(t, ingameChoice{Code: icEN}, fb, root)
++			out := prepareIngame(in)
++			if !out.Failed {
++				t.Fatal("錯誤不得啟用包")
++			}
++			if dir, dig := out.langOptions(); dir != "" || dig != "" {
++				t.Fatal("失敗傳出語言層")
++			}
++			e, sf := out.finish(hrrt.LangStatus{}, nil)
++			if e.Kind != effOriginal || sf != (startFail{icEN, reasonBuildFailed}) {
++				t.Fatalf("回退：%+v %+v", e, sf)
++			}
++		})
++	}
++	root := mkTables(t, "en")
++	addGlyphPatch(t, root, "en")
++	fb := &fakeBuilder{digest: digest, res: mkResult("/packs/en", digest, "table", 17, "en")}
++	in, _ := newInput(t, ingameChoice{Code: icEN}, fb, root)
++	out := prepareIngame(in)
++	e, sf := out.finish(hrrt.LangStatus{Reason: hrrt.LangReasonVerifyFailed}, nil)
++	if e.Kind != effOriginal || sf != (startFail{icEN, reasonVerifyFailed}) {
++		t.Fatalf("Open 驗證失敗回退：%+v %+v", e, sf)
++	}
++}
++
++func TestGameEnglishPatchRecomputedAtF4(t *testing.T) {
++	root := mkTables(t, "en")
++	gr := newGameRig(t, themeOriginal, nil, withLang(langEN), withIngame(ingameRuntime{Avail: availabilityFunc(l10n.TableSearch{Flag: root})}))
++	gr.prime()
++	if got := gr.g.panelBase().Ingame; got != unusable(icEN, reasonNoPatch) {
++		t.Fatalf("初次缺補丁：%+v", got)
++	}
++	patch := addGlyphPatch(t, root, "en")
++	if got := gr.g.panelBase().Ingame; got != unusable(icEN, reasonNoPatch) {
++		t.Fatalf("F1 不該每幀探測：%+v", got)
++	}
++	for i := 0; i < 5; i++ {
++		gr.mustFrame(ebiten.KeyF4)
++	}
++	if gr.g.ing.E.Kind != effOriginal {
++		t.Fatal("F4 不得即時改遊戲內語言")
++	}
++	if got := gr.g.panelBase().Ingame; got != pending(icEN) {
++		t.Fatalf("F4 應提示下次啟動：%+v", got)
++	}
++	if got := gr.toastNow(); got != expectedToast(langEN, toastNext) {
++		t.Fatalf("toast=%q", got)
++	}
++	if err := os.Remove(filepath.Join(patch, "SOURCE.txt")); err != nil {
++		t.Fatal(err)
++	}
++	if got := gr.g.panelBase().Ingame; got != pending(icEN) {
++		t.Fatalf("F1 快取：%+v", got)
++	}
++	for i := 0; i < 5; i++ {
++		gr.mustFrame(ebiten.KeyF4)
++	}
++	if got := gr.g.panelBase().Ingame; got != unusable(icEN, reasonNoPatch) {
++		t.Fatalf("移除補丁後：%+v", got)
++	}
++}
++
++func TestGameEnglishZeroAdoptionPanelAndF4(t *testing.T) {
++	gr := newGameRig(t, themeOriginal, nil, withLang(langEN), withIngame(ingameRuntime{E: effective{effIdentityPack, icEN}}))
++	gr.prime()
++	if got := gr.f1Line(); got != expectedF1(langEN, verifyUse(icEN)) {
++		t.Fatalf("零採用須標驗證用：%q", got)
++	}
++	for i := 0; i < 5; i++ {
++		gr.mustFrame(ebiten.KeyF4)
++	}
++	if got := gr.toastNow(); got != expectedToast(langEN, toastSame) {
++		t.Fatalf("同一零採用英文包：%q", got)
++	}
++	if got := gr.f1Line(); got != expectedF1(langEN, verifyUse(icEN)) {
++		t.Fatalf("F4 後零採用：%q", got)
++	}
++}
+diff --git a/apps/hr/play/ingame_en_unix_test.go b/apps/hr/play/ingame_en_unix_test.go
+new file mode 100644
+index 0000000..bc959fb
+--- /dev/null
++++ b/apps/hr/play/ingame_en_unix_test.go
+@@ -0,0 +1,25 @@
++//go:build linux || darwin
++
++package main
++
++import (
++	"os"
++	"path/filepath"
++	"syscall"
++	"testing"
++)
++
++func TestGlyphPatchPresenceRejectsSpecialFile(t *testing.T) {
++	root := mkTables(t, "en")
++	dir := addGlyphPatch(t, root, "en")
++	name := filepath.Join(dir, "SOURCE.txt")
++	if err := os.Remove(name); err != nil {
++		t.Fatal(err)
++	}
++	if err := syscall.Mkfifo(name, 0o600); err != nil {
++		t.Fatal(err)
++	}
++	if glyphPatchPresent(dir, icEN) {
++		t.Fatal("FIFO 不得視為一般補丁檔案")
++	}
++}
+diff --git a/apps/hr/play/ingame_game_test.go b/apps/hr/play/ingame_game_test.go
+index aa3d9e4..69b0596 100644
+--- a/apps/hr/play/ingame_game_test.go
++++ b/apps/hr/play/ingame_game_test.go
+@@ -13,6 +13,10 @@ func withIngame(rt ingameRuntime) rigOpt {
+ 	return func(gr *gameRig, c *gameConfig) { c.Ingame = &rt }
+ }
+ 
++func tableAvail(find func(ingameCode) bool) availFn {
++	return func(c ingameCode) availResult { return availFor(c, find, l2SupportedFor(c), false) }
++}
++
+ func withLang(l lang) rigOpt { return func(gr *gameRig, c *gameConfig) { c.Lang = l } }
+ 
+ // toastNow 是此刻 toast 行的文字（用目前語言的字面）。
+@@ -90,7 +94,7 @@ func TestGameIngameOverrideF4OnlyChangesInterfaceLanguage(t *testing.T) {
+ 	} {
+ 		finds := 0
+ 		gr := newGameRig(t, themeOriginal, nil, withIngame(ingameRuntime{
+-			E: c.e, StartFail: c.sf, Override: true, Fixed: c.code, FindTable: func(ingameCode) bool { finds++; return false },
++			E: c.e, StartFail: c.sf, Override: true, Fixed: c.code, Avail: tableAvail(func(ingameCode) bool { finds++; return false }),
+ 		}))
+ 		gr.prime()
+ 		for i := 0; i < 6; i++ { // 一圈加一次：不論 F4 走到哪個語言
+@@ -149,7 +153,7 @@ func TestGameIngameStartFailThenF4LeaveAndReturn(t *testing.T) {
+ // 下一次按下才改變。
+ func TestGameIngameAvailRecomputedOnEachF4(t *testing.T) {
+ 	have, finds := false, 0
+-	gr := newGameRig(t, themeOriginal, nil, withIngame(ingameRuntime{FindTable: func(c ingameCode) bool { finds++; return have && c == icTW }}))
++	gr := newGameRig(t, themeOriginal, nil, withIngame(ingameRuntime{Avail: tableAvail(func(c ingameCode) bool { finds++; return have && c == icTW })}))
+ 	gr.prime()
+ 	if got, want := gr.f1Line(), expectedF1(langTW, origF1); got != want {
+ 		t.Fatalf("啟動：%q，應為 %q", got, want)
+@@ -202,7 +206,7 @@ func TestGameIngameAvailRecomputedOnEachF4(t *testing.T) {
+ 
+ // 生效的語言包：F1 標示（部分翻譯）或（原版文字，驗證用）；F4 選到沒有表的語言時顯示無法使用。
+ func TestGameIngameEffectivePackOnPanel(t *testing.T) {
+-	gr := newGameRig(t, themeOriginal, nil, withIngame(ingameRuntime{E: eTable, FindTable: func(c ingameCode) bool { return c == icTW }}))
++	gr := newGameRig(t, themeOriginal, nil, withIngame(ingameRuntime{E: eTable, Avail: tableAvail(func(c ingameCode) bool { return c == icTW })}))
+ 	gr.prime()
+ 	if got, want := gr.f1Line(), expectedF1(langTW, partial(icTW)); got != want {
+ 		t.Errorf("zh-TW 表包：%q，應為 %q", got, want)
+@@ -214,7 +218,7 @@ func TestGameIngameEffectivePackOnPanel(t *testing.T) {
+ 	if got, want := gr.toastNow(), expectedToast(langCN, toastNoPack); got != want {
+ 		t.Errorf("toast：%q，應為 %q", got, want)
+ 	}
+-	gr2 := newGameRig(t, themeOriginal, nil, withIngame(ingameRuntime{E: eZeroTbl, FindTable: func(c ingameCode) bool { return c == icTW }}))
++	gr2 := newGameRig(t, themeOriginal, nil, withIngame(ingameRuntime{E: eZeroTbl, Avail: tableAvail(func(c ingameCode) bool { return c == icTW })}))
+ 	if got, want := gr2.f1Line(), expectedF1(langTW, verifyUse(icTW)); got != want {
+ 		t.Errorf("採用列數 0 的 table 包：%q，應為 %q", got, want)
+ 	}
+diff --git a/apps/hr/play/ingame_start.go b/apps/hr/play/ingame_start.go
+index 0b00764..696acd7 100644
+--- a/apps/hr/play/ingame_start.go
++++ b/apps/hr/play/ingame_start.go
+@@ -43,9 +43,6 @@ type ingameInput struct {
+ 	PackRoot string           // 語言包根：<資料目錄>/l10n-packs
+ 	Builder  ingameBuilder
+ 	Logf     func(string, ...any)
+-	// L2 與 PatchInHand 是 planIngame 的第三、第四個參數；正式路徑傳 l2Supported 與 patchInHand（L2 之前恆為假），
+-	// 測試傳真值模擬 L2 之後（用假建置器，不經真的 Build）。
+-	L2, PatchInHand bool
+ }
+ 
+ // ingameBuild 是 prepareIngame 的結果。
+@@ -80,12 +77,9 @@ func prepareIngame(in ingameInput) ingameBuild {
+ 	}
+ 	c := in.Choice
+ 	out := ingameBuild{Choice: c}
+-	tableRoot, hasTable := "", false
+-	if c.Code.inCycle() {
+-		tableRoot, hasTable = l10n.FindTableDirFor(in.Search, string(c.Code))
+-	}
+-	out.Plan = planIngame(c, hasTable, in.L2, in.PatchInHand)
+-	logf("ingame: C=%s explicit=%v table=%v plan=%s reason=%s（%s）", c.Code, c.Explicit, hasTable, out.Plan.Kind.token(), reasonText(out.Plan.Reason), out.Plan.Kind)
++	probe := probeIngame(in.Search, c.Code)
++	out.Plan = planIngame(c, probe.HasTable, l2SupportedFor(c.Code), probe.PatchInHand)
++	logf("ingame: C=%s explicit=%v table=%v plan=%s reason=%s（%s）", c.Code, c.Explicit, probe.HasTable, out.Plan.Kind.token(), reasonText(out.Plan.Reason), out.Plan.Kind)
+ 	if out.Plan.Kind == planNone {
+ 		return out
+ 	}
+@@ -93,11 +87,10 @@ func prepareIngame(in ingameInput) ingameBuild {
+ 	cfg := l10n.Config{OrigDir: in.OrigDir, PackRoot: in.PackRoot, Code: string(c.Code), Mode: l10n.ModeIdentity}
+ 	if out.Plan.Kind == planTable {
+ 		cfg.Mode = l10n.ModeTable
+-		dir, ok := l10n.TableDirFor(tableRoot, string(c.Code))
+-		if !ok {
+-			return out.fail(logf, "找不到 %s 的譯文表目錄（%s）", c.Code, tableRoot)
++		cfg.TableDir = probe.TableDir
++		if c.Code == icEN {
++			cfg.PatchDir = probe.PatchDir
+ 		}
+-		cfg.TableDir = dir
+ 	}
+ 	digest, err := in.Builder.ExpectedDigest(cfg)
+ 	if err != nil {
+@@ -190,7 +183,7 @@ func tableSearchFor(flagVal, envVal, appImage, exe, cwd, dataDir string) l10n.Ta
+ 	return s
+ }
+ 
+-// findTableFunc 是 ingameRuntime.FindTable：每次呼叫都重新探測（F4 按下時譯文表可能剛放入）。
++// findTableFunc 只探測譯文表，供表來源測試使用；正式可用性使用下方 availabilityFunc。
+ func findTableFunc(s l10n.TableSearch) func(ingameCode) bool {
+ 	return func(c ingameCode) bool {
+ 		_, ok := l10n.FindTableDirFor(s, string(c))
+@@ -198,6 +191,67 @@ func findTableFunc(s l10n.TableSearch) func(ingameCode) bool {
+ 	}
+ }
+ 
++// ingameProbe 保留同一次來源選擇的實際路徑。補丁只取該表目錄，不能到較低優先來源補齊。
++type ingameProbe struct {
++	TableDir, PatchDir    string
++	HasTable, PatchInHand bool
++}
++
++func probeIngame(s l10n.TableSearch, c ingameCode) ingameProbe {
++	if !c.inCycle() {
++		return ingameProbe{}
++	}
++	root, ok := l10n.FindTableDirFor(s, string(c))
++	if !ok {
++		return ingameProbe{}
++	}
++	dir, ok := l10n.TableDirFor(root, string(c))
++	if !ok {
++		return ingameProbe{}
++	}
++	p := ingameProbe{TableDir: dir, HasTable: true}
++	if l2SupportedFor(c) {
++		p.PatchDir = filepath.Join(dir, "glyph-patch")
++		p.PatchInHand = glyphPatchPresent(p.PatchDir, c)
++	}
++	return p
++}
++
++// glyphPatchPresent 只探測五檔的一般檔案形態，不讀內容；完整驗證由建置器的 Load 執行。
++func glyphPatchPresent(dir string, c ingameCode) bool {
++	info, err := os.Lstat(dir)
++	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
++		return false
++	}
++	// 先核對實際目錄項目名稱，避免大小寫不敏感的平台把錯誤拼字視為精確檔名。
++	entries, err := os.ReadDir(dir)
++	if err != nil {
++		return false
++	}
++	names := make(map[string]bool, len(entries))
++	for _, entry := range entries {
++		names[entry.Name()] = true
++	}
++	for _, name := range []string{"glyphs-" + string(c) + ".bin", "charmap-" + string(c) + ".tsv", "reserved-codes.tsv", "OFL.txt", "SOURCE.txt"} {
++		if !names[name] {
++			return false
++		}
++		info, err := os.Lstat(filepath.Join(dir, name))
++		if err != nil || !info.Mode().IsRegular() {
++			return false
++		}
++	}
++	return true
++}
++
++// availabilityFunc 與啟動共用逐語言支援和同源補丁探測。game 只快取到下一次 F4。
++func availabilityFunc(s l10n.TableSearch) availFn {
++	return func(c ingameCode) availResult {
++		p := probeIngame(s, c)
++		return availFor(c, func(ingameCode) bool { return p.HasTable }, l2SupportedFor(c), p.PatchInHand)
++	}
++}
++
+ // ingameLogf 把日誌寫到 logf（標準錯誤）並追加到資料目錄的 play.log（Windows 以 -H=windowsgui 建置，
+ // 標準錯誤看不到，docs/spec/008 第 3.2 節）。play.log 的行格式沿用既有的「時間、標籤、內容」，標籤是 lang。
+ func ingameLogf(dataDir string, logf func(string, ...any)) func(string, ...any) {
+diff --git a/apps/hr/play/ingame_start_test.go b/apps/hr/play/ingame_start_test.go
+index d7a8bae..698854d 100644
+--- a/apps/hr/play/ingame_start_test.go
++++ b/apps/hr/play/ingame_start_test.go
+@@ -88,7 +88,6 @@ func TestPrepareIngameDefaultPathNeverCallsBuilder(t *testing.T) {
+ 		for _, code := range ingameCycle {
+ 			fb := &fakeBuilder{}
+ 			in, _ := newInput(t, ingameChoice{code, false}, fb, mkTables(t))
+-			in.L2, in.PatchInHand = l2, l2
+ 			out := prepareIngame(in)
+ 			if fb.calls() != 0 {
+ 				t.Errorf("(%s, 非明示)、沒有譯文表、l2 ＝ %v：呼叫了建置器 %v", code, l2, fb.order)
+@@ -377,9 +376,9 @@ type chainCase struct {
+ 	env  startupEnv
+ 	p    prefs
+ 	// 環境
+-	tables    []string // 有譯文表的語言
+-	late      []string // 啟動之後才放入譯文表的語言（avail 在 F4 時重新計算，列 20）
+-	l2, patch bool
++	tables []string // 有譯文表的語言
++	late   []string // 啟動之後才放入譯文表的語言（avail 在 F4 時重新計算，列 20）
++	patch  bool
+ 	// 假建置器與假 LangStatus
+ 	mode    string
+ 	adopted int
+@@ -406,7 +405,9 @@ func runChain(t *testing.T, c chainCase) {
+ 		fb.buildErr = errors.New("建置失敗")
+ 	}
+ 	in, _ := newInput(t, plan.Ingame, fb, root)
+-	in.L2, in.PatchInHand = c.l2, c.patch
++	if c.patch {
++		addGlyphPatch(t, root, "en")
++	}
+ 	b := prepareIngame(in)
+ 	if b.Plan.Kind != c.plan || fb.calls() != c.calls {
+ 		t.Errorf("%s：計畫 %v、建置器呼叫 %d 次，應為 %v、%d 次", c.name, b.Plan.Kind, fb.calls(), c.plan, c.calls)
+@@ -426,8 +427,7 @@ func runChain(t *testing.T, c chainCase) {
+ 	if c.sel != "" && !plan.Override {
+ 		s = c.sel
+ 	}
+-	find := findTableFunc(l10n.TableSearch{Flag: root})
+-	out := ingameStatus(s, e, sf, plan.Override, func(x ingameCode) availResult { return availFor(x, find, c.l2, c.patch) })
++	out := ingameStatus(s, e, sf, plan.Override, availabilityFunc(l10n.TableSearch{Flag: root}))
+ 	if out.F1 != c.f1 || out.Toast != c.toast {
+ 		t.Errorf("%s：S ＝ %s、E ＝ %+v、startFail ＝ %+v → F1 ＝ %+v、toast ＝ %d，應為 %+v、%d", c.name, s, e, sf, out.F1, out.Toast, c.f1, c.toast)
+ 	}
+@@ -441,7 +441,7 @@ func TestIngameChain(t *testing.T) {
+ 		{name: "列 1：預設啟動，沒有 l10n/zh-TW/", plan: planNone, calls: 0, f1: origF1, toast: toastSame},
+ 		{name: "列 3：預設，F4 選 ko，沒有表", sel: icKO, plan: planNone, calls: 0, f1: unusable(icKO, reasonNoTable), toast: toastNoPack},
+ 		{name: "列 4：預設，F4 選 ja，L2 前有 l10n/ja/", tables: []string{"ja"}, sel: icJA, plan: planNone, calls: 0, f1: unusable(icJA, reasonUnsupported), toast: toastNoPack},
+-		{name: "列 5：L2 之後，F4 選 ja，有表有補丁", tables: []string{"ja"}, l2: true, patch: true, sel: icJA, plan: planNone, calls: 0, f1: pending(icJA), toast: toastNext},
++		{name: "列 5：英文 L2，F4 選 en，有表有補丁", tables: []string{"en"}, patch: true, sel: icEN, plan: planNone, calls: 0, f1: pending(icEN), toast: toastNext},
+ 		{name: "列 6：-lang zh-TW，有表（accepted 列），建置成功", f: lang("zh-TW"), tables: []string{"zh-TW"}, mode: "table", adopted: 3, buildOK: true, plan: planTable, calls: 2, f1: partial(icTW), toast: toastSame},
+ 		{name: "列 7：同 6，F4 選 ko，沒有表", f: lang("zh-TW"), tables: []string{"zh-TW"}, mode: "table", adopted: 3, buildOK: true, sel: icKO, plan: planTable, calls: 2, f1: unusable(icKO, reasonNoTable), toast: toastNoPack},
+ 		{name: "列 8：-ingame-lang zh-TW，有表", f: ov("zh-TW"), tables: []string{"zh-TW"}, mode: "table", adopted: 3, buildOK: true, plan: planTable, calls: 2, f1: partial(icTW), toast: toastFlag},
+@@ -449,10 +449,10 @@ func TestIngameChain(t *testing.T) {
+ 		{name: "列 10：-ingame-lang identity，建置成功", f: ov("identity"), mode: "identity", buildOK: true, plan: planIdentity, calls: 2, f1: verifyUse(icIdentity), toast: toastFlag},
+ 		{name: "列 11：-ingame-lang none", f: ov("none"), plan: planNone, calls: 0, f1: origF1, toast: toastFlag},
+ 		{name: "列 12：-ingame-lang ja，L2 之前有 l10n/ja/（不建置）", f: ov("ja"), tables: []string{"ja"}, plan: planNone, calls: 0, f1: unusable(icJA, reasonUnsupported), toast: toastFlag},
+-		{name: "列 13：-lang ja，L2 之後有表有補丁，建置失敗", f: lang("ja"), tables: []string{"ja"}, l2: true, patch: true, buildOK: false, plan: planTable, calls: 2, f1: unusable(icJA, reasonBuildFailed), toast: toastUnusable},
+-		{name: "列 14：同 13，驗證失敗", f: lang("ja"), tables: []string{"ja"}, l2: true, patch: true, mode: "table", adopted: 4, buildOK: true, status: failedVerify, plan: planTable, calls: 2, f1: unusable(icJA, reasonVerifyFailed), toast: toastUnusable},
+-		{name: "列 15：13 之後 F4 選 ko，沒有表", f: lang("ja"), tables: []string{"ja"}, l2: true, patch: true, buildOK: false, sel: icKO, plan: planTable, calls: 2, f1: unusable(icKO, reasonNoTable), toast: toastNoPack},
+-		{name: "列 16：15 之後 F4 繞回 ja", f: lang("ja"), tables: []string{"ja"}, l2: true, patch: true, buildOK: false, sel: icJA, plan: planTable, calls: 2, f1: unusable(icJA, reasonBuildFailed), toast: toastUnusable},
++		{name: "列 13：-lang en，L2 之後有表有補丁，建置失敗", f: lang("en"), tables: []string{"en"}, patch: true, buildOK: false, plan: planTable, calls: 2, f1: unusable(icEN, reasonBuildFailed), toast: toastUnusable},
++		{name: "列 14：同 13，驗證失敗", f: lang("en"), tables: []string{"en"}, patch: true, mode: "table", adopted: 4, buildOK: true, status: failedVerify, plan: planTable, calls: 2, f1: unusable(icEN, reasonVerifyFailed), toast: toastUnusable},
++		{name: "列 15：13 之後 F4 選 ko，沒有表", f: lang("en"), tables: []string{"en"}, patch: true, buildOK: false, sel: icKO, plan: planTable, calls: 2, f1: unusable(icKO, reasonNoTable), toast: toastNoPack},
++		{name: "列 16：15 之後 F4 繞回 en", f: lang("en"), tables: []string{"en"}, patch: true, buildOK: false, sel: icEN, plan: planTable, calls: 2, f1: unusable(icEN, reasonBuildFailed), toast: toastUnusable},
+ 		{name: "列 17：-ingame-lang identity，建置失敗", f: ov("identity"), buildOK: false, plan: planIdentity, calls: 2, f1: unusable(icIdentity, reasonBuildFailed), toast: toastFlag},
+ 		{name: "列 18：-ingame-lang ja，沒有 l10n/ja/", f: ov("ja"), plan: planNone, calls: 0, f1: unusable(icJA, reasonNoTable), toast: toastFlag},
+ 		{name: "列 19：-lang zh-TW，有表，建置失敗", f: lang("zh-TW"), tables: []string{"zh-TW"}, buildOK: false, plan: planTable, calls: 2, f1: unusable(icTW, reasonBuildFailed), toast: toastUnusable},
+diff --git a/apps/hr/play/ingame_test.go b/apps/hr/play/ingame_test.go
+index d8e0691..541974b 100644
+--- a/apps/hr/play/ingame_test.go
++++ b/apps/hr/play/ingame_test.go
+@@ -138,14 +138,16 @@ func TestPlanIngameRules(t *testing.T) {
+ 		}
+ 	}
+ 	// 規則 2 與 3 只差「明示」
+-	a := planIngame(ingameChoice{icTW, true}, false, l2Supported, patchInHand)
+-	b := planIngame(ingameChoice{icTW, false}, false, l2Supported, patchInHand)
++	a := planIngame(ingameChoice{icTW, true}, false, l2SupportedFor(icTW), false)
++	b := planIngame(ingameChoice{icTW, false}, false, l2SupportedFor(icTW), false)
+ 	if a.Kind != planIdentity || b.Kind != planNone {
+ 		t.Errorf("((zh-TW, 明示), 無表) ＝ %v、((zh-TW, 非明示), 無表) ＝ %v", a.Kind, b.Kind)
+ 	}
+-	// L2 之前的常數
+-	if l2Supported || patchInHand {
+-		t.Error("L2 之前 l2Supported 與 patchInHand 必須為 false（L2 實作後再改，並更新這個測試）")
++	// 正式接線只支援英文 L2，純函式的完整真值表仍保留。
++	for _, c := range ingameValues {
++		if l2SupportedFor(c) != (c == icEN) {
++			t.Errorf("%s：L2 支援範圍不符", c)
++		}
+ 	}
+ }
+ 
+@@ -235,6 +237,11 @@ func TestSameSelection(t *testing.T) {
+ 		{"ja 與原版", icJA, eOrig, nil, false, 0},
+ 		{"ja 與 zh-TW 表包", icJA, eTable, nil, false, 0},
+ 		{"ja 與 identity 包", icJA, eIdTW, nil, false, 0},
++		{"en 與 en 零採用包", icEN, effective{effIdentityPack, icEN}, nil, true, 0},
++		{"en 與 TW identity 包", icEN, eIdTW, nil, false, 0},
++		{"en 與明示 identity 包", icEN, eIdID, nil, false, 0},
++		{"TW 與 en 零採用包保留原關係", icTW, effective{effIdentityPack, icEN}, nil, true, 0},
++		{"identity 與 en 零採用包保留原關係", icIdentity, effective{effIdentityPack, icEN}, nil, true, 0},
+ 	}
+ 	for _, c := range cases {
+ 		reads := 0
+@@ -390,7 +397,7 @@ func TestIngameStatusOverrideToast(t *testing.T) {
+ 
+ // identity 包標「驗證用」，不標「部分翻譯」；表包相反。採用列數為 0 的 table 包視同 identity。
+ func TestIngameStatusIdentityPackNotPartial(t *testing.T) {
+-	for _, e := range []effective{eIdTW, eIdID, eZeroTbl} {
++	for _, e := range []effective{eIdTW, eIdID, eZeroTbl, {effIdentityPack, icEN}} {
+ 		o := ingameStatus(e.Code, e, noFail, true, func(ingameCode) availResult { return availResult{OK: true} })
+ 		if o.F1.Class != f1Pack || !o.F1.Verify {
+ 			t.Errorf("E ＝ %+v：應為 (2) 驗證用：%+v", e, o.F1)
+@@ -416,7 +423,7 @@ func TestIngameStatusIdentityPackNotPartial(t *testing.T) {
+ // ---- 性質測試：前置條件域內窮舉，函式有定義 ----
+ 
+ func TestIngameStatusProperty(t *testing.T) {
+-	effs := []effective{eOrig, eIdTW, eIdID, eZeroTbl, eTable, eOther(icCN), eOther(icKO), eOther(icEN), eOther(icJA)}
++	effs := []effective{eOrig, eIdTW, eIdID, eZeroTbl, eTable, eOther(icCN), eOther(icKO), eOther(icEN), eOther(icJA), {effIdentityPack, icEN}}
+ 	fails := []startFail{noFail}
+ 	for _, c := range ingameValues {
+ 		for _, r := range []reasonKey{reasonBuildFailed, reasonVerifyFailed} {
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index 9d10be8..e440311 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -146,7 +146,7 @@ func main() {
+ 	search := tableSearchFor(*l10nDir, os.Getenv("HR_L10N"), os.Getenv("APPIMAGE"), exe, cwd, dd)
+ 	ing := prepareIngame(ingameInput{
+ 		Choice: plan.Ingame, Search: search, OrigDir: root, PackRoot: filepath.Join(dd, "l10n-packs"),
+-		Builder: l10nBuilder{}, Logf: ingLog, L2: l2Supported, PatchInHand: patchInHand,
++		Builder: l10nBuilder{}, Logf: ingLog,
+ 	})
+ 	langDir, langDigest := ing.langOptions()
+ 
+@@ -205,7 +205,7 @@ func main() {
+ 	go func() { stopCh <- s.Run(context.Background()) }()
+ 	g := newGame(gameConfig{
+ 		Session: s, Stop: stopCh, Snd: eng, SW: sw, HV: hv, Fonts: newFontSet(logf), Lang: plan.Lang, Commit: pw.Submit,
+-		Ingame:  &ingameRuntime{E: ingE, StartFail: ingFail, Override: plan.Override, Fixed: plan.Ingame.Code, FindTable: findTableFunc(search)},
++		Ingame:  &ingameRuntime{E: ingE, StartFail: ingFail, Override: plan.Override, Fixed: plan.Ingame.Code, Avail: availabilityFunc(search)},
+ 		DataDir: dd, SaveDir: saveDir, Linear: *linear, Freeze: os.Getenv("HR_TEST_FREEZE_UI") == "1", Logf: logf, Fullscreen: *full,
+ 	})
+ 	td := &teardown{sw: sw, pw: pw, hv: hv, after: []func(){func() { g.logTelemetry("exit") }, ao.close}}
+diff --git a/apps/hr/play/main_test.go b/apps/hr/play/main_test.go
+index ee44d4c..642b188 100644
+--- a/apps/hr/play/main_test.go
++++ b/apps/hr/play/main_test.go
+@@ -327,7 +327,7 @@ func TestMainWiring(t *testing.T) {
+ 	mainFn := findFunc(files, "main.go", "main")
+ 	var hvInHooksIf, optHooks, optAssets, logfStderr, swHold, swCommit bool
+ 	var optLangDir, optLangDigest, skipDigest, langFromOptions, gameIngame bool
+-	var prepL2, prepPatch, prepBuilder, finishAfterOpen bool
++	var prepBuilder, perCodeRoute, gameAvail, finishAfterOpen bool
+ 	ast.Inspect(mainFn.Body, func(n ast.Node) bool {
+ 		switch x := n.(type) {
+ 		case *ast.IfStmt:
+@@ -360,10 +360,10 @@ func TestMainWiring(t *testing.T) {
+ 				skipDigest = true // 前端不設 SkipLangDigest（docs/spec/008 第 3.2 節：只有 hrbot 與測試入口明示）
+ 			case k == "Ingame":
+ 				gameIngame = true
+-			case k == "L2" && exprString(x.Value) == "l2Supported":
+-				prepL2 = true
+-			case k == "PatchInHand" && exprString(x.Value) == "patchInHand":
+-				prepPatch = true
++			case k == "Avail":
++				if call, ok := x.Value.(*ast.CallExpr); ok && exprString(call.Fun) == "availabilityFunc" && len(call.Args) == 1 && exprString(call.Args[0]) == "search" {
++					gameAvail = true
++				}
+ 			case k == "Builder":
+ 				if cl, ok := x.Value.(*ast.CompositeLit); ok && exprString(cl.Type) == "l10nBuilder" {
+ 					prepBuilder = true
+@@ -395,15 +395,25 @@ func TestMainWiring(t *testing.T) {
+ 		}
+ 		return true
+ 	})
++	prep := findFunc(files, "ingame_start.go", "prepareIngame")
++	ast.Inspect(prep.Body, func(n ast.Node) bool {
++		if call, ok := n.(*ast.CallExpr); ok && exprString(call.Fun) == "planIngame" && len(call.Args) == 4 {
++			if support, ok := call.Args[2].(*ast.CallExpr); ok && exprString(support.Fun) == "l2SupportedFor" && len(support.Args) == 1 && exprString(support.Args[0]) == "c.Code" {
++				perCodeRoute = exprString(call.Args[1]) == "probe.HasTable" && exprString(call.Args[3]) == "probe.PatchInHand"
++			}
++		}
++		return true
++	})
+ 	for name, ok := range map[string]bool{
+ 		"plan.HDHooks 為真時建立 hdView": hvInHooksIf, "Options.HDHooks ＝ plan.HDHooks": optHooks, "Options.HDAssets ＝ ts.BaseAssets()": optAssets,
+ 		"logf 寫標準錯誤": logfStderr, "switcher 的 Hold 是 Session": swHold, "switcher 與 game 的 Commit 是 pw.Submit": swCommit,
+-		"Options.LangDir ＝ langDir":                                                          optLangDir,
+-		"Options.LangDigest ＝ langDigest":                                                    optLangDigest,
+-		"langDir, langDigest ＝ ing.langOptions()":                                            langFromOptions,
+-		"gameConfig.Ingame（遊戲內語言的生效狀態與啟動失敗交給 game）":                                          gameIngame,
+-		"prepareIngame 的 L2 ＝ l2Supported、PatchInHand ＝ patchInHand、Builder ＝ l10nBuilder{}": prepL2 && prepPatch && prepBuilder,
+-		"ing.finish(s.LangStatus(), …)":                                                      finishAfterOpen,
++		"Options.LangDir ＝ langDir":                            optLangDir,
++		"Options.LangDigest ＝ langDigest":                      optLangDigest,
++		"langDir, langDigest ＝ ing.langOptions()":              langFromOptions,
++		"gameConfig.Ingame（遊戲內語言的生效狀態與啟動失敗交給 game）":            gameIngame,
++		"prepareIngame 逐語言支援與同源 probe、Builder ＝ l10nBuilder{}": perCodeRoute && prepBuilder,
++		"game 的 Avail ＝ availabilityFunc(search)":              gameAvail,
++		"ing.finish(s.LangStatus(), …)":                        finishAfterOpen,
+ 	} {
+ 		if !ok {
+ 			t.Errorf("main.go 缺：%s", name)
+-- 
+2.43.0
+

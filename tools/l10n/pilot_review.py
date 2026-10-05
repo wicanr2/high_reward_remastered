@@ -29,9 +29,12 @@ def load(root, code):
     rows = []
     for name in ['ESPMES.MRG.tsv', 'SP.MES.tsv']:
         raw = (root / 'l10n' / code / name).read_bytes()
-        if b'\r' in raw or raw.startswith(b'\xef\xbb\xbf'):
-            raise ValueError('TSV must use UTF-8 without BOM and LF')
-        lines = raw.decode('utf-8').splitlines()
+        text = raw.decode('utf-8-sig').replace('\r\n', '\n')
+        if '\r' in text:
+            raise ValueError('TSV field contains CR')
+        lines = text.split('\n')
+        if lines[-1] == '':
+            lines.pop()
         if not lines or lines[0].split('\t') != HEADER:
             raise ValueError('TSV header differs')
         for line in lines[1:]:

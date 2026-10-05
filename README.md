@@ -56,7 +56,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 自動遊玩測試 | 機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各兩個種子，每組 2 遊戲小時：沒有當機與凍結，原版堆疊最深用到約一半。沒有走到 `docs/re/011` 的溢位路徑，不等於人類遊玩，也不能排除該溢位 | `docs/re/016` |
 | HD 圖層 | 595 張 2 倍圖，使用者看過六個代表畫面的合成圖後整體接受。精靈、頭像、戰鬥舞台背景、標題地圖與游標有替換，大地形底圖、文字與框線仍是原版像素 | `docs/spec/004`、`docs/re/014`、`docs/re/015` |
 | AI 重繪圖層 | 本機主題有 595 項圖像。585 張新增圖由 OpenAI 生成，另有 9 張先前接受的代表圖；1 張因服務拒絕而沿用 HD。已驗尺寸、遮罩與 F2 切換，尚未逐畫面驗收；素材不在發行包 | `AGENTS.md` M8、`WORKLOG.md` |
-| 遊戲內多語系 | 五語各 17 項試點譯文已由使用者接受。字模驗證與英文建置仍在進行，正常玩家語言包尚未完成；語言包不隨包發行，預設遊戲內文字仍是原版繁中 | `docs/spec/008`、`docs/re/031`、`docs/re/032` |
+| 遊戲內多語系 | 五語各 17 項試點譯文已由使用者接受。英文 17 項已接通本機建包，Linux 前端的開場對白、據點、重用與失敗回退已驗；簡中、日文、韓文尚未接通。語言包不隨包發行，預設遊戲內文字仍是原版繁中 | `docs/spec/008`、`docs/re/031`、`docs/re/032` |
 | 發行包 | [私人 Release `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 提供 Linux AppImage、Windows zip、macOS universal，含 HD 圖層，不含原版遊戲檔案。本機 `v.0.1.0-20261004` 完整封包含原版，36 秒推廣影片也只供私人驗收。Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.1-20261004/smoke/RESULTS.txt` |
 
 ## 主要成果
@@ -141,6 +141,8 @@ HD 圖由演算法放大並去除抖色，處理方法見 `docs/re/015-hd-art-me
 
 本機開發版可用 `-hd-ai <AI 圖層目錄> -theme ai` 載入 AI 重繪圖層；目前的私人 Release 不含這批素材。
 
+本機開發版另支援 17 項英文試點。英文表放在 `l10n/en/`，同目錄的 `glyph-patch/` 直接放五檔字模補丁；以 `-lang en -l10n <l10n 目錄>` 啟動時建包並驗證，F1 顯示部分翻譯狀態。F4 的遊戲內語言選擇在下次啟動生效。表或補丁不完整時回到原版文字；新增英文雙字組須重新烘製補丁。此功能與本機譯文、補丁尚未納入私人 Release，完整契約見 `docs/spec/008`。
+
 按鍵（保留給程式，不送進遊戲；完整清單與修飾鍵組合見 `docs/spec/006` 第 2 節）：F1 功能說明與統計，F2 切換 theme（原版、HD、AI 重繪，只列出可用的），F3 聲音開關，F4 切換介面語言（繁體中文、簡體中文、韓文、英文、日文；遊戲內文字不隨之改變，見 `docs/spec/008`），F11 或 Alt+Enter 全螢幕，F12 存截圖，Ctrl+Q 結束，Ctrl+D 手動存一份診斷（遊戲 hang 住時用）。macOS 筆電的 F1 至 F4 預設是亮度與系統功能，要按 Fn。使用者資料目錄的 `high_reward/`（Linux 在 `~/.config`，macOS 在 `~/Library/Application Support`，Windows 在 `%AppData%`）存放 `saves`、`screenshots`、`crash`（停機、hang 與 Ctrl+D 的診斷，每份含 `info.txt`、畫面與狀態檔，回報當機時提供這個目錄，不要貼到公開的 issue）與每分鐘一行的 `play.log`。原版資料夾不會被修改。
 
 macOS 版沒有簽章，首次開啟請右鍵選「打開」。
@@ -166,6 +168,7 @@ macOS 版沒有簽章，首次開啟請右鍵選「打開」。
 | `tools/play.sh gui-diag` | Xvfb 內啟動視窗、按 Ctrl+D，確認診斷產生 |
 | `tools/play.sh test-hd` | `apps/hr/hd` 的測試（含 `-race`） |
 | `tools/play.sh gui-lang`、`gui-theme` | Xvfb 內按 F4 循環語言、按 F2 切 theme，比對截圖 |
+| `bash tools/l10n/verify_en_gui.sh <新的標籤>` | Xvfb 內驗英文試點、重用、F4 下次啟動、缺補丁回退與損壞包重建；需本機表及補丁，畫面留在 `workplace/` |
 
 原版缺失時，依賴它的測試會明確 skip，不使用替代品。
 

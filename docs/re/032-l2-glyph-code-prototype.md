@@ -92,7 +92,7 @@
 
 ## 限制與下一閘門
 
-目前字模原型有簡體兩字、四語首句與英文 17 項研究副本的據點畫面；四語 68 項譯文已由使用者接受，兩條原版連續長跑已完成。沒有建成正式五語語言包，也沒有逐句正式玩家畫面驗收。`E0` 探針是有限的合成案例；早期六段 40M 步重播不連續；後續兩個種子各兩小時連續觀測另列於下節，仍未涵蓋所有玩家路徑。overlay 四碼的指標表分類仍是強推論。`COUNTRY.MES` 位移政策、韓文詞距、英文雙字共格的正式契約與全部畫面、點陣補丁發行授權仍未決。`docs/spec/008` 的 L2 需經獨立證據審查後才可升 READY；L3 與硬編碼字串仍另有閘門。此處不能寫「五語遊戲內文字已完成」。
+目前五語各 17 項譯文已由使用者接受；繁中與英文試點的正式語言包及正常玩家畫面已有收據，英文接線見下節。簡中、日文、韓文仍只有字模原型，沒有建成正式五語語言包。`E0` 探針是有限的合成案例；早期六段 40M 步重播不連續；後續兩個種子各兩小時連續觀測仍未涵蓋所有玩家路徑。overlay 四碼的指標表分類仍是強推論。`COUNTRY.MES` 位移政策、韓文詞距、其他三語接線與點陣補丁發行授權仍有閘門；硬編碼字串另見 009。此處不能寫「五語遊戲內文字已完成」。
 
 ## 可重現的英文預烘與來源模型
 
@@ -162,3 +162,51 @@
 | `tools/l10n/patchcheck_test.py` | `3f4b4e69a94a46d1ba5f4aad0032fab351fe089f8deba60ec68c580b2e13c56d` |
 
 以上 probe 用 Go 1.26.7、`eob-remake-go:1.26.7-ebiten2.9.9`，映像 ID `39d6e05c9abc60a566e376cde6afd29c24aa21c30eeec1e1fd92c8b16e62aa60`，原版輸入唯讀。收據只輸出 id、長度與摘要。譯文、補丁及原版副本均不進版控。
+
+## 英文正式建包接線
+
+008 第 3.2.1 節經獨立窄審升 READY，實作後審查 `workplace/spec-review/en-build-implementation-review.md` 無阻擋。fork 提交 `9684ad7`，備份 `engine/patches/0034-apps-hr-l10n-en-build-008.patch`。英文使用正式 Prepare、未折行群組鍵、一次五檔快照、原有採用政策與完整碼本套用；其他三語仍拒絕，不使用全語系開關推定支援。
+
+L1 golden 保持原輸出。L2 golden 的五個固定變體只存合成字組接線的摘要，不含原版字模或語料；與契約識別及 L1 golden 共同導出建置器版本 `7ba662d3`。兩個嵌入檔固定 LF，避免跨平台 checkout 改變版本。含真實原版的七套件測試通過，獨立審查另跑 l10n／hrl10n 回歸及真實 CLI 冷建、verify、重用，均通過。
+
+主代理的 `workplace/m10-build-probe.go` 在同 Go 容器唯讀載入原版、accepted 表及 `en-bake5`，實際建包後 Parse 七個資料檔：17 項與獨立研究 fixture 逐位元相同，所有未採用項目保持原版，CFONT 與前述 13867 格驗收摘要相同。第二次重用相同目錄及 manifest。全 keep 的英文表輸出八檔 identity，但補丁摘要仍綁定；缺字組拒絕且沒有新目錄或 `.tmp-*`，舊包仍有效。九個原版輸入前後相同。
+
+| 本機建包收據 | 值 |
+|---|---|
+| `workplace/out/re-text/en-build-formal-pilot-audit.json` SHA-256 | `38be1fa325d8783c44dd18608fcb0d285dfc0a422d3308179353e458438435ea` |
+| 輸入摘要 | `0ce391d1be19bb4fdd1bf7f086c97b887b9b81012c2b359308bc4deb457ddc45` |
+| manifest SHA-256 | `b97d48c2897c8d68a91070186b29a227f5ce03f7dafab81fbed39e77d670796c` |
+| 本機包目錄 | `workplace/out/l10n-packs/en-0ce391d1be19/` |
+
+Linux、Windows amd64、macOS amd64／arm64 的命令列只驗編譯，後兩平台沒有實機執行。譯文表、五檔補丁及含原版位元組的包都留本機。
+
+正式前端的正常玩家驗收入口為 [`verify_en_gui.sh`](../../tools/l10n/verify_en_gui.sh)，操作與有界程序清理在 [`verify_en_gui.py`](../../tools/l10n/verify_en_gui.py)。以 `bash tools/l10n/verify_en_gui.sh <新的標籤>` 在相同 Go／Xvfb 容器執行，輸出只放 `workplace/out/re-text/<標籤>/`，拒絕覆寫既有收據。原版、表、補丁與 fork 唯讀，測試用表與包只改輸出副本。自動收據只證明建包生命週期、回退及輸入；完整畫面另須獨立目視核對，上下兩個對白框都要看。
+
+## 英文正常玩家前端驗收
+
+008 第 3.2.2 節的同源探測只開英文，補丁取已選中的實際表目錄，沒有跨來源拼接。啟動與 F4 使用同一探測；F4 不即時替換遊戲內文字。英文零採用仍標為 en 的驗證包，不誤報另一語言。Linux 全套 race、最終英文窄測與 vet 通過；Windows amd64 及 macOS 雙架構 universal 只驗編譯。
+
+fork 提交 `1c8128c`，備份 `engine/patches/0035-apps-hr-play-en-l10n-008.patch`。前端實作與建包分開提交，重建順序沿用 AGENTS 第 4 節。
+
+實作後唯讀審查 `workplace/spec-review/en-frontend-implementation-review.md` 無阻擋，獨立相關前端回歸與五項 CID 清理負例通過。審查者未代替主代理重跑 GUI 或目視畫面。主代理核對實作、審查與玩家收據後，008 第 3.2.1／3.2.2 只在此英文窄範圍升 CONFORMED。
+
+主代理以固定原版輸入和 accepted 英文表，從前端冷啟動正常點新遊戲，再逐句點擊至據點；沒有載入研究 state、修改存檔或記憶體。`en-gui-v3` 六階段乾淨退出。完整 `dialogue-00.png` 至 `dialogue-15.png` 已逐句目視確認與接受表一致，文字在框內。對白 #121.3、6、7、10、14 使用下框；最後 #121.15 使用中央第三位置，不能只裁上框判定漏句。`location-info.png` 的據點為既有 66／70／42 bytes 三行，內容可見。
+
+同次驗收另確認重開重用、舊 CFONT 被測試副本竄改後另建序號包且舊包不變、缺補丁及補丁 SOURCE 無效時回原版。F4 選日文後，下次啟動讀到日文偏好，沒有日文包時回原版；不是即時切換成功。所有 screenshot 與終端 log 的摘要重新核對相同。
+
+| 本機驗收項目 | SHA-256 |
+|---|---|
+| `workplace/out/re-text/en-gui-v3/receipt.json` | `cd301ab704a0e3a829654fb84e04bed438bd607fe8e606b1a4c4aa30792780f0` |
+| GUI 實際執行檔 | `84ebee772c86f946d0c74840f6cf0ca0ad97f98b1b6c4383695121d8cdf76256` |
+| 中央末句完整畫面 | `08fd8a3271247ee7145af8ac73b0e40cb14df0b69f9c96f7f822c02473f2bcf8` |
+| 據點完整畫面 | `5871240f102ca5fa11b9ab2c0b295187dd344f5fc303f1b04dc4289b36cba7a5` |
+| v3 執行時的 shell 入口 | `61cb544566ee20c3416d037667403e912b7a7f182e9ab9ced5d3aa343461edaf` |
+| 補容器 ID 清理後的最終 shell 入口 | `6c8ac00895bfeccfeb88bbbe0f4276ae766836ca5292e68f8e9a4d9f8af38838` |
+| 最終 Python 操作器 | `5f5c3229dc1442a64bebb2719fc554ad0a935729e4336163aa19c23eb65e013b` |
+| accepted `ESPMES.MRG.tsv` | `031c3522fc904cef6189fa931a159abfb9bd8c954d25e9ce15b33d968af559cb` |
+| accepted `SP.MES.tsv` | `bb074cececabbf7786f6495730180d3a92cc1b3a8618a04585d04fdbd3b0ee3d` |
+| manifest 表整體摘要 | `3bc3dc769c781cf009f2809e847aa80e3d4c0a3f4f92cf3209cab039622c0072` |
+
+v1 的相同座標 `xdotool mousemove --sync` 等待逾時，已修正。v2 容器已完成六階段，但主代理在 Docker 等待期間改入口，外層 bash 重讀檔後報 EOF；v3 固定入口不再修改，乾淨重跑通過。這些列操作環境問題。v3 收尾後另補 EXIT／INT／TERM trap，以本次 `docker run --cidfile` 寫出的完整容器 ID 確認擁有權，不能僅按名稱清理。語法及窄審另核對，不以此宣稱又重跑全 GUI。
+
+Windows／macOS 沒有實機玩家收據；沒有測本輪語言包的全遊戲內容、音訊或存檔 A/B。來源與補丁使用與上節相同身分、Go 1.26.7 及容器映像。五檔已安裝到本機 `l10n/en/glyph-patch/`，語言包及本次畫面只留 `workplace/`，沒有納入 Git 或 Release。

@@ -370,4 +370,13 @@
 - `en-bake5`／`en-bake6` 五檔相同，補丁摘要 `aea8dda9…22b272c`；正採用 CFONT 摘要保持 `58dc44cf…6498876`。新空白半格與整格墨跡負例通過，SOURCE 的來源識別不誤當作字形證明。
 - 真實 17 項英文首次 probe 因一項 CSV 式 TSV 引號封裝而缺組拒絕。歷史 HTML 是使用者接受的內容；只修正本機表封裝為該內容並重算 acc_sha，85 項正式字串與 HTML 完整相同。修正審閱工具按 008 literal quote 與反斜線規則讀表。重新 Prepare 的 17 項結果逐位元等於研究模型，五語共 85 項接受／來源摘要皆通過。收據與工具雜湊在 `docs/re/032`。
 - 葉層不建包、不接前端、不散布補丁。英文建包接線另寫 008 第 3.2.1 DRAFT，正在唯讀窄審，範圍包含一次補丁快照、採用政策、版本 golden 及零列八檔；其他語言與玩家畫面仍待完成。
-- fork 提交 `6645fe1`，備份 `engine/patches/0033-apps-hr-l10n-glyphpatch-enpairs-008.patch`。以真實原版及補丁跑 `go test -count=1 ./apps/hr/l10n/... ./apps/hr/cmd/hrl10n` 全通過，原版 golden 保持相同輸出；六組 Python 字模檢查也通過。追蹤清单沒有原版或譯文表，PRIVATE 核對通過；洩漏掃描 2166 檔只命中與 028 基準逐項相同的 12 筆。工作根沒有 root-owned 或 `.md` 目錄，輸出與文件均為 1000:1000，`hr-*` 容器無遺留。fork 不推送公開上游。
+- fork 提交 `6645fe1`，備份 `engine/patches/0033-apps-hr-l10n-glyphpatch-enpairs-008.patch`。以真實原版及補丁跑 `go test -count=1 ./apps/hr/l10n/... ./apps/hr/cmd/hrl10n` 全通過，原版 golden 保持相同輸出；六組 Python 字模檢查也通過。追蹤清單沒有原版或譯文表，PRIVATE 核對通過；洩漏掃描 2166 檔只命中與 028 基準逐項相同的 12 筆。工作根沒有 root-owned 或 `.md` 目錄，輸出與文件均為 1000:1000，`hr-*` 容器無遺留。fork 不推送公開上游。
+
+### M10 英文本機建包與正常前端（2026-10-05，續）
+
+- 葉層與 68 項接受紀錄已於主 repo `bd1832a` 一般推送至 private origin。008 第 3.2.1 英文建包與第 3.2.2 前端另經窄審升 READY，再限定目錄實作。fork 分別提交 `9684ad7`、`1c8128c`，備份 `0034`、`0035`；沒有推送 dosgolem 公開上游。
+- 建包一次載入補丁快照，保持 L1 採用政策與未折行群組一致性；版本 `7ba662d3` 同時綁契約與 L1／L2 golden。獨立真實 17 項 typed 讀回、CFONT 全格、所有未採用項目、八檔零採用 identity、重用及缺組無輸出通過；九檔原版前後相同。來源窄審無阻擋，ExpectedDigest 舊註解已修。收據與摘要見 `docs/re/032`。
+- 前端只開英文的同源字模探測，啟動與 F4 共用。Linux race、vet、Windows amd64、macOS amd64／arm64 universal 編譯通過。Windows／macOS 未實跑，沒有打包或發行這批語言資料。
+- `verify_en_gui.sh`／`.py` 以正常滑鼠從新遊戲走到據點，v3 六階段乾淨退出。主代理看完整上下及中央框，16 句與據點三行都在框內；冷建、重用、損壞包另建序號保留舊包、缺補丁／無效補丁回原版、F4 下次啟動偏好均通過。v1 相同座標 sync 逾時、v2 在等待期間改 shell 而外層 EOF 均列操作問題；固定 v3 重跑通過。收尾新增以本次 Docker CID 清理的 trap，語法另核對。
+- 五檔已裝入忽略版控的 `l10n/en/glyph-patch/`。本機最新前端保存在 `workplace/out/bin/hr-play`，所有譯文、補丁、語言包與本輪畫面都不入 Git。README 更新穩定現況及使用入口，AGENTS M10 表為唯一現況；簡中、日文、韓文的接線與韓文詞距、全量譯文仍待完成，已開始唯讀查核下一步所需契約。
+- 前端獨立審查無阻擋；CID 清理缺檔、空檔、部分 ID、名稱與完整 ID 五項窄測通過。主代理核對後只將 008 第 3.2.1／3.2.2 英文建包及前端接線升 CONFORMED，沒有升完整 M10。追蹤核對 root 839、fork 1338 檔沒有原版、譯文表或語言包；掃描 2177 檔仍只有與 028 基準逐項相同的 12 筆。PRIVATE 核對通過，工作根没有 root-owned 或 `.md` 目錄；所有本輪驗收容器已收掉。

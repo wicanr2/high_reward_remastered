@@ -1,0 +1,1471 @@
+From 9684ad7c4cf3f48fccab90cc25806e094cd745cd Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Mon, 5 Oct 2026 21:00:13 +0800
+Subject: [PATCH] =?UTF-8?q?=E6=8E=A5=E9=80=9A=E8=8B=B1=E6=96=87=E9=9B=99?=
+ =?UTF-8?q?=E5=AD=97=E8=AA=9E=E8=A8=80=E5=8C=85=E5=BB=BA=E7=BD=AE=E8=88=87?=
+ =?UTF-8?q?=E7=89=88=E6=9C=AC=E9=A9=97=E8=AD=89?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .gitattributes                           |   3 +
+ apps/hr/cmd/hrl10n/build.go              |   6 +-
+ apps/hr/cmd/hrl10n/english_build_test.go |  29 ++
+ apps/hr/l10n/build.go                    | 114 ++++--
+ apps/hr/l10n/data/builder-l2-golden.txt  |  60 +++
+ apps/hr/l10n/digest.go                   |  26 +-
+ apps/hr/l10n/english.go                  |  77 ++++
+ apps/hr/l10n/english_build_test.go       | 478 +++++++++++++++++++++++
+ apps/hr/l10n/english_golden_test.go      | 117 ++++++
+ apps/hr/l10n/english_patch_test.go       | 131 +++++++
+ apps/hr/l10n/golden_test.go              |   8 +-
+ apps/hr/l10n/table.go                    | 100 +++--
+ 12 files changed, 1078 insertions(+), 71 deletions(-)
+ create mode 100644 apps/hr/cmd/hrl10n/english_build_test.go
+ create mode 100644 apps/hr/l10n/data/builder-l2-golden.txt
+ create mode 100644 apps/hr/l10n/english.go
+ create mode 100644 apps/hr/l10n/english_build_test.go
+ create mode 100644 apps/hr/l10n/english_golden_test.go
+ create mode 100644 apps/hr/l10n/english_patch_test.go
+
+diff --git a/.gitattributes b/.gitattributes
+index 01fff2b..4dd06a7 100644
+--- a/.gitattributes
++++ b/.gitattributes
+@@ -1,3 +1,6 @@
+ # Public OFL and code-only measurement fixtures. No original glyphs/dialogue.
+ apps/hr/l10n/glyphpatch/testdata/OFL.txt text eol=lf
+ apps/hr/l10n/glyphpatch/testdata/reserved-codes.tsv text eol=lf
++# Builder identity embeds these exact bytes on every platform.
++apps/hr/l10n/data/builder-golden.txt text eol=lf
++apps/hr/l10n/data/builder-l2-golden.txt text eol=lf
+diff --git a/apps/hr/cmd/hrl10n/build.go b/apps/hr/cmd/hrl10n/build.go
+index a8618b2..1c7284b 100644
+--- a/apps/hr/cmd/hrl10n/build.go
++++ b/apps/hr/cmd/hrl10n/build.go
+@@ -30,7 +30,7 @@ func defaultPackRoot() string {
+ // runBuild 實作 `hrl10n build`（docs/spec/008 第 3.2 節命令列契約）：
+ //
+ //	build -code <代碼> -mode table|identity -orig <原版目錄> [-l10n <l10n 根目錄>] [-out <l10n-packs 目錄>]
+-//	      [-with-candidates] [-allow-country-offsets] [-allow-shoptab] [-dup-ids]
++//	      [-glyph-patch <英文五檔目錄>] [-with-candidates] [-allow-country-offsets] [-allow-shoptab] [-dup-ids]
+ //
+ // -l10n 是 l10n 根目錄（與前端旗標 -l10n、環境變數 HR_L10N 同義），譯文表在其下的 `<代碼>/`（代碼大小寫不分）；
+ // 只有 table 模式需要。-out 預設是資料目錄的 l10n-packs（Docker 內要明示）。
+@@ -41,10 +41,11 @@ func defaultPackRoot() string {
+ func runBuild(args []string, _ io.Reader, stdout, stderr io.Writer) int {
+ 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
+ 	fs.SetOutput(stderr)
+-	code := fs.String("code", "", "語言代碼（table 模式 zh-TW；identity 模式 zh-TW 或 identity）")
++	code := fs.String("code", "", "語言代碼（table 模式 zh-TW 或 en；identity 模式 zh-TW 或 identity）")
+ 	mode := fs.String("mode", "", "table 或 identity")
+ 	orig := fs.String("orig", "", "原版目錄")
+ 	l10nRoot := fs.String("l10n", "", "l10n 根目錄（table 模式需要；譯文表在其下的 <代碼>/）")
++	patchDir := fs.String("glyph-patch", "", "英文五檔字模補丁目錄（只用於 en table，須明示）")
+ 	out := fs.String("out", "", "l10n-packs 目錄（預設：使用者資料目錄下的 l10n-packs）")
+ 	withCand := fs.Bool("with-candidates", false, "採用 candidate 列（試作包，只在 hrl10n）")
+ 	allowCountry := fs.Bool("allow-country-offsets", false, "允許 COUNTRY.MES 有譯文（只在 hrl10n）")
+@@ -68,6 +69,7 @@ func runBuild(args []string, _ io.Reader, stdout, stderr io.Writer) int {
+ 	}
+ 	cfg := l10n.Config{
+ 		OrigDir:    *orig,
++		PatchDir:   *patchDir,
+ 		PackRoot:   *out,
+ 		Code:       *code,
+ 		Mode:       l10n.Mode(*mode),
+diff --git a/apps/hr/cmd/hrl10n/english_build_test.go b/apps/hr/cmd/hrl10n/english_build_test.go
+new file mode 100644
+index 0000000..bfad166
+--- /dev/null
++++ b/apps/hr/cmd/hrl10n/english_build_test.go
+@@ -0,0 +1,29 @@
++package main
++
++import (
++	"strings"
++	"testing"
++)
++
++func TestBuildEnglishPatchFlags(t *testing.T) {
++	for _, args := range [][]string{
++		{"-code", "en", "-mode", "table", "-orig", "missing", "-l10n", "missing"},
++		{"-code", "zh-TW", "-mode", "table", "-orig", "missing", "-l10n", "missing", "-glyph-patch", "p"},
++		{"-code", "zh-TW", "-mode", "identity", "-orig", "missing", "-glyph-patch", "p"},
++		{"-code", "en", "-mode", "identity", "-orig", "missing", "-glyph-patch", "p"},
++		{"-code", "ja", "-mode", "table", "-orig", "missing", "-l10n", "missing", "-glyph-patch", "p"},
++	} {
++		code, out, errOut := exec("", append([]string{"build"}, args...)...)
++		if code != 2 || out != "" || errOut == "" {
++			t.Fatalf("usage code=%d out=%q err=%s", code, out, errOut)
++		}
++	}
++	if code, _, e := exec("", "build", "-h"); code != 0 || !strings.Contains(e, "glyph-patch") {
++		t.Fatal("patch flag missing from help")
++	}
++	root := tableRoot(t, "en", nil)
++	code, out, e := exec("", "build", "-code", "en", "-mode", "table", "-orig", "missing", "-l10n", root, "-glyph-patch", "missing", "-out", t.TempDir())
++	if code != 1 || out != "" || !strings.Contains(e, "字模補丁") {
++		t.Fatalf("explicit missing patch is build failure: %d %q %s", code, out, e)
++	}
++}
+diff --git a/apps/hr/l10n/build.go b/apps/hr/l10n/build.go
+index 8c65083..4c05f3b 100644
+--- a/apps/hr/l10n/build.go
++++ b/apps/hr/l10n/build.go
+@@ -13,6 +13,7 @@ import (
+ 	"strings"
+ 	"time"
+ 
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/glyphpatch"
+ 	"github.com/wicanr2/dosgolem/apps/hr/l10n/verify"
+ )
+ 
+@@ -25,12 +26,12 @@ import (
+ //
+ // 建置輸出完全由輸入摘要決定，所以同名目錄存在且驗證通過就直接使用，不重建。
+ 
+-// l2Supported 表示 L2（字模補丁與自訂字碼）是否已實作。L2 之前，table 模式只支援沿用原版 Big5 碼的 zh-TW
+-// （docs/spec/008 第 3.2 節啟用規則 4）。
++// l2Supported 保留全語系開關關閉；第 3.2.1 節只開英文 table 的明示補丁路徑。
+ const l2Supported = false
+ 
+ const (
+ 	codeZhTW     = "zh-TW"
++	codeEnglish  = "en"
+ 	codeIdentity = "identity"
+ 	cfontName    = "CFONT.15"
+ 	// maxPackSlots 是同一個輸入摘要的語言包目錄名額：基底名與 -2 至 -9。
+@@ -49,8 +50,9 @@ var codePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$`)
+ type Config struct {
+ 	OrigDir  string // 原版目錄
+ 	TableDir string // 譯文表目錄：直接含 `<資料檔名>.tsv` 的目錄（`l10n/<代碼>`，見 TableDirFor）。只有 table 模式用
++	PatchDir string // 英文 table 明示的五檔字模補丁目錄；其他模式／代碼不得提供
+ 	PackRoot string // 語言包根（`l10n-packs`）
+-	Code     string // 代碼。table 模式 L2 之前只認 zh-TW；identity 模式取 zh-TW 或 identity
++	Code     string // table 只認 zh-TW／en；identity 只認 zh-TW／identity
+ 	Mode     Mode
+ 	// Policy 是採用政策。identity 模式不接受任何旗標（identity 不讀譯文表，旗標無意義，拒絕而不是無聲忽略）。
+ 	Policy Policy
+@@ -66,6 +68,7 @@ type buildHooks struct {
+ 	beforeManifest func() error                        // 檔案寫完、manifest 寫入之前；回錯則建置失敗
+ 	beforeRename   func(tmp, dst string)               // 第一次改名之前
+ 	afterTableRead func()                              // 譯文表讀入並算完雜湊之後、解析之前（table 模式）
++	afterPatchRead func()                              // 五檔補丁快照驗完之後（最多一次）
+ 	onBuild        func()                              // 每次實際建置（算出輸出、寫暫存）觸發一次
+ 	rename         func(oldpath, newpath string) error // 取代 os.Rename（每次嘗試都呼叫，不限一次）
+ 	sleep          func(time.Duration)                 // 取代改名重試之間的等待（預設 time.Sleep）
+@@ -90,10 +93,19 @@ func (c Config) Validate() error {
+ 		if c.TableDir == "" {
+ 			return errors.New("l10n: table 模式需要譯文表目錄")
+ 		}
+-		if c.Code != codeZhTW && !l2Supported {
+-			return fmt.Errorf("l10n: table 模式在 L2 之前只支援 %s（沒有字模補丁就沒有其他語言的字碼）", codeZhTW)
++		if c.Code != codeZhTW && c.Code != codeEnglish {
++			return fmt.Errorf("l10n: table 模式只支援 %s 或 en", codeZhTW)
++		}
++		if c.Code == codeEnglish && c.PatchDir == "" {
++			return errors.New("l10n: en table 模式需要 -glyph-patch")
++		}
++		if c.Code != codeEnglish && c.PatchDir != "" {
++			return errors.New("l10n: -glyph-patch 只用於 en table 模式")
+ 		}
+ 	case ModeIdentity:
++		if c.PatchDir != "" {
++			return errors.New("l10n: identity 模式不接受 -glyph-patch")
++		}
+ 		if c.Code != codeZhTW && c.Code != codeIdentity {
+ 			return fmt.Errorf("l10n: identity 模式的代碼只能是 %s 或 %s", codeZhTW, codeIdentity)
+ 		}
+@@ -132,22 +144,27 @@ func (c Config) tableHash() (string, error) {
+ 	return tableHashOf(tables), nil
+ }
+ 
+-func (c Config) digest(orig map[string]string, tableHash string) string {
++func (c Config) digest(orig map[string]string, tableHash, patchHash string) string {
+ 	return digestOf(digestInput{
+ 		Version:   c.version(),
+ 		Orig:      orig,
+ 		TableHash: tableHash,
+-		PatchHash: "",
++		PatchHash: patchHash,
+ 		Policy:    c.verifyPolicy(),
+ 	})
+ }
+ 
+ // ExpectedDigest 不建置，算出這份設定的預期輸入摘要（前端用它當 Session.Open 的 LangDigest）。
+-// 只讀譯文表目錄（table 模式）；原版輸入雜湊取 required.tsv（或 Config.OrigHashes），不讀原版檔案。
++// table 模式讀譯文表；英文另驗五檔補丁快照。原版輸入雜湊取 required.tsv
++// （或 Config.OrigHashes），不讀原版檔案。
+ func ExpectedDigest(cfg Config) (string, error) {
+ 	if err := cfg.Validate(); err != nil {
+ 		return "", err
+ 	}
++	patch, err := cfg.readPatch()
++	if err != nil {
++		return "", err
++	}
+ 	orig, err := expectedInputHashes(cfg.OrigHashes)
+ 	if err != nil {
+ 		return "", err
+@@ -156,7 +173,25 @@ func ExpectedDigest(cfg Config) (string, error) {
+ 	if err != nil {
+ 		return "", err
+ 	}
+-	return cfg.digest(orig, th), nil
++	return cfg.digest(orig, th, patchDigest(patch)), nil
++}
++
++func (c Config) readPatch() (*glyphpatch.Patch, error) {
++	if c.PatchDir == "" {
++		return nil, nil
++	}
++	p, err := glyphpatch.Load(c.PatchDir, codeEnglish)
++	if err != nil {
++		return nil, fmt.Errorf("l10n: 字模補丁：%w", err)
++	}
++	return p, nil
++}
++
++func patchDigest(p *glyphpatch.Patch) string {
++	if p == nil {
++		return ""
++	}
++	return p.Digest()
+ }
+ 
+ // PackName 回傳語言包目錄的基底名：`<代碼>-<輸入摘要前 12 碼>`。
+@@ -214,10 +249,17 @@ func Build(cfg Config) (*Result, error) {
+ 	if cfg.PackRoot == "" {
+ 		return nil, errors.New("l10n: 缺語言包根目錄")
+ 	}
++	patch, err := cfg.readPatch()
++	if err != nil {
++		return nil, err
++	}
+ 	h := cfg.hooks
+ 	if h == nil {
+ 		h = &buildHooks{}
+ 	}
++	if h.afterPatchRead != nil {
++		h.afterPatchRead()
++	}
+ 
+ 	// 1. 原版輸入
+ 	want, err := expectedInputHashes(cfg.OrigHashes)
+@@ -247,7 +289,7 @@ func Build(cfg Config) (*Result, error) {
+ 	if h.afterTableRead != nil {
+ 		h.afterTableRead()
+ 	}
+-	digest := cfg.digest(want, th)
++	digest := cfg.digest(want, th, patchDigest(patch))
+ 	base := PackName(cfg.Code, digest)
+ 	root, err := verify.NormalizeDir(cfg.PackRoot)
+ 	if err != nil {
+@@ -302,7 +344,7 @@ func Build(cfg Config) (*Result, error) {
+ 	}
+ 
+ 	// 4. 建置
+-	outs, adopted, dups, err := cfg.render(inputs, tables)
++	outs, adopted, dups, err := cfg.render(inputs, tables, patch)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -316,7 +358,7 @@ func Build(cfg Config) (*Result, error) {
+ 		OrigInputs:     copyMap(want),
+ 		TableHash:      th,
+ 		TableFormat:    TableFormat,
+-		PatchHash:      "",
++		PatchHash:      patchDigest(patch),
+ 		BuilderVersion: cfg.version(),
+ 		InputDigest:    digest,
+ 		Adopted:        adopted,
+@@ -450,12 +492,12 @@ func sweepStaleTmp(root string, now time.Time) {
+ }
+ 
+ // render 算出語言包 files/ 的全部輸出（不碰磁碟）：解析七個資料檔，table 模式依譯文表採用譯文
+-// （編碼、折行、預算檢查，違規全部收集後失敗），序列化；CFONT.15 是原版的逐位元組複本（L2 才換補丁字模）。
++// （編碼、折行、預算檢查，違規全部收集後失敗），全列通過才序列化；英文正採用時套完整字模補丁。
+ // 回傳輸出、採用列數與各檔「原項目位元組相同」的 id 群組。tables 是 readTables 讀入的譯文表位元組
+ // （大寫資料檔名為鍵，identity 模式為 nil）；render 不再碰磁碟上的譯文表。
+-func (c Config) render(inputs, tables map[string][]byte) (outs map[string][]byte, adopted int, dups map[string][][]string, err error) {
++func (c Config) render(inputs, tables map[string][]byte, patch *glyphpatch.Patch) (outs map[string][]byte, adopted int, dups map[string][][]string, err error) {
+ 	var cs *Charmap
+-	if c.Mode == ModeTable {
++	if c.Mode == ModeTable && c.Code == codeZhTW {
+ 		if cs, err = LoadCharmap(); err != nil {
+ 			return nil, 0, nil, err
+ 		}
+@@ -463,6 +505,12 @@ func (c Config) render(inputs, tables map[string][]byte) (outs map[string][]byte
+ 	outs = make(map[string][]byte, len(dataFileNames)+1)
+ 	dups = make(map[string][][]string)
+ 	var violations []string
++	type pendingFile struct {
++		file         *File
++		data         []byte
++		replacements map[string][]byte
++	}
++	var pending []pendingFile
+ 	for _, name := range dataFileNames {
+ 		data := inputs[name]
+ 		f, perr := Parse(name, data)
+@@ -484,8 +532,16 @@ func (c Config) render(inputs, tables map[string][]byte) (outs map[string][]byte
+ 					violations = append(violations, fmt.Sprintf("%s: %s: id 不屬於這個檔案的譯文表", name, row.ID))
+ 				}
+ 			}
++			var r map[string][]byte
++			var n int
++			var vs []string
++			var aerr error
+ 			run := newWrapRun()
+-			r, n, vs, aerr := tbl.Adopt(f, c.Policy, cs, run.checker())
++			if c.Code == codeEnglish {
++				r, n, vs, aerr = tbl.adoptEnglish(f, c.Policy, patch)
++			} else {
++				r, n, vs, aerr = tbl.Adopt(f, c.Policy, cs, run.checker())
++			}
+ 			if aerr != nil {
+ 				return nil, 0, nil, aerr
+ 			}
+@@ -493,6 +549,9 @@ func (c Config) render(inputs, tables map[string][]byte) (outs map[string][]byte
+ 			if len(vs) == 0 {
+ 				// 寫進檔案的位元組要是通過 Check 的那一份（折行之後的結果）。
+ 				for id := range r {
++					if c.Code == codeEnglish {
++						continue
++					}
+ 					b, ok := run.final[id]
+ 					if !ok {
+ 						return nil, 0, nil, fmt.Errorf("l10n: 內部錯誤：%s 沒有折行結果", id)
+@@ -503,18 +562,27 @@ func (c Config) render(inputs, tables map[string][]byte) (outs map[string][]byte
+ 				adopted += n
+ 			}
+ 		}
+-		b, serr := f.Serialize(repl, SerializeOptions{ExactCountryOffsets: c.Policy.AllowCountryOffsets})
++		pending = append(pending, pendingFile{file: f, data: data, replacements: repl})
++	}
++	if len(violations) > 0 {
++		return nil, 0, nil, &ViolationsError{Items: violations}
++	}
++	for _, item := range pending {
++		b, serr := item.file.Serialize(item.replacements, SerializeOptions{ExactCountryOffsets: c.Policy.AllowCountryOffsets})
+ 		if serr != nil {
+ 			return nil, 0, nil, serr
+ 		}
+-		if len(repl) == 0 && !bytes.Equal(b, data) {
+-			return nil, 0, nil, fmt.Errorf("l10n: %s 沒有譯文卻往返不符（解析器與序列化器不一致），拒絕建置", name)
++		if len(item.replacements) == 0 && !bytes.Equal(b, item.data) {
++			return nil, 0, nil, fmt.Errorf("l10n: %s 沒有譯文卻往返不符（解析器與序列化器不一致），拒絕建置", item.file.Name)
+ 		}
+-		outs[name] = b
+-	}
+-	if len(violations) > 0 {
+-		return nil, 0, nil, &ViolationsError{Items: violations}
++		outs[item.file.Name] = b
+ 	}
+ 	outs[cfontName] = bytes.Clone(inputs[cfontName])
++	if patch != nil {
++		outs[cfontName], err = patch.Apply(inputs[cfontName], adopted)
++		if err != nil {
++			return nil, 0, nil, fmt.Errorf("l10n: 字模套用：%w", err)
++		}
++	}
+ 	return outs, adopted, dups, nil
+ }
+diff --git a/apps/hr/l10n/data/builder-l2-golden.txt b/apps/hr/l10n/data/builder-l2-golden.txt
+new file mode 100644
+index 0000000..143b566
+--- /dev/null
++++ b/apps/hr/l10n/data/builder-l2-golden.txt
+@@ -0,0 +1,60 @@
++[zero]
++patch=dfd18e9ddcf734a93de7cdeaeb29760fba6f10bb6c656126f97f2d78870d7709
++adopted=0
++manifest=b5e16bf45939be3dac40f4d1f88fe1924856640e6a78a5a684cc5eaa90a10306
++CFONT.15=60e55cf73ba2eb8e83018e8a9b585e22524e730e240732adb5e746b7ed54d8db
++COUNTRY.MES=5a8dba3450ab27712f45469c67d304cb15bb7b0d911734af7ca1f871924431aa
++ESPMES.MRG=e7cd0398746fafe9a0ba8b4c07de16662983b5071fa88595a48700fed22994d3
++POWERMES.MES=46f05b869906e5ba4d21a408f6a1672dc02f0a8c77e80fb727fec8b18598ba7a
++SHOPTAB.TBL=ceb133f82c791cac6d8b6c5158aa75b1579b6d3bc8c034061b49c4565b9d4176
++SP.MES=f88fed9bbd525c5fb0972b2ef58718a59615b6fc92721c2ab83c5bd1cdd24b0c
++SYSTEM.MES=eb22a69369bff1dad2a6cfbc8812080df4d60a29d25ae0c545690ba5ec75cb0e
++UWASA.MES=906cfaf382284466fa9f420db4c99e0d1227e60a41f537d6624df666ad4273d8
++[accepted]
++patch=dfd18e9ddcf734a93de7cdeaeb29760fba6f10bb6c656126f97f2d78870d7709
++adopted=1
++manifest=e551f0e72b9cb917cb7ddcd379c72e9b35ff60e8043d54f32be58f255735a697
++CFONT.15=9879bc044ae1c6e87acbd11074913c3e29d6ad4b76917de70d1f11bdce902d28
++COUNTRY.MES=5a8dba3450ab27712f45469c67d304cb15bb7b0d911734af7ca1f871924431aa
++ESPMES.MRG=e7cd0398746fafe9a0ba8b4c07de16662983b5071fa88595a48700fed22994d3
++POWERMES.MES=46f05b869906e5ba4d21a408f6a1672dc02f0a8c77e80fb727fec8b18598ba7a
++SHOPTAB.TBL=ceb133f82c791cac6d8b6c5158aa75b1579b6d3bc8c034061b49c4565b9d4176
++SP.MES=9cc69b88e8db1176ff09ccc21bceaebbe563ab0367ed85caef3a41b3234ba013
++SYSTEM.MES=eb22a69369bff1dad2a6cfbc8812080df4d60a29d25ae0c545690ba5ec75cb0e
++UWASA.MES=906cfaf382284466fa9f420db4c99e0d1227e60a41f537d6624df666ad4273d8
++[candidate-excluded]
++patch=dfd18e9ddcf734a93de7cdeaeb29760fba6f10bb6c656126f97f2d78870d7709
++adopted=0
++manifest=20b231da29e983d494e3a04ddbb789d655d0a22079ca082e5d5d64210c68c68b
++CFONT.15=60e55cf73ba2eb8e83018e8a9b585e22524e730e240732adb5e746b7ed54d8db
++COUNTRY.MES=5a8dba3450ab27712f45469c67d304cb15bb7b0d911734af7ca1f871924431aa
++ESPMES.MRG=e7cd0398746fafe9a0ba8b4c07de16662983b5071fa88595a48700fed22994d3
++POWERMES.MES=46f05b869906e5ba4d21a408f6a1672dc02f0a8c77e80fb727fec8b18598ba7a
++SHOPTAB.TBL=ceb133f82c791cac6d8b6c5158aa75b1579b6d3bc8c034061b49c4565b9d4176
++SP.MES=f88fed9bbd525c5fb0972b2ef58718a59615b6fc92721c2ab83c5bd1cdd24b0c
++SYSTEM.MES=eb22a69369bff1dad2a6cfbc8812080df4d60a29d25ae0c545690ba5ec75cb0e
++UWASA.MES=906cfaf382284466fa9f420db4c99e0d1227e60a41f537d6624df666ad4273d8
++[candidate-adopted]
++patch=dfd18e9ddcf734a93de7cdeaeb29760fba6f10bb6c656126f97f2d78870d7709
++adopted=1
++manifest=6b2ce116edc66a35d262fa777d78f0a4705a5dd6b250d643732ab6fb6c489226
++CFONT.15=9879bc044ae1c6e87acbd11074913c3e29d6ad4b76917de70d1f11bdce902d28
++COUNTRY.MES=5a8dba3450ab27712f45469c67d304cb15bb7b0d911734af7ca1f871924431aa
++ESPMES.MRG=e7cd0398746fafe9a0ba8b4c07de16662983b5071fa88595a48700fed22994d3
++POWERMES.MES=46f05b869906e5ba4d21a408f6a1672dc02f0a8c77e80fb727fec8b18598ba7a
++SHOPTAB.TBL=ceb133f82c791cac6d8b6c5158aa75b1579b6d3bc8c034061b49c4565b9d4176
++SP.MES=9cc69b88e8db1176ff09ccc21bceaebbe563ab0367ed85caef3a41b3234ba013
++SYSTEM.MES=eb22a69369bff1dad2a6cfbc8812080df4d60a29d25ae0c545690ba5ec75cb0e
++UWASA.MES=906cfaf382284466fa9f420db4c99e0d1227e60a41f537d6624df666ad4273d8
++[reordered]
++patch=dfd18e9ddcf734a93de7cdeaeb29760fba6f10bb6c656126f97f2d78870d7709
++adopted=1
++manifest=dcd7a6492d986e1a29905a8eb9a9a30e6a60b0fc802e60f08c875751caa7e17a
++CFONT.15=9879bc044ae1c6e87acbd11074913c3e29d6ad4b76917de70d1f11bdce902d28
++COUNTRY.MES=5a8dba3450ab27712f45469c67d304cb15bb7b0d911734af7ca1f871924431aa
++ESPMES.MRG=e7cd0398746fafe9a0ba8b4c07de16662983b5071fa88595a48700fed22994d3
++POWERMES.MES=46f05b869906e5ba4d21a408f6a1672dc02f0a8c77e80fb727fec8b18598ba7a
++SHOPTAB.TBL=ceb133f82c791cac6d8b6c5158aa75b1579b6d3bc8c034061b49c4565b9d4176
++SP.MES=33d9f14d202dccc17786e737fb102525cf4b4409a16e7f7b573d02ab9b877067
++SYSTEM.MES=eb22a69369bff1dad2a6cfbc8812080df4d60a29d25ae0c545690ba5ec75cb0e
++UWASA.MES=906cfaf382284466fa9f420db4c99e0d1227e60a41f537d6624df666ad4273d8
+diff --git a/apps/hr/l10n/digest.go b/apps/hr/l10n/digest.go
+index 52022c6..ee23971 100644
+--- a/apps/hr/l10n/digest.go
++++ b/apps/hr/l10n/digest.go
+@@ -19,16 +19,34 @@ import (
+ // 輸入摘要、建置器版本與譯文表整體雜湊（docs/spec/008 第 3.2 節）。
+ 
+ // builderGolden 是建置器的 golden 檔：合成譯文表 fixture 在 table 模式的輸出雜湊（測試產生，機器寫的文字檔）。
+-// 建置器版本由它的位元組導出：建置輸出一改變，golden 就必須重產，版本隨之改變，
++// 建置器版本由契約識別、L1 與 L2 golden 的長度及位元組導出：輸出一改變，golden 就必須重產，版本隨之改變，
+ // 不可能只重產 golden 而保留舊版本。見 golden_test.go。
+ //
+ //go:embed data/builder-golden.txt
+ var builderGolden []byte
+ 
+-// versionOf 回傳 golden 位元組的 SHA-256 前 8 碼（小寫十六進位）。
++//go:embed data/builder-l2-golden.txt
++var builderL2Golden []byte
++
++const builderContract = "hr-l10n-l2-en-v1"
++
++// versionOf 將 L1 golden 與目前 L2 golden／契約組成固定版本串流。
+ func versionOf(golden []byte) string {
+-	sum := sha256.Sum256(golden)
+-	return hex.EncodeToString(sum[:4])
++	return builderVersionOf(builderContract, golden, builderL2Golden)
++}
++
++func builderVersionOf(contract string, l1, l2 []byte) string {
++	var sb strings.Builder
++	sb.WriteString("hr-l10n-builder-version-v2\n")
++	for _, part := range []struct {
++		name string
++		data []byte
++	}{{"contract", []byte(contract)}, {"l1", l1}, {"l2", l2}} {
++		fmt.Fprintf(&sb, "%s\t%d\n", part.name, len(part.data))
++		sb.Write(part.data)
++		sb.WriteByte('\n')
++	}
++	return sha256Hex([]byte(sb.String()))[:8]
+ }
+ 
+ // Version 是建置器版本 `l10nBuilderVersion`（不用 app 版本字串）。
+diff --git a/apps/hr/l10n/english.go b/apps/hr/l10n/english.go
+new file mode 100644
+index 0000000..64ef272
+--- /dev/null
++++ b/apps/hr/l10n/english.go
+@@ -0,0 +1,77 @@
++package l10n
++
++import (
++	"encoding/binary"
++	"errors"
++	"unicode/utf8"
++
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/budget"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/enpairs"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/glyphpatch"
++)
++
++func (t *Table) adoptEnglish(f *File, p Policy, patch *glyphpatch.Patch) (map[string][]byte, int, []string, error) {
++	if patch == nil || patch.Language() != codeEnglish {
++		return nil, 0, nil, errors.New("l10n: 英文採用需要已驗字模補丁")
++	}
++	return t.adopt(f, p, func(item Item, row Row) ([]byte, []byte, []string) {
++		if row.Text == "" {
++			return nil, nil, []string{"譯文為空（要保留原版請用 keep）"}
++		}
++		class := ""
++		if f.Kind == KindESP {
++			c, ok := ESPWindowClass(row.ID)
++			if !ok {
++				return nil, nil, []string{"esp-windows.tsv 沒有此項目，無法決定窗口類別"}
++			}
++			class = c
++		}
++		final, vs := enpairs.Prepare(enpairs.Input{ID: row.ID, File: f.Name, Class: class, Orig: item.Orig, Text: row.Text, Patch: patch})
++		if len(vs) != 0 {
++			return nil, nil, violationStrings(vs)
++		}
++		return englishComparisonKey(row.Text), final, nil
++	})
++}
++
++// englishComparisonKey is called only after Prepare has validated the source.
++// It does not require pre-wrap pairs to exist in the fixed patch. P/F/N token
++// boundaries exactly follow spec 008 section 3.2.1, independently of wrapping.
++func englishComparisonKey(text string) []byte {
++	key := make([]byte, 0)
++	var ordinary []rune
++	flush := func() {
++		for i := 0; i < len(ordinary); i += 2 {
++			right := rune(' ')
++			if i+1 < len(ordinary) {
++				right = ordinary[i+1]
++			}
++			key = append(key, 'P')
++			key = binary.BigEndian.AppendUint32(key, uint32(ordinary[i]))
++			key = binary.BigEndian.AppendUint32(key, uint32(right))
++		}
++		ordinary = ordinary[:0]
++	}
++	b := []byte(text)
++	for off := 0; off < len(b); {
++		switch b[off] {
++		case '%':
++			flush()
++			n, _, _ := budget.ConversionAt(b, off)
++			key = append(key, 'F')
++			key = binary.BigEndian.AppendUint32(key, uint32(n))
++			key = append(key, b[off:off+n]...)
++			off += n
++		case '\n':
++			flush()
++			key = append(key, 'N')
++			off++
++		default:
++			r, n := utf8.DecodeRune(b[off:])
++			ordinary = append(ordinary, r)
++			off += n
++		}
++	}
++	flush()
++	return key
++}
+diff --git a/apps/hr/l10n/english_build_test.go b/apps/hr/l10n/english_build_test.go
+new file mode 100644
+index 0000000..3803f31
+--- /dev/null
++++ b/apps/hr/l10n/english_build_test.go
+@@ -0,0 +1,478 @@
++package l10n
++
++import (
++	"bytes"
++	"encoding/binary"
++	"errors"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/enpairs"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/glyphpatch"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/verify"
++)
++
++func englishConfig(t *testing.T, rows ...Row) Config {
++	t.Helper()
++	return Config{OrigDir: origDirOrSkip(t), TableDir: englishTables(t, rows...), PackRoot: t.TempDir(), Code: "en", Mode: ModeTable,
++		PatchDir: englishPatchDir(t, "en", [2]rune{'A', 'B'}, [2]rune{'C', 'D'}, [2]rune{'E', 'F'})}
++}
++
++func englishTables(t *testing.T, rows ...Row) string {
++	t.Helper()
++	dir := t.TempDir()
++	by := map[string]*Table{}
++	for _, r := range rows {
++		name := dataFileOfID(r.ID)
++		if by[name] == nil {
++			by[name] = &Table{}
++		}
++		by[name].Rows = append(by[name].Rows, r)
++	}
++	for name, tbl := range by {
++		var b bytes.Buffer
++		if err := tbl.Save(&b); err != nil {
++			t.Fatal(err)
++		}
++		if err := os.WriteFile(filepath.Join(dir, name+".tsv"), b.Bytes(), 0600); err != nil {
++			t.Fatal(err)
++		}
++	}
++	return dir
++}
++
++func englishOriginalRow(t *testing.T, text, status string) Row {
++	t.Helper()
++	orig := readOrig(t, "SP.MES")["SP.MES"]
++	f := mustParse(t, "SP.MES", orig)
++	item, ok := f.Lookup("SP.MES#56")
++	if !ok {
++		t.Fatal("missing source item")
++	}
++	r := Row{ID: item.ID, SrcSHA: SrcSHA(item.Orig), Text: text, Status: status, By: "synthetic", Batch: "l2-synthetic", Date: "2026-10-05"}
++	if status == StatusAccepted {
++		r.AccSHA = AccSHA(text)
++	}
++	return r
++}
++
++func TestEnglishConfigScope(t *testing.T) {
++	if l2Supported {
++		t.Fatal("global L2 switch must remain disabled")
++	}
++	for _, c := range []Config{
++		{Code: "en", Mode: ModeTable, TableDir: "t"},
++		{Code: "zh-TW", Mode: ModeTable, TableDir: "t", PatchDir: "p"},
++		{Code: "ja", Mode: ModeTable, TableDir: "t", PatchDir: "p"},
++		{Code: "ko", Mode: ModeTable, TableDir: "t", PatchDir: "p"},
++		{Code: "zh-CN", Mode: ModeTable, TableDir: "t", PatchDir: "p"},
++		{Code: "en", Mode: ModeIdentity, PatchDir: "p"},
++		{Code: "zh-TW", Mode: ModeIdentity, PatchDir: "p"},
++		{Code: "identity", Mode: ModeIdentity, PatchDir: "p"},
++	} {
++		if c.Validate() == nil {
++			t.Fatal("configuration unexpectedly accepted")
++		}
++		if _, e := ExpectedDigest(c); e == nil {
++			t.Fatal("digest unexpectedly accepted")
++		}
++	}
++	c := Config{Code: "en", Mode: ModeTable, TableDir: t.TempDir(), PatchDir: englishPatchDir(t, "en", [2]rune{'A', 'B'})}
++	if e := c.Validate(); e != nil {
++		t.Fatal(e)
++	}
++	if _, e := ExpectedDigest(c); e != nil {
++		t.Fatal(e)
++	}
++}
++
++func TestEnglishPrewrapGroupsAndPolicy(t *testing.T) {
++	w := newSynthWorld(t)
++	patch, err := glyphpatch.Load(englishPatchDir(t, "en", [2]rune{'A', 'A'}, [2]rune{'A', ' '}, [2]rune{'A', 'B'}, [2]rune{'C', 'D'}), "en")
++	if err != nil {
++		t.Fatal(err)
++	}
++	f := w.parsed["UWASA.MES"]
++	// The pre-wrap space+A pair is intentionally absent. It disappears when
++	// the sole word boundary becomes a newline; only final pairs are required.
++	text := strings.Repeat("A", 14) + " " + strings.Repeat("A", 17)
++	rows := []Row{w.row("UWASA.MES#0", text, StatusAccepted), w.row("UWASA.MES#1", text, StatusAccepted)}
++	r, n, vs, e := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch)
++	if e != nil || len(vs) != 0 || n != 2 || !bytes.Equal(r[rows[0].ID], r[rows[1].ID]) {
++		t.Fatalf("equal group n=%d vs=%v e=%v", n, vs, e)
++	}
++	// Explicit and inserted newlines produce identical final bytes, but the
++	// pre-wrap source keys differ and must not hide a group inconsistency.
++	rows[1].Text = strings.Repeat("A", 14) + "\n" + strings.Repeat("A", 17)
++	rows[1].AccSHA = AccSHA(rows[1].Text)
++	r, n, vs, e = (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch)
++	if e != nil || r != nil || n != 0 || len(vs) != 1 || !strings.Contains(vs[0], "同群組") {
++		t.Fatalf("prewrap group %v %v", vs, e)
++	}
++	for _, note := range []string{"group-exception", "context; group-exception", "context； group-exception"} {
++		rows[1].Note = note
++		if _, n, vs, e := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch); e != nil || len(vs) != 0 || n != 2 {
++			t.Fatalf("exact exception %v %v", vs, e)
++		}
++	}
++	for _, note := range []string{"prefix group-exception", "group-exceptions", "xgroup-exception"} {
++		rows[1].Note = note
++		if _, _, vs, _ := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch); len(vs) == 0 {
++			t.Fatal("inexact exception accepted")
++		}
++	}
++	rows[1].Status = StatusKeep
++	if _, n, vs, e := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch); e != nil || len(vs) != 0 || n != 1 {
++		t.Fatalf("partial adoption %v %v", vs, e)
++	}
++	rows = []Row{w.row("UWASA.MES#0", "ABCD", StatusAccepted)}
++	rows[0].AccSHA = AccSHA("stale")
++	if _, n, vs, _ := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch); n != 0 || len(vs) != 0 {
++		t.Fatal("stale accepted adopted")
++	}
++	if _, n, vs, _ := (&Table{Rows: rows}).adoptEnglish(f, Policy{WithCandidates: true}, patch); n != 1 || len(vs) != 0 {
++		t.Fatal("stale candidate not adopted")
++	}
++	rows[0].SrcSHA = SrcSHA([]byte("bad source"))
++	if _, _, vs, _ := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch); len(vs) == 0 {
++		t.Fatal("source identity ignored")
++	}
++	rows = []Row{w.row("SHOPTAB#0.0", "ABCD", StatusAccepted)}
++	if _, _, vs, _ := (&Table{Rows: rows}).adoptEnglish(w.parsed["SHOPTAB.TBL"], Policy{AllowShoptab: true}, patch); len(vs) == 0 || !strings.Contains(vs[0], "unknown-window") {
++		t.Fatalf("shop window %v", vs)
++	}
++	rows = []Row{w.row("COUNTRY.MES#0", "ABCD", StatusCandidate)}
++	if _, _, vs, _ := (&Table{Rows: rows}).adoptEnglish(w.parsed["COUNTRY.MES"], Policy{}, patch); len(vs) == 0 || !strings.Contains(vs[0], "-allow-country-offsets") {
++		t.Fatal("non-keep country flag lost")
++	}
++	if _, n, vs, _ := (&Table{Rows: rows}).adoptEnglish(w.parsed["COUNTRY.MES"], Policy{AllowCountryOffsets: true}, patch); n != 0 || len(vs) != 0 {
++		t.Fatal("excluded candidate should keep original")
++	}
++	rows = []Row{w.row("UWASA.MES#0", "\u0301", StatusCandidate)}
++	if _, n, vs, _ := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch); n != 0 || len(vs) != 0 {
++		t.Fatal("excluded candidate reached source preparation")
++	}
++}
++
++func TestEnglishGroupSameSourceDifferentWindows(t *testing.T) {
++	w := newSynthWorld(t)
++	orig := string(w.enc("山水火天地人"))
++	f := mustParse(t, "ESPMES.MRG", buildESP(125, map[int][]string{44: {string(w.enc("一二")), orig}, 121: {orig}}))
++	patch, e := glyphpatch.Load(englishPatchDir(t, "en", [2]rune{'A', 'A'}, [2]rune{'A', ' '}, [2]rune{' ', 'A'}), "en")
++	if e != nil {
++		t.Fatal(e)
++	}
++	text := strings.Repeat("A", 14) + " " + strings.Repeat("A", 17)
++	var rows []Row
++	for _, id := range []string{"ESPMES#44.1", "ESPMES#121.0"} {
++		item, ok := f.Lookup(id)
++		if !ok {
++			t.Fatal("synthetic item")
++		}
++		rows = append(rows, Row{ID: id, SrcSHA: SrcSHA(item.Orig), Text: text, Status: StatusAccepted, AccSHA: AccSHA(text)})
++	}
++	r, n, vs, e := (&Table{Rows: rows}).adoptEnglish(f, Policy{}, patch)
++	if e != nil || len(vs) != 0 || n != 2 {
++		t.Fatalf("window group %v %v", vs, e)
++	}
++	if bytes.ContainsRune(r[rows[0].ID], '\n') || !bytes.ContainsRune(r[rows[1].ID], '\n') || bytes.Equal(r[rows[0].ID], r[rows[1].ID]) {
++		t.Fatal("distinct window folds were not preserved")
++	}
++}
++
++func TestEnglishComparisonTokens(t *testing.T) {
++	pair := func(a, b rune) []byte {
++		v := []byte{'P'}
++		v = binary.BigEndian.AppendUint32(v, uint32(a))
++		return binary.BigEndian.AppendUint32(v, uint32(b))
++	}
++	want := append(pair('A', ' '), 'F')
++	want = binary.BigEndian.AppendUint32(want, 2)
++	want = append(want, []byte("%s")...)
++	want = append(want, 'N')
++	want = append(want, pair('B', ' ')...)
++	if !bytes.Equal(englishComparisonKey("A%s\nB"), want) {
++		t.Fatal("P/F/N canonical stream")
++	}
++	if !bytes.Equal(englishComparisonKey("A"), englishComparisonKey("A ")) {
++		t.Fatal("odd-segment pad equivalence")
++	}
++	if bytes.Equal(englishComparisonKey("AB CD"), englishComparisonKey("AB\nCD")) {
++		t.Fatal("explicit boundary lost")
++	}
++}
++
++func TestEnglishBuildIdentityFullPatchAndReuse(t *testing.T) {
++	cfg := englishConfig(t)
++	want, err := readOrigInputs(cfg.OrigDir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	r := mustBuild(t, cfg)
++	if r.Manifest.Adopted != 0 || r.Manifest.PatchHash == "" {
++		t.Fatal("zero adoption metadata")
++	}
++	for _, name := range packNames {
++		if !bytes.Equal(packFile(t, r.Dir, name), want[name]) {
++			t.Fatalf("zero adoption changed %s", name)
++		}
++	}
++	d, e := ExpectedDigest(cfg)
++	if e != nil || d != r.Digest {
++		t.Fatalf("digest %v", e)
++	}
++	if next := mustBuild(t, cfg); !next.Reused || next.Dir != r.Dir {
++		t.Fatal("same-input reuse")
++	}
++	row := englishOriginalRow(t, "ABCD", StatusAccepted)
++	cfg.TableDir = englishTables(t, row)
++	r = mustBuild(t, cfg)
++	if r.Reused || r.Manifest.Adopted != 1 || r.Digest == d {
++		t.Fatal("positive adoption metadata")
++	}
++	patch, e := glyphpatch.Load(cfg.PatchDir, "en")
++	if e != nil {
++		t.Fatal(e)
++	}
++	a, _ := patch.Lookup([]rune{'A', 'B'})
++	b, _ := patch.Lookup([]rune{'C', 'D'})
++	f := mustParse(t, "SP.MES", packFile(t, r.Dir, "SP.MES"))
++	it, _ := f.Lookup(row.ID)
++	if !bytes.Equal(it.Orig, []byte{byte(a >> 8), byte(a), byte(b >> 8), byte(b)}) {
++		t.Fatal("typed final bytes not written")
++	}
++	// Independent index formula and all-grid comparison, including the EF
++	// bitmap which no adopted row uses: positive adoption applies full patch.
++	records, e := os.ReadFile(filepath.Join(cfg.PatchDir, "glyphs-en.bin"))
++	if e != nil {
++		t.Fatal(e)
++	}
++	changed := map[int][]byte{}
++	for pos := 0; pos < len(records); pos += 32 {
++		code := binary.BigEndian.Uint16(records[pos:])
++		lead, trail := int(code>>8), int(code&255)
++		tail := trail - 0x40
++		if trail > 0x7e {
++			tail = trail - 0x62
++		}
++		index := (lead-0xa4)*157 + tail + 0x16d
++		changed[index] = records[pos+2 : pos+32]
++	}
++	cf := packFile(t, r.Dir, "CFONT.15")
++	for index := 0; index < 13867; index++ {
++		target := want["CFONT.15"][index*30 : (index+1)*30]
++		if glyph, ok := changed[index]; ok {
++			target = glyph
++		}
++		if !bytes.Equal(cf[index*30:(index+1)*30], target) {
++			t.Fatalf("CFONT grid %d", index)
++		}
++	}
++	if _, e := verify.Verify(r.Dir, verify.Options{OrigHashes: r.Manifest.OrigInputs, ExpectDigest: r.Digest}); e != nil {
++		t.Fatal(e)
++	}
++}
++
++func TestEnglishBuildSnapshotDigestAndFailureAtomicity(t *testing.T) {
++	row := englishOriginalRow(t, "ABCD", StatusAccepted)
++	cfg := englishConfig(t, row)
++	wantDigest, e := ExpectedDigest(cfg)
++	if e != nil {
++		t.Fatal(e)
++	}
++	sourcePath := filepath.Join(cfg.PatchDir, "SOURCE.txt")
++	source, e := os.ReadFile(sourcePath)
++	if e != nil {
++		t.Fatal(e)
++	}
++	reads := 0
++	cfg.hooks = &buildHooks{afterPatchRead: func() {
++		reads++
++		if e := os.WriteFile(sourcePath, []byte("broken after snapshot"), 0600); e != nil {
++			t.Fatal(e)
++		}
++	}}
++	r := mustBuild(t, cfg)
++	if reads != 1 || r.Digest != wantDigest || r.Manifest.Adopted != 1 {
++		t.Fatal("snapshot not reused for digest/render/manifest")
++	}
++	if _, e := ExpectedDigest(cfg); e == nil {
++		t.Fatal("next call ignored changed disk patch")
++	}
++	if e := os.WriteFile(sourcePath, source, 0600); e != nil {
++		t.Fatal(e)
++	}
++	cfg.hooks = nil
++	if !mustBuild(t, cfg).Reused {
++		t.Fatal("restored snapshot not reused")
++	}
++	oldManifest := r.ManifestSHA256
++	bad := row
++	bad.Text = "MISSING"
++	bad.AccSHA = AccSHA(bad.Text)
++	cfg.TableDir = englishTables(t, bad)
++	_, e = Build(cfg)
++	var ve *ViolationsError
++	if !errors.As(e, &ve) || !strings.Contains(e.Error(), "missing-pair") {
++		t.Fatalf("missing pairs %v", e)
++	}
++	if len(tmpEntries(t, cfg.PackRoot)) != 0 || len(finalPacks(t, cfg.PackRoot)) != 1 {
++		t.Fatal("failed build left temporary or new pack")
++	}
++	if sum, e := verify.ManifestSHA256(r.Dir); e != nil || sum != oldManifest {
++		t.Fatal("old pack modified")
++	}
++	bad.AccSHA = AccSHA("stale")
++	cfg.TableDir = englishTables(t, bad)
++	zero := mustBuild(t, cfg)
++	if zero.Manifest.Adopted != 0 {
++		t.Fatal("accepted downgrade not zero")
++	}
++	// Alter table, policy, patch metadata and builder version independently.
++	cfg.TableDir = englishTables(t, row)
++	baseline, e := ExpectedDigest(cfg)
++	if e != nil {
++		t.Fatal(e)
++	}
++	reordered := row
++	reordered.Text = "CDAB"
++	reordered.AccSHA = AccSHA(reordered.Text)
++	cfg.TableDir = englishTables(t, reordered)
++	if d, _ := ExpectedDigest(cfg); d == baseline {
++		t.Fatal("table absent from digest")
++	}
++	cfg.TableDir = englishTables(t, row)
++	cfg.Policy.WithCandidates = true
++	if d, _ := ExpectedDigest(cfg); d == baseline {
++		t.Fatal("policy absent from digest")
++	}
++	cfg.Policy = Policy{}
++	cfg.hooks = &buildHooks{version: "changed-version"}
++	if d, _ := ExpectedDigest(cfg); d == baseline {
++		t.Fatal("version absent from digest")
++	}
++	cfg.hooks = nil
++	source = bytes.Replace(source, []byte("synthetic-test-v1"), []byte("synthetic-test-v2"), 1)
++	if e := os.WriteFile(sourcePath, source, 0600); e != nil {
++		t.Fatal(e)
++	}
++	changed, e := ExpectedDigest(cfg)
++	if e != nil || changed == baseline {
++		t.Fatalf("patch metadata digest %v", e)
++	}
++	if next := mustBuild(t, cfg); next.Reused || next.Digest != changed {
++		t.Fatal("changed patch reused old pack")
++	}
++}
++
++// The local accepted pilot is optional input, never embedded or copied into
++// the repository. It is independent of the synthetic version golden.
++func TestEnglishLocalAcceptedPilot(t *testing.T) {
++	if os.Getenv("HR_EN_TABLE") == "" || os.Getenv("HR_EN_PATCH") == "" {
++		t.Skip("local English pilot not supplied")
++	}
++	cfg := Config{OrigDir: origDirOrSkip(t), TableDir: os.Getenv("HR_EN_TABLE"), PatchDir: os.Getenv("HR_EN_PATCH"), PackRoot: t.TempDir(), Code: "en", Mode: ModeTable}
++	inputs, e := readOrigInputs(cfg.OrigDir)
++	if e != nil {
++		t.Fatal(e)
++	}
++	tables, e := readTableFiles(cfg.TableDir)
++	if e != nil {
++		t.Fatal(e)
++	}
++	patch, e := glyphpatch.Load(cfg.PatchDir, "en")
++	if e != nil {
++		t.Fatal(e)
++	}
++	digest, e := ExpectedDigest(cfg)
++	if e != nil {
++		t.Fatal(e)
++	}
++	r := mustBuild(t, cfg)
++	if r.Manifest.Adopted != 17 || r.Digest != digest || r.Manifest.PatchHash != patch.Digest() {
++		t.Fatal("pilot count or snapshot identity")
++	}
++	if _, e := verify.Verify(r.Dir, verify.Options{OrigHashes: r.Manifest.OrigInputs, ExpectDigest: digest}); e != nil {
++		t.Fatal(e)
++	}
++	count := 0
++	for _, name := range dataFileNames {
++		original := mustParse(t, name, inputs[name])
++		result := mustParse(t, name, packFile(t, r.Dir, name))
++		var rows []Row
++		if tb, ok := tables[name]; ok {
++			tbl, e := LoadTable(bytes.NewReader(tb))
++			if e != nil {
++				t.Fatal(e)
++			}
++			rows = tbl.Rows
++		}
++		expected := map[string][]byte{}
++		for _, row := range rows {
++			if row.Status != StatusAccepted || row.AccSHA != AccSHA(row.Text) {
++				t.Fatal("pilot row is not accepted")
++			}
++			it, ok := original.Lookup(row.ID)
++			if !ok {
++				t.Fatal("pilot row absent")
++			}
++			class := ""
++			if original.Kind == KindESP {
++				class, _ = ESPWindowClass(row.ID)
++			}
++			b, vs := enpairs.Prepare(enpairs.Input{ID: row.ID, File: name, Class: class, Orig: it.Orig, Text: row.Text, Patch: patch})
++			if len(vs) != 0 {
++				t.Fatalf("pilot %s: %+v", row.ID, vs)
++			}
++			expected[row.ID] = b
++			count++
++		}
++		if len(original.Items) != len(result.Items) {
++			t.Fatal("pilot altered item count")
++		}
++		for _, it := range original.Items {
++			want := it.Orig
++			if b, ok := expected[it.ID]; ok {
++				want = b
++			}
++			got, ok := result.Lookup(it.ID)
++			if !ok || !bytes.Equal(got.Orig, want) {
++				t.Fatalf("pilot typed readback %s", it.ID)
++			}
++		}
++	}
++	if count != 17 {
++		t.Fatal("pilot table count")
++	}
++	records, e := os.ReadFile(filepath.Join(cfg.PatchDir, "glyphs-en.bin"))
++	if e != nil {
++		t.Fatal(e)
++	}
++	changed := map[int][]byte{}
++	for pos := 0; pos < len(records); pos += 32 {
++		code := binary.BigEndian.Uint16(records[pos:])
++		lead, trail := int(code>>8), int(code&255)
++		tail := trail - 0x40
++		if trail > 0x7e {
++			tail = trail - 0x62
++		}
++		index := (lead-0xa4)*157 + tail + 0x16d
++		changed[index] = records[pos+2 : pos+32]
++	}
++	cf := packFile(t, r.Dir, "CFONT.15")
++	for index := 0; index < 13867; index++ {
++		want := inputs[cfontName][index*30 : (index+1)*30]
++		if glyph, ok := changed[index]; ok {
++			want = glyph
++		}
++		if !bytes.Equal(cf[index*30:(index+1)*30], want) {
++			t.Fatalf("pilot CFONT grid %d", index)
++		}
++	}
++	if !mustBuild(t, cfg).Reused {
++		t.Fatal("pilot same-input reuse")
++	}
++	t.Logf("adopted=%d patch=%s digest=%s manifest=%s CFONT=%s", count, patch.Digest(), r.Digest, r.ManifestSHA256, sha256Hex(cf))
++}
+diff --git a/apps/hr/l10n/english_golden_test.go b/apps/hr/l10n/english_golden_test.go
+new file mode 100644
+index 0000000..80c8355
+--- /dev/null
++++ b/apps/hr/l10n/english_golden_test.go
+@@ -0,0 +1,117 @@
++package l10n
++
++import (
++	"bytes"
++	"fmt"
++	"os"
++	"regexp"
++	"strings"
++	"testing"
++)
++
++const l2GoldenPath = "data/builder-l2-golden.txt"
++
++func computeEnglishGolden(t *testing.T) []byte {
++	t.Helper()
++	var out strings.Builder
++	for _, v := range []struct {
++		name, text, status string
++		with               bool
++	}{{"zero", "", StatusKeep, false}, {"accepted", "ABCD", StatusAccepted, false}, {"candidate-excluded", "ABCD", StatusCandidate, false}, {"candidate-adopted", "ABCD", StatusCandidate, true}, {"reordered", "CDAB", StatusAccepted, false}} {
++		cfg := englishConfig(t, englishOriginalRow(t, v.text, v.status))
++		cfg.Policy.WithCandidates = v.with
++		res := mustBuild(t, cfg)
++		m := *res.Manifest
++		m.BuilderVersion, m.InputDigest = "", ""
++		raw, e := m.Marshal()
++		if e != nil {
++			t.Fatal(e)
++		}
++		fmt.Fprintf(&out, "[%s]\npatch=%s\nadopted=%d\nmanifest=%s\n", v.name, res.Manifest.PatchHash, res.Manifest.Adopted, sha256Hex(raw))
++		for _, name := range packNames {
++			fmt.Fprintf(&out, "%s=%s\n", name, sha256Hex(packFile(t, res.Dir, name)))
++		}
++	}
++	return []byte(out.String())
++}
++
++func TestEnglishGolden(t *testing.T) {
++	origDirOrSkip(t)
++	got := computeEnglishGolden(t)
++	if os.Getenv("HR_L10N_UPDATE_L2_GOLDEN") == "1" {
++		if e := os.WriteFile(l2GoldenPath, got, 0644); e != nil {
++			t.Fatal(e)
++		}
++		return
++	}
++	if d := goldenFirstDiff(got, builderL2Golden); d != "" {
++		t.Fatalf("L2 golden differs: %s; update then recompile", d)
++	}
++	if !bytes.Equal(computeEnglishGolden(t), got) {
++		t.Fatal("L2 golden is not reproducible")
++	}
++}
++
++func TestEnglishGoldenVersionStream(t *testing.T) {
++	l1, l2 := []byte("ab"), []byte("cd")
++	want := "hr-l10n-builder-version-v2\ncontract\t1\nx\nl1\t2\nab\nl2\t2\ncd\n"
++	if got := builderVersionOf("x", l1, l2); got != sha256Hex([]byte(want))[:8] {
++		t.Fatalf("version stream %s", got)
++	}
++	v := Version()
++	for _, got := range []string{builderVersionOf(builderContract+"x", builderGolden, builderL2Golden), builderVersionOf(builderContract, append(bytes.Clone(builderGolden), 'x'), builderL2Golden), builderVersionOf(builderContract, builderGolden, append(bytes.Clone(builderL2Golden), 'x'))} {
++		if got == v {
++			t.Fatal("version input omitted")
++		}
++	}
++	if builderVersionOf("x", []byte("a"), []byte("bcd")) == builderVersionOf("x", l1, l2) {
++		t.Fatal("ambiguous version boundaries")
++	}
++	if !regexp.MustCompile(`^[0-9a-f]{8}$`).MatchString(v) {
++		t.Fatal("version shape")
++	}
++}
++
++func TestEnglishGoldenFormat(t *testing.T) {
++	if len(builderL2Golden) == 0 || builderL2Golden[len(builderL2Golden)-1] != '\n' || bytes.ContainsRune(builderL2Golden, '\r') {
++		t.Fatal("L2 golden must be nonempty LF text")
++	}
++	ls := strings.Split(strings.TrimSuffix(string(builderL2Golden), "\n"), "\n")
++	hex64 := regexp.MustCompile(`^[0-9a-f]{64}$`)
++	i := 0
++	for _, v := range []struct {
++		name    string
++		adopted int
++	}{{"zero", 0}, {"accepted", 1}, {"candidate-excluded", 0}, {"candidate-adopted", 1}, {"reordered", 1}} {
++		if i+12 > len(ls) || ls[i] != "["+v.name+"]" {
++			t.Fatal("golden header or truncated variant")
++		}
++		i++
++		for _, key := range []string{"patch"} {
++			k, val, ok := strings.Cut(ls[i], "=")
++			if !ok || k != key || !hex64.MatchString(val) {
++				t.Fatal("golden patch identity")
++			}
++			i++
++		}
++		if ls[i] != fmt.Sprintf("adopted=%d", v.adopted) {
++			t.Fatal("golden adoption count")
++		}
++		i++
++		k, val, ok := strings.Cut(ls[i], "=")
++		if !ok || k != "manifest" || !hex64.MatchString(val) {
++			t.Fatal("golden manifest identity")
++		}
++		i++
++		for _, name := range packNames {
++			k, val, ok := strings.Cut(ls[i], "=")
++			if !ok || k != name || !hex64.MatchString(val) {
++				t.Fatal("golden output identity")
++			}
++			i++
++		}
++	}
++	if i != len(ls) {
++		t.Fatal("unexpected golden lines")
++	}
++}
+diff --git a/apps/hr/l10n/english_patch_test.go b/apps/hr/l10n/english_patch_test.go
+new file mode 100644
+index 0000000..1a85c4c
+--- /dev/null
++++ b/apps/hr/l10n/english_patch_test.go
+@@ -0,0 +1,131 @@
++package l10n
++
++import (
++	"crypto/sha256"
++	"encoding/binary"
++	"fmt"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/glyphpatch"
++	"os"
++	"path/filepath"
++	"sort"
++	"strconv"
++	"strings"
++	"testing"
++)
++
++// Only synthetic text and bitmaps are used here. The OFL text is public;
++// reserved-codes.tsv is the independent trusted measurement fixture.
++func englishPatchDir(t *testing.T, language string, pairs ...[2]rune) string {
++	t.Helper()
++	read := func(name string) []byte {
++		b, e := os.ReadFile(filepath.Join("glyphpatch", "testdata", name))
++		if e != nil {
++			t.Fatal(e)
++		}
++		return b
++	}
++	files := map[string][]byte{"OFL.txt": read("OFL.txt"), "reserved-codes.tsv": read("reserved-codes.tsv")}
++	reserved := map[uint16]bool{}
++	for _, line := range strings.Split(string(files["reserved-codes.tsv"]), "\n")[1:] {
++		if line == "" {
++			continue
++		}
++		n, e := strconv.ParseUint(strings.Split(line, "\t")[0], 16, 16)
++		if e != nil {
++			t.Fatal(e)
++		}
++		reserved[uint16(n)] = true
++	}
++	set := map[[2]rune]bool{}
++	for _, p := range pairs {
++		set[p] = true
++	}
++	if len(set) == 0 {
++		set[[2]rune{'A', ' '}] = true
++	}
++	pairs = nil
++	for p := range set {
++		pairs = append(pairs, p)
++	}
++	sort.Slice(pairs, func(i, j int) bool {
++		return pairs[i][0] < pairs[j][0] || pairs[i][0] == pairs[j][0] && pairs[i][1] < pairs[j][1]
++	})
++	var codes []uint16
++	for lead := 0xe0; lead <= 0xf9; lead++ {
++		for trail := 0x40; trail <= 0xdf; trail++ {
++			if trail > 0x7e && trail < 0xa1 {
++				continue
++			}
++			c := uint16(lead<<8 | trail)
++			if !reserved[c] {
++				codes = append(codes, c)
++			}
++		}
++	}
++	var cmap strings.Builder
++	if language == "en" {
++		cmap.WriteString("left_cp\tright_cp\tcode_hex\n")
++	} else {
++		cmap.WriteString("unicode\tcode_hex\n")
++	}
++	for i, p := range pairs {
++		if language == "en" {
++			fmt.Fprintf(&cmap, "U+%04X\tU+%04X\t%04X\n", p[0], p[1], codes[i])
++		} else {
++			fmt.Fprintf(&cmap, "U+%04X\t%04X\n", p[0], codes[i])
++		}
++		var rec [32]byte
++		binary.BigEndian.PutUint16(rec[:2], codes[i])
++		var bits uint16
++		if p[0] != ' ' {
++			bits |= 0x8000
++		}
++		if language == "en" && p[1] != ' ' {
++			bits |= 0x0080
++		}
++		for r := 0; r < 15; r++ {
++			binary.BigEndian.PutUint16(rec[2+2*r:], bits)
++		}
++		files["glyphs-"+language+".bin"] = append(files["glyphs-"+language+".bin"], rec[:]...)
++	}
++	files["charmap-"+language+".tsv"] = []byte(cmap.String())
++	face := map[string]string{"en": "3\tTC", "ja": "0\tJP"}[language]
++	f := strings.Split(face, "\t")
++	source := map[string]string{
++		"format": "hr-l2-source-v1", "language": language, "units_sha256": strings.Repeat("a", 64), "unicode_version": "15.0.0",
++		"font_file": "NotoSansCJK-Regular.ttc", "font_sha256": "b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a", "font_version": "Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603",
++		"face_index": f[0], "face_name": "Noto Sans CJK " + f[1], "pillow_version": "12.3.0", "fonttools_version": "4.66.1",
++		"pixel_size": "13", "cell": "15x15", "threshold": "128", "placement": "mask-center-floor", "unit_mode": "scalar15",
++		"container_image_id": "sha256:" + strings.Repeat("b", 64), "rasterizer_version": "synthetic-test-v1", "rasterizer_sha256": strings.Repeat("c", 64),
++	}
++	if language == "en" {
++		source["pixel_size"], source["placement"], source["unit_mode"] = "10", "pair2x7-baseline11", "pair2x7"
++		for k, v := range map[string]string{"source_canvas": "12x15", "source_anchor": "ls", "source_origin": "0,11", "source_clipping": "canvas-before-getbbox", "source_crop": "0,0,bbox-right,15", "shrink": "width-gt7:BILINEAR:7x15", "half_origin": "0,0;8,0", "blank_column": "7", "blank_scalar": "U+0020"} {
++			source[k] = v
++		}
++	}
++	for k, n := range map[string]string{"glyphs_sha256": "glyphs-" + language + ".bin", "charmap_sha256": "charmap-" + language + ".tsv", "reserved_sha256": "reserved-codes.tsv", "ofl_sha256": "OFL.txt"} {
++		source[k] = fmt.Sprintf("%x", sha256.Sum256(files[n]))
++	}
++	var keys []string
++	for k := range source {
++		keys = append(keys, k)
++	}
++	sort.Strings(keys)
++	var sb strings.Builder
++	for _, k := range keys {
++		fmt.Fprintf(&sb, "%s\t%s\n", k, source[k])
++	}
++	files["SOURCE.txt"] = []byte(sb.String())
++	dir := t.TempDir()
++	for n, b := range files {
++		if e := os.WriteFile(filepath.Join(dir, n), b, 0600); e != nil {
++			t.Fatal(e)
++		}
++	}
++	_, e := glyphpatch.Load(dir, language)
++	if e != nil {
++		t.Fatal(e)
++	}
++	return dir
++}
+diff --git a/apps/hr/l10n/golden_test.go b/apps/hr/l10n/golden_test.go
+index b2afb6e..76f6924 100644
+--- a/apps/hr/l10n/golden_test.go
++++ b/apps/hr/l10n/golden_test.go
+@@ -20,7 +20,7 @@ import (
+ //	manifest=<manifest 去掉建置器版本與輸入摘要之後的 SHA-256>
+ //	<檔名>=<files/ 內該檔的 SHA-256>        依檔名排序，八個檔
+ //
+-// 無註解、LF、固定排序。建置器版本是 golden 位元組的 SHA-256 前 8 碼：建置輸出一改變，golden 就必須重產，
++// 無註解、LF、固定排序。建置器版本是契約識別與 L1/L2 golden 長度串流的 SHA-256 前 8 碼：建置輸出一改變，golden 就必須重產，
+ // 版本隨之改變；不可能只重產 golden 而保留舊版本。
+ // identity 包的輸出恆等於原檔、manifest 含版本，兩者都不能當黃金值（所以 golden 用 fixture 的 table 模式輸出）。
+ //
+@@ -152,10 +152,10 @@ func TestGoldenFormat(t *testing.T) {
+ func TestBuilderVersionDerivedFromGolden(t *testing.T) {
+ 	v := Version()
+ 	if !regexp.MustCompile(`^[0-9a-f]{8}$`).MatchString(v) || v != versionOf(builderGolden) {
+-		t.Fatalf("Version() ＝ %q，應為 golden 位元組 SHA-256 的前 8 碼 %s", v, versionOf(builderGolden))
++		t.Fatalf("Version() ＝ %q，應為契約與 L1/L2 golden 串流 SHA-256 的前 8 碼 %s", v, versionOf(builderGolden))
+ 	}
+-	if v != sha256Hex(builderGolden)[:8] {
+-		t.Error("版本不是 SHA-256 的前 8 碼")
++	if v != builderVersionOf(builderContract, builderGolden, builderL2Golden) {
++		t.Error("版本不是契約及兩份 golden 長度序列的 SHA-256 前 8 碼")
+ 	}
+ 	for i := 0; i < len(builderGolden); i += max(1, len(builderGolden)/50) {
+ 		mod := bytes.Clone(builderGolden)
+diff --git a/apps/hr/l10n/table.go b/apps/hr/l10n/table.go
+index 39fbb2b..e921104 100644
+--- a/apps/hr/l10n/table.go
++++ b/apps/hr/l10n/table.go
+@@ -264,11 +264,66 @@ func (t *Table) Adopt(f *File, p Policy, cs *Charmap, chk Checker) (repl map[str
+ 	if t == nil || f == nil || cs == nil {
+ 		return nil, 0, nil, errors.New("l10n: Adopt 需要譯文表、檔案與字集")
+ 	}
++	return t.adopt(f, p, func(item Item, row Row) ([]byte, []byte, []string) {
++		var messages []string
++		addV := func(_ string, format string, a ...any) { messages = append(messages, fmt.Sprintf(format, a...)) }
++		b, _, eerr := cs.Encode(row.Text)
++		if eerr != nil {
++			addV(row.ID, "%s", strings.TrimPrefix(eerr.Error(), "l10n: "))
++			return nil, nil, messages
++		}
++		if len(b) == 0 {
++			addV(row.ID, "譯文為空（要保留原版請用 keep）")
++			return nil, nil, messages
++		}
++		if f.Kind == KindShop && len(b) > shopNameSize {
++			addV(row.ID, "名稱 %d bytes，超過欄位上限 %d bytes", len(b), shopNameSize)
++			return nil, nil, messages
++		}
++		if f.Kind == KindShop && bytes.IndexByte(b, 0x0A) >= 0 {
++			addV(row.ID, "名稱欄位是單行，不能含換行")
++			return nil, nil, messages
++		}
++		if f.Kind == KindShop {
++			// SHOPTAB 沒有預算套件的窗口，轉接器不做預算檢查（budgetadapter.go），佔位符規則在這裡補上：
++			// 名稱內的轉換規格必須與原項目逐字相同（原項目沒有就不得有）。細節只放個數，不放規格與文句。
++			if o, n := percentSpecs(item.Orig), percentSpecs(b); !slices.Equal(o, n) {
++				addV(row.ID, "%s: 名稱欄的轉換規格必須與原項目逐字相同（譯文 %d 個，原項目 %d 個）", budget.RulePlaceholder, len(n), len(o))
++				return nil, nil, messages
++			}
++		}
++		if chk != nil {
++			class := ""
++			if f.Kind == KindESP {
++				c, ok := ESPWindowClass(row.ID)
++				if !ok {
++					addV(row.ID, "esp-windows.tsv 沒有此項目，無法決定窗口類別")
++					return nil, nil, messages
++				}
++				class = c
++			}
++			for _, msg := range chk(f.Name, class, row.ID, item.Orig, b) {
++				addV(row.ID, "%s", msg)
++			}
++		}
++		return b, b, messages
++	})
++}
++
++// adopt shares row identity, policy and duplicate-source checks. The callback
++// supplies a pre-wrap comparison key separately from the final written bytes.
++type adoptionEncoder func(Item, Row) (key, final []byte, violations []string)
++
++func (t *Table) adopt(f *File, p Policy, encode adoptionEncoder) (repl map[string][]byte, adopted int, violations []string, err error) {
++	if t == nil || f == nil || encode == nil {
++		return nil, 0, nil, errors.New("l10n: 採用需要譯文表、檔案與編碼器")
++	}
+ 	prefix := f.idPrefix() + "#"
+ 	addV := func(id, format string, a ...any) {
+ 		violations = append(violations, fmt.Sprintf("%s: %s: %s", f.Name, id, fmt.Sprintf(format, a...)))
+ 	}
+ 	enc := make(map[string][]byte)
++	final := make(map[string][]byte)
+ 	exempt := make(map[string]bool)
+ 	seen := make(map[string]bool)
+ 	for _, row := range t.Rows {
+@@ -307,46 +362,15 @@ func (t *Table) Adopt(f *File, p Policy, cs *Charmap, chk Checker) (repl map[str
+ 		if eff == StatusKeep || (eff == StatusCandidate && !p.WithCandidates) {
+ 			continue
+ 		}
+-		b, _, eerr := cs.Encode(row.Text)
+-		if eerr != nil {
+-			addV(row.ID, "%s", strings.TrimPrefix(eerr.Error(), "l10n: "))
+-			continue
+-		}
+-		if len(b) == 0 {
+-			addV(row.ID, "譯文為空（要保留原版請用 keep）")
+-			continue
+-		}
+-		if f.Kind == KindShop && len(b) > shopNameSize {
+-			addV(row.ID, "名稱 %d bytes，超過欄位上限 %d bytes", len(b), shopNameSize)
+-			continue
++		key, result, messages := encode(item, row)
++		for _, msg := range messages {
++			addV(row.ID, "%s", msg)
+ 		}
+-		if f.Kind == KindShop && bytes.IndexByte(b, 0x0A) >= 0 {
+-			addV(row.ID, "名稱欄位是單行，不能含換行")
++		if key == nil {
+ 			continue
+ 		}
+-		if f.Kind == KindShop {
+-			// SHOPTAB 沒有預算套件的窗口，轉接器不做預算檢查（budgetadapter.go），佔位符規則在這裡補上：
+-			// 名稱內的轉換規格必須與原項目逐字相同（原項目沒有就不得有）。細節只放個數，不放規格與文句。
+-			if o, n := percentSpecs(item.Orig), percentSpecs(b); !slices.Equal(o, n) {
+-				addV(row.ID, "%s: 名稱欄的轉換規格必須與原項目逐字相同（譯文 %d 個，原項目 %d 個）", budget.RulePlaceholder, len(n), len(o))
+-				continue
+-			}
+-		}
+-		if chk != nil {
+-			class := ""
+-			if f.Kind == KindESP {
+-				c, ok := ESPWindowClass(row.ID)
+-				if !ok {
+-					addV(row.ID, "esp-windows.tsv 沒有此項目，無法決定窗口類別")
+-					continue
+-				}
+-				class = c
+-			}
+-			for _, msg := range chk(f.Name, class, row.ID, item.Orig, b) {
+-				addV(row.ID, "%s", msg)
+-			}
+-		}
+-		enc[row.ID] = b
++		enc[row.ID] = key
++		final[row.ID] = result
+ 		if hasGroupException(row.Note) {
+ 			exempt[row.ID] = true
+ 		}
+@@ -376,5 +400,5 @@ func (t *Table) Adopt(f *File, p Policy, cs *Charmap, chk Checker) (repl map[str
+ 	if len(violations) > 0 {
+ 		return nil, 0, violations, nil
+ 	}
+-	return enc, len(enc), nil, nil
++	return final, len(final), nil, nil
+ }
+-- 
+2.43.0
+
