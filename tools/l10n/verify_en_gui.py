@@ -1,4 +1,4 @@
-"""Local READY English GUI receipt. Run through verify_en_gui.sh in Docker.
+"""Local READY en/zh-CN/ja GUI receipt. Run through verify_en_gui.sh in Docker.
 
 Uses normal mouse/keyboard input. Screens require independent visual review;
 the automated receipt proves package activation/reuse/fallback and input trace.
@@ -34,9 +34,12 @@ def stop(process):
             process.wait(timeout=3)
 
 
-def run(label):
+def run(label, code='en'):
     if not re.fullmatch('[a-z0-9-]{1,40}', label):
         raise ValueError('invalid output label')
+    next_code = {'en': 'ja', 'zh-CN': 'ko', 'ja': 'zh-TW'}.get(code)
+    if next_code is None:
+        raise ValueError('unsupported pilot language')
     base = Path('/out') / label
     if base.exists():
         raise ValueError('refusing to overwrite previous receipt')
@@ -45,12 +48,12 @@ def run(label):
     base.mkdir()
     inputs, missing, invalid = [base / name for name in ('inputs', 'missing', 'invalid')]
     for directory in (inputs, missing, invalid):
-        (directory / 'en').mkdir(parents=True)
+        (directory / code).mkdir(parents=True)
         for name in ('ESPMES.MRG.tsv', 'SP.MES.tsv'):
-            shutil.copyfile(Path('/tables/en') / name, directory / 'en' / name)
+            shutil.copyfile(Path('/tables') / code / name, directory / code / name)
     for directory in (inputs, invalid):
-        shutil.copytree('/patch', directory / 'en/glyph-patch')
-    source = invalid / 'en/glyph-patch/SOURCE.txt'
+        shutil.copytree('/patch', directory / code / 'glyph-patch')
+    source = invalid / code / 'glyph-patch/SOURCE.txt'
     original = source.read_bytes()
     if original.count(b'threshold\t128\n') != 1:
         raise ValueError('unexpected patch SOURCE')
@@ -86,7 +89,7 @@ def run(label):
         screens[path.name] = digest(path)
         print('screen=' + path.name, flush=True)
 
-    def launch(stage, table_root, home, language='en'):
+    def launch(stage, table_root, home, language=code):
         nonlocal client, log_handle
         stop(client)
         if log_handle is not None:
@@ -122,8 +125,8 @@ def run(label):
         return content
 
     def require_active(content, reused):
-        if 'ingame: pack-active' not in content or not re.search(r'pack-ready .*reused=' + str(reused).lower() + r'.*code=en adopted=17 ', content):
-            raise RuntimeError('expected active 17-item English package')
+        if 'ingame: pack-active' not in content or not re.search(r'pack-ready .*reused=' + str(reused).lower() + r'.*code=' + re.escape(code) + r' adopted=17 ', content):
+            raise RuntimeError('expected active 17-item ' + code + ' package')
 
     try:
         xlog = (base / 'xvfb.log').open('wb')
@@ -141,19 +144,19 @@ def run(label):
         click(630, 44); time.sleep(8); shot('location-menu')
         click(624, 88); time.sleep(8); shot('location-info')
         click(800, 520); time.sleep(4); shot('location-after-info')
-        # F4 changes interface/next-start choice; the active game pack stays en.
+        # F4 changes interface/next-start choice; the active game pack stays code.
         press('F4'); press('F1'); shot('f4-pending-f1'); press('F1')
         stop(client)
         config = base / 'home/.config/high_reward/l10n-packs'
-        packs = [p for p in config.iterdir() if p.name.startswith('en-')]
+        packs = [p for p in config.iterdir() if p.name.startswith(code + '-')]
         if len(packs) != 1:
             raise RuntimeError('cold package count')
         old = packs[0]
         manifest_before = digest(old / 'manifest.json')
-        content = launch('next-start-ja', inputs, 'home', language=None)
-        if 'ingame: C=ja explicit=false table=false plan=none reason=no-table' not in content or 'pack-active' in content:
+        content = launch('next-start-' + next_code, inputs, 'home', language=None)
+        if 'ingame: C=' + next_code + ' explicit=false table=false plan=none reason=no-table' not in content or 'pack-active' in content:
             raise RuntimeError('F4 preference did not affect next startup')
-        press('F1'); shot('next-start-ja-f1'); press('F1')
+        press('F1'); shot('next-start-' + next_code + '-f1'); press('F1')
         content = launch('reuse', inputs, 'home'); require_active(content, True)
         press('F1'); shot('reuse-f1'); press('F1'); stop(client)
         # Before startup corruption must preserve the old package and rebuild.
@@ -163,7 +166,7 @@ def run(label):
         content = launch('rebuild', inputs, 'home'); require_active(content, False)
         if digest(font) != corrupt or digest(old / 'manifest.json') != manifest_before:
             raise RuntimeError('overwrote old invalid package')
-        packs = [p for p in config.iterdir() if p.name.startswith('en-')]
+        packs = [p for p in config.iterdir() if p.name.startswith(code + '-')]
         if len(packs) != 2 or not any(p.name == old.name + '-2' for p in packs):
             raise RuntimeError('expected second package slot')
         press('F1'); shot('rebuild-f1'); press('F1')
@@ -178,7 +181,7 @@ def run(label):
         stop(client)
         for stage in stages.values():
             stage['sha256'] = digest(base / stage['log'])
-        receipt = {'scope': 'normal Linux Xvfb frontend; screens need independent visual review',
+        receipt = {'scope': 'normal Linux Xvfb frontend; screens need independent visual review', 'code': code,
                    'binary_sha256': digest(Path('/tmp/hr-play')), 'input_patch_source_sha256': digest(Path('/patch/SOURCE.txt')),
                    'stages': stages, 'screens': screens, 'normal_inputs': events,
                    'cold_adopted': 17, 'reused': True, 'corrupt_package_preserved_and_rebuilt': True,
@@ -196,4 +199,4 @@ def run(label):
 
 
 if __name__ == '__main__':
-    run(sys.argv[1])
+    run(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else 'en')

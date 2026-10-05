@@ -210,3 +210,61 @@ fork 提交 `1c8128c`，備份 `engine/patches/0035-apps-hr-play-en-l10n-008.pat
 v1 的相同座標 `xdotool mousemove --sync` 等待逾時，已修正。v2 容器已完成六階段，但主代理在 Docker 等待期間改入口，外層 bash 重讀檔後報 EOF；v3 固定入口不再修改，乾淨重跑通過。這些列操作環境問題。v3 收尾後另補 EXIT／INT／TERM trap，以本次 `docker run --cidfile` 寫出的完整容器 ID 確認擁有權，不能僅按名稱清理。語法及窄審另核對，不以此宣稱又重跑全 GUI。
 
 Windows／macOS 沒有實機玩家收據；沒有測本輪語言包的全遊戲內容、音訊或存檔 A/B。來源與補丁使用與上節相同身分、Go 1.26.7 及容器映像。五檔已安裝到本機 `l10n/en/glyph-patch/`，語言包及本次畫面只留 `workplace/`，沒有納入 Git 或 Release。
+
+## 簡中與日文標量接線的字模基準
+
+008 第 3.2.3 節經獨立窄審無阻擋，升 READY。標量接線使用每項局部正反表與 Unicode 15 的 `unicode.IsPunct`，保留既有白名單、格式、typed 窗口及折行前群組一致性。簡中與日文的各 17 項接受表沒有 U+0020 或 U+3000，普通半形空白在這個窄契約中拒絕；韓文仍需詞距定案。
+
+`workplace/m10-scalar-units.py` 從正式 TSV 的接受文字與摘要產生非白名單單位，簡中 198、日文 166。既有 `bakeglyphs.sh` 各烘兩次，使用上節固定 TTC、OFL、Pillow 12.3.0、fontTools 4.66.1 與 yuan 映像，分別選 SC 字面 2、JP 字面 0。兩次五檔逐位元相同。Go 葉層獨立探針 `workplace/m10-cjk-leaf-audit.go` 驗 Load、全部 Lookup、13867 格完整 Apply 與零採用 identity；收據 `workplace/out/re-text/cjk-leaf-audit.json` 的 SHA-256 為 `42da4ed18b70b3161325798d82163b0170638919d8b812725241134eb6c13761`。
+
+| 項目 | 簡中 | 日文 |
+|---|---|---|
+| 單位表 SHA-256 | `886344709ceaed7dda5879d887154abb379561e392020a682e1f374affca1615` | `3a84d6d808b153019160e5b2fd9a7f756920dd70808127844a62525c0573da79` |
+| 五檔補丁摘要 | `8e3a81653c5d8b98c113d2894172d33c4e95869462b6eccecec9ac8d551b265e` | `5b8654a03f52e61d07ccea3c45788f293fb30fe1da1059448f65cbc7d55e8d59` |
+| 正採用完整 CFONT SHA-256 | `28e157806b0699ea39ffd2dfc9957a42bb1548a888bc2c9baa2b33dbf48b8ef7` | `a582c8bad663641a09c5afbe4f41c53078ed579ab69651910915d08cc299a3eb` |
+| 本機輸出 | `workplace/l3-visual-20261005/patches/sc-pilot-bake1/` | `workplace/l3-visual-20261005/patches/ja-pilot-bake1/` |
+
+第一版獨立探針把 CFONT 當平坦 Big5 格表，報索引不符。改用 006 的原版字號換算後，以同映像及輸入乾淨重跑通過；正式補丁與程式未因此改動。此節只證明字模身分、可重現性及套用，建包與正常玩家驗收另記。
+
+## 韓文詞距可丟棄原型
+
+研究報告 `workplace/spec-review/ko-space-probe-report.md` 與完整八張畫面保存在 `workplace/ko-space-probe/`。來源為上節同一 MAIN、CFONT 與 ESPMES；固定 probe SHA-256 `8d4b18a505351d5b76c644ed54ca229b258d05480faa5ebd576842412d4a9c8e`，工具與位址基準沿 020，沒有載入 state 或注入存檔、記憶體。四份研究副本只改 CFONT 的三格與兩項合成對白，原版 148 個輸入前後摘要相同。這些副本不是正式五檔補丁或已接受 17 項的玩家驗收。
+
+| 分隔 | 空白邏輯前進量 | 兩字白色墨跡間隔 |
+|---|---:|---:|
+| 無空白 | 0 px | 5 px |
+| 原始 0x20 | 0 px，複製時被略過 | 5 px |
+| 0x21 | 8 px | 13 px |
+| 雙位元組零字模 | 16 px | 21 px |
+
+confirmed 範圍限 `ESPMES#121.0`、`#121.1` 的 01A3 合成對白。行尾試驗先放 15 個雙碼字，8／16 px 空白兩案都使下一字換行，但分別耗一／兩位元組；不外推其他窗口或 1676 相位。白色墨跡以原始遮罩與右移一像素聯集驗完整 PNG，八圖逐像素相同。第一版量測未套這個樣式，修正研究腳本後核對同批原始圖通過，未挑選新畫面。
+
+對照圖 `workplace/ko-space-probe/comparison.png` SHA-256 `9109bda2b57d2698c9e0a5dd3f62f628df4e34e0fbca6a2a9fd4de13503adb2b`，量測 `measurements.json` SHA-256 `cd7ce43240551419f06044f995e2dc728e7a9eaa012e83111fb8de7e8c21abb6`。已向使用者展示 8／16 px 兩案，正式詞距待決；未因此開放韓文 production。
+
+## 簡中與日文正式建包及正常前端
+
+第 3.2.3 節實作後獨立唯讀審查 `workplace/spec-review/cjk-integration-implementation-review.md` 無剩餘阻擋。來源分類、格式、typed 窗口、折行前群組、完整碼本、單次補丁快照、零採用八檔、採用政策、同源前端與 F4 下次啟動均有窄測。Go race、vet 與純 Go 命令列 Linux／Windows amd64、macOS 雙架構編譯通過；實機執行不在聲明範圍。
+
+建置器版本 `74ef5533` 綁 `hr-l10n-l2-scalar-v1`、原 L1 golden 與追加兩語的 L2 golden。L1 SHA-256 保持 `a96d619d9e50a273c046f793f0f4c053ff20d0384b25d57033644593a465a7e7`，英文 golden 前綴保持 `508566847f68024a5a5693368772ac9de6c59eb8378ac6277d04b5561c439b5f`；英文資料與 CFONT 輸出不變，版本與包摘要自然改變，不覆寫舊包。
+
+主代理獨立探針 `workplace/m10-cjk-build-audit.go` 將每個已接受 scalar 查固定碼，按來源 Unicode 標點交既有預算層，再獨立 Parse 實際包。兩語各 17 項匹配，所有未採用項目保持原版；CFONT 與前節完整格驗收相同。這份預期折行共用既有 budget，沒有另冒稱原版布局 oracle。重用、零採用八檔 identity、缺字無新包或暫存、舊包仍有效與九個原版輸入不變均通過。
+
+| 本機建包項目 | 簡中 | 日文 |
+|---|---|---|
+| 包目錄 | `workplace/out/l10n-packs/zh-CN-342a6f7641db/` | `workplace/out/l10n-packs/ja-9717931b76e6/` |
+| 輸入摘要 | `342a6f7641db4a4f27d41886c4aef88a507d9d798e9e813106d64baa68f282dc` | `9717931b76e6222ef36d11eb140b953d3c7c1fa6cd03b9accbcc56c2959f8da3` |
+| manifest SHA-256 | `7c74590fa40507f0e87147e97fa0951c9d018b201ba8f8e5a5cc7b4d551395f2` | `87ef792f5d2dec8113cc0df941f8aedd811f95bbd829f23ec5d56a3a73cfc352` |
+| GUI 收據 SHA-256 | `fa2ba23bee603df08983d6f437801a4bac73b31e600ca87c10ccc466f3e819d5` | `be9e0fc15f39634bfb626cb73822af99e2e6401dd2c42b9803daaf462cafb41b` |
+| 據點完整畫面 SHA-256 | `737105e4e30b207e074df84e08d8b7d901e263d5941923dd875f70ec7741d2a2` | `f5ba93ddccade955cff57c38c7336c51c8fbb5ee733640617df79c4298f1ba6b` |
+
+建包收據 `workplace/out/re-text/cjk-build-formal-pilot-audit.json` SHA-256 `d15fca643d50d803e7c74a311b0fca98f979be86fcf9a0ab166f57543a185ad6`。正常 GUI 入口仍是 `bash tools/l10n/verify_en_gui.sh <新的標籤> [代碼]`，可用 en、zh-CN、ja，省略代碼保持英文舊用法。此次 shell／Python SHA-256 分別為 `74e8a0c90e39269ba16a076b13f62d10d6437a5f9a313c4a676a0f99ddc3a133`、`c4bb1c2a8d6782c3bf6f36aa80cf9d2fd2fcf4330f77e58ae9516d00da79effd`。
+
+`sc-gui-v1`、`ja-gui-v1` 以相同 GUI binary SHA-256 `af7dfdb814d7fca68b6b0bdb66175e8808b2fec0cd0a53e077729e2567dd0ef0`，各自從正常前端冷建包、新遊戲逐句點到據點。沒有跳關 state 或記憶體注入。主代理逐張看全部上下框及中央末句，34 項與接受文字相同且在框內，據點各兩行 60／60、68／68 bytes。完整畫面及附接受文字的審閱拼圖在各 GUI 目錄的 `visual-review/`，不入版控。
+
+每語六階段還驗重用、破壞測試包 CFONT 後另建序號且保留舊包、缺補丁／無效 SOURCE 回原版。F4 分別選韓文、繁中後，下次啟動讀到偏好；隔離測試根沒有該語言表，按原規則回原版，沒有即時換字。主代理另重算每語 34 個畫面及終端日誌摘要，皆與收據相同。容器清理另經七項 mock 驗證，完整 CID 加本次容器 Name 同時相符才刪除，無效、缺席、inspect 失敗或其他名稱皆不刪。
+
+正式五檔已安裝在忽略版控的 `l10n/zh-CN/glyph-patch/`、`l10n/ja/glyph-patch/`。此節限本機試點與 Linux 正常前端；不外推全遊戲、全量翻譯、長跑、母語可讀性、存檔 A/B、Windows／macOS 實跑或發行。
+
+前端補充驗證 `workplace/spec-review/cjk-play-platform-verification.md` 與 `workplace/out/re-text/cjk-play-platform/` 保存全套 race、vet、Windows PE 與 macOS universal 切片收據。Windows、macOS universal SHA-256 分別為 `37939d2113a1dbc01b1c63aa33ead43a86309719e07077112e310c3759730b73`、`313997f1b8e7330a318d2b2280480e036a71142ffda0ffbe8cdec4bd3de0bf29`。Go 映像缺 `file` 只讓末段結構 wrapper 回 127，沿用 osxcross 的 `file` 與獨立 PE／fat 解析補驗通過，沒有改產品或重編挑結果。
+
+主代理讀完審查及平台報告後，只修正三處舊英文限定註解，並替沿用名稱的 golden 測試補三語範圍說明，沒有改行為或 golden。fork 建包與前端分別提交 `935e6a5`、`ff9459d`，備份 [`0036`](../../engine/patches/0036-apps-hr-l10n-scalar-build-008.patch)、[`0037`](../../engine/patches/0037-apps-hr-play-cjk-l10n-008.patch)。主代理按上述實作、正常玩家與目視收據將第 3.2.3 窄範圍升 CONFORMED。本機最新開發版 `workplace/out/bin/hr-play` SHA-256 `b0c040c417f6a2f53a7d9e044eead269b2f40d770b3f8769c85d685345ecc5ad`，與 GUI 執行檔的差異包含提交及建置身分，沒有重宣稱一份新 GUI 收據。
