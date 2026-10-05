@@ -1,0 +1,2056 @@
+From 6645fe1637f7fafa257ca76009b52256c23d8e46 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Mon, 5 Oct 2026 20:07:24 +0800
+Subject: [PATCH] =?UTF-8?q?=E5=AF=A6=E4=BD=9C=E5=A4=9A=E8=AA=9E=E5=AD=97?=
+ =?UTF-8?q?=E6=A8=A1=E9=A9=97=E8=AD=89=E8=88=87=E8=8B=B1=E6=96=87=E9=9B=99?=
+ =?UTF-8?q?=E5=AD=97=E4=BE=86=E6=BA=90=E8=99=95=E7=90=86?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ .gitattributes                                |   3 +
+ apps/hr/l10n/budget/accessor.go               |  44 ++
+ apps/hr/l10n/budget/accessor_test.go          |  57 ++
+ apps/hr/l10n/budget/units.go                  |   3 +
+ apps/hr/l10n/budget/units_test.go             |   5 +
+ apps/hr/l10n/enpairs/prepare.go               | 251 +++++++++
+ apps/hr/l10n/enpairs/prepare_test.go          | 328 ++++++++++++
+ apps/hr/l10n/glyphpatch/open_other.go         |  11 +
+ apps/hr/l10n/glyphpatch/open_unix.go          |  27 +
+ apps/hr/l10n/glyphpatch/open_unix_test.go     |  55 ++
+ apps/hr/l10n/glyphpatch/patch.go              | 440 ++++++++++++++++
+ apps/hr/l10n/glyphpatch/patch_test.go         | 492 ++++++++++++++++++
+ apps/hr/l10n/glyphpatch/testdata/OFL.txt      |  97 ++++
+ .../glyphpatch/testdata/reserved-codes.tsv    | 107 ++++
+ 14 files changed, 1920 insertions(+)
+ create mode 100644 .gitattributes
+ create mode 100644 apps/hr/l10n/budget/accessor.go
+ create mode 100644 apps/hr/l10n/budget/accessor_test.go
+ create mode 100644 apps/hr/l10n/enpairs/prepare.go
+ create mode 100644 apps/hr/l10n/enpairs/prepare_test.go
+ create mode 100644 apps/hr/l10n/glyphpatch/open_other.go
+ create mode 100644 apps/hr/l10n/glyphpatch/open_unix.go
+ create mode 100644 apps/hr/l10n/glyphpatch/open_unix_test.go
+ create mode 100644 apps/hr/l10n/glyphpatch/patch.go
+ create mode 100644 apps/hr/l10n/glyphpatch/patch_test.go
+ create mode 100644 apps/hr/l10n/glyphpatch/testdata/OFL.txt
+ create mode 100644 apps/hr/l10n/glyphpatch/testdata/reserved-codes.tsv
+
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+index 0000000..01fff2b
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1,3 @@
++# Public OFL and code-only measurement fixtures. No original glyphs/dialogue.
++apps/hr/l10n/glyphpatch/testdata/OFL.txt text eol=lf
++apps/hr/l10n/glyphpatch/testdata/reserved-codes.tsv text eol=lf
+diff --git a/apps/hr/l10n/budget/accessor.go b/apps/hr/l10n/budget/accessor.go
+new file mode 100644
+index 0000000..7c8df82
+--- /dev/null
++++ b/apps/hr/l10n/budget/accessor.go
+@@ -0,0 +1,44 @@
++package budget
++
++import "fmt"
++
++// LimitsResult contains the original item's budgets. Specs is a fresh slice
++// with complete format specifications in their original order.
++type LimitsResult struct {
++	Width, Expanded, Rows, Length int
++	Specs                         []string
++}
++
++// Limits reads the same window, original metrics and specifications as Check.
++// It rejects unknown windows and unsupported original specifications.
++func Limits(in Input) (LimitsResult, []Violation) {
++	w, ok := WindowFor(in.File, in.Class)
++	if !ok {
++		return LimitsResult{}, []Violation{{ID: in.ID, Rule: RuleLineWidth, Detail: "unknown-window"}}
++	}
++	us := scanUnits(in.Orig)
++	var vs []Violation
++	for _, u := range us {
++		if u.bad {
++			vs = append(vs, Violation{ID: in.ID, Rule: RulePlaceholder, Detail: fmt.Sprintf("original malformed offset=%d", u.off)})
++		}
++	}
++	if len(vs) != 0 {
++		return LimitsResult{}, vs
++	}
++	e, r := itemMetrics(in.Orig, w)
++	return LimitsResult{Width: w.W, Expanded: max(w.W, e), Rows: max(w.H, r), Length: maxItemLen, Specs: specTexts(in.Orig, us)}, nil
++}
++
++// ConversionAt exposes the existing conversion parser without exposing its
++// mutable internals. n is the literal length; expanded is the saturated bound.
++func ConversionAt(b []byte, offset int) (n, expanded int, ok bool) {
++	if offset < 0 || offset >= len(b) || b[offset] != '%' {
++		return 0, 0, false
++	}
++	sp, ok := parseSpec(b, offset)
++	if !ok {
++		return 0, 0, false
++	}
++	return sp.n, sp.expand(), true
++}
+diff --git a/apps/hr/l10n/budget/accessor_test.go b/apps/hr/l10n/budget/accessor_test.go
+new file mode 100644
+index 0000000..5fcee0f
+--- /dev/null
++++ b/apps/hr/l10n/budget/accessor_test.go
+@@ -0,0 +1,57 @@
++package budget
++
++import (
++	"bytes"
++	"reflect"
++	"strings"
++	"testing"
++)
++
++func TestLimitsOriginalMetricsAndSnapshot(t *testing.T) {
++	orig := []byte("%s" + strings.Repeat("AB", 22) + "\n" + strings.Repeat("A", 31))
++	before := bytes.Clone(orig)
++	in := Input{ID: "synthetic", File: "SYSTEM.MES", Orig: orig}
++	got, vs := Limits(in)
++	if len(vs) != 0 || got.Width != 30 || got.Expanded != 64 || got.Rows != 4 || got.Length != 511 || !reflect.DeepEqual(got.Specs, []string{"%s"}) {
++		t.Fatalf("limits %+v %+v", got, vs)
++	}
++	got.Specs[0] = "%d"
++	again, _ := Limits(in)
++	if again.Specs[0] != "%s" || !bytes.Equal(orig, before) {
++		t.Fatal("input or specifications mutated")
++	}
++	// Raw percent has priority even after a lone high byte.
++	got, vs = Limits(Input{File: "SP.MES", Orig: []byte{0xA4, '%', 's'}})
++	if len(vs) != 0 || !reflect.DeepEqual(got.Specs, []string{"%s"}) {
++		t.Fatalf("percent priority %+v %+v", got, vs)
++	}
++	got, vs = Limits(Input{File: "SYSTEM.MES", Orig: []byte(strings.Repeat("A\n", 5))})
++	if len(vs) != 0 || got.Rows != 6 {
++		t.Fatalf("tail empty row %+v %+v", got, vs)
++	}
++}
++
++func TestLimitsInvalidAndConversion(t *testing.T) {
++	for _, text := range []string{"%%", "%.d", "%.s", "%1.d", "%1.s", "%ls", "%*d", "%f"} {
++		if _, vs := Limits(Input{ID: "x", File: "SP.MES", Orig: []byte(text)}); len(vs) == 0 || vs[0].ID != "x" || vs[0].Rule != RulePlaceholder {
++			t.Fatalf("accepted invalid specification")
++		}
++	}
++	if _, vs := Limits(Input{ID: "x", File: "unknown"}); len(vs) != 1 || vs[0].Rule != RuleLineWidth {
++		t.Fatal(vs)
++	}
++	for _, tc := range []struct {
++		text   string
++		n, exp int
++	}{{"%.0d", 4, 6}, {"%10ld", 5, 11}, {"%s", 2, 20}, {"%999999999999999999999999999d", 29, 1 << 20}} {
++		n, e, ok := ConversionAt([]byte(tc.text), 0)
++		if !ok || n != tc.n || e != tc.exp {
++			t.Fatalf("conversion n=%d e=%d ok=%v", n, e, ok)
++		}
++	}
++	for _, offset := range []int{-1, 0, 1, 2} {
++		if _, _, ok := ConversionAt([]byte("A"), offset); ok {
++			t.Fatal("invalid offset")
++		}
++	}
++}
+diff --git a/apps/hr/l10n/budget/units.go b/apps/hr/l10n/budget/units.go
+index b7b63d7..064a191 100644
+--- a/apps/hr/l10n/budget/units.go
++++ b/apps/hr/l10n/budget/units.go
+@@ -59,6 +59,9 @@ func parseSpec(b []byte, i int) (convSpec, bool) {
+ 	}
+ 	if j < len(b) && b[j] == '.' {
+ 		k, v := readDigits(b, j+1)
++		if k == j+1 {
++			return convSpec{}, false
++		}
+ 		sp.prec, j = v, k
+ 	}
+ 	if j < len(b) && b[j] == 'l' {
+diff --git a/apps/hr/l10n/budget/units_test.go b/apps/hr/l10n/budget/units_test.go
+index 3f44bed..065b30c 100644
+--- a/apps/hr/l10n/budget/units_test.go
++++ b/apps/hr/l10n/budget/units_test.go
+@@ -23,6 +23,11 @@ func TestParseSpec(t *testing.T) {
+ 		{"%10s", true, 4, 's', false, 20, ""},
+ 		{"%30s", true, 4, 's', false, 30, ""},
+ 		{"%.5s", true, 4, 's', false, 20, ""},
++		{"%.d", false, 0, 0, false, 0, ""},
++		{"%.s", false, 0, 0, false, 0, ""},
++		{"%1.d", false, 0, 0, false, 0, ""},
++		{"%1.s", false, 0, 0, false, 0, ""},
++		{"%.0d", true, 4, 'd', false, 6, ""},
+ 		{"%.40s", true, 5, 's', false, 40, ""},
+ 		{"%-8d", true, 4, 'd', false, 8, ""},
+ 		{"%sAB", true, 2, 's', false, 20, "AB"},
+diff --git a/apps/hr/l10n/enpairs/prepare.go b/apps/hr/l10n/enpairs/prepare.go
+new file mode 100644
+index 0000000..3bda45b
+--- /dev/null
++++ b/apps/hr/l10n/enpairs/prepare.go
+@@ -0,0 +1,251 @@
++// Package enpairs prepares English text using a validated fixed pair patch.
++// It implements only the READY pure-function leaf in HR spec 008 section 3.5.
++// It performs no I/O, allocates no codes and does not build language packs.
++package enpairs
++
++import (
++	"fmt"
++	"unicode"
++	"unicode/utf8"
++
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/budget"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/glyphpatch"
++)
++
++const (
++	RulePatch       = "glyph-patch"
++	RuleScalar      = "source-scalar"
++	RuleMissingPair = "missing-pair"
++)
++
++// Input's original bytes and window come from the trusted original parser.
++// Prepare cannot replace that caller's original identity/adoption checks.
++type Input struct {
++	ID, File, Class string
++	Orig            []byte
++	Text            string
++	Patch           *glyphpatch.Patch
++}
++
++type atom struct {
++	scalar   rune
++	spec     string
++	expanded int
++}
++type span struct{ start, end int }
++type solution struct {
++	lines                   []span
++	rows, literal, expanded int
++}
++
++// Prepare preserves explicit newlines, pads odd ordinary segments separately
++// at format boundaries and fixes the wrapping before testing the pair subset.
++// Every violation returns nil output. Diagnostic details contain no source text.
++func Prepare(in Input) ([]byte, []budget.Violation) {
++	fail := func(rule, detail string) ([]byte, []budget.Violation) {
++		return nil, []budget.Violation{{ID: in.ID, Rule: rule, Detail: detail}}
++	}
++	if in.Patch == nil || in.Patch.Language() != "en" || in.Patch.Digest() == "" {
++		return fail(RulePatch, "invalid-English-patch")
++	}
++	if len(in.Text) > 2044 {
++		return fail(budget.RuleLength, fmt.Sprintf("source-bytes=%d limit=2044", len(in.Text)))
++	}
++	if !utf8.ValidString(in.Text) {
++		return fail(RuleScalar, "invalid-UTF8")
++	}
++	count := utf8.RuneCountInString(in.Text)
++	if count > 511 {
++		return fail(budget.RuleLength, fmt.Sprintf("source-scalars=%d limit=511", count))
++	}
++	if unicode.Version != "15.0.0" {
++		return fail(RuleScalar, "unsupported-Unicode-version")
++	}
++	lim, vs := budget.Limits(budget.Input{ID: in.ID, File: in.File, Class: in.Class, Orig: in.Orig})
++	if len(vs) != 0 {
++		return nil, vs
++	}
++	as, specs, vs := tokenize(in.ID, in.Text)
++	if len(vs) != 0 {
++		return nil, vs
++	}
++	if len(specs) != len(lim.Specs) {
++		return fail(budget.RulePlaceholder, fmt.Sprintf("count orig=%d trans=%d", len(lim.Specs), len(specs)))
++	}
++	for i, s := range specs {
++		if s != lim.Specs[i] {
++			return fail(budget.RulePlaceholder, fmt.Sprintf("index=%d mismatch", i))
++		}
++	}
++	var lines []span
++	for start := 0; ; {
++		end := start
++		for end < len(as) && as[end].scalar != '\n' {
++			end++
++		}
++		s, ok := wrap(as, start, end, lim.Width, lim.Expanded)
++		if !ok {
++			return fail(budget.RuleLineWidth, "no-word-boundary-solution")
++		}
++		lines = append(lines, s.lines...)
++		if end == len(as) {
++			break
++		}
++		start = end + 1
++	}
++	rows, lit, exp := 0, len(lines)-1, len(lines)-1
++	for _, l := range lines {
++		a, b := metrics(as[l.start:l.end])
++		lit += a
++		exp += b
++		rows += max(1, (b+lim.Width-1)/lim.Width)
++	}
++	if rows > lim.Rows {
++		vs = append(vs, budget.Violation{ID: in.ID, Rule: budget.RuleRows, Detail: fmt.Sprintf("rows=%d limit=%d", rows, lim.Rows)})
++	}
++	if lit > lim.Length || exp > lim.Length {
++		vs = append(vs, budget.Violation{ID: in.ID, Rule: budget.RuleLength, Detail: fmt.Sprintf("raw=%d expanded=%d limit=%d", lit, exp, lim.Length)})
++	}
++	if len(vs) != 0 {
++		return nil, vs
++	}
++	out := make([]byte, 0, lit)
++	missing := make(map[[2]rune]bool)
++	for i, l := range lines {
++		if i > 0 {
++			out = append(out, '\n')
++		}
++		for j := l.start; j < l.end; {
++			if as[j].spec != "" {
++				out = append(out, as[j].spec...)
++				j++
++				continue
++			}
++			end := j
++			for end < l.end && as[end].spec == "" {
++				end++
++			}
++			for k := j; k < end; k += 2 {
++				pair := [2]rune{as[k].scalar, ' '}
++				if k+1 < end {
++					pair[1] = as[k+1].scalar
++				}
++				code, ok := in.Patch.Lookup(pair[:])
++				if !ok {
++					if !missing[pair] {
++						vs = append(vs, budget.Violation{ID: in.ID, Rule: RuleMissingPair, Detail: fmt.Sprintf("rebuild-glyph-patch U+%04X U+%04X", pair[0], pair[1])})
++						missing[pair] = true
++					}
++					continue
++				}
++				out = append(out, byte(code>>8), byte(code))
++			}
++			j = end
++		}
++	}
++	if len(vs) != 0 {
++		return nil, vs
++	}
++	vs = budget.Check(budget.Input{ID: in.ID, File: in.File, Class: in.Class, Orig: in.Orig, Trans: out})
++	if len(vs) != 0 {
++		return nil, vs
++	}
++	return out, nil
++}
++
++func tokenize(id, text string) ([]atom, []string, []budget.Violation) {
++	var as []atom
++	var specs []string
++	b := []byte(text)
++	for off := 0; off < len(b); {
++		if b[off] == '%' {
++			n, e, ok := budget.ConversionAt(b, off)
++			if !ok {
++				return nil, nil, []budget.Violation{{ID: id, Rule: budget.RulePlaceholder, Detail: fmt.Sprintf("malformed offset=%d", off)}}
++			}
++			s := string(b[off : off+n])
++			as = append(as, atom{spec: s, expanded: e})
++			specs = append(specs, s)
++			off += n
++			continue
++		}
++		r, n := utf8.DecodeRune(b[off:])
++		if r != '\n' && r != ' ' && (!unicode.IsGraphic(r) || unicode.IsMark(r) || unicode.IsSpace(r)) {
++			return nil, nil, []budget.Violation{{ID: id, Rule: RuleScalar, Detail: fmt.Sprintf("offset=%d U+%04X", off, r)}}
++		}
++		as = append(as, atom{scalar: r})
++		off += n
++	}
++	return as, specs, nil
++}
++
++func metrics(as []atom) (literal, expanded int) {
++	n := 0
++	flush := func() { a := 2 * ((n + 1) / 2); literal += a; expanded += a; n = 0 }
++	for _, a := range as {
++		if a.spec == "" {
++			n++
++			continue
++		}
++		flush()
++		literal += len(a.spec)
++		expanded += a.expanded
++	}
++	flush()
++	return
++}
++
++func wrap(as []atom, start, end, width, expandedLimit int) (solution, bool) {
++	if start == end {
++		return solution{lines: []span{{start, end}}, rows: 1}, true
++	}
++	ends := []int{}
++	for i := start; i < end; i++ {
++		if as[i].spec == "" && as[i].scalar == ' ' {
++			ends = append(ends, i)
++		}
++	}
++	ends = append(ends, end)
++	memo := make(map[int]solution)
++	known := make(map[int]bool)
++	var solve func(int) (solution, bool)
++	solve = func(pos int) (solution, bool) {
++		if known[pos] {
++			s, ok := memo[pos]
++			return s, ok
++		}
++		known[pos] = true
++		var best solution
++		found := false
++		for i := len(ends) - 1; i >= 0; i-- {
++			e := ends[i]
++			if e < pos || e == pos && e != end {
++				continue
++			}
++			lit, exp := metrics(as[pos:e])
++			if lit > width || exp > expandedLimit {
++				continue
++			}
++			s := solution{lines: []span{{pos, e}}, rows: max(1, (exp+width-1)/width), literal: lit, expanded: exp}
++			if e != end {
++				tail, ok := solve(e + 1)
++				if !ok {
++					continue
++				}
++				s.lines = append(s.lines, tail.lines...)
++				s.rows += tail.rows
++				s.literal += 1 + tail.literal
++				s.expanded += 1 + tail.expanded
++			}
++			if !found || s.rows < best.rows || s.rows == best.rows && (len(s.lines) < len(best.lines) || len(s.lines) == len(best.lines) && s.literal < best.literal) {
++				best = s
++				found = true
++			}
++		}
++		if found {
++			memo[pos] = best
++		}
++		return best, found
++	}
++	return solve(start)
++}
+diff --git a/apps/hr/l10n/enpairs/prepare_test.go b/apps/hr/l10n/enpairs/prepare_test.go
+new file mode 100644
+index 0000000..251e071
+--- /dev/null
++++ b/apps/hr/l10n/enpairs/prepare_test.go
+@@ -0,0 +1,328 @@
++package enpairs
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/binary"
++	"fmt"
++	"os"
++	"path/filepath"
++	"sort"
++	"strconv"
++	"strings"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/budget"
++	"github.com/wicanr2/dosgolem/apps/hr/l10n/glyphpatch"
++)
++
++// Only synthetic text and bitmaps are used here. The OFL text is public;
++// reserved-codes.tsv is the independent trusted measurement fixture.
++func fixture(t *testing.T, language string, pairs ...[2]rune) *glyphpatch.Patch {
++	t.Helper()
++	read := func(name string) []byte {
++		b, e := os.ReadFile(filepath.Join("..", "glyphpatch", "testdata", name))
++		if e != nil {
++			t.Fatal(e)
++		}
++		return b
++	}
++	files := map[string][]byte{"OFL.txt": read("OFL.txt"), "reserved-codes.tsv": read("reserved-codes.tsv")}
++	reserved := map[uint16]bool{}
++	for _, line := range strings.Split(string(files["reserved-codes.tsv"]), "\n")[1:] {
++		if line == "" {
++			continue
++		}
++		n, e := strconv.ParseUint(strings.Split(line, "\t")[0], 16, 16)
++		if e != nil {
++			t.Fatal(e)
++		}
++		reserved[uint16(n)] = true
++	}
++	set := map[[2]rune]bool{}
++	for _, p := range pairs {
++		set[p] = true
++	}
++	if len(set) == 0 {
++		set[[2]rune{'A', ' '}] = true
++	}
++	pairs = nil
++	for p := range set {
++		pairs = append(pairs, p)
++	}
++	sort.Slice(pairs, func(i, j int) bool {
++		return pairs[i][0] < pairs[j][0] || pairs[i][0] == pairs[j][0] && pairs[i][1] < pairs[j][1]
++	})
++	var codes []uint16
++	for lead := 0xe0; lead <= 0xf9; lead++ {
++		for trail := 0x40; trail <= 0xdf; trail++ {
++			if trail > 0x7e && trail < 0xa1 {
++				continue
++			}
++			c := uint16(lead<<8 | trail)
++			if !reserved[c] {
++				codes = append(codes, c)
++			}
++		}
++	}
++	var cmap strings.Builder
++	if language == "en" {
++		cmap.WriteString("left_cp\tright_cp\tcode_hex\n")
++	} else {
++		cmap.WriteString("unicode\tcode_hex\n")
++	}
++	for i, p := range pairs {
++		if language == "en" {
++			fmt.Fprintf(&cmap, "U+%04X\tU+%04X\t%04X\n", p[0], p[1], codes[i])
++		} else {
++			fmt.Fprintf(&cmap, "U+%04X\t%04X\n", p[0], codes[i])
++		}
++		var rec [32]byte
++		binary.BigEndian.PutUint16(rec[:2], codes[i])
++		var bits uint16
++		if p[0] != ' ' {
++			bits |= 0x8000
++		}
++		if language == "en" && p[1] != ' ' {
++			bits |= 0x0080
++		}
++		for r := 0; r < 15; r++ {
++			binary.BigEndian.PutUint16(rec[2+2*r:], bits)
++		}
++		files["glyphs-"+language+".bin"] = append(files["glyphs-"+language+".bin"], rec[:]...)
++	}
++	files["charmap-"+language+".tsv"] = []byte(cmap.String())
++	face := map[string]string{"en": "3\tTC", "ja": "0\tJP"}[language]
++	f := strings.Split(face, "\t")
++	source := map[string]string{
++		"format": "hr-l2-source-v1", "language": language, "units_sha256": strings.Repeat("a", 64), "unicode_version": "15.0.0",
++		"font_file": "NotoSansCJK-Regular.ttc", "font_sha256": "b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a", "font_version": "Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603",
++		"face_index": f[0], "face_name": "Noto Sans CJK " + f[1], "pillow_version": "12.3.0", "fonttools_version": "4.66.1",
++		"pixel_size": "13", "cell": "15x15", "threshold": "128", "placement": "mask-center-floor", "unit_mode": "scalar15",
++		"container_image_id": "sha256:" + strings.Repeat("b", 64), "rasterizer_version": "synthetic-test-v1", "rasterizer_sha256": strings.Repeat("c", 64),
++	}
++	if language == "en" {
++		source["pixel_size"], source["placement"], source["unit_mode"] = "10", "pair2x7-baseline11", "pair2x7"
++		for k, v := range map[string]string{"source_canvas": "12x15", "source_anchor": "ls", "source_origin": "0,11", "source_clipping": "canvas-before-getbbox", "source_crop": "0,0,bbox-right,15", "shrink": "width-gt7:BILINEAR:7x15", "half_origin": "0,0;8,0", "blank_column": "7", "blank_scalar": "U+0020"} {
++			source[k] = v
++		}
++	}
++	for k, n := range map[string]string{"glyphs_sha256": "glyphs-" + language + ".bin", "charmap_sha256": "charmap-" + language + ".tsv", "reserved_sha256": "reserved-codes.tsv", "ofl_sha256": "OFL.txt"} {
++		source[k] = fmt.Sprintf("%x", sha256.Sum256(files[n]))
++	}
++	var keys []string
++	for k := range source {
++		keys = append(keys, k)
++	}
++	sort.Strings(keys)
++	var sb strings.Builder
++	for _, k := range keys {
++		fmt.Fprintf(&sb, "%s\t%s\n", k, source[k])
++	}
++	files["SOURCE.txt"] = []byte(sb.String())
++	dir := t.TempDir()
++	for n, b := range files {
++		if e := os.WriteFile(filepath.Join(dir, n), b, 0600); e != nil {
++			t.Fatal(e)
++		}
++	}
++	p, e := glyphpatch.Load(dir, language)
++	if e != nil {
++		t.Fatal(e)
++	}
++	return p
++}
++
++func input(p *glyphpatch.Patch, text string) Input {
++	return Input{ID: "synthetic", File: "SYSTEM.MES", Text: text, Patch: p}
++}
++func code(t *testing.T, p *glyphpatch.Patch, a, b rune) []byte {
++	t.Helper()
++	c, ok := p.Lookup([]rune{a, b})
++	if !ok {
++		t.Fatal("test fixture missing pair")
++	}
++	return []byte{byte(c >> 8), byte(c)}
++}
++func checkFail(t *testing.T, in Input, rule string) {
++	t.Helper()
++	out, vs := Prepare(in)
++	if out != nil || len(vs) == 0 {
++		t.Fatal("failure returned output or no violation")
++	}
++	for _, v := range vs {
++		if v.ID != in.ID {
++			t.Fatal("wrong id")
++		}
++		if v.Rule == rule {
++			return
++		}
++	}
++	t.Fatalf("missing rule %s: %+v", rule, vs)
++}
++
++func TestBoundariesAndImmutability(t *testing.T) {
++	p := fixture(t, "en", [2]rune{'A', ' '}, [2]rune{'B', ' '})
++	in := input(p, "A%sB")
++	in.Orig = []byte{0xA4, '%', 's'}
++	before := bytes.Clone(in.Orig)
++	digest := p.Digest()
++	want := append(append(code(t, p, 'A', ' '), []byte("%s")...), code(t, p, 'B', ' ')...)
++	for n := 0; n < 2; n++ {
++		out, vs := Prepare(in)
++		if len(vs) != 0 || !bytes.Equal(out, want) {
++			t.Fatalf("boundary output %x %+v", out, vs)
++		}
++		out[0] = 0
++	}
++	if !bytes.Equal(in.Orig, before) || p.Digest() != digest || in.Text != "A%sB" {
++		t.Fatal("input changed")
++	}
++	for _, spec := range []string{"%s", "%d", "%ld", "%03d", "%.0d", "%10ld"} {
++		in := input(p, spec)
++		in.Orig = []byte(spec)
++		out, vs := Prepare(in)
++		if len(vs) != 0 || string(out) != spec {
++			t.Fatalf("format boundary %+v", vs)
++		}
++	}
++}
++
++func TestPreserveEmptyLinesSpacesAndFixedReorder(t *testing.T) {
++	p := fixture(t, "en", [2]rune{'A', 'B'}, [2]rune{'C', 'D'}, [2]rune{' ', ' '})
++	in := input(p, "AB  CD\n")
++	want := append(append(append(code(t, p, 'A', 'B'), code(t, p, ' ', ' ')...), code(t, p, 'C', 'D')...), '\n')
++	out, vs := Prepare(in)
++	if len(vs) != 0 || !bytes.Equal(out, want) || bytes.Contains(out, []byte{' '}) {
++		t.Fatalf("spaces %x %+v", out, vs)
++	}
++	for _, text := range []string{"AB\nCD", "CD\nAB"} {
++		out, vs := Prepare(input(p, text))
++		if len(vs) != 0 || len(out) != 5 {
++			t.Fatalf("reorder %x %+v", out, vs)
++		}
++	}
++	for _, text := range []string{"", "\n", "\n\n\n"} {
++		out, vs := Prepare(input(p, text))
++		if len(vs) != 0 || string(out) != text {
++			t.Fatalf("blank rows %+v", vs)
++		}
++	}
++	checkFail(t, input(p, "\n\n\n\n"), budget.RuleRows)
++	checkFail(t, input(p, "EF"), RuleMissingPair)
++}
++
++func TestSourceRejectionsAndNoLeak(t *testing.T) {
++	p := fixture(t, "en")
++	for _, text := range []string{"A\tB", "A\rB", "A\x00B", "A\u0301", "A\u200DB", "\uE000", "\u0378", "\u3000", "\u00A0", "\u2028", string([]byte{0xff})} {
++		checkFail(t, input(p, text), RuleScalar)
++	}
++	for _, text := range []string{"%%", "%*d", "% d", "%ls", "%f", "%.d", "%1.s", "%"} {
++		checkFail(t, input(p, text), budget.RulePlaceholder)
++	}
++	in := input(p, "%d%s")
++	in.Orig = []byte("%s%d")
++	checkFail(t, in, budget.RulePlaceholder)
++	checkFail(t, input(p, strings.Repeat("A", 512)), budget.RuleLength)
++	checkFail(t, input(p, strings.Repeat("x", 2045)), budget.RuleLength)
++	checkFail(t, input(nil, "A"), RulePatch)
++	checkFail(t, input(new(glyphpatch.Patch), "A"), RulePatch)
++	checkFail(t, input(fixture(t, "ja", [2]rune{'A', ' '}), "A"), RulePatch)
++	in = input(p, "A")
++	in.File = "unknown"
++	checkFail(t, in, budget.RuleLineWidth)
++	in = input(p, "A")
++	in.Orig = []byte("%.d")
++	checkFail(t, in, budget.RulePlaceholder)
++	in = input(p, "SECRET")
++	_, vs := Prepare(in)
++	for _, v := range vs {
++		if strings.Contains(v.Detail, in.Text) {
++			t.Fatal("source text leaked")
++		}
++	}
++}
++
++func TestWrappingBudgetAndNoCodebookFallback(t *testing.T) {
++	p := fixture(t, "en", [2]rune{'A', 'A'}, [2]rune{'A', ' '}, [2]rune{'B', 'B'}, [2]rune{'B', ' '})
++	in := input(p, strings.Repeat("A", 15)+" "+strings.Repeat("B", 15))
++	out, vs := Prepare(in)
++	if len(vs) != 0 || len(out) != 33 || out[16] != '\n' {
++		t.Fatalf("wrap %x %+v", out, vs)
++	}
++	checkFail(t, input(p, strings.Repeat("A", 31)), budget.RuleLineWidth)
++	// The wrapping is identical with a deficient codebook; missing pairs are
++	// rejected without reallocating codes or selecting a different wrapping.
++	in.Patch = fixture(t, "en", [2]rune{'A', 'A'}, [2]rune{'A', ' '}, [2]rune{'B', 'B'})
++	checkFail(t, in, RuleMissingPair)
++	// A second, equally budget-safe fold has every pair in this patch. The
++	// deterministic longer-first fold still wins, then fails on its missing
++	// space+C pair. The fixed codebook cannot steer folding.
++	in = input(fixture(t, "en", [2]rune{'A', 'B'}, [2]rune{'C', 'C'}, [2]rune{'C', ' '}, [2]rune{'D', 'E'}), "AB "+strings.Repeat("C", 25)+" DE")
++	checkFail(t, in, RuleMissingPair)
++	in = input(p, strings.Repeat("A ", 200))
++	checkFail(t, in, budget.RuleRows)
++	in = input(p, strings.Repeat("A ", 255))
++	in.File = "SP.MES"
++	in.Orig = []byte(strings.Repeat("A\n", 30))
++	checkFail(t, in, budget.RuleLength)
++	in = input(p, "A%s\nB")
++	in.Orig = []byte("%s")
++	checkFail(t, in, budget.Rule1676)
++	in = input(p, "%s%s")
++	in.Orig = []byte("%s%s")
++	out, vs = Prepare(in)
++	if len(vs) != 0 || string(out) != "%s%s" {
++		t.Fatal(vs)
++	}
++	// Explicit empty rows consume the same row budget after format expansion.
++	in.Text = "%s%s\n\n\n"
++	checkFail(t, in, budget.RuleRows)
++}
++
++func TestWrappingPriority(t *testing.T) {
++	// Independent expected line lengths: fewest rows first, then breaks, raw
++	// bytes, then the longer earlier line. No patch lookup affects this choice.
++	text := "AB " + strings.Repeat("C", 25) + " DE"
++	as, _, vs := tokenize("x", text)
++	if len(vs) != 0 {
++		t.Fatal(vs)
++	}
++	s, ok := wrap(as, 0, len(as), 30, 30)
++	if !ok || len(s.lines) != 2 || s.lines[0].end != 28 {
++		t.Fatalf("priority %+v %v", s, ok)
++	}
++	// An unbroken line fits the literal width but expands to 62 bytes,
++	// requiring three rendered rows. Two lines expand to 30 bytes each.
++	as, _, vs = tokenize("x", "AA%sAAAAAAAA AA%sAAAAAAAA")
++	if len(vs) != 0 {
++		t.Fatal(vs)
++	}
++	s, ok = wrap(as, 0, len(as), 30, 62)
++	if !ok || s.rows != 2 || len(s.lines) != 2 || s.lines[0].end != 11 {
++		t.Fatalf("expanded priority %+v", s)
++	}
++	// Both candidates have two rows and two lines. The shorter first line
++	// emits 31 bytes; the longer-first alternative emits 33 after odd pads.
++	as, _, vs = tokenize("x", "AB "+strings.Repeat("C", 24)+" DEF")
++	if len(vs) != 0 {
++		t.Fatal(vs)
++	}
++	s, ok = wrap(as, 0, len(as), 30, 30)
++	if !ok || s.rows != 2 || len(s.lines) != 2 || s.literal != 31 || s.lines[0].end != 2 {
++		t.Fatalf("literal priority %+v", s)
++	}
++}
++
++func TestSource511ScalarNewlineBoundary(t *testing.T) {
++	p := fixture(t, "en", [2]rune{'A', 'B'})
++	in := input(p, "AB"+strings.Repeat("\n", 509))
++	in.Orig = []byte(in.Text)
++	out, vs := Prepare(in)
++	want := append(code(t, p, 'A', 'B'), bytes.Repeat([]byte{'\n'}, 509)...)
++	if len(vs) != 0 || len(out) != 511 || !bytes.Equal(out, want) {
++		t.Fatalf("511-scalar boundary output=%d violations=%+v", len(out), vs)
++	}
++	in.Text += "\n"
++	checkFail(t, in, budget.RuleLength)
++}
+diff --git a/apps/hr/l10n/glyphpatch/open_other.go b/apps/hr/l10n/glyphpatch/open_other.go
+new file mode 100644
+index 0000000..dfafa8d
+--- /dev/null
++++ b/apps/hr/l10n/glyphpatch/open_other.go
+@@ -0,0 +1,11 @@
++//go:build !linux && !darwin
++
++package glyphpatch
++
++import "os"
++
++// Root containment and the caller's before/after inode/type checks apply on
++// platforms without the Unix O_NOFOLLOW/O_NONBLOCK flags.
++func openRegular(root *os.Root, name string) (*os.File, error) {
++	return root.Open(name)
++}
+diff --git a/apps/hr/l10n/glyphpatch/open_unix.go b/apps/hr/l10n/glyphpatch/open_unix.go
+new file mode 100644
+index 0000000..b3ac34c
+--- /dev/null
++++ b/apps/hr/l10n/glyphpatch/open_unix.go
+@@ -0,0 +1,27 @@
++//go:build linux || darwin
++
++package glyphpatch
++
++import (
++	"os"
++
++	"golang.org/x/sys/unix"
++)
++
++// Do not follow a file replaced with a symlink after Lstat. Nonblocking open
++// also lets the caller reject a FIFO swapped into that interval via f.Stat.
++func openRegular(root *os.Root, name string) (*os.File, error) {
++	directory, err := root.Open(".")
++	if err != nil {
++		return nil, err
++	}
++	defer directory.Close()
++	// Root.OpenFile resolves symlinks before the final open syscall, so its
++	// flags alone cannot enforce this contract. Use the already-confined
++	// directory descriptor with an atomic final-component no-follow open.
++	fd, err := unix.Openat(int(directory.Fd()), name, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
++	if err != nil {
++		return nil, err
++	}
++	return os.NewFile(uintptr(fd), name), nil
++}
+diff --git a/apps/hr/l10n/glyphpatch/open_unix_test.go b/apps/hr/l10n/glyphpatch/open_unix_test.go
+new file mode 100644
+index 0000000..83d9034
+--- /dev/null
++++ b/apps/hr/l10n/glyphpatch/open_unix_test.go
+@@ -0,0 +1,55 @@
++//go:build linux || darwin
++
++package glyphpatch
++
++import (
++	"os"
++	"path/filepath"
++	"syscall"
++	"testing"
++)
++
++func TestNoFollowAndNonRegularOpen(t *testing.T) {
++	dir := t.TempDir()
++	if e := os.WriteFile(filepath.Join(dir, "regular"), []byte("safe"), 0600); e != nil {
++		t.Fatal(e)
++	}
++	if e := os.Symlink("regular", filepath.Join(dir, "link")); e != nil {
++		t.Fatal(e)
++	}
++	if e := syscall.Mkfifo(filepath.Join(dir, "fifo"), 0600); e != nil {
++		t.Fatal(e)
++	}
++	root, e := os.OpenRoot(dir)
++	if e != nil {
++		t.Fatal(e)
++	}
++	defer root.Close()
++	if f, e := openRegular(root, "link"); e == nil {
++		f.Close()
++		t.Fatal("followed link")
++	}
++	// The nonblocking descriptor returns even if no FIFO writer exists.
++	f, e := openRegular(root, "fifo")
++	if e != nil {
++		t.Fatal(e)
++	}
++	defer f.Close()
++	info, e := f.Stat()
++	if e != nil {
++		t.Fatal(e)
++	}
++	if info.Mode().IsRegular() {
++		t.Fatal("FIFO classified regular")
++	}
++	files := synthetic(t, "en")
++	patchDir := writePatch(t, files)
++	name := filepath.Join(patchDir, "OFL.txt")
++	os.Remove(name)
++	if e := syscall.Mkfifo(name, 0600); e != nil {
++		t.Fatal(e)
++	}
++	if _, e := Load(patchDir, "en"); e == nil {
++		t.Fatal("special file accepted")
++	}
++}
+diff --git a/apps/hr/l10n/glyphpatch/patch.go b/apps/hr/l10n/glyphpatch/patch.go
+new file mode 100644
+index 0000000..2cada4a
+--- /dev/null
++++ b/apps/hr/l10n/glyphpatch/patch.go
+@@ -0,0 +1,440 @@
++// Package glyphpatch validates the READY five-file/CFONT leaf contract in HR
++// docs/spec/008 section 3.4. It does not adopt translations or build packs.
++package glyphpatch
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/binary"
++	"fmt"
++	"io"
++	"os"
++	"regexp"
++	"sort"
++	"strconv"
++	"strings"
++	"unicode"
++	"unicode/utf8"
++)
++
++const (
++	fileLimit    = 2 * 1024 * 1024
++	cfontSize    = 416010
++	fontHash     = "b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a"
++	oflHash      = "f47ac356aaafd53b53c6c784b3d63e265bf2dc9fe452d4ba5aee4b9b0bf51ca8"
++	reservedHash = "1c841eb8a768ec79051090f39371abc582da8c30a8f2811b26a3089ee015a1fe"
++	cfontHash    = "60e55cf73ba2eb8e83018e8a9b585e22524e730e240732adb5e746b7ed54d8db"
++)
++
++var (
++	hashPattern    = regexp.MustCompile(`^[0-9a-f]{64}$`)
++	versionPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+$`)
++	cpPattern      = regexp.MustCompile(`^U\+[0-9A-F]{4,6}$`)
++	codePattern    = regexp.MustCompile(`^[0-9A-F]{4}$`)
++)
++
++type record struct {
++	index int
++	glyph [30]byte
++}
++
++// Patch contains a validated immutable snapshot. Its zero value is invalid.
++type Patch struct {
++	digest   string
++	language string
++	unitSize int
++	codes    map[[2]rune]uint16
++	records  []record
++}
++
++// Language returns the validated language code, or empty for an invalid patch.
++func (p *Patch) Language() string {
++	if p == nil {
++		return ""
++	}
++	return p.language
++}
++
++// Digest returns the canonical identity of all five snapshot files.
++func (p *Patch) Digest() string {
++	if p == nil {
++		return ""
++	}
++	return p.digest
++}
++
++// Lookup returns the original prebaked code. It never allocates new codes.
++func (p *Patch) Lookup(scalars []rune) (uint16, bool) {
++	if p == nil || p.digest == "" || len(scalars) != p.unitSize {
++		return 0, false
++	}
++	var key [2]rune
++	copy(key[:], scalars)
++	v, ok := p.codes[key]
++	return v, ok
++}
++
++// Apply validates the original CFONT and returns an independent copy. With
++// positive adoption the complete patch is applied; zero adoption preserves it.
++func (p *Patch) Apply(original []byte, adopted int) ([]byte, error) {
++	if p == nil || p.digest == "" {
++		return nil, fmt.Errorf("invalid patch")
++	}
++	if adopted < 0 {
++		return nil, fmt.Errorf("negative adopted count")
++	}
++	if len(original) != cfontSize || hash(original) != cfontHash {
++		return nil, fmt.Errorf("original CFONT identity mismatch")
++	}
++	out := bytes.Clone(original)
++	if adopted > 0 {
++		for _, r := range p.records {
++			copy(out[r.index*30:r.index*30+30], r.glyph[:])
++		}
++	}
++	return out, nil
++}
++
++func hash(data []byte) string { return fmt.Sprintf("%x", sha256.Sum256(data)) }
++
++// Load reads exactly five bounded regular files once, then performs all
++// verification against that snapshot. Metadata identities are provenance;
++// they do not prove who generated the bitmap artwork.
++func Load(dir, code string) (*Patch, error) {
++	face, ok := map[string]string{"zh-CN": "2\tSC", "ja": "0\tJP", "ko": "1\tKR", "en": "3\tTC"}[code]
++	if !ok {
++		return nil, fmt.Errorf("unsupported language %q", code)
++	}
++	if unicode.Version != "15.0.0" {
++		return nil, fmt.Errorf("unsupported Unicode tables %s", unicode.Version)
++	}
++	names := []string{"glyphs-" + code + ".bin", "charmap-" + code + ".tsv", "reserved-codes.tsv", "OFL.txt", "SOURCE.txt"}
++	sort.Strings(names)
++	files, err := snapshot(dir, names)
++	if err != nil {
++		return nil, err
++	}
++	if hash(files["reserved-codes.tsv"]) != reservedHash {
++		return nil, fmt.Errorf("trusted reserved measurement mismatch")
++	}
++	reserved, err := parseReserved(files["reserved-codes.tsv"])
++	if err != nil {
++		return nil, err
++	}
++	if err := checkSource(files, code, face); err != nil {
++		return nil, err
++	}
++	mapLines, err := lines(files["charmap-"+code+".tsv"])
++	if err != nil {
++		return nil, fmt.Errorf("charmap: %w", err)
++	}
++	unitSize, header := 1, "unicode\tcode_hex"
++	if code == "en" {
++		unitSize, header = 2, "left_cp\tright_cp\tcode_hex"
++	}
++	if mapLines[0] != header {
++		return nil, fmt.Errorf("charmap header")
++	}
++	count := len(mapLines) - 1
++	if count < 1 || count > 3276 {
++		return nil, fmt.Errorf("empty or oversized charmap")
++	}
++	data := files["glyphs-"+code+".bin"]
++	if len(data) != count*32 {
++		return nil, fmt.Errorf("glyph record count or truncation")
++	}
++	domain := available(reserved)
++	if count > len(domain) {
++		return nil, fmt.Errorf("charmap exceeds available codes")
++	}
++	p := &Patch{language: code, unitSize: unitSize, codes: make(map[[2]rune]uint16, count), records: make([]record, 0, count)}
++	seenIndex := make(map[int]bool, count)
++	var previous [2]rune
++	for i, line := range mapLines[1:] {
++		fields := strings.Split(line, "\t")
++		if len(fields) != unitSize+1 {
++			return nil, fmt.Errorf("charmap row %d", i+1)
++		}
++		var key [2]rune
++		for j := 0; j < unitSize; j++ {
++			key[j], err = scalar(fields[j], code)
++			if err != nil {
++				return nil, fmt.Errorf("charmap row %d: %w", i+1, err)
++			}
++		}
++		if i > 0 && (key[0] < previous[0] || key[0] == previous[0] && key[1] <= previous[1]) {
++			return nil, fmt.Errorf("unit order or duplicate")
++		}
++		previous = key
++		value, err := parseCode(fields[unitSize])
++		if err != nil {
++			return nil, err
++		}
++		if value != domain[i] {
++			return nil, fmt.Errorf("noncanonical allocation or reserved collision")
++		}
++		if binary.BigEndian.Uint16(data[i*32:i*32+2]) != value {
++			return nil, fmt.Errorf("binary and charmap code mismatch")
++		}
++		index, err := glyphIndex(value)
++		if err != nil {
++			return nil, err
++		}
++		if seenIndex[index] {
++			return nil, fmt.Errorf("colliding glyph indices")
++		}
++		seenIndex[index] = true
++		r := record{index: index}
++		copy(r.glyph[:], data[i*32+2:(i+1)*32])
++		for row := 0; row < 15; row++ {
++			word := binary.BigEndian.Uint16(r.glyph[row*2 : row*2+2])
++			if word&1 != 0 {
++				return nil, fmt.Errorf("bit zero must be blank")
++			}
++			if code == "en" && word&0x100 != 0 {
++				return nil, fmt.Errorf("pair middle column must be blank")
++			}
++			if code == "en" && (key[0] == ' ' && word&0xfe00 != 0 || key[1] == ' ' && word&0x00fe != 0) {
++				return nil, fmt.Errorf("pair space half must be blank")
++			}
++			if code != "en" && (key[0] == ' ' || key[0] == 0x3000) && word != 0 {
++				return nil, fmt.Errorf("scalar space glyph must be blank")
++			}
++		}
++		p.codes[key] = value
++		p.records = append(p.records, r)
++	}
++	var stream strings.Builder
++	stream.WriteString("hr-l2-patch-v1\n")
++	for _, name := range names {
++		fmt.Fprintf(&stream, "%s\t%d\t%s\n", name, len(files[name]), hash(files[name]))
++	}
++	p.digest = hash([]byte(stream.String()))
++	return p, nil
++}
++
++func snapshot(dir string, names []string) (map[string][]byte, error) {
++	info, err := os.Lstat(dir)
++	if err != nil {
++		return nil, err
++	}
++	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
++		return nil, fmt.Errorf("patch root must be a directory")
++	}
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		return nil, err
++	}
++	defer root.Close()
++	d, err := root.Open(".")
++	if err != nil {
++		return nil, err
++	}
++	defer d.Close()
++	dinfo, err := d.Stat()
++	if err != nil {
++		return nil, err
++	}
++	if !os.SameFile(info, dinfo) {
++		return nil, fmt.Errorf("patch root changed")
++	}
++	entries, err := d.ReadDir(6)
++	if err != nil && err != io.EOF {
++		return nil, err
++	}
++	if len(entries) != 5 {
++		return nil, fmt.Errorf("patch must contain exactly five files")
++	}
++	actual := make([]string, len(entries))
++	for i, entry := range entries {
++		actual[i] = entry.Name()
++	}
++	sort.Strings(actual)
++	for i := range names {
++		if actual[i] != names[i] {
++			return nil, fmt.Errorf("patch file names differ")
++		}
++	}
++	files := make(map[string][]byte, 5)
++	for _, name := range names {
++		before, err := root.Lstat(name)
++		if err != nil {
++			return nil, err
++		}
++		if !before.Mode().IsRegular() || before.Size() > fileLimit {
++			return nil, fmt.Errorf("not a bounded regular file: %s", name)
++		}
++		f, err := openRegular(root, name)
++		if err != nil {
++			return nil, err
++		}
++		after, statErr := f.Stat()
++		if statErr != nil || !after.Mode().IsRegular() || !os.SameFile(before, after) || after.Size() > fileLimit {
++			f.Close()
++			return nil, fmt.Errorf("file changed or not regular: %s", name)
++		}
++		data, readErr := io.ReadAll(io.LimitReader(f, fileLimit+1))
++		closeErr := f.Close()
++		if readErr != nil {
++			return nil, readErr
++		}
++		if closeErr != nil {
++			return nil, closeErr
++		}
++		if len(data) > fileLimit {
++			return nil, fmt.Errorf("file grew beyond limit: %s", name)
++		}
++		files[name] = data
++	}
++	return files, nil
++}
++
++func lines(data []byte) ([]string, error) {
++	if !utf8.Valid(data) || bytes.HasPrefix(data, []byte{0xef, 0xbb, 0xbf}) || bytes.ContainsAny(data, "\r\x00") || len(data) == 0 || data[len(data)-1] != '\n' {
++		return nil, fmt.Errorf("requires UTF-8 without BOM, CR or NUL and terminal LF")
++	}
++	return strings.Split(string(data[:len(data)-1]), "\n"), nil
++}
++
++func parseCode(text string) (uint16, error) {
++	if !codePattern.MatchString(text) {
++		return 0, fmt.Errorf("noncanonical code")
++	}
++	v, _ := strconv.ParseUint(text, 16, 16)
++	lead, trail := int(v>>8), int(v&255)
++	if lead < 0xe0 || lead > 0xf9 || !(trail >= 0x40 && trail <= 0x7e || trail >= 0xa1 && trail <= 0xdf) {
++		return 0, fmt.Errorf("code outside domain")
++	}
++	return uint16(v), nil
++}
++
++func scalar(text, language string) (rune, error) {
++	if !cpPattern.MatchString(text) {
++		return 0, fmt.Errorf("noncanonical scalar")
++	}
++	v, _ := strconv.ParseUint(text[2:], 16, 32)
++	r := rune(v)
++	if !utf8.ValidRune(r) || fmt.Sprintf("U+%04X", r) != text {
++		return 0, fmt.Errorf("invalid scalar")
++	}
++	// Enumerate permitted categories instead of unicode.Cn, which is only
++	// exposed starting in Go 1.25. This also rejects all unassigned scalars
++	// with the module's Go 1.24 API surface and the fixed Unicode 15 table.
++	if !(unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsPunct(r) || unicode.IsSymbol(r) || unicode.Is(unicode.Zs, r)) || unicode.IsSpace(r) && r != ' ' && !(language != "en" && r == 0x3000) {
++		return 0, fmt.Errorf("unsupported scalar")
++	}
++	return r, nil
++}
++
++func parseReserved(data []byte) (map[uint16]bool, error) {
++	ls, err := lines(data)
++	if err != nil {
++		return nil, err
++	}
++	if ls[0] != "code_hex\tsources" {
++		return nil, fmt.Errorf("reserved header")
++	}
++	out := make(map[uint16]bool)
++	var previous uint16
++	for _, line := range ls[1:] {
++		fields := strings.Split(line, "\t")
++		if len(fields) != 2 || fields[1] == "" {
++			return nil, fmt.Errorf("reserved row")
++		}
++		v, err := parseCode(fields[0])
++		if err != nil {
++			return nil, err
++		}
++		if v <= previous {
++			return nil, fmt.Errorf("reserved order or duplicate")
++		}
++		previous, out[v] = v, true
++	}
++	return out, nil
++}
++
++func available(reserved map[uint16]bool) []uint16 {
++	var out []uint16
++	for lead := 0xe0; lead <= 0xf9; lead++ {
++		for trail := 0x40; trail <= 0xdf; trail++ {
++			if trail > 0x7e && trail < 0xa1 {
++				continue
++			}
++			v := uint16(lead<<8 | trail)
++			if !reserved[v] {
++				out = append(out, v)
++			}
++		}
++	}
++	return out
++}
++
++func glyphIndex(code uint16) (int, error) {
++	lead, trail := int(code>>8), int(code&255)
++	tail := trail - 0x40
++	if trail > 0x7e {
++		tail = trail - 0x62
++	}
++	index := (lead-0xa4)*157 + tail - 0x198 + 0x305
++	if index < 0 || index >= 13867 || index*30+30 > cfontSize {
++		return 0, fmt.Errorf("glyph index outside CFONT")
++	}
++	return index, nil
++}
++
++func checkSource(files map[string][]byte, code, face string) error {
++	ls, err := lines(files["SOURCE.txt"])
++	if err != nil {
++		return fmt.Errorf("SOURCE: %w", err)
++	}
++	source := make(map[string]string)
++	previous := ""
++	for _, line := range ls {
++		fields := strings.Split(line, "\t")
++		if len(fields) != 2 || fields[1] == "" || fields[0] <= previous {
++			return fmt.Errorf("SOURCE row order or duplicate")
++		}
++		previous, source[fields[0]] = fields[0], fields[1]
++	}
++	faceParts := strings.Split(face, "\t")
++	expected := map[string]string{
++		"format": "hr-l2-source-v1", "language": code, "unicode_version": "15.0.0",
++		"font_file": "NotoSansCJK-Regular.ttc", "font_sha256": fontHash,
++		"font_version": "Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603",
++		"face_index":   faceParts[0], "face_name": "Noto Sans CJK " + faceParts[1],
++		"pillow_version": "12.3.0", "fonttools_version": "4.66.1", "cell": "15x15", "threshold": "128",
++		"pixel_size": "13", "placement": "mask-center-floor", "unit_mode": "scalar15",
++	}
++	if code == "en" {
++		expected["pixel_size"], expected["placement"], expected["unit_mode"] = "10", "pair2x7-baseline11", "pair2x7"
++		for k, v := range map[string]string{"source_canvas": "12x15", "source_anchor": "ls", "source_origin": "0,11", "source_clipping": "canvas-before-getbbox", "source_crop": "0,0,bbox-right,15", "shrink": "width-gt7:BILINEAR:7x15", "half_origin": "0,0;8,0", "blank_column": "7", "blank_scalar": "U+0020"} {
++			expected[k] = v
++		}
++	}
++	for k, v := range map[string]string{"glyphs_sha256": "glyphs-" + code + ".bin", "charmap_sha256": "charmap-" + code + ".tsv", "reserved_sha256": "reserved-codes.tsv", "ofl_sha256": "OFL.txt"} {
++		expected[k] = hash(files[v])
++	}
++	if len(source) != len(expected)+4 {
++		return fmt.Errorf("SOURCE key set")
++	}
++	for k, v := range expected {
++		if source[k] != v {
++			return fmt.Errorf("unsupported SOURCE parameter %s", k)
++		}
++	}
++	for _, key := range []string{"units_sha256", "rasterizer_sha256"} {
++		if !hashPattern.MatchString(source[key]) {
++			return fmt.Errorf("SOURCE hash %s", key)
++		}
++	}
++	if !strings.HasPrefix(source["container_image_id"], "sha256:") || !hashPattern.MatchString(strings.TrimPrefix(source["container_image_id"], "sha256:")) {
++		return fmt.Errorf("container identity")
++	}
++	if !versionPattern.MatchString(source["rasterizer_version"]) {
++		return fmt.Errorf("rasterizer version")
++	}
++	if hash(files["OFL.txt"]) != oflHash {
++		return fmt.Errorf("OFL differs from recorded font license")
++	}
++	return nil
++}
+diff --git a/apps/hr/l10n/glyphpatch/patch_test.go b/apps/hr/l10n/glyphpatch/patch_test.go
+new file mode 100644
+index 0000000..9b2ed60
+--- /dev/null
++++ b/apps/hr/l10n/glyphpatch/patch_test.go
+@@ -0,0 +1,492 @@
++package glyphpatch
++
++import (
++	"bytes"
++	"encoding/binary"
++	"fmt"
++	"os"
++	"path/filepath"
++	"sort"
++	"strings"
++	"sync"
++	"testing"
++	"unicode"
++)
++
++// All in-repository bitmaps and units below are synthetic. OFL and the
++// trusted code list are independent public text/measurement fixtures.
++func synthetic(t *testing.T, language string) map[string][]byte {
++	t.Helper()
++	read := func(name string) []byte {
++		b, e := os.ReadFile(filepath.Join("testdata", name))
++		if e != nil {
++			t.Fatal(e)
++		}
++		return b
++	}
++	files := map[string][]byte{"OFL.txt": read("OFL.txt"), "reserved-codes.tsv": read("reserved-codes.tsv")}
++	reserved, err := parseReserved(files["reserved-codes.tsv"])
++	if err != nil {
++		t.Fatal(err)
++	}
++	values := available(reserved)[:3]
++	var cmap strings.Builder
++	if language == "en" {
++		cmap.WriteString("left_cp\tright_cp\tcode_hex\n")
++	} else {
++		cmap.WriteString("unicode\tcode_hex\n")
++	}
++	for i, v := range values {
++		if language == "en" {
++			fmt.Fprintf(&cmap, "U+%04X\tU+0020\t%04X\n", 'A'+i, v)
++		} else {
++			fmt.Fprintf(&cmap, "U+%04X\t%04X\n", 'A'+i, v)
++		}
++		var record [32]byte
++		binary.BigEndian.PutUint16(record[:2], v)
++		for row := 0; row < 15; row++ {
++			binary.BigEndian.PutUint16(record[2+row*2:], uint16(0x8000>>i))
++		}
++		files["glyphs-"+language+".bin"] = append(files["glyphs-"+language+".bin"], record[:]...)
++	}
++	files["charmap-"+language+".tsv"] = []byte(cmap.String())
++	face := map[string]string{"en": "3\tTC", "zh-CN": "2\tSC", "ja": "0\tJP", "ko": "1\tKR"}[language]
++	f := strings.Split(face, "\t")
++	source := map[string]string{
++		"format": "hr-l2-source-v1", "language": language, "units_sha256": strings.Repeat("a", 64), "unicode_version": "15.0.0",
++		"font_file": "NotoSansCJK-Regular.ttc", "font_sha256": fontHash, "font_version": "Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603",
++		"face_index": f[0], "face_name": "Noto Sans CJK " + f[1], "pillow_version": "12.3.0", "fonttools_version": "4.66.1",
++		"pixel_size": "13", "cell": "15x15", "threshold": "128", "placement": "mask-center-floor", "unit_mode": "scalar15",
++		"container_image_id": "sha256:" + strings.Repeat("b", 64), "rasterizer_version": "synthetic-test-v1", "rasterizer_sha256": strings.Repeat("c", 64),
++	}
++	if language == "en" {
++		source["pixel_size"], source["placement"], source["unit_mode"] = "10", "pair2x7-baseline11", "pair2x7"
++		for k, v := range map[string]string{"source_canvas": "12x15", "source_anchor": "ls", "source_origin": "0,11", "source_clipping": "canvas-before-getbbox", "source_crop": "0,0,bbox-right,15", "shrink": "width-gt7:BILINEAR:7x15", "half_origin": "0,0;8,0", "blank_column": "7", "blank_scalar": "U+0020"} {
++			source[k] = v
++		}
++	}
++	for k, n := range map[string]string{"glyphs_sha256": "glyphs-" + language + ".bin", "charmap_sha256": "charmap-" + language + ".tsv", "reserved_sha256": "reserved-codes.tsv", "ofl_sha256": "OFL.txt"} {
++		source[k] = hash(files[n])
++	}
++	files["SOURCE.txt"] = sourceBytes(source)
++	return files
++}
++
++func sourceBytes(source map[string]string) []byte {
++	var keys []string
++	for k := range source {
++		keys = append(keys, k)
++	}
++	sort.Strings(keys)
++	var b strings.Builder
++	for _, k := range keys {
++		fmt.Fprintf(&b, "%s\t%s\n", k, source[k])
++	}
++	return []byte(b.String())
++}
++
++func alter(files map[string][]byte, name string, fn func([]byte) []byte, rehash bool) map[string][]byte {
++	out := make(map[string][]byte)
++	for n, b := range files {
++		out[n] = bytes.Clone(b)
++	}
++	out[name] = fn(out[name])
++	if rehash && name != "SOURCE.txt" {
++		key := map[string]string{"glyphs-en.bin": "glyphs_sha256", "charmap-en.tsv": "charmap_sha256", "reserved-codes.tsv": "reserved_sha256", "OFL.txt": "ofl_sha256"}[name]
++		if strings.HasPrefix(name, "glyphs-") {
++			key = "glyphs_sha256"
++		}
++		if strings.HasPrefix(name, "charmap-") {
++			key = "charmap_sha256"
++		}
++		var source = make(map[string]string)
++		for _, line := range strings.Split(strings.TrimSuffix(string(out["SOURCE.txt"]), "\n"), "\n") {
++			f := strings.Split(line, "\t")
++			source[f[0]] = f[1]
++		}
++		source[key] = hash(out[name])
++		out["SOURCE.txt"] = sourceBytes(source)
++	}
++	return out
++}
++
++func writePatch(t *testing.T, files map[string][]byte) string {
++	t.Helper()
++	dir := t.TempDir()
++	for n, b := range files {
++		if e := os.WriteFile(filepath.Join(dir, n), b, 0600); e != nil {
++			t.Fatal(e)
++		}
++	}
++	return dir
++}
++
++func loadOK(t *testing.T, files map[string][]byte, language string) *Patch {
++	t.Helper()
++	p, e := Load(writePatch(t, files), language)
++	if e != nil {
++		t.Fatal(e)
++	}
++	return p
++}
++
++func TestLanguagesAndSnapshot(t *testing.T) {
++	if unicode.Version != "15.0.0" {
++		t.Fatal(unicode.Version)
++	}
++	for _, language := range []string{"zh-CN", "ja", "ko", "en"} {
++		t.Run(language, func(t *testing.T) {
++			files := synthetic(t, language)
++			dir := writePatch(t, files)
++			p, e := Load(dir, language)
++			if e != nil {
++				t.Fatal(e)
++			}
++			if p.Language() != language {
++				t.Fatal("language getter")
++			}
++			units := []rune{'A'}
++			if language == "en" {
++				units = append(units, ' ')
++			}
++			if c, ok := p.Lookup(units); !ok || c != 0xe040 {
++				t.Fatalf("lookup %04X %v", c, ok)
++			}
++			units[0] = 'X'
++			if _, ok := p.Lookup(units); ok {
++				t.Fatal("invented mapping")
++			}
++			if _, ok := p.Lookup(nil); ok {
++				t.Fatal("wrong unit size")
++			}
++			if _, ok := p.Lookup([]rune{'A', ' ', 'X'}); ok {
++				t.Fatal("wrong unit size")
++			}
++			// Neither input slices nor subsequent changes on disk alter the snapshot.
++			before := p.Digest()
++			os.WriteFile(filepath.Join(dir, "SOURCE.txt"), []byte("broken"), 0600)
++			if p.Digest() != before {
++				t.Fatal("mutable digest")
++			}
++			units[0] = 'A'
++			if c, ok := p.Lookup(units); !ok || c != 0xe040 {
++				t.Fatal("mutable codebook")
++			}
++			var names []string
++			for n := range files {
++				names = append(names, n)
++			}
++			sort.Strings(names)
++			stream := "hr-l2-patch-v1\n"
++			for _, n := range names {
++				stream += fmt.Sprintf("%s\t%d\t%s\n", n, len(files[n]), hash(files[n]))
++			}
++			if before != hash([]byte(stream)) {
++				t.Fatal("noncanonical digest")
++			}
++		})
++	}
++	for _, code := range []string{"zh-TW", "EN", "", "fr"} {
++		if _, e := Load("not-present", code); e == nil {
++			t.Fatalf("accepted %q", code)
++		}
++	}
++	var zero Patch
++	if zero.Language() != "" {
++		t.Fatal("zero language")
++	}
++	if zero.Digest() != "" {
++		t.Fatal("zero digest")
++	}
++	if _, ok := zero.Lookup([]rune{'A'}); ok {
++		t.Fatal("zero lookup")
++	}
++	if _, e := zero.Apply(nil, 0); e == nil {
++		t.Fatal("zero apply")
++	}
++	p := loadOK(t, synthetic(t, "en"), "en")
++	if out, e := p.Apply(make([]byte, cfontSize), 1); e == nil || out != nil {
++		t.Fatal("synthetic original accepted")
++	}
++	if out, e := p.Apply(nil, -1); e == nil || out != nil {
++		t.Fatal("negative adoption accepted")
++	}
++}
++
++func TestDeepMutations(t *testing.T) {
++	base := synthetic(t, "en")
++	cases := []struct {
++		name, file, want string
++		fn               func([]byte) []byte
++		rehash           bool
++	}{
++		{"truncated", "glyphs-en.bin", "truncation", func(b []byte) []byte { return b[:len(b)-1] }, true},
++		{"duplicate-code", "glyphs-en.bin", "mismatch", func(b []byte) []byte { copy(b[32:34], b[:2]); return b }, true},
++		{"reorder-records", "glyphs-en.bin", "mismatch", func(b []byte) []byte { a := bytes.Clone(b[:32]); copy(b[:32], b[32:64]); copy(b[32:64], a); return b }, true},
++		{"reserved-bin", "glyphs-en.bin", "mismatch", func(b []byte) []byte { binary.BigEndian.PutUint16(b[:2], 0xe047); return b }, true},
++		{"bit0", "glyphs-en.bin", "bit zero", func(b []byte) []byte { b[3] |= 1; return b }, true},
++		{"middle-column", "glyphs-en.bin", "middle column", func(b []byte) []byte { b[2] |= 1; return b }, true},
++		{"right-space-ink", "glyphs-en.bin", "space half", func(b []byte) []byte { b[3] |= 2; return b }, true},
++		{"left-space-ink", "charmap-en.tsv", "space half", func(b []byte) []byte { return bytes.Replace(b, []byte("U+0041"), []byte("U+0020"), 1) }, true},
++		{"unbound-data", "glyphs-en.bin", "SOURCE", func(b []byte) []byte { b[2] ^= 0x80; return b }, false},
++		{"untrusted-reserved", "reserved-codes.tsv", "trusted", func(b []byte) []byte { return bytes.Replace(b, []byte("F9D8"), []byte("F9D9"), 1) }, true},
++		{"ofl", "OFL.txt", "license", func(b []byte) []byte { return append(b, 'x') }, true},
++		{"domain", "charmap-en.tsv", "domain", func(b []byte) []byte { return bytes.Replace(b, []byte("E040"), []byte("E080"), 1) }, true},
++		{"reserved-map", "charmap-en.tsv", "allocation", func(b []byte) []byte { return bytes.Replace(b, []byte("E040"), []byte("E047"), 1) }, true},
++		{"noncanonical-allocation", "charmap-en.tsv", "allocation", func(b []byte) []byte { return bytes.Replace(b, []byte("E040"), []byte("E044"), 1) }, true},
++		{"duplicate-unit", "charmap-en.tsv", "unit order", func(b []byte) []byte { return bytes.Replace(b, []byte("U+0042"), []byte("U+0041"), 1) }, true},
++		{"wrong-header", "charmap-en.tsv", "header", func(b []byte) []byte { return bytes.Replace(b, []byte("left_cp"), []byte("unicode"), 1) }, true},
++		{"CRLF-map", "charmap-en.tsv", "UTF-8", func(b []byte) []byte { return bytes.ReplaceAll(b, []byte("\n"), []byte("\r\n")) }, true},
++		{"noncanonical-scalar", "charmap-en.tsv", "invalid scalar", func(b []byte) []byte { return bytes.Replace(b, []byte("U+0041"), []byte("U+000041"), 1) }, true},
++		{"surrogate", "charmap-en.tsv", "invalid scalar", func(b []byte) []byte { return bytes.Replace(b, []byte("U+0041"), []byte("U+D800"), 1) }, true},
++		{"language", "SOURCE.txt", "parameter", func(b []byte) []byte { return bytes.Replace(b, []byte("language\ten"), []byte("language\tja"), 1) }, false},
++		{"algorithm", "SOURCE.txt", "parameter", func(b []byte) []byte { return bytes.Replace(b, []byte("threshold\t128"), []byte("threshold\t127"), 1) }, false},
++		{"leadingzero", "SOURCE.txt", "parameter", func(b []byte) []byte { return bytes.Replace(b, []byte("pixel_size\t10"), []byte("pixel_size\t010"), 1) }, false},
++		{"unknownkey", "SOURCE.txt", "key set", func(b []byte) []byte { return append(b, []byte("zzz\tx\n")...) }, false},
++		{"missingkey", "SOURCE.txt", "key set", func(b []byte) []byte { return bytes.Replace(b, []byte("cell\t15x15\n"), nil, 1) }, false},
++		{"duplicatekey", "SOURCE.txt", "order", func(b []byte) []byte { return append(b, []byte("language\ten\n")...) }, false},
++		{"BOM", "SOURCE.txt", "UTF-8", func(b []byte) []byte { return append([]byte{0xef, 0xbb, 0xbf}, b...) }, false},
++		{"NUL", "SOURCE.txt", "UTF-8", func(b []byte) []byte { b[0] = 0; return b }, false},
++		{"invalidUTF8", "SOURCE.txt", "UTF-8", func(b []byte) []byte { b[0] = 255; return b }, false},
++		{"noLF", "SOURCE.txt", "UTF-8", func(b []byte) []byte { return b[:len(b)-1] }, false},
++		{"container-id", "SOURCE.txt", "container", func(b []byte) []byte { return bytes.Replace(b, []byte("sha256:"), []byte("sha255:"), 1) }, false},
++		{"source-hash", "SOURCE.txt", "SOURCE hash", func(b []byte) []byte {
++			return bytes.Replace(b, []byte(strings.Repeat("a", 64)), []byte(strings.Repeat("A", 64)), 1)
++		}, false},
++	}
++	for _, tc := range cases {
++		t.Run(tc.name, func(t *testing.T) {
++			_, e := Load(writePatch(t, alter(base, tc.file, tc.fn, tc.rehash)), "en")
++			if e == nil || !strings.Contains(e.Error(), tc.want) {
++				t.Fatalf("got %v; expected %s", e, tc.want)
++			}
++		})
++	}
++	for _, cp := range []string{"U+0009", "U+000A", "U+200B", "U+E000", "U+0378", "U+0301", "U+0903", "U+20DD", "U+2028", "U+2029", "U+00A0", "U+3000"} {
++		t.Run(cp, func(t *testing.T) {
++			mut := alter(base, "charmap-en.tsv", func(b []byte) []byte { return bytes.Replace(b, []byte("U+0020"), []byte(cp), 1) }, true)
++			if _, e := Load(writePatch(t, mut), "en"); e == nil || !strings.Contains(e.Error(), "unsupported scalar") {
++				t.Fatal(e)
++			}
++		})
++	}
++	// Valid provenance-only edits change identity without imposing a tool allowlist.
++	mut := alter(base, "SOURCE.txt", func(b []byte) []byte { return bytes.Replace(b, []byte("synthetic-test-v1"), []byte("new-tool-v2"), 1) }, false)
++	if loadOK(t, mut, "en").Digest() == loadOK(t, base, "en").Digest() {
++		t.Fatal("SOURCE not bound")
++	}
++}
++
++func TestFilesystemBoundary(t *testing.T) {
++	base := synthetic(t, "en")
++	for _, kind := range []string{"missing", "extra", "case", "subdirectory", "symlink", "oversize", "empty-map"} {
++		t.Run(kind, func(t *testing.T) {
++			dir := writePatch(t, base)
++			name := filepath.Join(dir, "OFL.txt")
++			switch kind {
++			case "missing":
++				os.Remove(name)
++			case "extra":
++				os.WriteFile(filepath.Join(dir, "extra"), nil, 0600)
++			case "case":
++				os.Rename(name, filepath.Join(dir, "ofl.txt"))
++			case "subdirectory":
++				os.Remove(name)
++				os.Mkdir(name, 0700)
++			case "symlink":
++				os.Remove(name)
++				os.Symlink("SOURCE.txt", name)
++			case "oversize":
++				f, e := os.OpenFile(name, os.O_WRONLY, 0600)
++				if e != nil {
++					t.Fatal(e)
++				}
++				if e = f.Truncate(fileLimit + 1); e != nil {
++					t.Fatal(e)
++				}
++				f.Close()
++			case "empty-map":
++				files := alter(base, "charmap-en.tsv", func(b []byte) []byte { return []byte("left_cp\tright_cp\tcode_hex\n") }, true)
++				for n, b := range files {
++					os.WriteFile(filepath.Join(dir, n), b, 0600)
++				}
++			}
++			if _, e := Load(dir, "en"); e == nil {
++				t.Fatal("accepted " + kind)
++			}
++		})
++	}
++	dir := writePatch(t, base)
++	link := filepath.Join(t.TempDir(), "link")
++	if e := os.Symlink(dir, link); e != nil {
++		t.Fatal(e)
++	}
++	if _, e := Load(link, "en"); e == nil {
++		t.Fatal("root link accepted")
++	}
++}
++
++func TestAllIndicesAndScalarBoundaries(t *testing.T) {
++	seen := make(map[int]bool)
++	for _, v := range available(nil) {
++		index, e := glyphIndex(v)
++		if e != nil {
++			t.Fatal(e)
++		}
++		trail := int(v & 255)
++		adjust := 64
++		if trail >= 161 {
++			adjust = 98
++		}
++		independent := (int(v>>8)-164)*157 + trail - adjust + 365
++		if index != independent || seen[index] {
++			t.Fatalf("index collision %04X", v)
++		}
++		seen[index] = true
++	}
++	if len(seen) != 3276 {
++		t.Fatal(len(seen))
++	}
++	for _, lang := range []string{"zh-CN", "ja", "ko", "en"} {
++		if _, e := scalar("U+0020", lang); e != nil {
++			t.Fatal(e)
++		}
++		_, e := scalar("U+3000", lang)
++		if (e == nil) != (lang != "en") {
++			t.Fatal(lang, e)
++		}
++	}
++}
++
++func TestConcurrentQueries(t *testing.T) {
++	p := loadOK(t, synthetic(t, "en"), "en")
++	digest := p.Digest()
++	var group sync.WaitGroup
++	for i := 0; i < 16; i++ {
++		group.Add(1)
++		go func() {
++			defer group.Done()
++			for j := 0; j < 100; j++ {
++				input := []rune{'A', ' '}
++				code, ok := p.Lookup(input)
++				input[0] = 'X'
++				if !ok || code != 0xe040 || p.Digest() != digest || p.Language() != "en" {
++					t.Error("concurrent query changed snapshot")
++					return
++				}
++			}
++		}()
++	}
++	group.Wait()
++}
++
++func TestScalarWhitespaceGlyphs(t *testing.T) {
++	for _, language := range []string{"zh-CN", "ja", "ko"} {
++		for _, cp := range []string{"U+0020", "U+3000"} {
++			t.Run(language+cp, func(t *testing.T) {
++				base := synthetic(t, language)
++				// Make the last unit the whitespace, keeping scalar order canonical.
++				if cp == "U+0020" {
++					base = alter(base, "charmap-"+language+".tsv", func(b []byte) []byte { return bytes.Replace(b, []byte("U+0041"), []byte(cp), 1) }, true)
++				} else {
++					base = alter(base, "charmap-"+language+".tsv", func(b []byte) []byte { return bytes.Replace(b, []byte("U+0043"), []byte(cp), 1) }, true)
++				}
++				if _, e := Load(writePatch(t, base), language); e == nil || !strings.Contains(e.Error(), "space glyph") {
++					t.Fatal(e)
++				}
++				base = alter(base, "glyphs-"+language+".bin", func(b []byte) []byte {
++					start := 2
++					if cp == "U+3000" {
++						start = 66
++					}
++					clear(b[start : start+30])
++					return b
++				}, true)
++				loadOK(t, base, language)
++			})
++		}
++	}
++}
++
++func TestLocalOriginalRoundTrip(t *testing.T) {
++	patchDir := os.Getenv("HR_PATCH_TESTDIR")
++	fontFile := os.Getenv("HR_CFONT_TESTFILE")
++	if patchDir == "" || fontFile == "" {
++		t.Skip("local OFL patch and original CFONT required")
++	}
++	p, e := Load(patchDir, "en")
++	if e != nil {
++		t.Fatal(e)
++	}
++	original, e := os.ReadFile(fontFile)
++	if e != nil {
++		if os.IsNotExist(e) {
++			t.Skip("original CFONT absent")
++		}
++		t.Fatal(e)
++	}
++	zero, e := p.Apply(original, 0)
++	if e != nil {
++		t.Fatal(e)
++	}
++	if !bytes.Equal(zero, original) {
++		t.Fatal("zero adoption changed original")
++	}
++	zero[0] ^= 1
++	if bytes.Equal(zero, original) {
++		t.Fatal("zero adoption aliases original")
++	}
++	changed, e := p.Apply(original, 1)
++	if e != nil {
++		t.Fatal(e)
++	}
++	if hash(changed) != "58dc44cfc78876af26068f55f9b5a4eda65d64a9facb5cc2aed406f668498876" {
++		t.Fatal(hash(changed))
++	}
++	if len(changed) != 416010 {
++		t.Fatal("length changed")
++	}
++	b, e := os.ReadFile(filepath.Join(patchDir, "glyphs-en.bin"))
++	if e != nil {
++		t.Fatal(e)
++	}
++	expect := make(map[int][]byte)
++	for i := 0; i < len(b); i += 32 {
++		lead, trail := int(b[i]), int(b[i+1])
++		adjust := 64
++		if trail >= 161 {
++			adjust = 98
++		}
++		index := (lead-164)*157 + trail - adjust + 365
++		expect[index] = b[i+2 : i+32]
++	}
++	if len(expect) != 230 {
++		t.Fatal("incomplete prebaked patch")
++	}
++	for i := 0; i < 13867; i++ {
++		want, ok := expect[i]
++		if !ok {
++			want = original[i*30 : (i+1)*30]
++		}
++		if !bytes.Equal(changed[i*30:(i+1)*30], want) {
++			t.Fatalf("full read-back slot %d", i)
++		}
++	}
++	if _, e := p.Apply(original, -1); e == nil {
++		t.Fatal("negative adoption")
++	}
++	if _, e := p.Apply(original[:len(original)-1], 1); e == nil {
++		t.Fatal("short original")
++	}
++	bad := bytes.Clone(original)
++	bad[0] ^= 1
++	if out, e := p.Apply(bad, 1); e == nil || out != nil {
++		t.Fatal("mismatch original accepted")
++	}
++	changed[0] ^= 1
++	again, e := p.Apply(original, 7)
++	if e != nil || hash(again) != "58dc44cfc78876af26068f55f9b5a4eda65d64a9facb5cc2aed406f668498876" {
++		t.Fatal("returned slice changed patch")
++	}
++	t.Logf("patch=%s positive=%s zero=%s; full 13867-slot read-back", p.Digest(), hash(again), hash(original))
++}
+diff --git a/apps/hr/l10n/glyphpatch/testdata/OFL.txt b/apps/hr/l10n/glyphpatch/testdata/OFL.txt
+new file mode 100644
+index 0000000..661272a
+--- /dev/null
++++ b/apps/hr/l10n/glyphpatch/testdata/OFL.txt
+@@ -0,0 +1,97 @@
++Noto Sans CJK 子集（內嵌於 hr-play 的介面字型）
++
++版權（字型 name ID 0）：© 2014-2021 Adobe (http://www.adobe.com/).
++授權說明（name ID 13）：This Font Software is licensed under the SIL Open Font License, Version 1.1. This Font Software is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the SIL Open Font License for the specific language, permissions and limitations governing your use of this Font Software.
++授權網址（name ID 14）：http://scripts.sil.org/OFL
++這些子集是修改版（只保留介面用到的字元），依 OFL 1.1 散布，授權全文如下。
++
++-----------------------------------------------------------
++SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
++-----------------------------------------------------------
++
++PREAMBLE
++
++The goals of the Open Font License (OFL) are to stimulate worldwide
++development of collaborative font projects, to support the font
++creation efforts of academic and linguistic communities, and to provide
++a free and open framework in which fonts may be shared and improved in
++partnership with others.
++
++The OFL allows the licensed fonts to be used, studied, modified and
++redistributed freely as long as they are not sold by themselves. The
++fonts, including any derivative works, can be bundled, embedded,
++redistributed and/or sold with any software provided that any reserved
++names are not used by derivative works. The fonts and derivatives,
++however, cannot be released under any other type of license. The
++requirement for fonts to remain under this license does not apply to
++any document created using the fonts or their derivatives.
++
++DEFINITIONS
++
++"Font Software" refers to the set of files released by the Copyright
++Holder(s) under this license and clearly marked as such. This may
++include source files, build scripts and documentation.
++
++"Reserved Font Name" refers to any names specified as such after the
++copyright statement(s).
++
++"Original Version" refers to the collection of Font Software components
++as distributed by the Copyright Holder(s).
++
++"Modified Version" refers to any derivative made by adding to,
++deleting, or substituting -- in part or in whole -- any of the
++components of the Original Version, by changing formats or by porting
++the Font Software to a new environment.
++
++"Author" refers to any designer, engineer, programmer, technical writer
++or other person who contributed to the Font Software.
++
++PERMISSION & CONDITIONS
++
++Permission is hereby granted, free of charge, to any person obtaining a
++copy of the Font Software, to use, study, copy, merge, embed, modify,
++redistribute, and sell modified and unmodified copies of the Font
++Software, subject to the following conditions:
++
++1) Neither the Font Software nor any of its individual components, in
++Original or Modified Versions, may be sold by itself.
++
++2) Original or Modified Versions of the Font Software may be bundled,
++redistributed and/or sold with any software, provided that each copy
++contains the above copyright notice and this license. These can be
++included either as stand-alone text files, human-readable headers or
++in the appropriate machine-readable metadata fields within text or
++binary files as long as those fields can be easily viewed by the user.
++
++3) No Modified Version of the Font Software may use the Reserved Font
++Name(s) unless explicit written permission is granted by the
++corresponding Copyright Holder. This restriction only applies to the
++primary font name as presented to the users.
++
++4) The name(s) of the Copyright Holder(s) or the Author(s) of the Font
++Software shall not be used to promote, endorse or advertise any
++Modified Version, except to acknowledge the contribution(s) of the
++Copyright Holder(s) and the Author(s) or with their explicit written
++permission.
++
++5) The Font Software, modified or unmodified, in part or in whole, must
++be distributed entirely under this license, and must not be distributed
++under any other license. The requirement for fonts to remain under this
++license does not apply to any document created using the Font Software.
++
++TERMINATION
++
++This license becomes null and void if any of the above conditions are
++not met.
++
++DISCLAIMER
++
++THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTIES OF
++MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT
++OF COPYRIGHT, PATENT, TRADEMARK, OR OTHER RIGHT. IN NO EVENT SHALL THE
++COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
++INCLUDING ANY GENERAL, SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL
++DAMAGES, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
++OTHER DEALINGS IN THE FONT SOFTWARE.
+diff --git a/apps/hr/l10n/glyphpatch/testdata/reserved-codes.tsv b/apps/hr/l10n/glyphpatch/testdata/reserved-codes.tsv
+new file mode 100644
+index 0000000..9c38048
+--- /dev/null
++++ b/apps/hr/l10n/glyphpatch/testdata/reserved-codes.tsv
+@@ -0,0 +1,107 @@
++code_hex	sources
++E047	strict:MAIN.EXE
++E058	strict:MAIN.EXE
++E061	strict:MAIN.EXE
++E062	strict:MAIN.EXE
++E0A9	data:SP.MES
++E0B6	loose:MAIN.EXE,strict:MAIN.EXE
++E255	data:ESPMES.MRG
++E258	strict:MAIN.EXE
++E358	overlay-candidate:MAIN.EXE:ovr374:5B1E@0x749AE
++E361	strict:MAIN.EXE
++E458	strict:MAIN.EXE
++E45C	loose:MAIN.EXE,strict:MAIN.EXE
++E47B	strict:OP.EXE
++E658	strict:MAIN.EXE
++E661	strict:MAIN.EXE
++E67E	strict:OP.EXE
++E6C3	loose:END.EXE,loose:MAIN.EXE,loose:OP.EXE
++E847	strict:MAIN.EXE
++E850	strict:MAIN.EXE
++E858	overlay-candidate:MAIN.EXE:ovr374:5B20@0x749B0,strict:MAIN.EXE
++E85E	strict:MAIN.EXE
++E862	strict:MAIN.EXE
++E874	strict:MAIN.EXE
++E87C	strict:MAIN.EXE
++E8CB	strict:MAIN.EXE
++E8D1	strict:MAIN.EXE
++E958	strict:MAIN.EXE
++E961	strict:MAIN.EXE
++E9A1	strict:MAIN.EXE
++E9A2	strict:MAIN.EXE
++E9A3	strict:MAIN.EXE
++E9A4	strict:END.EXE,strict:MAIN.EXE,strict:OP.EXE
++E9A5	strict:MAIN.EXE
++E9A7	strict:MAIN.EXE
++E9A8	strict:MAIN.EXE
++E9A9	strict:MAIN.EXE
++E9AE	strict:MAIN.EXE
++E9B1	strict:END.EXE,strict:OP.EXE
++E9B2	strict:MAIN.EXE
++E9BA	strict:END.EXE,strict:MAIN.EXE,strict:OP.EXE
++E9BB	strict:MAIN.EXE
++E9BC	strict:MAIN.EXE
++E9BD	strict:MAIN.EXE
++E9BE	strict:MAIN.EXE
++E9BF	strict:MAIN.EXE
++E9C2	strict:MAIN.EXE
++E9C3	strict:MAIN.EXE
++E9C5	strict:MAIN.EXE
++E9C6	strict:END.EXE,strict:MAIN.EXE,strict:OP.EXE
++E9C7	strict:MAIN.EXE
++E9CA	strict:END.EXE,strict:OP.EXE
++E9CD	strict:END.EXE,strict:MAIN.EXE,strict:OP.EXE
++E9D0	strict:MAIN.EXE
++E9D2	strict:END.EXE,strict:MAIN.EXE,strict:OP.EXE
++E9D9	strict:MAIN.EXE
++E9DA	strict:MAIN.EXE
++E9DB	strict:END.EXE,strict:OP.EXE
++E9DC	strict:MAIN.EXE
++E9DD	strict:MAIN.EXE
++E9DE	strict:END.EXE,strict:OP.EXE
++EA74	strict:MAIN.EXE
++EAAC	strict:MAIN.EXE
++EB4B	strict:MAIN.EXE
++EB54	strict:MAIN.EXE
++EB58	strict:MAIN.EXE
++EB60	strict:MAIN.EXE
++EB6D	strict:MAIN.EXE
++EB6E	strict:MAIN.EXE
++EC50	strict:END.EXE,strict:MAIN.EXE,strict:OP.EXE
++EC59	overlay-candidate:MAIN.EXE:ovr374:5B02@0x74992
++EC61	strict:MAIN.EXE
++EC62	strict:MAIN.EXE
++ED54	strict:OP.EXE
++ED58	overlay-candidate:MAIN.EXE:ovr374:5B22@0x749B2,strict:MAIN.EXE
++ED74	strict:MAIN.EXE
++ED75	data:ESPMES.MRG
++EEB0	strict:MAIN.EXE
++EF58	strict:MAIN.EXE
++EF61	strict:MAIN.EXE
++F07C	strict:OP.EXE
++F159	overlay-candidate:MAIN.EXE:ovr374:5B04@0x74994
++F15A	loose:MAIN.EXE,strict:MAIN.EXE
++F258	overlay-candidate:MAIN.EXE:ovr374:5B24@0x749B4,strict:MAIN.EXE
++F261	strict:MAIN.EXE
++F37E	strict:END.EXE
++F3A5	strict:MAIN.EXE
++F458	strict:MAIN.EXE
++F464	strict:MAIN.EXE
++F478	strict:MAIN.EXE
++F4AA	data:SP.MES
++F4C8	strict:MAIN.EXE
++F561	strict:MAIN.EXE
++F650	strict:MAIN.EXE
++F658	strict:MAIN.EXE
++F659	overlay-candidate:MAIN.EXE:ovr374:5B06@0x74996
++F660	strict:MAIN.EXE
++F6DE	loose:END.EXE,loose:MAIN.EXE,loose:OP.EXE,strict:END.EXE,strict:MAIN.EXE,strict:OP.EXE
++F7AE	data:SP.MES
++F858	strict:MAIN.EXE
++F85E	strict:OP.EXE
++F861	strict:MAIN.EXE
++F86C	loose:MAIN.EXE,strict:MAIN.EXE
++F8C8	strict:MAIN.EXE
++F960	strict:MAIN.EXE
++F9D8	data:COUNTRY.MES,data:ESPMES.MRG,data:POWERMES.MES,data:SP.MES,data:SYSTEM.MES,data:UWASA.MES,loose:END.EXE,loose:OP.EXE,strict:END.EXE,strict:OP.EXE
++F9DB	data:SP.MES
+-- 
+2.43.0
+

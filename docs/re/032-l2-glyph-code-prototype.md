@@ -20,6 +20,8 @@
 
 ## 字模呼叫閘門
 
+連續觀測工具入口為 [`tools/l10n/fonttrace.sh`](../../tools/l10n/fonttrace.sh)，研究準備與收據檢查在 [`fonttrace.py`](../../tools/l10n/fonttrace.py)。`build` 從固定 fork commit 的 Git archive 建立有觀測及無觀測的隔離副本；`run <名稱> plain|traced <hrbot 參數>` 逐次執行，`audit <名稱>` 比對字模碼與保留集合。副本、二進位及完整呼叫序列只放 `workplace/out/re-text/fonttrace/`，正式 fork 不改。觀測點是 dosgolem 執行期 `198C:05A2`，機器已送 IRQ 與 callback、尚未呼叫 `CPU.Step` 時比對，命中後讀 `SS:SP+4`、`+6` 的低位元組；新 Session 另記序號。研究工具只接受時長、種子、截圖／檢查點間隔與聲音旗標，不接受改原版路徑、語言包或記憶體注入旗標。短測須以相同種子比較完整機器與 DOS 狀態摘要，長跑須另有 `completed` 收據、到達記錄的目標時長、非零字模呼叫及保留碼檢查，才能形成證據。
+
 原版冷啟動 90M 步的 86 次字模呼叫見 [`WORKLOG.md`](../../WORKLOG.md) 的「M10 冷啟動字模呼叫抽樣」。本輪另從 bot 檢查點 `workplace/out/bot/snd-long-s2/ckpt/t06978.state`，SHA-256 `5db1237028a20009013e3770fb7d2605dc00ee9962f2154cb00dc59e8063585e`，按 [`025`](025-text-pipeline-evidence-4.md) 第 9 節的十二次點擊重播 40M 步。`198C:05A2` 有 35 次呼叫，沒有一個 `(lead, trail)` 落在可配的 `E0–F9` lead 與限定 trail 範圍。`workplace/out/re-text/dyn-l2-bot-font.txt` SHA-256 `88812e8ada886507ac2cd681f927af62d2b5b545a25171f5289469f039b14ec7`。**已證實**限於這段重播，不代表全部遊戲路徑。
 
 再從兩個已完成兩遊戲小時遊玩測試的其他檢查點，各以同一個十二次點擊腳本重播 40M 步，記錄如下。路徑是「bot 已到達的原版狀態，加固定點擊」；不是連續兩小時逐次記錄。每列的呼叫引數皆無一落在可配範圍，零呼叫列尤其不能證明有文字繪製。日誌放在 `workplace/out/re-text/`；s2-b 沿用 `dyn-l2-bot-font.txt`，其餘五段為 `dyn-l2-bot-font-<代號>.txt`。
@@ -51,6 +53,8 @@
 第四組的改動位址是 dosgolem 執行期線性 `380CD`、`4AFBB`，時刻為載入檢查點後一步 `6490912943`。這是測試專用記憶體注入，只證明 `%s` 展開的此一邊界，不作正常玩家路徑證據。原版名稱及完整原版對白沒有寫進版控。
 
 ## Noto 字模原型
+
+可重現的開發側 DRAFT 預烘入口為 [`tools/l10n/bakeglyphs.sh`](../../tools/l10n/bakeglyphs.sh)，算法在 [`bakeglyphs.py`](../../tools/l10n/bakeglyphs.py)。輸入是折行後的 UTF-8 碼位清冊：簡中、日文、韓文欄位 `unicode`，英文欄位 `left_cp`、`right_cp`，每格為 `U+XXXX`。清冊不得重複，工具按碼位排序、跳過保留碼後配碼，輸出補丁五檔到本機 `workplace/l3-visual-20261005/patches/<名稱>/`。範例入口 `bash tools/l10n/bakeglyphs.sh en <units.tsv> <名稱>`。工具不讀原版 CFONT、不寫原版副本，也不接正式語言包；輸入單位清冊仍須由 L2 的來源與折行閘門生成。
 
 字型是 `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`，SHA-256 `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a`，Debian `fonts-noto-cjk 1:20230817+repack1-3`、內部版本 2.004。使用字面 2 `Noto Sans CJK SC`，Pillow 12.3.0、fontTools 4.66.1，容器 `yuan-analysis:1` ID `sha256:f9ea24396753f49d4c215763aa8726755041f0b523f93c9bdbffd76b8e358fca`。來源授權是 SIL OFL 1.1；隔離出的全文 `OFL-prototype.txt` SHA-256 `f47ac356aaafd53b53c6c784b3d63e265bf2dc9fe452d4ba5aee4b9b0bf51ca8`，含 OFL 標頭且不含 GPL 段。正式發行仍受 [`008`](../spec/008-ingame-text-localization.md) 第 3.7 節與 U5 約束。
 
@@ -88,4 +92,73 @@
 
 ## 限制與下一閘門
 
-上述字模原型有簡體兩字、英文首句與 17 項研究副本的據點畫面，沒有建成五語語言包，也沒有逐句畫面驗收。`E0` 探針是有限的合成案例；bot 的六段 40M 步重播不連續，也未涵蓋所有玩家路徑。overlay 四碼的指標表分類仍是強推論。`COUNTRY.MES` 位移政策、韓文詞距、英文雙字共格的正式契約與全部畫面、四語譯文審閱及點陣補丁發行授權仍未決。`docs/spec/008` 的 L2 需經獨立證據審查後才可升 READY；L3 與硬編碼字串仍另有閘門。此處不能寫「五語遊戲內文字已完成」。
+目前字模原型有簡體兩字、四語首句與英文 17 項研究副本的據點畫面；四語 68 項譯文已由使用者接受，兩條原版連續長跑已完成。沒有建成正式五語語言包，也沒有逐句正式玩家畫面驗收。`E0` 探針是有限的合成案例；早期六段 40M 步重播不連續；後續兩個種子各兩小時連續觀測另列於下節，仍未涵蓋所有玩家路徑。overlay 四碼的指標表分類仍是強推論。`COUNTRY.MES` 位移政策、韓文詞距、英文雙字共格的正式契約與全部畫面、點陣補丁發行授權仍未決。`docs/spec/008` 的 L2 需經獨立證據審查後才可升 READY；L3 與硬編碼字串仍另有閘門。此處不能寫「五語遊戲內文字已完成」。
+
+## 可重現的英文預烘與來源模型
+
+固定的 `bakeglyphs.py` 與 `yuan-analysis:1` 容器，以本機 `en-pair-units.tsv` 的 230 組做兩次獨立烘製，輸出 `workplace/l3-visual-20261005/patches/en-bake3`、`en-bake4`。五檔逐位元相同；補丁身分 `f604fc1f65098bc19b0f3ca2052e1c78a4f09df62f39fc65f275b0a6120184c8`，字模 bin SHA-256 `4b7d554970c81e9710871975788a630c66cb204c2e5173913bc7a209345c6114`，字碼表 SHA-256 `1ed412b398659c2fc724b891bbc1b60bb835670daa1d2af50172cef09721cc6f`，SOURCE SHA-256 `c726bda3a69de67d6f77cb8f9e1472dddcb296021b104b775cc201547d57be54`。獨立逐筆檢查 32-byte 記錄、碼域、互異字號與 bit 0；套到唯讀原版的記憶體副本後，CFONT SHA-256 `58dc44cfc78876af26068f55f9b5a4eda65d64a9facb5cc2aed406f668498876`，與前述 17 項研究樣張逐位元相同。收據 `workplace/out/re-text/en-bake-roundtrip.json`。這完成該組光柵的重生證據，沒有建立正式語言包。
+
+英文來源、折行與固定碼本模型在 [`enpairs.py`](../../tools/l10n/enpairs.py)，合成閘門在 [`enpairs_test.py`](../../tools/l10n/enpairs_test.py)。非 root 的固定 Python 3.12 容器中五項測試通過：來源控制碼／組合字拒絕、格式規格獨立奇數補白、固定字組重排與缺組拒絕、展開列數與 511 bytes、顯式換行及一般空白。17 項英文候選以既有 230 組碼本全部通過，據點仍為 66、70、42 bytes 三行；模型沒有修改候選表狀態。
+
+[`enpair_budgetcheck.go`](../../tools/l10n/enpair_budgetcheck.go) 從固定雜湊的兩個原版資料檔用 L1 typed parser 取得真實項目與窗口，對模型的最終位元組重新執行 `budget.Check`，包含 `1676` 對抗模擬。17 個真實項目與四個格式規格合成項目共 21 個正例通過；這是位元組與模擬器檢查，沒有新增動態畫面驗收。獨立審查另造 `%s` 後直接換行的合成負例，同一 Go 檢查器回 `1676` 違規及非零退出，證明末端閘門不可省略。輸入與收據分別為 `workplace/out/re-text/en-pair-cases.json`、`en-pair-budget-audit.json`；各工具、收據、容器及 fork 身分在 `enpair-toolchain.json`。
+
+文字審閱入口由 [`pilot_review.py`](../../tools/l10n/pilot_review.py) 產生，本機 `workplace/l3-visual-20261005/review/pilot-review.html` 對齊已接受繁中與四語各 17 項候選，附已有首句研究樣張。使用者 2026-10-05 回覆「全部接受這 68 項」，四語本機表各 17 項已記 accepted 與文字 UTF-8 SHA-256 前 16 碼；未經母語者審閱。接受譯文不代替字模、正式語言包路徑或發行驗收。審閱頁保留當時候選內容。
+
+唯讀審查：`workplace/spec-review/fonttrace-review.md`、`bakeglyphs-review.md`、`enpairs-review.md`。主代理已核對報告、修正中斷插點與終點計數、原始 CRLF 檢查及 I/O 失敗清理，並將 SOURCE 欄名與折行排序回填 008 的 DRAFT。模型呼叫者仍須驗完整補丁與保留集合；L2 正式 Go 建置器、版本 golden、零採用列八檔 identity 與正常玩家語言包路徑尚未實作，不升 READY。
+
+## 連續原版字模觀測
+
+在固定 fork 提交 `ac4d9b53b02311bea29ae056be547e6edf4c3c6c` 的隔離研究副本，原版資料與保留集合唯讀；先固定種子再執行，不反覆重擲。短測 `parity3-plain`／`parity3-traced` 都是 210,662,140 步、11 次操作與六張畫面；操作與畫面一致，機器摘要 `bfb434f28d3da51720c6def6c9df251169c4a14e25a7e7a1042f80bf59b5e05d`、DOS 摘要 `18720493364d4fe3aa8af942aaec547b2d6403af12f8f0cc244d36ce33555203` 一致。觀測版記 182 次呼叫、96 種碼。這是觀測工具不擾動該短測的證據。
+
+重跑入口：先 `bash tools/l10n/fonttrace.sh build`，再分別 `run long-s1 traced -game-hours 2 -seed 1 -sound` 與 `run long-s2 traced -game-hours 2 -seed 2 -sound`，最後 `audit long-s1`、`audit long-s2`。工具按每個 Session 核對 start／end、Steps 與字模計數，並核對 completed、終端標記、目標時長及輸入身分。正常退出後重開也有獨立 Session 邊界，不把最後 Session 的步數當成全程步數。原始日誌、輸入、摘要、audit 在本機 `workplace/out/re-text/fonttrace/<名稱>/`；匯總在 `workplace/out/re-text/fonttrace-longrun-summary.json`。建置收據 SHA-256 `361eed5717bda6f73171dd4390d0866db9a0c5f613e4dc649ee33eb24c4fbcd6`。
+
+| 固定種子 | 遊戲小時 | 操作 | Session | 連續觀測步數 | 字模呼叫 | 不同碼 | 可配範圍內的實際呼叫 |
+|---|---:|---:|---:|---:|---:|---:|---|
+| 1 | 1.999986426584079 | 2767 | 2 | 39,325,405,901 | 44,964 | 712 | F9D8 26、E45C 14、F15A 6 |
+| 2 | 2.0004593953162404 | 2702 | 3 | 39,334,747,270 | 48,044 | 703 | F9D8 42、E45C 17 |
+
+兩組都是 completed，無 crash、freeze 或診斷 dump。種子 1 的目標時長以 PIT tick 截斷，與兩小時相差不到一 tick。總觀測 78,660,153,171 步、93,008 次呼叫、755 種碼；落在可配範圍的三個碼都已在保留 106 碼內，沒有新漏碼。**已證實**限於這兩條原版 bot 路徑，不證明全遊戲的孤立配對或未到達路徑；3170 仍是按保守集合計算的上限。
+
+| 收據 | 種子 1 SHA-256 | 種子 2 SHA-256 |
+|---|---|---|
+| font-calls.tsv | `4d8bfe7b2ad87f7b674dd333b7dd8e317f9f88cf044edb95f9e419abe3364ab9` | `f931fd7cd9f2d1c8eb0758b479e87b0341a0b4c5676556a975a1a0abac4c0467` |
+| font-audit.json | `04200130fba88c2e9a5e02832bbf5946053a3023ef2a38ab2a5128b2a5299b50` | `b9febe7fa50a1a371d6605a0164c9dfcbcf5fe2aeb0fcf90289f47d9bf67d46d` |
+| run-inputs.json | `896289d434e102e7612452d6cece593ed82aafb93d5a14eb37b98b7b56ee6514` | `d70adc660b7f3055cdc1d1a626ae13930413ca38766744f1df35bd2ccaa0bb84` |
+| summary.json | `4c8167a5e3de24eee43e814c16c620750edc94da6c6510e169d6e6e7c4292ce9` | `46182d0263c8d96803b7dcb1be85e29ecfddc67e4fa1344f1cc95ac3b3624945` |
+
+真實呼叫負對照：將種子 2 的收據與保留清單複製到容器暫存，僅移除保留碼 F9D8；同一 audit 報 F9D8 漏碼並非零退出。原始清單及收據未改。另造截尾、少一筆呼叫與縮短時長的收據，都被拒絕。這證明完整性與漏碼偵測會報警。
+
+兩個外層 bash 在等待 Docker 時，其入口檔被修改，返回後重新讀到錯位的 case，報語法錯誤；容器中的兩個遊玩程序已完成，終端收據與全部 Session audit 都通過。這是入口腳本操作失誤，不列遊戲缺陷。修正後 bash 語法檢查與 `stable-wrapper` 同命令短測正常退出，audit 通過；沒有重挑長跑種子。
+
+## 五檔驗證原型與本輪窄範圍審查
+
+[`patchcheck.py`](../../tools/l10n/patchcheck.py) 為 DRAFT 研究驗證器，不建包、不修改原版檔。可信保留集合獨立由固定量測摘要提供，補丁不能自行縮減集合；核對五檔、SOURCE 固定算法與摘要、單位排序、決定性配碼、保留碼碰撞、記錄及字碼集合一對一、字號與 bit 0，英文格的中欄也須空白。來源識別只作 provenance，不證明字形一定由宣告工具產生。
+
+[`patchcheck_test.py`](../../tools/l10n/patchcheck_test.py) 在非 root 的 Python 3.12 容器，以唯讀 `en-bake3`、可信保留集合與原版 CFONT 執行六組測試。缺檔／多檔、符號連結、SOURCE 欄位與摘要、重算摘要後的深層記錄／碼本突變、錯誤可信集合、保留碼碰撞、非法碼位、bit 0 與英文中欄都被拒絕。零採用 CFONT 摘要是原版 `60e55cf7…7ed54d8db`；採用後是既有研究副本 `58dc44cf…6498876`。獨立公式逐格讀回 13867 格，所有未指定格與原版相同。測試記錄及 JSON 在 `workplace/out/re-text/patchcheck-test.log`、`patchcheck-audit.json`。
+
+唯讀審查 `workplace/spec-review/l2-contract-current-review.md` 解掉可信保留集合的契約缺口，並發現標量 U+3000 的工具差異。已按語言對齊：標量可烘 U+0020／U+3000，英文只容 U+0020。日文單一 U+3000 從固定容器烘製，再通過相同五檔驗證；補丁摘要 `f0397391fa00c05fb8992861c24a66500d83a082fdc44c211adb56266583b49d`，收據 `patchcheck-ja-space-audit.json`。此空白往返只驗工具一致性，不證明韓文詞距方案或可讀性。
+
+008 的本輪窄審把葉層契約與實作後驗收分開；正式建置器版本 golden、八檔 identity 與玩家路徑保留為後續閘門，未以它們尚未實作推論契約未知。本輪仍不開啟四語前端，亦不授權補丁發行。
+
+## 正式字模與英文純函式驗收
+
+008 第 3.4 節五檔／CFONT 與第 3.5 節英文 Prepare／budget accessor 經分別唯讀窄審升 READY，正式實作在 fork 的 `apps/hr/l10n/glyphpatch`、`enpairs`、`budget`。實作審查 `workplace/spec-review/glyphpatch-implementation-review.md` 與 `enpairs-implementation-review.md` 均無阻擋。這兩個葉層不建包，不開啟前端，不能代替 L2／L3 出口。
+
+正式碼本在補齊標量空白規則後，`en-bake5`／`en-bake6` 兩次烘製五檔相同。典範補丁摘要為 `aea8dda978f9008abe79fb22d14227d546ad1f8a6d6f59db9d226bfae22b272c`，字模 `4b7d554970c81e9710871975788a630c66cb204c2e5173913bc7a209345c6114`，字碼表 `1ed412b398659c2fc724b891bbc1b60bb835670daa1d2af50172cef09721cc6f`，SOURCE `581f050b7f637c6fa91706ff5d9c2e5f0c793ebe0e88f18299215b4806c02359`。保留清單與 OFL 摘要不變。收據在 `workplace/out/re-text/patchcheck-current-audit.json`；算法來源更新改了補丁摘要，230 格字形不變。
+
+獨立審查以公開 API 查全部 230 個單位，並用 Python 參考計算逐格比對全部 13867 格。零採用返回原版的獨立副本；正採用套全部 230 格，其他 13637 格保持原版。Go race、vet、Windows amd64 與 macOS arm64 編譯通過，沒有宣稱 Windows 或 macOS 執行通過。Unix 使用 NOFOLLOW 開檔；非 Unix 的開啟前後身分核對不能外推成同樣的並行改名／符號連結拒絕保證。
+
+英文純函式補測真正的渲染列優先、字面位元組優先、511 scalar 正邊界、512 拒絕及精度零。共享格式 parser 原先容許小數點後缺數字的 `%.d` 等形式，與既有 READY 文法不符，已修正為拒絕；`%.0d` 保持合法。沒有新增原版語料格式。
+
+真實來源 probe 的第一次運行，16 句對白通過而據點缺組。根因是本機 `SP.MES.tsv` 的英文項目被 CSV writer 包引號，審閱工具的 CSV reader 將其解掉，但正式 008 TSV parser 將引號逐字保留。已只修正一項封裝，使五語 85 項正式讀取字串皆與使用者接受的歷史 HTML 內容相同，原文 ID、來源摘要及接受的譯句不變；重新計該項 acc_sha。審閱工具改用 008 的 literal quote 與反斜線跳脫規則，不再用 CSV。歷史審閱頁保留未改。
+
+修正後 `workplace/m10-prepare-probe.go` 從真實原版 Parse／Lookup 取來源與窗口，驗 accepted／acc_sha／src_sha，再調 Prepare。17 項皆通過，逐位元與獨立研究模型 fixture 相同；據點三行長度 66／70／42 bytes。再用 L1 LoadTable 核對五語各 17 項的接受與來源摘要，85 項皆通過。原版 CFONT 與零採用摘要仍是 `60e55cf7…7ed54d8db`，正採用仍是 `58dc44cf…6498876`。未產生正式語言包，未執行玩家前端。
+
+| 本機收據 | SHA-256 |
+|---|---|
+| `workplace/out/re-text/enpairs-formal-pilot-audit.json` | `7d2aae4af79db663061acefb141ff403bb3963e721bc970af9c97dd419928e7e` |
+| `workplace/out/re-text/tsv-normalization-audit.json` | `facf2b51d97f26e4e0317ae3f1213aa09d883825ee4c614663b7c2b0daae0466` |
+| `tools/l10n/patchcheck.py` | `32d5dc54fba1f5f022ac9f53af5e53f778d7218e3b34619ba4fd7e2ea09e36bf` |
+| `tools/l10n/patchcheck_test.py` | `3f4b4e69a94a46d1ba5f4aad0032fab351fe089f8deba60ec68c580b2e13c56d` |
+
+以上 probe 用 Go 1.26.7、`eob-remake-go:1.26.7-ebiten2.9.9`，映像 ID `39d6e05c9abc60a566e376cde6afd29c24aa21c30eeec1e1fd92c8b16e62aa60`，原版輸入唯讀。收據只輸出 id、長度與摘要。譯文、補丁及原版副本均不進版控。
