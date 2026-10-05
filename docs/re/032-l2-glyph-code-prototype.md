@@ -22,7 +22,7 @@
 
 原版冷啟動 90M 步的 86 次字模呼叫見 [`WORKLOG.md`](../../WORKLOG.md) 的「M10 冷啟動字模呼叫抽樣」。本輪另從 bot 檢查點 `workplace/out/bot/snd-long-s2/ckpt/t06978.state`，SHA-256 `5db1237028a20009013e3770fb7d2605dc00ee9962f2154cb00dc59e8063585e`，按 [`025`](025-text-pipeline-evidence-4.md) 第 9 節的十二次點擊重播 40M 步。`198C:05A2` 有 35 次呼叫，沒有一個 `(lead, trail)` 落在可配的 `E0–F9` lead 與限定 trail 範圍。`workplace/out/re-text/dyn-l2-bot-font.txt` SHA-256 `88812e8ada886507ac2cd681f927af62d2b5b545a25171f5289469f039b14ec7`。**已證實**限於這段重播，不代表全部遊戲路徑。
 
-再從兩個已完成兩遊戲小時遊玩測試的其他檢查點，各以同一個十二次點擊腳本重播 40M 步，記錄如下。路徑是「bot 已到達的原版狀態，加固定點擊」；不是連續兩小時逐次記錄。每列的呼叫引數皆無一落在可配範圍，零呼叫列尤其不能證明有文字繪製。日誌以 `dyn-l2-bot-font-<代號>.txt` 放在 `workplace/out/re-text/`。
+再從兩個已完成兩遊戲小時遊玩測試的其他檢查點，各以同一個十二次點擊腳本重播 40M 步，記錄如下。路徑是「bot 已到達的原版狀態，加固定點擊」；不是連續兩小時逐次記錄。每列的呼叫引數皆無一落在可配範圍，零呼叫列尤其不能證明有文字繪製。日誌放在 `workplace/out/re-text/`；s2-b 沿用 `dyn-l2-bot-font.txt`，其餘五段為 `dyn-l2-bot-font-<代號>.txt`。
 
 | 代號與檢查點 | 檢查點 SHA-256 | 指令起點 | 字模呼叫 | 日誌 SHA-256 |
 |---|---|---:|---:|---|
@@ -55,6 +55,8 @@
 字型是 `/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc`，SHA-256 `b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a`，Debian `fonts-noto-cjk 1:20230817+repack1-3`、內部版本 2.004。使用字面 2 `Noto Sans CJK SC`，Pillow 12.3.0、fontTools 4.66.1，容器 `yuan-analysis:1` ID `sha256:f9ea24396753f49d4c215763aa8726755041f0b523f93c9bdbffd76b8e358fca`。來源授權是 SIL OFL 1.1；隔離出的全文 `OFL-prototype.txt` SHA-256 `f47ac356aaafd53b53c6c784b3d63e265bf2dc9fe452d4ba5aee4b9b0bf51ca8`，含 OFL 標頭且不含 GPL 段。正式發行仍受 [`008`](../spec/008-ingame-text-localization.md) 第 3.7 節與 U5 約束。
 
 `tools/l10n/glyph_prototype.py` 固定 13 像素、15×15 格、遮罩置中、不縮放、灰階閾值 128、第 16 欄空白，逐列打包為大端 u16，共 30 bytes。只把自造示例「简体」配置為 `E040`、`E041`，覆蓋使用者本機原版 `CFONT.15` 副本的兩格；另改寫一個固定長度對白槽位。來源、參數、工具與輸出雜湊在本機 `workplace/out/re-text2/SOURCE-prototype.json`，SHA-256 `0287ce47739996f9ebc51f50f90dbd608298c55554552954b411ec73bfa1fbef`。兩次在相同容器重烘，`glyphs-zh-CN-prototype.bin` 都是 `d67ba0b7e72367073ddb6e2950f131a951ec542ce3161012f095e276e2369b9c`，改寫的 `CFONT.15` 都是 `0cfb262f59bf399e9c51ab9b06ffb8fcfcc65913f905ed0821c8e0955ac0b1aa`。
+
+另在唯讀 Docker 內獨立枚舉 3276 個可配碼，依 [`008`](../spec/008-ingame-text-localization.md) 第 3.4 節公式得到 3276 個互異字號，最小 9785、最大 13835，都在 13867 格之內。逐格比較本機修改副本與原版：只有字號 9785、9786 改變，其餘 415950 bytes 相同；兩格 15 列的 bit 0 全為零。這驗證本次兩字原型的定位與未修改格，不替正式補丁驗證器背書。
 
 `dosgolem` 原版 theme 畫面 `workplace/out/re-text2/shot-l2-font-sc-original.png` SHA-256 `dd66b0c5697ae35ad25ca71c0bd441b80a9cdc7f55a79218f79c37746b625ecb`；Xvfb 前端正常點新遊戲的 HD theme 與切回原版 theme 畫面 SHA-256 分別為 `603455a20375c1ec7d69e86121877fb01e16189d843218ff20ecd07e4a2a7b3f`、`4cd8a6aca3feede2b3cd3d7c7ab02158f65d7db34187f45aa9c0db958e962e96`。目視兩字可辨，但筆畫小；旁邊原版硬編碼標籤仍用舊字模。四語 17 項候選的來源字面涵蓋統計另在 `workplace/m10-font-coverage.json`：簡中 200、日文 168、韓文 176、英文 32 個非白名單字元在 13 像素均無遮罩超格或缺碼。韓文與英文各有一個零墨跡字元，都是 U+0020 空白，L3 詞距尚未處理。
 
