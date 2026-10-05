@@ -55,6 +55,8 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 當機與 hang 的診斷紀錄 | 遊戲停機、疑似 hang（遊戲碼的服務中斷靜默 30 遊戲秒）或按 Ctrl+D 時，存一份診斷：暫存器、呼叫鏈、最近的呼叫與服務中斷、最後呼叫的 routine、畫面與狀態檔。模擬 hang 的收據見報告 | `docs/spec/005`、`docs/re/017` |
 | 自動遊玩測試 | 機器人在 dosgolem 內以人類節奏遊玩，修補與原版 4 KB 堆疊各兩個種子，每組 2 遊戲小時：沒有當機與凍結，原版堆疊最深用到約一半。沒有走到 `docs/re/011` 的溢位路徑，不等於人類遊玩，也不能排除該溢位 | `docs/re/016` |
 | HD 圖層 | 595 張 2 倍圖，使用者看過六個代表畫面的合成圖後整體接受。精靈、頭像、戰鬥舞台背景、標題地圖與游標有替換，大地形底圖、文字與框線仍是原版像素 | `docs/spec/004`、`docs/re/014`、`docs/re/015` |
+| AI 重繪圖層 | 本機主題有 595 項圖像。585 張新增圖由 OpenAI 生成，另有 9 張先前接受的代表圖；1 張因服務拒絕而沿用 HD。已驗尺寸、遮罩與 F2 切換，尚未逐畫面驗收；素材不在發行包 | `AGENTS.md` M8、`WORKLOG.md` |
+| 遊戲內多語系 | 繁中 17 項試點已由使用者接受；簡中、日文、韓文、英文各有 17 項本機候選。字模與字碼正在原型驗證，語言包不隨包發行；預設遊戲內文字仍是原版繁中 | `docs/spec/008`、`docs/re/031`、`docs/re/032` |
 | 發行包 | [私人 Release `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 提供 Linux AppImage、Windows zip、macOS universal，含 HD 圖層，不含原版遊戲檔案。本機 `v.0.1.0-20261004` 完整封包含原版，36 秒推廣影片也只供私人驗收。Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.1-20261004/smoke/RESULTS.txt` |
 
 ## 主要成果
@@ -73,7 +75,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 ## 截圖
 
-下列截圖都是 dosgolem 執行原版 `MAIN.EXE` 的畫面，並排對照圖的左半是原版畫面，右半是 HD 疊層。遊戲畫面的著作權屬於原權利人，這裡只用來說明本專案的執行結果。
+下列截圖都是 dosgolem 執行原版 `MAIN.EXE` 的畫面。並排圖左側是原版，右側依標題分別為 HD 或 AI 重繪疊層。遊戲畫面的著作權屬於原權利人，這裡只用來說明本專案的執行結果。
 
 ### 標題畫面
 
@@ -86,6 +88,12 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 ![新遊戲開場對話，左為原版，右為 HD](docs/images/compare-newgame.png)
 
 選「新遊戲開始」後的第二個對話框，畫面右下可見債金總額 10,000,000 與所持金 8,000。頭像與精靈換成 HD，大地形底圖、文字與框線沒有替換。
+
+### AI 重繪的新遊戲畫面
+
+![同一段新遊戲對話，左為原版，右為 AI 重繪圖層](docs/images/compare-ai-newgame.png)
+
+在 Linux 的 Xvfb 內正常點選「新遊戲開始」，再以 F2 切換圖層擷取同一段對話。右側肖像使用本機 AI 重繪圖層；對白與地圖仍由原版 `MAIN.EXE` 繪製。這張圖只驗證此處的顯示，AI 圖層尚未隨發行包提供。
 
 ### 戰鬥佈陣
 
@@ -130,6 +138,8 @@ HD 圖由演算法放大並去除抖色，處理方法見 `docs/re/015-hd-art-me
 1. 從 [v.0.1.1-20261004 私人 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 取得對應平台的發行包。包內有 HD 圖層，沒有原版遊戲檔案。
 2. 把原版（內含 `MAIN.EXE` 的資料夾內容）放進程式旁的 `original` 資料夾，或用 `hr-play -orig <資料夾>` 指定。Linux AppImage 把 `original` 放在 `.AppImage` 旁。macOS 放進 `HighReward.app/Contents/Resources/original`。
 3. 執行 `hr-play`，用滑鼠操作遊戲。找到 `hd/` 目錄會自動啟用 HD，`-no-hd` 可看原版畫面。
+
+本機開發版可用 `-hd-ai <AI 圖層目錄> -theme ai` 載入 AI 重繪圖層；目前的私人 Release 不含這批素材。
 
 按鍵（保留給程式，不送進遊戲；完整清單與修飾鍵組合見 `docs/spec/006` 第 2 節）：F1 功能說明與統計，F2 切換 theme（原版、HD、AI 重繪，只列出可用的），F3 聲音開關，F4 切換介面語言（繁體中文、簡體中文、韓文、英文、日文；遊戲內文字不隨之改變，見 `docs/spec/008`），F11 或 Alt+Enter 全螢幕，F12 存截圖，Ctrl+Q 結束，Ctrl+D 手動存一份診斷（遊戲 hang 住時用）。macOS 筆電的 F1 至 F4 預設是亮度與系統功能，要按 Fn。使用者資料目錄的 `high_reward/`（Linux 在 `~/.config`，macOS 在 `~/Library/Application Support`，Windows 在 `%AppData%`）存放 `saves`、`screenshots`、`crash`（停機、hang 與 Ctrl+D 的診斷，每份含 `info.txt`、畫面與狀態檔，回報當機時提供這個目錄，不要貼到公開的 issue）與每分鐘一行的 `play.log`。原版資料夾不會被修改。
 

@@ -36,6 +36,12 @@ type inventoryItem struct {
 	sha256 string
 }
 
+type overlayAudit struct {
+	InputSHA256 string              `json:"input_sha256"`
+	Segments    []json.RawMessage   `json:"segments"`
+	Codes       map[string][]string `json:"codes"`
+}
+
 func loadInventory(path string) map[string]inventoryItem {
 	rows, err := readTSV(path)
 	must(err)
@@ -251,6 +257,30 @@ func main() {
 		}
 		stats[name] = s
 	}
+	// IDA maps FBOV overlays into separate address spaces.  Their bytes cannot
+	// be scanned at a flat MZ offset.  Include all aligned non-code candidates
+	// conservatively; the recorded five runs look like 5-byte-stride pointers.
+	overlayBytes, err := os.ReadFile("/overlay/ida-l2-overlay-codes-v3.json")
+	must(err)
+	var overlay overlayAudit
+	must(json.Unmarshal(overlayBytes, &overlay))
+	if overlay.InputSHA256 != stats["MAIN.EXE"].SHA256 || len(overlay.Segments) != 139 {
+		panic("overlay evidence does not match MAIN.EXE or 139 overlay segments")
+	}
+	overlayNovel := 0
+	for codeHex, locators := range overlay.Codes {
+		value, err := strconv.ParseUint(codeHex, 16, 16)
+		must(err)
+		if len(locators) == 0 || !inCustomRange(uint16(value)) {
+			panic("invalid overlay code candidate: " + codeHex)
+		}
+		if reserved[uint16(value)] == nil {
+			overlayNovel++
+		}
+		for _, locator := range locators {
+			add(reserved, uint16(value), "overlay-candidate:MAIN.EXE:"+locator)
+		}
+	}
 	codes := make([]int, 0, len(reserved))
 	for code := range reserved {
 		codes = append(codes, int(code))
@@ -268,17 +298,20 @@ func main() {
 	}
 	must(os.WriteFile(filepath.Join(out, "m10-reserved-codes.tsv"), []byte(tsv.String()), 0644))
 	report := struct {
-		Status      string                  `json:"status"`
-		Method      string                  `json:"method"`
-		Capacity    int                     `json:"capacity"`
-		Reserved    int                     `json:"reserved"`
-		Available   int                     `json:"available"`
-		GoVersion   string                  `json:"go_version"`
-		DockerImage string                  `json:"docker_image"`
-		IDA         string                  `json:"ida_version_and_address_space"`
-		IDAExports  map[string]string       `json:"ida_export_sha256"`
-		Inputs      map[string]*sourceStats `json:"inputs"`
-	}{"local static prototype; dynamic gate and overlay mapping pending", "L1 parsed items + IDA strict aligned strings + UNK loose aligned runs", 3276, len(codes), 3276 - len(codes), runtime.Version(), imageID, "IDA Pro 9.4 linear addresses; MZ file offsets only for UNK segments before MAIN FBOV", idaExports, stats}
+		Status              string                  `json:"status"`
+		Method              string                  `json:"method"`
+		Capacity            int                     `json:"capacity"`
+		Reserved            int                     `json:"reserved"`
+		Available           int                     `json:"available"`
+		GoVersion           string                  `json:"go_version"`
+		DockerImage         string                  `json:"docker_image"`
+		IDA                 string                  `json:"ida_version_and_address_space"`
+		IDAExports          map[string]string       `json:"ida_export_sha256"`
+		OverlayExportSHA256 string                  `json:"overlay_export_sha256"`
+		OverlayCandidates   int                     `json:"overlay_candidate_codes"`
+		OverlayNovel        int                     `json:"overlay_novel_codes"`
+		Inputs              map[string]*sourceStats `json:"inputs"`
+	}{"local conservative static prototype; FBOV pointer-like candidates retained", "L1 parsed items + IDA strict aligned strings + UNK loose aligned runs + FBOV non-code candidates", 3276, len(codes), 3276 - len(codes), runtime.Version(), imageID, "IDA Pro 9.4 linear addresses; MZ file offsets only for UNK segments before MAIN FBOV", idaExports, fmt.Sprintf("%x", sha256.Sum256(overlayBytes)), len(overlay.Codes), overlayNovel, stats}
 	j, err := json.MarshalIndent(report, "", "  ")
 	must(err)
 	must(os.WriteFile(filepath.Join(out, "m10-reserved-audit.json"), append(j, '\n'), 0644))

@@ -334,3 +334,11 @@
 - 使用者明確授權其餘 586 張原版衍生圖送至 OpenAI，成品只留本機作定稿，不含公開發行。輸入、來源圖與清冊雜湊在 `workplace/ai-hd/remaining-586-manifest.json`；585 張成功生成。`VS.MRG:23` 在圖像服務輸入階段被拒絕，未繞過；這一項在本機主題使用已驗收的 HD 圖。
 - `workplace/ai-hd/adapt-all.py` 產生 `technical/full-theme/`，595 項對應 `hd/catalog.tsv`。來源雜湊、2 倍尺寸、原版透明遮罩與圖像契約由 `technical/full-theme/adapt-report.json` 和 `provenance.tsv` 記錄。11 張 MAP 加 `GMAP.PXS` 保留 HD 地形與標記位置，只取 AI 局部紋理；`SPOINT`、`LTIME` 和三張 `RUNTIME:CURSOR` 保留既有幾何；文字圖保留原字形。`FACE.MRG:66` 因書頁字形無法安全對齊，使用已驗收 HD；空白臉譜也保留原樣。`VS.MRG:14` 與 `VS.MRG:20` 的第二版恢復原圖重要地標。83 張背景與地圖的目視紀錄在 `workplace/ai-hd/bg-visual-review.json`。
 - `workplace/ai-hd/verify-final.py` 在 Docker 驗得 595 項齊全、594 項通過格式契約、1 項服務拒絕而 HD 回退；來源、候選與輸出 SHA-256、尺寸、遮罩、地圖及細小圖示的幾何界限均通過。Linux Xvfb 以 `-hd-ai` 啟動，F2 切回原版，兩張畫面差異 247,032 像素；樣張在 `workplace/out/m8-ai-gui.png` 與 `m8-after-f2.png`。這只驗證啟動與切換，沒有逐畫面遊戲路徑、Windows 或 macOS 驗收。本機素材、腳本與樣張均在忽略版控的 `workplace/`；未放入 Git、Release 或發行包。
+
+### README AI 畫面與 M10 L2 原型（2026-10-05）
+
+- 在 Docker 的 Xvfb 前端，以原版資料正常點入新遊戲，對同一畫面切換原版與本機 AI 主題。`docs/images/compare-ai-newgame.png` 為 2560×800、SHA-256 `59ab304962220cf3f343fb16151126be42cc4a21aac2fa4f9475396cb7ec0a4b`；README 加入此並排畫面、AI 主題現況與本機啟用方法。這張圖含原版與 AI 衍生畫面，依使用者本輪要求納入 private repo 的少量執行截圖例外，不是素材公開發行授權。
+- IDA 9.4 的 FBOV 非程式碼區掃描補上五段候選片段，新增四個保守保留碼。十輸入加 overlay 的集合現為 106／3276，按此集合計算的可配上限 3170。這不是原版實際用字數，也不保證全遊戲零碰撞；孤立配對及未到達的程式路徑仍未知。來源、地址空間與輸出雜湊見 `docs/re/032`。
+- 四組 `E0` 自訂碼邊界探針與 `A4` 對照，覆蓋行尾、`si=30`、數字加 14 組成對字與 `%s` 名稱尾碼。最後一組用測試專用記憶體注入。冷啟動 90M 步與兩組 bot 遊玩檢查點的六段各 40M 步，共觀測 446 次字模呼叫，已到達的路徑均未見可配範圍字碼；合成 `E047` 負對照能報警。這些重播不連續，不能當全遊戲長跑字碼清冊。
+- 固定來源雜湊的 Noto Sans CJK SC 以 13 像素烘製「简体」兩字，原版 `CFONT.15` 的本機副本只改兩格。同容器兩次烘製的字模與修改副本雜湊一致；dosgolem 與 Xvfb 前端的正常新遊戲畫面可辨。四語 17 項候選字集的涵蓋統計只是原型，英文與韓文空白寬度仍未解；字模補丁、譯文表及修改過的原版副本均只在 `workplace/`／忽略版控的 `l10n/`。
+- L2 第一輪唯讀審查報告在 `workplace/spec-review/008-l2-review.md`，判定尚不能升 READY：靜態候選集合不等於實際原版使用集合、動態玩家路徑仍有限、正式補丁驗證契約未落實、原版字模等價測試須與 OFL 正式補丁隔離。`docs/spec/008` 第 3.4 節已補容量用語、字模索引與拒絕條件草案，L2 出口改以忽略版控的原版 oracle 測試副本；這是 DRAFT 修訂，尚未實作正式建置器或通過重審。L3 四語仍未驗收。

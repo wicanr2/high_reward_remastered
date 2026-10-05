@@ -42,7 +42,7 @@ drun() { # 用法：drun [額外 docker 參數…] -- <指令…>
 # 建出 hrl10n（離線：module cache 在 workplace/gomodcache）。fork 唯讀掛載，go.mod 與 go.sum 必須已經完整。
 build() {
   drun -v "$ROOT/$DG:/src:ro" -v "$ROOT/$OUT:/out" -v "$ROOT/workplace/gocache:/gocache" -v "$ROOT/workplace/gomodcache:/gomodcache" \
-    -e HOME=/tmp -e GOCACHE=/gocache -e GOMODCACHE=/gomodcache -e GOFLAGS=-mod=readonly -e GOPROXY=off -e GOSUMDB=off \
+    -e GOCACHE=/gocache -e GOMODCACHE=/gomodcache -e GOFLAGS=-mod=readonly -e GOPROXY=off -e GOSUMDB=off \
     -e CGO_ENABLED=0 -w /src -- go build -trimpath -o /out/hrl10n ./apps/hr/cmd/hrl10n
 }
 

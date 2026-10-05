@@ -9,15 +9,17 @@ for path in "$ROOT/workplace/dosgolem" "$ROOT/workplace/orig" "$ROOT/workplace/i
 done
 test -f "$ROOT/docs/re/source-inventory.tsv" || { echo "缺原版 SHA-256 清冊" >&2; exit 1; }
 test -f "$ROOT/tools/l10n/reservedscan.go" || { echo "缺掃描程式" >&2; exit 1; }
+test -f "$ROOT/workplace/out/re-text/ida-l2-overlay-codes-v3.json" || { echo "缺 FBOV overlay 量測輸出" >&2; exit 1; }
 IMAGE_ID="$(docker image inspect "$IMAGE" --format '{{.Id}}')"
 
-exec timeout 5m docker run --rm --network none --memory 2g --cpus 2 --pids-limit 128 \
+exec timeout 5m docker run --rm --name hr-l2-reservedscan --network none --memory 2g --cpus 2 --pids-limit 128 \
   --log-opt max-size=10m --log-opt max-file=3 -u "$(id -u):$(id -g)" \
   -v "$ROOT/workplace/dosgolem:/fork:ro" \
   -v "$ROOT/workplace/orig:/orig:ro" \
   -v "$ROOT/workplace/ida-text/out:/ida:ro" \
   -v "$ROOT/docs/re:/inventory:ro" \
   -v "$ROOT/tools/l10n:/tools:ro" \
+  -v "$ROOT/workplace/out/re-text:/overlay:ro" \
   -v "$ROOT/workplace/out/re-text:/out" \
-  -w /fork -e HOME=/tmp -e GOCACHE=/tmp/go-cache -e GOPROXY=off -e GOFLAGS=-mod=mod -e HR_IMAGE_ID="$IMAGE_ID" \
+  -w /fork -e GOCACHE=/tmp/go-cache -e GOPROXY=off -e GOFLAGS=-mod=mod -e HR_IMAGE_ID="$IMAGE_ID" \
   --entrypoint go "$IMAGE" run /tools/reservedscan.go
