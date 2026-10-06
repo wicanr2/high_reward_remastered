@@ -92,6 +92,10 @@ for i, seg in enumerate(segments):
         else:
             vf = 'pad=1920:1080:320:140:color=0x101825,'
         vf += text(seg['caption'], 55, 48)
+        if seg.get('crop'):
+            # Caption values were read from the debt-en capture. This is a
+            # readable annotation; the captured game counters remain visible.
+            vf += ',' + text('Total debt 10,000,000 · Repayment 5,000 · Money held 8,000', 965, 44, 'white')
     vf += ',fps=30,setsar=1,format=yuv420p'
     run(base + input_args + ['-t', str(duration), '-vf', vf, '-an', '-c:v', 'libx264',
                             '-preset', 'veryfast', '-crf', '16', '-threads', '2', str(out / f'part-{i}.mp4')], f'part-{i}.log')
@@ -99,7 +103,8 @@ for i, seg in enumerate(segments):
 (out / 'concat.txt').write_text(''.join(f"file 'part-{i}.mp4'\n" for i in range(len(segments))))
 video = out / f'HighReward-{version}-promo.mp4'
 run(base + ['-f', 'concat', '-safe', '0', '-i', str(out / 'concat.txt'), '-stream_loop', '-1', '-i', '/music.wav',
-            '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-af', 'volume=4dB,afade=t=in:st=0:d=1,afade=t=out:st=57:d=3',
+            '-map', '0:v:0', '-map', '1:a:0', '-vf', 'fps=30', '-c:v', 'libx264',
+            '-preset', 'veryfast', '-crf', '16', '-threads', '2', '-af', 'volume=4dB,afade=t=in:st=0:d=1,afade=t=out:st=57:d=3',
             '-c:a', 'aac', '-b:a', '192k', '-t', '60', '-movflags', '+faststart', str(video)], 'render.log')
 probe = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_format', '-show_streams', '-of', 'json', str(video)]))
 v = next(s for s in probe['streams'] if s['codec_type'] == 'video')
