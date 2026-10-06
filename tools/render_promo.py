@@ -81,7 +81,11 @@ for i, seg in enumerate(segments):
                             text('github.com/wicanr2/high_reward_remastered', 670, 40, 'white')])
     else:
         probe = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_format', '-of', 'json', str(src)]))
-        assert float(probe['format']['duration']) >= seg['start'] + duration - .1, seg
+        source_duration = float(probe['format']['duration'])
+        assert source_duration >= duration + .2, seg
+        # X11grab starts a little after its control event. Keep every cut inside
+        # the actual capture instead of padding its end with a frozen frame.
+        seg['start'] = min(seg['start'], source_duration-duration-.2)
         input_args = ['-ss', str(seg['start']), '-i', str(src)]
         if seg.get('crop'):
             vf = 'crop=360:180:920:620,scale=1440:720:flags=neighbor,pad=1920:1080:240:170:color=0x101825,'

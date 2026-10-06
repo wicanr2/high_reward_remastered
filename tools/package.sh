@@ -20,12 +20,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 TARGET="${1:-all}"
 DG="workplace/dosgolem"
-WITH_HD="${HR_WITH_HD:-0}"   # 1 ＝ 把 hd/ 放進包內（含原版美術的衍生物，只供私人流通）
+WITH_HD="${HR_WITH_HD:-0}"   # 1 ＝ 把 hd/ 放進包內（含已授權公開的美術衍生物）
 FULL_LOCAL="${HR_FULL_LOCAL:-0}" # 1 ＝ 本機完整版
-RELEASE_PATCH="${HR_RELEASE_PATCH:-0}" # 1 ＝ 正式版號、不含原版的私人 Release 包
-FULL_EXTRAS="${HR_FULL_EXTRAS:-0}" # 1 ＝ 已授權的 private AI、全量譯文與純 Noto 字模
+RELEASE_PATCH="${HR_RELEASE_PATCH:-0}" # 1 ＝ 正式版號、不含原版的公開 Release 包
+FULL_EXTRAS="${HR_FULL_EXTRAS:-0}" # 1 ＝ 已授權公開的 AI、全量譯文與純 Noto 字模
 if [ "$FULL_EXTRAS" = 1 ] && [ "$FULL_LOCAL" != 1 ] && [ "$RELEASE_PATCH" != 1 ]; then
-  echo "HR_FULL_EXTRAS 只可用於正式本機或 private Release 封包" >&2; exit 2
+  echo "HR_FULL_EXTRAS 只可用於正式本機或公開 Release 封包" >&2; exit 2
 fi
 HRV="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 DGV="$(git -C "$DG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
