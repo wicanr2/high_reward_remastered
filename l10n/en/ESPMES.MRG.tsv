@@ -1,0 +1,1025 @@
+id	src_sha256	text	status	acc_sha	by	batch	date	note
+ESPMES#44.0	66e4e742ccb873b2	Take the hidden gold from the treasury.	accepted	fcc09bce5bdc2fad	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#44.1	93d4ba4b8120f1cd	Unit [%s] Weapon%2d Armor%2d\nLevel   %02d %02d %02d\nLC%1d S%03d H%03d \n1C%1d S%03d H%03d 2C%1d S%03d H%03d\n3C%1d S%03d H%03d 4C%1d S%03d H%03d\n5C%1d S%03d H%03d 6C%1d S%03d H%03d\n7C%1d S%03d H%03d 8C%1d S%03d H%03d\n9C%1d S%03d H%03d AC%1d S%03d H%03d\n	accepted	dc028a8c1068f310	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#44.2	93d4ba4b8120f1cd	Unit [%s] Weapon%2d Armor%2d\nLevel   %02d %02d %02d\nLC%1d S%03d H%03d \n1C%1d S%03d H%03d 2C%1d S%03d H%03d\n3C%1d S%03d H%03d 4C%1d S%03d H%03d\n5C%1d S%03d H%03d 6C%1d S%03d H%03d\n7C%1d S%03d H%03d 8C%1d S%03d H%03d\n9C%1d S%03d H%03d AC%1d S%03d H%03d\n	accepted	dc028a8c1068f310	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.0	254fe3bff53b89e4	An attractive single young woman ran up to Mono Dinando...	accepted	6892a45348b8dfcc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.1	1699fac5a57af466	Are you Mr. Mono Dinando?\n	accepted	215091c953a86f66	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.2	b1a4fffbbabf0bb0	Hello. A pleasure to meet you.\nI'm special agent Rechi Fars, sent by the World Bank.	accepted	b697f7f401d228b7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.3	021f16cb076e58d5	From now on, I'll collect your weekly installments toward that 10000000 G debt.	accepted	92bdd463b2c39a2e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.4	0b4827312f1077b7	Our minimum weekly payment is 5000 G. If you cannot pay, your repayment amount will increase under the contract.	accepted	14f78d0600b101f5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.5	eba3056f35a65d8c	All right! It starts next week, so please be sure to have 5000 G ready beforehand.	accepted	957b42b20cdaa96c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.6	7f2b62116ad22d5e	I look forward to working with you!\n	accepted	7b8d93f616fb032b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.7	f8ea35c40fcf0f2d	Well then, see you next week.\n	accepted	ab400191ba98aeb7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.8	ea573de80d0a1524	Special agent Rechi Fars came to see Mono Dinando again...	accepted	80eaf2cc73cfbfad	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.9	84abfc89cbabd478	It's the week we agreed on!\nYou can repay what you owe now, right?	accepted	69106e76e6d9f53f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.10	e17a7b4cf67b79f1	Well? Do you have any money?	accepted	98a4b5629da927eb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.11	f00b2d8fd32a2eb7	Unless you pay something every week, you'll never clear this debt!...So, how much will you repay this week?	accepted	99a4cc4c0402c816	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.12	a3331ff8977ec33d	Here! 5000 G.\nTHANKS	accepted	d379695a9c533ccc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.13	d2766a48fa8cff2b	That's right. The sooner you clear your debt, the better.\n	accepted	6526602781a143b3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.14	eaf4bbb7aeea9d08	Yes, 10000 G received.\n	accepted	efb0361bc631cd53	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.15	9cdc0627e86722b0	20000 G this week...\n	accepted	b32cb30138eab31e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.16	defab2a7e4a600f8	50000 G this week...\n	accepted	fe669f78f098b9c8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.17	a713236686d694d7	Hi!\nRepaying 100000 G?\nYou seem to be doing pretty well!	accepted	cca1928808c944a2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.18	40f8741dbc99ea64	100000 G received.	accepted	393847e7614f15ab	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.19	a79d5f86e8f7efe1	Wow!\nRepaying 200000 G?\nLooks like you're doing well!	accepted	aee932f8a8805df3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.20	0bef343aead62fa8	200000 G received.	accepted	50541a533fb0546c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.21	6ab9dc236f705985	Wow!\nRepaying 500000 G?\nBusiness must be good.	accepted	6260e45b4c58c121	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.22	4f33d9b465429728	500000 G received.	accepted	53f08c3f9e9a20d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.23	f9ef18f044bc44b9	Wow!\nRepaying 1000000 G?\nBusiness must be very good.	accepted	58f301e0ae6ee388	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.24	d1aa53e07efbc4ac	1000000 G received.	accepted	f62e83cf9ea384b0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.25	ece5f63629d1559e	Wow!\nRepaying 2000000 G?\nBusiness must be very good.	accepted	1cf842f934620897	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.26	0e4dbab95bf4c218	2000000 G received.	accepted	2ac16cadf614d8b7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.27	f4220a8835cf5678	Wow!\n5000000 G in one payment?\nAmazing! Amazing!	accepted	f6c57c944ae04463	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.28	2d84829d2b6f4128	5000000 G received.	accepted	967171853cd2d26e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.29	bf2d78d7b856553d	Whoa!\n10000000 G all at once?\nThat's almost unbelievable.	accepted	7db88ca9810f05e6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.30	f9bd19f597d62206	All 10000000 G received.\n	accepted	627cdd693c3c0f85	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.31	508b61f84adfddf4	Huh? Didn't we agree on at least 5000 G every week?	accepted	c4987c836d56d4ca	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.32	4eae2c9233b33f85	Then the contract requires a 100000 G penalty.	accepted	c8b082b5d01a9e57	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.33	c5964feb5aa1c4e7	Oh? Let me think a moment? Hmm...	accepted	86667c486597a66b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.34	c29a82b2deacc9ab	Please wait a moment...	accepted	d82f6fdb4da463c6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.35	2a43199d140fc6b6	I've checked the calculation...Hmm. That's right. Your debt is gone...	accepted	fba8abdd9d6021b2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.36	aff65cf0d29e7773	Debt contract.	accepted	a7a8ba30aef391a6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.37	950cb54b6fa95b4c	Debt remaining: %ld G. Keep it up next week!	accepted	2ca2754b1f3f2cac	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.38	607425d0e6995d5e	Whaaat! Trying to cheat me?\nIf you won't pay...these enforcers aren't here for nothing.	accepted	aec5958148835798	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.39	daf3e4def3b2b8bb	Huh? You're already wounded. You can't possibly resist me.\nJust give up!	accepted	52c8039e6d712d20	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.40	eca2caf8008cbf9a	Ha ha! Want to challenge me?	accepted	398481cc1b5b0729	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.41	ceb05084f101b7ec	You lot, see what I can do!	accepted	65804ecd762a9b97	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.42	3dfa112fa24e8d33	These enforcers really are useless...\nI'll bring stronger ones next week. Just you wait!	accepted	2770d98344d535cc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.43	ac8ca31a39f0de51	It won't be so easy next week!	accepted	7b68ef2e27824090	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#116.44	92901115c179e649	Hand over the money quietly!\n	accepted	c5ab79ce59b832b0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.0	2c24ff90a07e56b0	I hear you're pretty capable. Deliver %s to %s, and I'll pay you %ld G.	accepted	b6a4481d2d0ea229	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.1	751298d1f464c46d	The deadline is %d days.\nFinish early for double pay.\n	accepted	23fd5cd061306180	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.2	f76656c25cd05004	Not bad, right? Want to try?	accepted	a966d3a52aa4f65d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.3	ad855390c9807ab8	Then get started quickly.\nYou'll be paid on arrival.	accepted	069abc47db73a8d2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.4	09c683b0d7e72173	I see! Then there's nothing more to say.	accepted	615b4c6ef718a315	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.5	149d1452e91e442d	Soldier, soldier. A little favor...\n	accepted	81366548d4fc47b9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.6	555b248a842b9d52	Within %d days,\ncan you deliver %s to %s?	accepted	163692c727ae58cf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.7	7d5672d6d67502ec	I'll pay you.\n%ld G.\nWill you accept?	accepted	7fa5740d1ef8f0e2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.8	d87f499ee9688139	Wonderful! You've accepted.\nThen I'm counting on you.	accepted	89e544eaa1620d7e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.9	b48d05014a048c31	I see. You really can't accept...\nWhat a shame...	accepted	764f693f93e67b05	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.10	5985f5c5a4097d72	Young man, I'm so glad you came.\nCan you help someone in trouble?	accepted	f730b4a07e16ea20	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.11	810f52eac14f5575	Here's what I need.\nWithin %d days, deliver %s to %s.	accepted	76007f4f6ae7b4e3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.12	44574b3fe7fa7515	In these troubled times, I can't manage it myself. Please help somehow...\nThe reward is %ld G.	accepted	72a5b45c84abe5d1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.13	947916e043627a29	Well, can you do me this favor?	accepted	b6b349f3fa6eb2fd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.14	2fa6c5ca668ab47d	You'll help me!\n	accepted	15716e8e0869f087	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.15	c9968dfd7e4eba32	Thank you, young man.\nI won't forget your kindness!	accepted	a11a85c5db61762a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.16	fe6c08489c92f3d1	You can't help...\nWell, it can't be helped...	accepted	13c44d5ef4036ba3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.17	02ca11eb189ae60f	Ha ha! Perfect timing.\nI've just the right job.\nNaturally, that's thanks to me?	accepted	5bce2616687d739f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.18	0962c7a8f4e97f93	Heh heh, of course.\nFor a lovely lady like you.	accepted	f7578ef9bf56c967	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.19	31207ed8e045f99c	? I'll pretend I didn't hear that. To think anyone would refuse me. 	accepted	7ce24f572e57125d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.20	1fb7a0750801ec8d	Heh heh! Then I'll tell you.	accepted	ba92d386a6022495	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.21	14e0d3c55d8c305c	Deliver %s to %s.	accepted	451479afb0d231a7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.22	055f7a3a4c084b28	Within %d days, of course.	accepted	1d4865b93c8f14a1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.23	6564d8f6e5a08d51	I'll pay %ld G.\nHey! Agreed?	accepted	ef214afa3b5d2d18	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.24	4cd2f01272bf8852	Heh heh! Thanks.\nHey! Get going.	accepted	31dd30202d0d7a1f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.25	9c13483ae0a8287d	What?\nYou dare refuse me?	accepted	1821aeb66d7bed49	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.26	49563c46b7c573b6	You've made me furious!\nGet out of here!	accepted	d91203c753c846fb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.27	039e3f6674ccf06e	Anyone looking for work?	accepted	51f4fd1e33f9a427	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.28	0b2d2a5b7ed74a61	At last, someone!\nPlease, deliver this %s to %s.	accepted	85509c2d5dbd29f9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.29	3dc2b9f1b358b32d	It must be delivered quickly...but I can't do it myself...	accepted	6e9277a404a6c137	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.30	a49a4247b9c79288	It must arrive within %d days...\nI'll pay %ld G.\n	accepted	72ceff2fbad740b0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.31	1a122a452ad61bb1	Thank you. At last someone will help.\n	accepted	f0d8b1665ca3fc05	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.32	bea046325afcab49	This...this is so...unfortunate...	accepted	a819e581dab5a246	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.33	fbc30ca9db003e66	I...I'm finished!\nCan anyone help a poor soul...	accepted	2646087f8c476091	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.34	019e0daf2dcd9941	...I promised to give someone this %s...but I can't get to %s.	accepted	01677096bcbb7b2f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.35	f869166edf5d3f1c	I'll pay %ld G...but it absolutely must arrive within %d days.	accepted	f4274713636fa4c1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.36	a67b564ee1d9db8a	Can you accept this task?	accepted	b5a4379f5cf8ffc4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.37	7f38eb80957a2d1b	Wonderful!\nThen I'm counting on you.	accepted	80e5da09007c4010	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.38	4978fafac8b36395	I see...\nWhat am I going to do now...	accepted	302e0936e01edfb3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.39	d308d382b46928f7	Wonderful, it finally arrived.	accepted	aead54abc18b1be9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.40	8fa2db0f21b6b0f0	Your reward: %ld G.\nTake it.	accepted	33325510d55f897e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.41	3a8364c2926329ee	Ha ha, it finally arrived. Here, here's your reward.	accepted	29b504045242da31	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.42	6c0aee57dbbc08e2	Don't be shy. Please take it.	accepted	9dff18eba98775f3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.43	e60ef487ba1d9679	It finally arrived!\nThank you so much!\nI'm saved!	accepted	7154c19a7e893d87	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.44	2834de525cc1770b	I've waited so long.\nStill, you kept your promise...	accepted	fdb86d0229f0821a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.45	7ac02e0d86eb04e9	Your pay, as promised.\nHere's %ld G.\n	accepted	d74c47da4cb1516d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.46	f4614f1de94db946	It finally arrived!\nThank you very much!	accepted	123d1b3a2273b918	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.47	eeb83349d2c4d479	Hi,\nhere's the pay you earned. Please take it.	accepted	2db0dc0a2b88c610	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.48	5ef3ff6e8b5482ac	I'm truly grateful!\nFor helping me...Thank you...	accepted	de040f2f0ba8cef8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.49	0217aaca3e94a192	...I won't forget your kindness...\nHere's the agreed payment.	accepted	a93559eb4e574318	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.50	22810ed87b861250	Please accept %ld G.	accepted	952dc807c52e11c5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.51	55411b612097dd90	Late! Far too late!\nUnforgivable! Pay the penalty!	accepted	867e4ef9d18ee3bb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.52	9546d742e26ced89	Useless people like you need a lesson. Hey, pay me %ld G.	accepted	d730f30e8e37bcbe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.53	51cd2b22f1a19fba	The contract is canceled.\nGet out of here!	accepted	ca9f46824462f72d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.54	7a3d9d9b9302ec8a	What a problem...\nYou missed the agreed deadline, so of course I can't pay you.	accepted	9e264bdd833a9561	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.55	10a49b75b35dbd8a	That was our agreement.\nPerhaps there'll be another chance.	accepted	4f5cda0b8b2aad4c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.56	12637ad857d29a1e	I'm sorry.\nI really can't wait any longer.	accepted	e8a2a76025e2e5f2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.57	b5ff8497f625ec84	Thank you for your help...	accepted	dd32ad826ee12e5f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.58	588c2606352cfcb0	Oh dear!	accepted	2198bba4987b0612	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.59	7e82c9f641551fd6	It still hasn't arrived?	accepted	baff9e9ce91f24f1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.60	ecb1081322774be0	Enough, enough.\nThe contract ends here.\nPay me the penalty quickly,\nthen get lost!	accepted	1f554af94f2fc6ef	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.61	729df17def82adeb	I'm sorry...\nThere's no point continuing this job...	accepted	57c908d72c3207a3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.62	9de43bc98027275f	Oh heavens! We're out of time.	accepted	b20fe2e016d2f808	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.63	2318768b6b0173c8	I'm grateful for your help.\nBut it's too late now.	accepted	e7997ba44594d6f1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.64	c242c80e40bccc13	Goodbye...	accepted	272d3208af9cae50	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.65	4e2dcbd10958c824	Since we've accepted the job...we have to go to %s...	accepted	f6f8ac892ab789f5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.66	1a5a4c9cc835bc6c	Oh! Behold the bloodstained angel, let us repent for that bloodshed. Then we may receive God's forgiveness.	accepted	b07c214aa1bafd6f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.67	e51c53ed58e0d64d	Kind-hearted warriors, believe deep in your hearts that God is always with you.	accepted	dc1a65e9c760e434	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.68	6262cd37045ab8dc	The soldiers' fatigue is gone.\n	accepted	cfe6ad49ecf435b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.69	47bb746196450bd8	You heathens!\nLeave this sacred place at once!\n	accepted	b36dc263f1e2088e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.70	40b3df1cc3fb3b7c	Hi! Welcome. What will you drink?\n	accepted	9fa4adfeb6707cee	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.71	2be39383199f0bdb	First visit? Wonderful. Guests are always welcome, and you look like good people. Take your time and enjoy!	accepted	d791bf1809d020fe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.72	ac8e228d9b4e9848	Ah, you came here just to flirt with me.\nStop that, or I'll get angry.\nOrder any drink you like.	accepted	08745c776b29ba9e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#117.73	1430b91133a90a9a	Hey! Don't act so high and mighty!\nIgnoring me...Damn you lot! See what I can do!	accepted	6496e68a624fb189	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.0	ded1ca1ab7a145b5	Captain Dinando!\nSomething seems unusual in %s.	accepted	023ad73ef95d5a93	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.1	2ae8ab6a5cf38f6a	According to our information, %s has occupied %s. 	accepted	7743b25002475acb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.2	d3a9ef19602c5369	%s has seen activity by %s. They say the situation is now critical.	accepted	2ccbd8311ff2bf0c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.3	1fab4a5d21e4f0c0	Something seems unusual in %s.	accepted	1250c57053466225	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.4	023d67b91092ad11	%s attacked %s and seems to have succeeded.	accepted	1c6f7e6ed53e7780	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.5	c7681a708449a64a	%s is expanding. Reports say they now have %d bases.	accepted	a0b75542eda52e1c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.6	1cbd69101e52118e	%s seems to have attacked %s. Reports say they were driven back, though.	accepted	000aac090973c87b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.7	d97d47dedcb318a7	Are you mercenaries?\nThen how about taking this job?	accepted	6c44bd54089506a0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.8	53bb79b072a31d46	Client: a notable local in %s. Pay: %ld G. I can't say much else. Accept?	accepted	170e05a8f1810517	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.9	493481afa39b9b44	Wonderful.	accepted	740fdc20e45cc27f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.10	784a721ca21ccf9d	I'm counting on you! You'll be paid after victory.	accepted	601f7547f917d031	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.11	55eb60fd74295e99	Oh! I see!\nThen I'll find another mercenary band.	accepted	9ec9c1a50a025c10	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.12	af6efcc1333cee76	Actually, you've come at just the right time.\nI've a job that suits the likes of you perfectly...	accepted	6d93c1f21e554991	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.13	688077277e412145	%s is temporarily blockaded...\nBut we can't just leave this base alone.	accepted	a4fd6690fda0da9a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.14	dbf7a5da1abf9c8c	We're seeking heroes of every stripe, with generous pay.	accepted	98fb52c8b545eaf5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.15	57b7bf54d6427357	The reward is %ld G. Just right for you.	accepted	69a1fcbf224b8127	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.16	2c5d712fff55f318	I'm too old to fight as I once did.\nWell? Will you march in my place?	accepted	c3aca07e644fd98d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.17	7e46692996cbd267	Hmm! Good!\nI'll give you the reward when you win. Go fight with peace of mind!	accepted	9cade5ccb3dec61b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.18	af25ef7c4a262494	Pull yourselves together!	accepted	a1699268b04a3825	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.19	79d7137626c186ee	I must have misjudged you...\n	accepted	ef9f13a2b19d38ec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.20	60c9bdaf5497d828	...Mercenaries?\n...Then enough nonsense.\nDefeat the enemy at %s.	accepted	1a70ed56d89017e6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.21	4d763013176db816	Pay is %ld G.\nFighting is your best choice.	accepted	6fd28cdfdd1f2829	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.22	b53d1f897fc5275e	If you agree, get to the battlefield!	accepted	827f6c4adf3dc733	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.23	ad84ccd794f32da4	What mercenary refuses to fight!	accepted	e1f3ff27b0c94cb2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.24	084cd73edb0a2613	Good timing.\nI've a job for you...	accepted	d88dcf7defb100b8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.25	a834d7723f06ca9e	Someone here wants %s's defenses strengthened.\n	accepted	a3ae3e4dc74d5f00	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.26	411925140dc41174	Your job is to raise\nthe local durability to %d.	accepted	2228453ff0d2a493	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.27	a839d7b77623f57b	Pay is %ld G. Well? Want to try?	accepted	3e8eb5e56b956158	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.28	499554439a77f040	Then we'll meet again when it's done.	accepted	cbe53f739d0a6469	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.29	8c3566d1d3a12933	You can't accept...What a shame...	accepted	d2131eeb6667bd70	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.30	62ac383b25c36962	The enemy at %s beat you. I can't pay for that, but your hard work earns half.	accepted	9702f2f481378bae	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.31	62ac383b25c36962	The enemy at %s beat you. I can't pay for that, but your hard work earns half.	accepted	9702f2f481378bae	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.32	62ac383b25c36962	The enemy at %s beat you. I can't pay for that, but your hard work earns half.	accepted	9702f2f481378bae	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.33	78ed975477239931	Target captured: %s!\nPay: %ld G.	accepted	7983341f9c340496	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.34	78ed975477239931	Target captured: %s!\nPay: %ld G.	accepted	7983341f9c340496	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.35	78ed975477239931	Target captured: %s!\nPay: %ld G.	accepted	7983341f9c340496	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.36	56cbbcbf9f78b519	Reinforcement of %s is complete. 	accepted	dcb0a9db575d1e07	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.37	44dec46ce015f6f1	Your pay is %ld G.\nPlease take it.	accepted	73a3a0e3a06c86fb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.38	33dfe258f2bbcd60	%s has been occupied...\n	accepted	20cba699c6d426e3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.39	26182526eab03120	No one will pay now...so there's no reason to go on. Consider the contract void.	accepted	e66211e80d767a87	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.40	502b073bf915af6d	Wonderful, we've finally found the hidden home!\nIf we're caught even here, we'll have to accept it!	accepted	40864e507d56a684	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.41	5278d47263555fb3	You treacherous wretch! I'll execute you on the spot! I, Disred Kadil, daughter of the Duke of Serafi, will not hide!	accepted	937dbf7c97eebd13	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.42	9fe42acceb25265a	Hey, hey! Well said. Looks like I'm no longer needed, and I don't plan to return to the fray. It's all up to you.	accepted	8d633db10e10f6b9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.43	4a0d68e304910e28	Hey! Keep it down! I don't want to do this to a woman either! I'm not the villain you imagine.	accepted	d4221bd66ab20f7c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.44	9a415980e357387a	Miss, adversity reveals a person's noble resolve.\nWhat do you think of what this fellow has done?	accepted	6a64c6ab13ffa6e2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.45	0f557165fdb132f1	He isn't entirely wicked, and he's a man of some honor. It seems there's no need to kill him. 	accepted	9edd8f707b5e81af	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.46	305ee94c72e65288	Serafi's current king, Badian, is very cunning. He manipulates the whole country with despicable methods.	accepted	11cf4fee8ead9a3d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.47	9856de7fd306dd41	Unless you're more careful, you won't even know when you've been deceived...\n	accepted	5241a1c63bbd9990	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.48	21b9a7443da5034b	...Then, will you take me to see Badian?\n	accepted	e0cd6eaf342595fa	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.49	3c4d2472a6779c5e	As things stand, you'll be looked down on.\nTry a little harder!	accepted	a36279aeaa3b37f4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.50	4fed3f93e7197760	There's a hidden home?\nOn the northern shore...	accepted	6c0dde98e0faeefb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#118.51	0fc82d3d97608aa0	It doesn't seem to be here...	accepted	29d99fb0a421267b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.0	9236bcf56beaf050	Want to put on a show?	accepted	1301967da0d7d3a4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.1	cc99fabc3952ec1a	Well...the audience's current\nfavorite is %s.	accepted	06635ec4a3c0db55	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.2	4bc4c54850c05f4a	%s is popular here. The run is %d days.\nWant to try?	accepted	f2a638c16f358e11	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.3	e34daeaa479f83d1	Give it your best.	accepted	7a42cadf1fbc349a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.4	436fad5a659ebbfd	A wasted effort.\n	accepted	fbcc5479a8877cc2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.5	2c2916a4a8de41b6	...Hey! It seems you don't have enough members.	accepted	10be930ff4c98135	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.6	ec5fb4658ba2322b	To perform %s,\nyou need %d dancers\nand %d singers.	accepted	68c23acac71e491a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.7	88e472edbe5def53	...You want to perform without enough members...\nLet's pretend this never happened.	accepted	3c51087c6adeb1d0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.8	90b3529151dfa32a	Heh heh! The audience loved it!\nThe show was a great success!\n	accepted	8f7af02c1e83bec5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.9	1c6fddaed6488369	The show earned %ld G.	accepted	989d8a604918f222	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.10	d29916f8a4565a1d	So-so.\nThe show was fairly successful.	accepted	f6395f96c84a0b32	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.11	1c6fddaed6488369	The show earned %ld G.	accepted	989d8a604918f222	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.12	415f5f4af9a86c07	What was that supposed to be...	accepted	c635e352cc48bc3e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.13	b254861aef92eceb	The show was a disaster!\nYou scared off all our customers!	accepted	cfc6601850866549	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.14	eb00b169ef2c51c9	The show lost money badly.\n%ld G lost.	accepted	52da9c1207a5c9df	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.15	63cea134ccc01f41	The show failed!\nThe customers left very unhappy.	accepted	a6dcb349ea444b9e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.16	5d7fc36fee01c9a9	The show lost money.\n%ld G lost.	accepted	743e31f71ee74476	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.17	c7cd51d153a4d649	Want to put on a show? ...But no slot is scheduled yet. Come back and check in a while. 	accepted	406fb6c12f48f960	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.18	749aca9496bbd336	Nobody in Dinando's band is a dancer or singer.\nWe're leaving.	accepted	8c31cd0368550db7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.19	3fd008caf2a2766f	...There's not a single girl. Coming here is pointless.\nGo back now.	accepted	b99da895a437b1ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.20	c8ed814bc44ee986	Looks like our band needs some dancers...\nHmm! I'll come back once I find them.	accepted	704637b58c74e3ec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.21	351d1b98f9631ec4	Hmm! It's good to be willing, but nobody can dance.\nIt would be absurd if I did it...Let's go back.	accepted	fa32c02046665df0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.22	494c4a58ab8fc2e7	We came all this way.\nBut none of us can dance...Looks like we should leave.	accepted	767d7f2c6873f1c4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.23	539d4641de712f69	The show was a great success.	accepted	32d40db8f29da973	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.24	d661296109d44bc8	The show succeeded.	accepted	604cdb5e167d6be8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.25	367b8e69e7aa837f	The show failed.	accepted	927b0ea9a567f048	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.26	ac6d80ca41c99371	Look! Everyone is eager to join the local defense force.\n	accepted	7530b5f9b573b7ab	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.27	6074a5306095dd05	Nobody is slacking. Everyone is working hard.\nYou did well today.	accepted	ad75d9d16756288f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.28	df2bc19063b1a791	Everyone can see how well these young people have done...\n	accepted	40e86a2db959abbc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.29	f1424fc1ecd9672e	You did well today!\nComrades! Well done!\nTeaching you wasn't wasted after all.	accepted	527b426d33ba5dc5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.30	526e758849226dbd	Today's results are impressive. You're now qualified to join my mercenary band!	accepted	8425077f45567437	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.31	f4401a5c4de357c0	Hmm! That's it!\nYou did well today.\n	accepted	de35eecd0a0b7d27	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.32	fb30c18c74a669dc	Hmm! So-so.\nBut so-so isn't allowed in my unit, so you need more training.	accepted	5bac3210e1d6222a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.33	a1cfdf5bc1d21321	You put some effort into today's training.\nKeep it up, and you might just qualify as my bodyguards.	accepted	b083fb8bd57b7402	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.34	eca70ad48be6eff0	This unit is slowly getting on track. But don't get smug. You must keep working.	accepted	8e9bc432ade3881a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.35	45fc981ea4888317	You're all working very hard,\nbut real skill takes more experience. Keep at it, everyone.	accepted	434d3753c3ce6682	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.36	9c34ab64a726e142	Hey, hey! What's wrong with you today?\nTerrible! Did you hear anything I said?	accepted	a33699e72d258f1d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.37	f80f295af5731487	There's no point carrying on like this.\n	accepted	44c6ff3c5ec35a4d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.38	148b07b811357a93	Stop, stop!\nThat's all for today's training!	accepted	39bd673b51ffc885	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.39	ba54d9449d8b4c31	Be more serious tomorrow!	accepted	b39ec7999a6d9b70	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.40	d7a6d89935bfe04a	Everyone, what's wrong?\nSo far,\nnone of you has shown any progress...	accepted	7355a29075ca151f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.41	4c948501ff511273	Looks like the next training must be stricter.	accepted	caab9e089bf2866c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.42	fef09ba615fb58d4	Stop slacking!\nTrain properly! If you don't take this seriously, I won't pay you a penny.	accepted	23f49055f7350231	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.43	b7a18c0215b05816	Today's training was unbearable to watch.	accepted	07894d03ed6a86d8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#119.44	7a87dafbdad7b4c4	Effort brings results. That's how you become useful soldiers.\nDon't lose heart. Keep going.	accepted	21490f7054c6d51e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.0	35814ca7728e7e86	Hi! Welcome. Nice to meet you all. You're soldiers, right?	accepted	e4aabd4aaf69245c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.1	f859a3f5a409b00d	Hmm! This tastes good. I never thought I'd find such good liquor here.	accepted	a1a25275d78cc4e9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.2	90cca28bbf350344	Huh? She's...looking my way. Heh heh! When are you free? Want to have dinner together?	accepted	9339393efc63864d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.3	3dd104fd7bc29f65	Aha! I fight for a living. Need any help? No battle is too fierce for me!	accepted	e22dbbb85225979f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.4	616e3bd43ff9c5f1	Hi! Handsome soldier!\nWhat a fine gun. Let me see.\nHeh heh! Is this girl interested in me?	accepted	21ad27c58fb20c68	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.5	bf0a92cae65ac73a	...Yes, I'm working as a mercenary now.	accepted	31ca58ddc4907866	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.6	f89236bb2b99a6d9	I see...After so much fighting, you need a good rest. Here! Have a drink first.	accepted	9f0e1adb63ff6e5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.7	89ba0796148cca9e	Ha ha ha! Thanks! Thanks! I look forward to getting to know you.	accepted	deaa049dabae4bff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.8	e2ab8ef8b7aea10f	Welcome. Soldiers? Come in! Come in!	accepted	ee82b052fa1031ce	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.9	f3a93ef395d16431	Hmm...Where should we attack next...? Ah! Your best liquor, please...Can't let our guard down at all.	accepted	08a52fa5313e592f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.10	06f7e85f5cbf8e16	Wow! So many beauties here! I never expected it. Even liquor tastes different as I drink and admire them!	accepted	643c572bf1a2dc79	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.11	df6271a959872ec6	You're too kind! Actually, I'm captain of this mercenary band. Well? Don't I have a different air about me?	accepted	ee173b55837500c2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.12	616e3bd43ff9c5f1	Hi! Handsome soldier!\nWhat a fine gun. Let me see.\nHeh heh! Is this girl interested in me?	accepted	21ad27c58fb20c68	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.13	b7f271cfe0e0b5a3	Hello! What a lovely place.	accepted	b76d560cb40443d6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.14	ad043b2840a0a2eb	Heh heh, pleased to meet you. This place feels very comfortable.	accepted	2ff0ee6a30bcb38d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.15	6ad7217a131f4156	Heh heh! Thanks! Keep up the good work too.	accepted	933dc39f4bc4741a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.16	e4462c7201aa27b4	Welcome! Huh? Mercenaries? It's been rather unsettled lately. Sit anywhere.	accepted	98a4356ff5a1065b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.17	bfe9bcf1ce496147	Unrest keeps us fed. And we keep you fed too, right? Let us rest here a while!	accepted	6e335f016323a5e1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.18	18ac1b8eb9694700	Heh heh! We've been so busy lately. Sometimes I just want to go away with the woman I love and unwind.	accepted	a7c0da69d4dad90f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.19	0971aaf8a0e08552	Ha ha! Troubled times make our business flourish, though too much business isn't a good sign either.	accepted	ea9e1466192b9a4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.20	137c69742c21c600	Whoa! So tired! Let's rest.\nUnsettled times are our chance to make money.	accepted	79179b7f663dcaf2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.21	e5c34b5f6e6ddde8	...That's right. The sooner these troubled times end, the better. We'll do our part too.	accepted	083b346f7bd29e3e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.22	a602b57198aa9b1a	Who knows when this unrest will end! Looks like we must keep working.	accepted	3f362c245d0c0a39	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.23	4ec9333307d89d78	Ha ha ha! That's soldiers for you. Don't complain. That's the age we live in.	accepted	5213044a50150abf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.24	0b7408af8d69f293	...Welcome...	accepted	68431eacbffb8853	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.25	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.26	308dbe68379bb8e6	...What's wrong? Feeling unwell? Shall I find you a doctor? A beauty like you should cheer up.	accepted	158d4a7d966fcfeb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.27	46c89ba58f5c3239	...	accepted	ab5df625bc76dbd4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.28	deed7d29b3cd188d	Huh? In a bad mood!	accepted	077e73fd08c085ce	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.29	f78a41c7ef3919fa	...Huh...Are you feeling unwell?	accepted	97137dfa357e9c8f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.30	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.31	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.32	be972d76711a4c74	Hi! You're back! I'm so glad to see you!	accepted	63924d0446de808d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.33	75fd6249e31b5973	...Well, your liquor is good. What? Sold out! How could that happen?	accepted	c5f9753008d3721d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.34	081eb102a1a4d5c9	Huh? You remember us! We came especially. Let's have a drink together later!	accepted	057650b12d20f75c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.35	5c145912477b921b	Ha ha! You look cheerful.\nA lovely girl like you makes me want to chat a little longer!	accepted	7f4a41c87d8ae42f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.36	32005aefbfe19bd7	Hmm! I nearly couldn't make it, miss! Want to join us? We offer good terms!	accepted	43b0d58d0ac25f9f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.37	e01f2d2a44d0572c	Thanks! But we probably can't rest properly. We're busy preparing for the next battle.	accepted	41f16a4973b8af1f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.38	1ef594274044f2bb	Aha! Who knows how many times we've been here! But we're busy today, so it's one drink and back on the road. Sorry.	accepted	f50b32ffa117fc17	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.39	4d26b9093a831e34	Hmm! Exactly.\nSorry, let's talk next time!	accepted	b576a47616727778	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.40	156f7b24b5377035	Aha! Welcome! We often hear stories about you!	accepted	807bd9564ef02db6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.41	77d2a14fe1badac0	Thanks to you, we live on. We mercenaries live on a knife's edge each day. Who knows when we'll die?	accepted	3f805b4b1422c4c3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.42	3cf93ae57ba5317a	Oh! Then let's find a chance for the two of us to have a good chat next time!	accepted	2e47f191b2b307c1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.43	4f7fb65a2ca90776	Oh! Heard rumors about us? Don't listen to them. Trust what you know for yourself.	accepted	bae7f35d58030f14	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.44	bf236cfaf795d74e	Ha ha ha! Whatever rumors are going around, don't believe them!	accepted	15e5c7fd0a9bd7a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.45	1410ba8fc669a6b4	...Ha ha! Legends?	accepted	758b477105db1109	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.46	d9eac2bd96d15783	Battlefield stories are usually unreliable and mostly exaggerated. Don't believe them.	accepted	e69e807483891ba1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.47	2761036f12028f13	Ha ha! I never knew I was so famous!	accepted	4d721f3014b16078	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.48	4db1d957868e6428	Oh! Welcome! You're back! Have a few good drinks today!	accepted	f16624b505f1044c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.49	d2507834e5344183	Hmm! A toast to our hard work!	accepted	85f28b5817a90392	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.50	491b442a35966ca0	Ha ha ha! I came just to see your beauty! Let's drink to this lovely lady!	accepted	016578941b7f414e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.51	dfaa07d891c62e86	This work is so hard. We'd still rather move into trade!	accepted	2b8f65eb61b02542	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.52	6521e9b2d3b9a7ec	Let's drink to encourage everyone!	accepted	1f62d8591f50cacb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.53	78b408f4e66aebc3	Thanks! A toast to this country's peaceful development!	accepted	3184b6a990303ebd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.54	c6331e3a598138ef	You're too kind! A toast to our victory!	accepted	3f105ebd9e3c9a62	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.55	54c58ee581ee4b80	Ha ha ha! Cheers!\nEveryone! We'll be counting on you!	accepted	97a4fce0b7fa0e0b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.56	514cc0ea9f4d6a81	...Welcome...	accepted	68431eacbffb8853	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.57	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.58	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.59	46c89ba58f5c3239	...	accepted	ab5df625bc76dbd4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.60	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.61	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.62	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.63	f7a9df681693c73c	......	accepted	895361ffbf88d5a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.64	22f087347ba7d701	No particular rumors.	accepted	459a84929d844ddf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.65	9272450ecfbf503a	No military operation accepted.	accepted	8060d13d660ea683	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.66	82b78696a8f28f30	Occupation mission\nTarget: %s.\nPay: %ld G.	accepted	26ed14d3bccfaaad	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.67	90ab4a7b4cdf6f7b	Reinforce base: %s.\nPay: %ld G.\nTarget durability: %d.	accepted	564cb1e21b1ce0b1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.68	565399d0f823f0c1	No jobs accepted.	accepted	38246705e569ed9a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.69	b0ee4f1c7cfa4f24	- Delivery of %s - Unit: %s Pay: %ld G Time remaining: %d 	accepted	f1ba291aca26fd7f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.70	9e46cdff6cca6c60	Total wages, all units: %ld G\nBreakdown by unit\n    %s...%2d people %10ld G\n    %s...%2d people %10ld G\n    %s...%2d people %10ld G\n    %s...%2d people %10ld G\n    %s...%2d people %10ld G\n    %s...%2d people %10ld G\n	accepted	d6dc2f03063d710f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.71	cd44ebb4c00d8d9a	[Total Wages, All Units]	accepted	373c0f2def376b47	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.72	72a941b277aa023b	No acquired items.	accepted	b49fc1ecfe2a9d5f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.73	4a26b2bd932c9049	Laundry to be delivered to the fortified city of Midilia. Held by: %s 	accepted	2fcc6487ba572a66	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗；任務城名沿地圖標題；原文異體同城為強推論，見full-name-index-review
+ESPMES#120.74	99e55cd6486d312f	A mysterious ancient document. Its script vanished in the Middle Ages. Held by: %s 	accepted	a1de78c505fd2a53	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.75	a099d30f90142ef9	A map marking the location of an ancient treasure. Held by: %s 	accepted	7d2f89bb30e359ad	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.76	a59351cd07ec0d9c	A wooden doll won in the cave after much effort.\n	accepted	e0ee17b1a7851249	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.77	e5eb4326e99dc317	Proof of bravery awarded for winning Faran's martial tournament. Held by: %s 	accepted	5e66a34950e92ab8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.78	510c97979679ca23	Tools to repair the mysterious climate-control machine causing Arem's cold wave.\nHeld by: %s	accepted	7e48cee2aef1f039	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.79	de4fc46169df3293	A large amount of detergent to be delivered to the laundry in Rikaro Ni, Fasis.	accepted	ab1c8120c544d63f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.80	ad68b264ad197aa9	We could exchange it, but don't let anyone see you when you use it.\nHeld by: %s	accepted	a490249af30482de	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.81	6845c7f31ee02f40	An exquisitely made little box, said to use ancient civilization's technology.\nHeld by: %s	accepted	115ebf4587404825	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.82	1134080b9bb97359	The first item from the sage of the east. Said to be a key to the Mystery Box.	accepted	781ca1aaaeec8211	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.83	7595ed7712ddfc74	The second item from the king of the western ruined castle. Said to be a key to the Mystery Box.	accepted	1b2e1a9a8df69e3c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.84	43d745ddc6512513	The third item from the southern religious leader. Said to be a key to the Mystery Box.	accepted	b0098d04c575b1bb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.85	3f5579a91084d690	The fourth item from the northern general. Said to be a key to the Mystery Box.	accepted	30b9132cb16402a3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.86	ef01568da7cc4b39	Ancient key from the Mystery Box. Said to open the door to ancient treasure. Held by: %s.	accepted	1656c2821aeaa02e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.87	547f9dbf1edb256d	Everyone is healthy.\nNo treatment needed.	accepted	df71a7cfa8ef37fa	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.88	b576870eeff1d7f2	Do you need my help?\n...I see. For you,\nthe fee is %ld G.\nWould you like treatment?	accepted	9a3a92bb7e9eb832	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.89	0dc25cd1ac4e31c8	Understood.\nPlease wait a moment.	accepted	6883dd1b0699f37d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.90	83b324f38d08b2dc	Everyone recovered.	accepted	b6716c053b7ba71c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.91	b2cdee95a799f1a9	Treatment complete.	accepted	560a7f38c740105d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.92	4f6c21a4a1d3f080	I see?\nTake better care of yourselves...	accepted	02a9a066b867496d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#120.93	cd9fbf459ea433b3	Huh? You seem short of money...\nSorry! I can't treat you.	accepted	6a70606836db86d1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.0	3157b294e63d2d8e	Damn it!\nIt's all gone...	accepted	49af1c1b584c6995	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.1	9234ff65bfaeb2db	And the World Bank won't\nlet us off either.\nDoes anyone have a plan?	accepted	1409d63aa7169331	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.2	d153f5d8cd84f0bd	So we really are starting\nfrom scratch.	accepted	f60f56b0412b5758	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.3	003dbdc4c510d61a	Idiot! We still have debt!\nWe're starting below zero!	accepted	83b7d840926e6c4d	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.4	1575bde8bd93cd65	Jessie...\nThanks for helping me.\nI... Now I know who my\ntrue friends are.	accepted	6e54538a69e44b3f	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.5	5c866a634b9cd790	Stop daydreaming!\nPull yourself together\nand start earning!	accepted	e5b5aafeefe85354	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.6	d19ffe49d71e0879	Don't worry! Don't worry!\nFortunes turn around.\nWhat you lost will come\nback someday. Relax!	accepted	beebcd80ab9bf8d0	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.7	7ca5a5a5d1742bdd	Rebuilding the family\nwon't be easy, but\nI'm here for you...\n	accepted	9793e67279d905ec	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.8	fce431bab23f2496	Well said, Dinando!\nWith my charm, those debts\nwill vanish in no time!\n	accepted	e758209be7218b35	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.9	2b930c5157e280cc	Once the family is back,\ninvite me to the royal\nsocial gatherings...	accepted	4257b34f19f2de96	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.10	8f577c2e2255f6f7	Dinando, don't forget me.\nEven in these troubled\ntimes, hold to your ideals.	accepted	c3458d8f7624b450	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.11	bd926de314cf0341	I know, I know!\nFirst, we need a way\nto get out of debt...	accepted	eff8101b5bb13032	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.12	78b9bc9e9a248b6c	You're right!\nI'll think of something.\nEveryone, lend me a hand.	accepted	f3e4bcceab5534ce	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.13	9d20c871f6e2ce43	We must earn money fast\nto deal with that debt\ncollector.	accepted	5f98b930d7dacd04	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.14	e6843958bc5b71f0	Whatever we do, let's go!\nArguing here won't help!	accepted	1875019c192896e3	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.15	3194959e1b28b7dd	Right, let's go!\nWe'll pay the debt bit by bit\nuntil we owe nothing!	accepted	b8f988d25e96d812	Codex	pilot-otherlangs-20261004	2026-10-04	2026-10-05 使用者明示接受譯文；未經母語者審閱；字模及正式語言包路徑另驗
+ESPMES#121.16	9df5418b24bac435	The enemy at Lifare and Barshagan has been destroyed.	accepted	3d3422c77e1c5c51	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.17	bf45f79baabfee04	You'll receive your 100000 G reward at once.	accepted	48cbbbf00fc777b3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.18	7a96d3ad87db2444	We plan to move headquarters forward to Lifare.\nI'll go there too.	accepted	8a600153b342c2e3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.19	9e95138599c6063f	We must study our next moves\nsome more. Remember to see me.	accepted	432e7125dc580a30	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.20	c62713f9015b6301	At last, all of Bayarans is under control.\n	accepted	d6d9088557c900fa	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.21	c4b6ec0790e54500	We've finally recovered the territory lost when war began. We're considering an armistice with the Duchy of Rezniak...	accepted	28cdd4683bd33900	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.22	b25a4f4ec2238cd3	The armistice conference is planned for Reyari, in Rezniak territory.	accepted	ae79f4f10e9ccbea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.23	bdd366db9e1f3a04	Your promised 300000 G reward will be paid at once.	accepted	a9817b78b852a6ed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.24	cb5910c937ed51b1	I'm preparing to go to Reyari too. In any case, thank you for everything you've done. 	accepted	6fc447739516be54	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.25	6e78ea87965533da	Donasta Fortress is occupied. How did this happen?!\nWhat are our soldiers doing!	accepted	a1c28fe5320cd5ce	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.26	6e2f3600a6fde609	All soldiers to Kidirio Fortress! It guards Rezniak Castle. Bayarans must never break through!	accepted	55cbd09e92a2443d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.27	a710f16e3f8b67a1	This is Kidirio Fortress, guarding Rezniak Castle.	accepted	86a71a45ccde2e7a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.28	fbeab8c27a8544b6	If Kidirio falls, Rezniak's queen will surrender. Hurry, let's go! End this war quickly!	accepted	effd1ebb3a456a1d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.29	1ea74f742ca86175	Even the supreme commander has died in battle...\nWhat fate awaits our family...	accepted	d4318c22e3ae1742	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.30	dae0e4aa23d05cea	...Northern Rezniak seems certain to fall...	accepted	8d0523bc36b294b4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.31	f5caf56c711dfc59	...But we can't just give up...We have no choice but to fight to the death...	accepted	551772d3fca6f852	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.32	20d7b939251fc0a8	Sharegi occupied?	accepted	c21b2eddd07e302a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.33	3aa89423b3ad54de	This is the end...\n...There's nothing left to do...	accepted	e83ad7be49deab9e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.34	2f43c51b72b29b18	We declare... surrender... King of Bayarans, Rezniak ends all resistance and surrenders unconditionally.	accepted	749e3f2898cfaa0b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.35	f675a72373f72d77	At last, victory! I'm going to Rezniak Castle!\nDinando! Come to Rezniak Castle too!	accepted	998ad10673b538e7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.36	3aa89423b3ad54de	This is the end...\n...There's nothing left to do...	accepted	e83ad7be49deab9e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.37	2f43c51b72b29b18	We declare... surrender... King of Bayarans, Rezniak ends all resistance and surrenders unconditionally.	accepted	749e3f2898cfaa0b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.38	f675a72373f72d77	At last, victory! I'm going to Rezniak Castle!\nDinando! Come to Rezniak Castle too!	accepted	998ad10673b538e7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.39	1296be3d218b1aa7	Ha ha! Coming after me?\nWonderful!...Come on, if you don't fear death!	accepted	2cc3d104a25da01f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.40	e8b7749b31c8dd68	Wonderful! Laru Brachia is occupied! Headquarters, advance!	accepted	773e9d4a44617a7f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.41	8102137969a145ba	Ha ha!...A flanking operation in northern Brachia...	accepted	65c9f2a6f98304d3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.42	eb878645aeeecafb	But, young man,\ndon't expect what comes next to be so easy.	accepted	ede861763474fc12	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.43	daeb8bdf9bcec420	Just you wait!...Try attacking Chistam, the strongest fortress on land!	accepted	ab7c49c74b4a40bb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.44	89b893e1e65edaed	Ah!...Chistam Fortress has fallen...	accepted	e8f11cb553b1ed0d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.45	f655425bc7fc7e60	So be it! I'll wait at Brachia Castle! Come if you want my life!	accepted	9ddd95e57a38820f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.46	72fac73c895e56e9	Only old and weakened troops remain in Brachia Castle.\nIn this situation, what can Brachia's king still do?\n	accepted	afbf5d109f908090	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.47	aa27089ca749228a	For the country's future!\nAttack in one stroke!	accepted	ec141ece871289e8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.48	3d13c6d106cf7465	I'm going to Brachia Castle\nto see Rezniak's queen.\nWe'll meet there!	accepted	d39660681b09206c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.49	1ffe8d1f70608650	Bayarans Castle is occupied!	accepted	82c039072d4c6d93	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.50	da3fa55828296440	We've reached the end...	accepted	9ca0e92eea0350a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.51	d6fd32f8d5be1d30	Lifare is occupied!	accepted	418d8ee9a25195a1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.52	b758d699436e4420	Headquarters retreats to Bayarans Castle!	accepted	cb8459b3407306e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.53	2b66a5499816ba3f	Lifare recovered!	accepted	9c4777c1986a02c1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.54	ac42bcecbd8113c6	Headquarters moves to Lifare!	accepted	95c433b6b23bd775	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.55	23cc3094e6a8ef00	Reyari is occupied!	accepted	8cd65e183d9095d2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.56	b758d699436e4420	Headquarters retreats to Bayarans Castle!	accepted	cb8459b3407306e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.57	d840de624052fa70	Reyari recovered!	accepted	1c00b19c3a4388a3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.58	cfc59f730e772b9f	Headquarters moves to Reyari!	accepted	0a967ea30d2591e5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.59	a4f0481b43005ccc	Barshagan Fortress is occupied!	accepted	828c60a790225596	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.60	b758d699436e4420	Headquarters retreats to Bayarans Castle!	accepted	cb8459b3407306e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.61	48adddfe23bf1e6e	Barshagan Fortress recovered!	accepted	2ffe82111896d789	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.62	aebe818c000ac045	Headquarters moves to Barshagan Fortress!	accepted	1f58a0fda1273a13	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.63	e84644bc9c9d779b	Chistam Fortress is occupied!	accepted	d42e5e72dcd33f29	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.64	b758d699436e4420	Headquarters retreats to Bayarans Castle!	accepted	cb8459b3407306e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.65	88f8a175099c88ba	Chistam Fortress recovered!	accepted	46dcfd94de8ec190	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.66	d55d2ce9341b4af5	Headquarters moves to Chistam Fortress!	accepted	0468ab61e9dd515f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.67	931fcc0c92ad0234	Rezniak Castle is occupied!	accepted	4f9dd628acad603c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.68	b758d699436e4420	Headquarters retreats to Bayarans Castle!	accepted	cb8459b3407306e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.69	fa33e789249106ae	Rezniak Castle recovered!	accepted	fb6e00d14b9f7c7a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.70	a9ffae471702d5a5	Headquarters moves to Rezniak Castle!	accepted	e4675e1fedfeb983	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.71	5a8999f851e8772a	Laru Brachia is occupied!	accepted	b5400ad4fb8fe7dd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.72	b758d699436e4420	Headquarters retreats to Bayarans Castle!	accepted	cb8459b3407306e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.73	1c2debc383f678ef	Laru Brachia recovered!	accepted	91680d89cc491b8a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.74	6c269d2a50862f40	Headquarters moves to Laru Brachia!	accepted	bbbae20a08d431ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.75	93a3322df540ac78	Brachia Castle is occupied!	accepted	08be0b9c205400b8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.76	b758d699436e4420	Headquarters retreats to Bayarans Castle!	accepted	cb8459b3407306e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.77	099cf1e6f1cd532b	Brachia Castle recovered!	accepted	0cf539d30985e64e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#121.78	18c9f76f77afdc3a	Headquarters moves to Brachia Castle!	accepted	d7ea91e8f260dc6a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.0	d9eb74a305614b4b	...The dancer seems to be nearby...	accepted	5a9b81fce1f79e81	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.1	101d85ff25ea5814	...May I ask a favor? Escort me to Nadreya,\nThe roads are so unsafe now. Trouble could happen easily.\n	accepted	82ff81cdf4363842	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.2	c2dbf733174bb12e	Hey! Nadreya is this way.	accepted	184ee41f14a3da3b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.3	526c751ad21cc73d	10000 in advance,\nthe rest on arrival.\nWell? Will you accept?\n	accepted	656e6f6730a594dd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.4	fe0bb6edb0a0ae67	Thank you! I'm counting on you.\n	accepted	ef5869629b417e37	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.5	153af045b90436ee	...Ah! You can't take me?\nFine, I'll find someone else.\nSigh!\n	accepted	1a04a12c066aac95	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.6	c650f5ab3f8e05bc	...What a shame.\nFine, I'll find someone else.\nSigh!\n	accepted	f4ddc8bda6a8abc3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.7	6ffc6ec9beaf05f9	We've finally arrived.\n	accepted	92107d51b02c614d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.8	666bd6cac071816d	At last, we're here, miss!\n	accepted	87246997ee436f23	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.9	6315ddf134949962	Oh! We've arrived.\n	accepted	ec06553fbac7124d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.10	a67367f0fede030d	At last, we're here. I'm exhausted.\n	accepted	c278879357e0dce4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.11	0059ba41f728324d	We finally made it.\n	accepted	a2e65ae7ad40136f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.12	d8a882baae00ed00	...We arrived safely.\n	accepted	998fb18048beb2b8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.13	aa4250ff71a080e0	Thank you!\nWe part here. This journey was so enjoyable...\nSigh!\n	accepted	6e34f4dcab72c98f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.14	d79addd6c96bb526	Heh heh! Perfect timing. That's far enough. Hand over the girl and your job is done. Heh heh! 	accepted	6fef591bb3842a46	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.15	5e6b8298a97387c2	... So brave! I've decided! Take me traveling with you, all right?	accepted	abcef31116f6b2d5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.16	769610fc945dca78	He finally finished the job!\n	accepted	20513ea55200fffe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.17	5e6b8298a97387c2	... So brave! I've decided! Take me traveling with you, all right?	accepted	abcef31116f6b2d5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.18	769610fc945dca78	He finally finished the job!\n	accepted	20513ea55200fffe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.19	814188d0cafdda48	Heh heh! Sorry to make you bring her here. Heh heh!\n	accepted	368e01660a6a9507	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.20	a9b3e1e2181c91bd	Ha ha!...You finally brought her. Huh? The balance?\n	accepted	0bd594ea1d7d1147	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.21	459c61fc30f27f4e	Well...That's a problem!\nI have no money...\n	accepted	5dc8997a97367e1c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.22	b64ab2e16c7e1c7f	Hmm! In that case,\nwe'll discuss it next time...	accepted	8273b94870289d7f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.23	ba35d74cb1c20a4e	Oh no! Oh no! Oh no! My wallet is gone!\n	accepted	d8104e06f70bee08	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.24	705eb099991f6416	...Wah! Damn it!\nI didn't even know there was a balance!\n	accepted	eb32cf8dc614babf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.25	fc163be2f0bccf59	Huh? What are you saying!\nI don't know anything about it!\n	accepted	ab9bd0ee2c7039fb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.26	afb6feb3f4cf4f70	He botched the job.\n	accepted	adc077223a96b538	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.27	0855e6a0dca2cfaa	Looking for work?\n	accepted	c95820a37caa0cad	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.28	5bb7bf7b40cfe5fb	What a problem... It's so dangerous around here... And the woman bringing laundry is so scary... 	accepted	99462e587fde79c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.29	f226d066275f436b	This laundry must go quickly. There's so much!\nWhat should I do...	accepted	86579cd33060a13a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.30	a8720715c53731be	It must go to the fortified city of Midilia. Could you help me?\n	accepted	3469fa4855544836	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗；任務城名沿地圖標題；原文異體同城為強推論，見full-name-index-review
+ESPMES#122.31	01c8b1418cb73068	Laundry received!	accepted	81bbd790030a6d40	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.32	7873a5874959ff2c	Sorry!\nMen cannot enter the fortified city of Midilia.\nIt's no use asking me.\nI'm very sorry!	accepted	b5155a787704b06d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗；同一任務城名沿地圖標題；原文異體同城為強推論，索引已核對
+ESPMES#122.33	f438cb5d16ab3703	Sorry! Men are forbidden here! Leave at once!\n	accepted	a75f0ec39b34fe00	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.34	49096e3ac0d0af58	Huh! How could this happen?\n	accepted	9b4fb17a1daf76aa	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.35	ef1fcad8c99b49b0	...Couldn't you make a small exception...	accepted	ac8010e5fa6a7664	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.36	0c02af44b6f74eb6	Now all our effort was wasted.\n	accepted	6cde85131b03de67	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.37	de350ec15154e809	! Please! I'm begging you!\n	accepted	6df217216a6f705f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.38	20aca30dd85ec6b0	I have an important task. Could you let me in?\n	accepted	b59e1bbcaa3af250	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.39	6a97609031c65edd	Honestly! We came all this way,\nand then this happens!\n	accepted	36e99bf04185c6af	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.40	8181dc64285ee8a3	Sigh! Nothing we say will help!	accepted	f2b3c21e74ea0f36	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.41	0e71de61cbeda34f	Oh! I'm so sorry! These are for the laundry. Wonderful!\nThank you!\n	accepted	b1602b3b97fdafcf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.42	769610fc945dca78	He finally finished the job!\n	accepted	20513ea55200fffe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.43	2e97f9815aa0059c	Ha ha! No need for all that trouble. Just give me the laundry here!\n	accepted	36b00991552c54cd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.44	4603f36fdce404b2	What's this strange ancient document?\n	accepted	f822ccf8522e5817	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.45	bbba94634e309cad	What? What do you want?\n	accepted	ff8472191fa39053	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.46	f3d197cf472b2c28	If there's nothing special...	accepted	e53ae9ef89f1e523	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.47	5c81257da7b805ed	Please leave!	accepted	ad5f13aa7d0ef57c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.48	e7fa29e75151a282	What! Only one girl!\nHow dull!	accepted	9a149836fe0d5f21	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.49	4d485fb1f9fa2922	What nonsense!\nGet out!	accepted	b5c6bd3e883e6e7f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.50	de9e3ebe1f4e323b	We're very sorry!\nWe seem to have lost our way.	accepted	a88950b8d99106d0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.51	3cc9667c955e8a17	Hmm! Then leave quickly!	accepted	0f35c3328652ad3d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.52	2a2f4b0aba2363e4	What! How dull!\nLet's go back!	accepted	8ae55890c555cfc3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.53	02e551997472fa85	..................	accepted	3c2ba573911f5140	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.54	dc6e75ef7246a35c	I'm very sorry!\nI'm Disred...	accepted	d62d48486ebd8fc6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.55	b085db6c0f06ea1a	Never heard of you! Leave!	accepted	afb9caac7333234c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.56	8dc02b6532e288e5	Huh! A single young lady?\n	accepted	f384b41a278a7b3f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.57	f610323b4224c247	Our master has no time to see you.\nGo back!	accepted	91d400c0037aeffc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.58	e0827541a31da1dc	This doll is all you got?...Ha ha! Ha ha! Ha ha ha! What a shame! Sigh!	accepted	3c9b3c4ec13d2ceb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.59	a81ba92b5737c067	Sorry! I'm taking this doll. Here's your money back. Heh heh!...Visit again sometime! Take care! 	accepted	71248e4049036038	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.60	b3b3e7c2c1aa574b	Hmm! I believe it marks ancient treasure: a treasure map.\n	accepted	fe841664b85e6122	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.61	6b8039c0f2e417eb	Well? Give me 1000 G and I'll explain the details.	accepted	2fa9f6f75ae76cb1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.62	c15c284212744873	Thanks! Let me explain! It only mentions Motril Cave. You'll learn the rest when you go. It's up to you, everyone! 	accepted	de0b24c142bdfb97	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.63	04f789fd64323a6f	...Not enough money! Then I can't tell you anything...\n	accepted	8cf7fc51f41e9e75	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.64	d68fd77e31c7e8df	I see! Then we'll talk later!\n	accepted	d4a690623bfebc93	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.65	f9f4ff1511cef482	Well? Interested in hearing more?	accepted	48ee4c426e470cb5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.66	c15c284212744873	Thanks! Let me explain! It only mentions Motril Cave. You'll learn the rest when you go. It's up to you, everyone! 	accepted	de0b24c142bdfb97	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.67	8ab2f314d240b928	...Still not enough money.\nSigh! Come back\nwhen you've saved enough!\n	accepted	3b1a1fb0ea720446	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.68	d68fd77e31c7e8df	I see! Then we'll talk later!\n	accepted	d4a690623bfebc93	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.69	e5dc134d1f5525c7	Didn't I say you'd only understand after visiting the cave? Now go!...You might uncover an ancient secret!	accepted	8444e6180f006da5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.70	cea974537eb8fb3e	Huh? You lost! Perhaps it's a trial...Try again!\nEverything lies in victory!\n	accepted	39afb76aa45164de	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.71	01dd9a4e1c2d8dc7	Hmm? A doll?...I see! You need it! Take it!...No need to be polite.\n	accepted	cb663c86927e8ee6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.72	9db60a92a054d475	Did the doll help?	accepted	ffd91c26da80f145	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.73	ad889ede3c95d488	The doll? I'm studying it. If you really need it, take it for now! Return it as soon as you're done.	accepted	cbe06840bd5e2fca	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.74	2c2dc561305fb6f7	Aah!! Help!!!	accepted	ccc69d1d619d27f8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.75	1f373ac58b7e5d7b	Congratulations, brave heroes! You've passed this trial.\n	accepted	15d6be613cfef3d5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.76	9742cbd80be58967	...The treasure?\n	accepted	736564379ebf5215	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.77	08dd592daad142f7	Next! Where's the treasure...?\n	accepted	8413359141f850fd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.78	18c2272215dbebc9	We can find the treasure, right!\n	accepted	89201672f7f86e13	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.79	9aa817854d636314	Whoa! Where is it? Where is it?	accepted	ea7dddb1740f97ca	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.80	f0c2f594b6b12f5f	Where's the treasure?\n	accepted	89cd31bedc4ded68	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.81	7046d9bb92b403ae	Where has the treasure gone?\n	accepted	8c955da923eb9871	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.82	3e98ae1aa7d5bae7	The treasure is your righteous heart! Farewell...	accepted	e71751e242ca16d2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.83	f0a86d7088f5a83b	...All that effort for nothing...\n	accepted	e2cb23b1825db0cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.84	3dcd50d49129ea0e	Obtained the wooden doll.	accepted	c7fb69a677bc840b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.85	c10e6ffe29764c99	...The opponent vanished!\n	accepted	fe802e6787f82a9f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.86	df1d645d7feb8571	Only the strong can do this...You're remarkable!...Take it!\nI hope it helps you.\n	accepted	a2f42507851c4e50	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.87	df1d645d7feb8571	Only the strong can do this...You're remarkable!...Take it!\nI hope it helps you.\n	accepted	a2f42507851c4e50	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.88	b5c51993cd483d5c	Fourth item obtained!	accepted	5543b7196c9cd3a7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.89	af297c0c52795b3c	...The Tower of Invincibility stands here...\n	accepted	7118f0e55a4a5ab6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.90	970e8102357601eb	...Only the finest experts are here... Take this certificate and come back when you can...! 	accepted	0bb850f8812098b0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.91	af297c0c52795b3c	...The Tower of Invincibility stands here...\n	accepted	7118f0e55a4a5ab6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.92	970e8102357601eb	...Only the finest experts are here... Take this certificate and come back when you can...! 	accepted	0bb850f8812098b0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.93	dfbe8c26a0d0549a	A drunk came running...	accepted	62d935fed40234f5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.94	7e5e095f95bfbcbe	Do you know the way to Amirant Fortress?\n	accepted	df0690eb83a0142d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.95	80c03222b9a07db8	What difference does it make if we do?\n	accepted	93e68c7a7a44617a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.96	6a7148baec8d88be	Hey! Wait! Got money? Pay 1000 G and I'll guide you!	accepted	4cb138f795cf5ba4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.97	f53c13fd8bb82dac	Come on! I'll take you!	accepted	902ca11c7926cbd1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.98	e6bd01a237b1e672	You seem short of money!	accepted	4f4cdf6d13e20cc9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.99	e6f6dff77840657a	I see! Forget it, then!	accepted	1e3e2b24835ac444	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.100	a4311b92bd77cda9	That drunk.	accepted	10b5836ae03ede72	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.101	346b0a9d0472cdac	Want to go to Tanan? The fee is 1000 G.	accepted	ec56e27704dae1ce	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.102	f53c13fd8bb82dac	Come on! I'll take you!	accepted	902ca11c7926cbd1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.103	e6bd01a237b1e672	You seem short of money!	accepted	4f4cdf6d13e20cc9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.104	e6f6dff77840657a	I see! Forget it, then!	accepted	1e3e2b24835ac444	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.105	a5a40fb5f3a86f47	Ah! You're here! Sorry! I run Faran Castle's Shooting Tournament Committee. You won last time... right?	accepted	2c2d2aad43517998	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.106	bd8948d98c86c75f	Here's the thing. Could you please return the winner's trophy?\n	accepted	6d51a3574e6ea11c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.107	d21fd03dc1d2a2d0	Return the winner's trophy?	accepted	591f38a59f5af81f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.108	483597fbc1afb5d9	Thanks! I hope you'll enter this tournament too! Well then! See you!\n	accepted	89bd501cf1635436	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.109	1bc51a0760d97b8d	Gambling? Hmm! Yes, I play!\nGambling recognizes no family ties.\nIt's a road of no return!	accepted	c98e60de079ffa3a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.110	f26f46471ce2c2d7	Hmm...If you want money... Heard of the shooting tournament? Heh heh! Want to hear about it? 	accepted	9201b5f8453a4307	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.111	a2c4b0d9e12ffb9d	Hmm! I see...	accepted	d6494cd0d258697e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.112	861a9168dd97a565	I see...	accepted	1168336fb2a0dd18	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.113	85442b4813e62948	So that's it...	accepted	1f301df0e9913bed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.114	9c2881cc8d3c7d32	Oh!...	accepted	982d0fbc2b6e1ec1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.115	62c5ca9b11d984a1	So that's how it is...	accepted	7043b1873e355bec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.116	2daf6eff438a9c24	So...	accepted	285d51177cb2618f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.117	d211d419b6c9acf9	All right! Let's hear it!	accepted	7a755f990ace5f93	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.118	9f622730b3088803	Let me hear it!	accepted	382834730b8d7367	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.119	65efa2bb1deabe57	Please tell me!	accepted	5b6e3add0cb1636a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.120	a8e6e219fcc21df4	Let's hear it!	accepted	19880cfd37f58810	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.121	5987b5a72395626c	Can you tell me?	accepted	cc5c3c2ed0984855	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.122	bd92d224cc0b3d40	We'll know if we listen!	accepted	d482f9dc2af14b17	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.123	282a9afd114ed9a4	No need!	accepted	0bdb3de67fcdaad8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.124	7168987da3a0a22b	Better forget it!	accepted	bf507a0769a643bd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.125	7c7eac0174fdeacd	No need after all!	accepted	8b4718b6720d614c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.126	5b26af904dab3bc6	Hmm! No need!	accepted	d4a4c46e59b993df	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.127	bddd958fe4225209	No need! Thanks!	accepted	70a0eaa124bbcf07	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.128	91d5ea35f5556a6b	Not interested!	accepted	dc13e6e893f1c687	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.129	83fbb7d8306d92e8	It's a shooting tournament held every six months, hosted by the lord himself. Experts from across the continent come to compete. 	accepted	6a6f6271a2522b9f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.130	3a68f4216d6f33f1	You can bet on which contestant will win.\nThat's how you make big money! Try your luck! Heh heh!	accepted	c950e210148a545c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.131	f7cb75e4b08ed802	Want to place a bet?	accepted	2df4199058194605	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.132	20a34959705fec25	I'll teach you to calculate the odds.	accepted	3f12ffd2656d9ece	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.133	66237bcaedbc7a01	Eight units enter in total.\n	accepted	5db10733fcfc92b2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.134	33e3811ce26b2dc1	There seem to be only seven units now.	accepted	3243073a38ab4bdc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.135	66237bcaedbc7a01	Eight units enter in total.\n	accepted	5db10733fcfc92b2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.136	a31a82422fde781c	%s pays %ld%ld times your stake. Want to bet on this one?	accepted	1f0879d3efc441b2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.137	16cf269509ad521f	Hmm! Who's next?	accepted	06aef8d66bb792ca	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.138	48412a3ab11c39ea	1000 G would pay %ld G!	accepted	bbf924e210495301	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.139	9a056e7228c63cfd	Insufficient funds	accepted	be5e10ea55805212	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.140	b685085ad1b962c2	2000 G would pay %ld G!	accepted	13fc216a374db8e8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.141	9a056e7228c63cfd	Insufficient funds	accepted	be5e10ea55805212	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.142	7787160099d396c0	5000 G would pay %ld G!	accepted	764df6497fa30ab3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.143	9a056e7228c63cfd	Insufficient funds	accepted	be5e10ea55805212	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.144	4f599ed5924a805f	10000 G would pay %ld G!	accepted	e085f9c544236c49	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.145	9a056e7228c63cfd	Insufficient funds	accepted	be5e10ea55805212	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.146	881ec4506c2937e4	You're not betting?	accepted	166a0a0909b9fd17	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.147	78d82829f77e282e	Huh? Leaving?	accepted	9584d3e19e140bb9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.148	31f5b3076b157182	Really not betting?	accepted	40fced5029d5e070	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.149	726626e5e40324db	All right! The tournament's over! Want to hear the result?	accepted	def4d1ff4867d1ce	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.150	b6a39a6d2bbf9489	Ah! Winnings are held only until month's end! No payment after that!	accepted	3ef786d1dda0ed3e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.151	5116aad171cf6774	Come back if you change your mind!	accepted	3ceafa4aba62bd69	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.152	c4ea73e74027c867	What! Going back!	accepted	eb9cd5c746887b3b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.153	7a87a5e6070de1bc	...At odds of %d%d,\nthe total is %d0.	accepted	137e16502c250730	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.154	f9ecf696513b4f6c	I never thought you'd guess right!\nYou've won %ld G.	accepted	523fcd80ee642317	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.155	c36be146c95bfaec	Received %ld G!	accepted	b6c5fc811873aa64	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.156	56fd3d523b27e932	What a shame! You guessed wrong!	accepted	4d5c12fd80a28b1b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.157	a382a228fd520035	The tournament is twice a year.\nCome back in March and September!	accepted	566787e3be99dfb0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.158	ece10403c95c54d3	Want to enter the tournament?	accepted	eab34ab1cebf4f64	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.159	036eba8416408b5b	Please wait here for six days.	accepted	45138c6c6921787f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.160	b1b56f15793fddad	I see! Then I'm going back!	accepted	a7feda047dd3d6fb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.161	690e06b1864cd1c0	Sorry! Registration has closed.\nPlease come next time!	accepted	7078e5db90890dc2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.162	690e06b1864cd1c0	Sorry! Registration has closed.\nPlease come next time!	accepted	7078e5db90890dc2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.163	690e06b1864cd1c0	Sorry! Registration has closed.\nPlease come next time!	accepted	7078e5db90890dc2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.164	acc4c0824c47be10	Registration is March 1-6 and September 1-6. Practice your skills until then!	accepted	d9094ab86427ea78	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.165	338324b70049e36c	Faran Castle Shooting Tournament, Round %d:\n%s versus\n%s! Fight!	accepted	795ce9ca14c163ea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.166	d255a7c4d193673f	Match result!\n%s wins!	accepted	35356be47b04014e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.167	338324b70049e36c	Faran Castle Shooting Tournament, Round %d:\n%s versus\n%s! Fight!	accepted	795ce9ca14c163ea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.168	fc4c80cedd3ffe4d	Round %d result!\n%s wins!	accepted	af54a1ae8f16ef6a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.169	338324b70049e36c	Faran Castle Shooting Tournament, Round %d:\n%s versus\n%s! Fight!	accepted	795ce9ca14c163ea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.170	fc4c80cedd3ffe4d	Round %d result!\n%s wins!	accepted	af54a1ae8f16ef6a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.171	a9e94e89aed23556	The shooting tournament hosted by Faran Castle's lord begins!	accepted	4709ab65fd828e5f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.172	d5cf6a303921c8c4	Next! Round one begins!	accepted	113b00aa56205aeb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.173	9dd373d485fc8973	The winners of round one are...	accepted	ffa73418a887d43a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.174	9ac4f9b6ef2802a0	%s!\n%s!\n%s!\n%s!\n	accepted	75ed46bc11c348e5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.175	381ebdcc9efbf299	That's all!	accepted	f1122711609f550f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.176	9d9be7df5dc5d365	Next, round two begins!	accepted	2254711cc49fa50e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.177	ff329d6f47e2aef7	The winners of round two are...	accepted	9a8a04dd269aa3b1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.178	bad7c88c08000208	%s!\n%s!	accepted	9a9682ecaa0f10f5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.179	381ebdcc9efbf299	That's all!	accepted	f1122711609f550f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.180	9ac2aa90b95fd421	Now, let the final match begin!	accepted	ba90de3f20344965	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.181	e5140431f0a34151	All rounds are finished!	accepted	d03fb8564271e27e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.182	7a9f10761deb2341	The winner of this tournament is...\n	accepted	05d2b43885479bec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.183	3db4db259a85c260	%s!\nCongratulations!!\n	accepted	d590a5c876065917	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.184	6f380cb9eb282edd	You are the continent's finest shooting experts. To honor you, we award you the winner's trophy!	accepted	36c6ffce221230c7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.185	7f9954a2544990f9	Receive the winner's trophy!	accepted	f6ace842d79c990c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.186	9154f95b4080a20e	Hey! Hey! What nonsense! What great stuff do they sell! All lies! Utter rubbish! Don't go to that tank shop?...Whoa!	accepted	2b73d56d9e5a27be	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.187	c3fbdbb4a5086f2d	Whoa! Whoa! Whoa! Whoa! What's that!...Tank shop?...Specialist shop?...	accepted	f33d5fb4a02073c0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.188	be04543a50186d05	Whoa! This drunk! What's wrong with the tank shop...? Tank shop?...Something great?...	accepted	5f46328056bf825e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.189	5801476311ae39ba	What a headache...Tank shop? What good stuff might they have?...Let's look! Maybe there's something good! 	accepted	c6ebb9c6c5efc2e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.190	c3fbdbb4a5086f2d	Whoa! Whoa! Whoa! Whoa! What's that!...Tank shop?...Specialist shop?...	accepted	f33d5fb4a02073c0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.191	aa8ec478b33f5468	Good heavens! What! This drunk! What happened at the tank shop? Does it concern me...Tank shop?	accepted	0dac861d27dd3224	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.192	dbf5061f0a3422d4	Tank shop? Never heard of it! Anything...fun!\n	accepted	09754afc7f590924	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.193	f8191dcbeed745ee	Hello! This is a specialist tank shop. I'm De. We've good things for sale! And very fair prices!	accepted	0be38eba2a8ca04a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.194	4951128a650a56e4	Hello! Welcome! Good stuff! Very good stuff!	accepted	d3fa4d05146b341e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.195	a3f9c645fc671e8b	Huh! Not buying! You'll regret it!	accepted	90af11887f4476eb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.196	36af1bf3e06cbb20	Hmm! The curse is finally lifted. I'll buy this tank.	accepted	241b719761820c9b	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.197	5529a810c6d37eec	Thanks! Thanks for coming! Visit again sometime!	accepted	34594722242077a0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.198	5529a810c6d37eec	Thanks! Thanks for coming! Visit again sometime!	accepted	34594722242077a0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.199	2246547b3fbed084	Cursed?! No problem! Ask at the tavern!	accepted	0bea00ae2268b914	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.200	56a5b65b3b87d607	Cursed? With a robot, all will be fine! It's free. Not a penny!	accepted	fb67538ccf303a09	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.201	debac5ce82257c1c	Out of stock now.\nCome back next time!	accepted	e968be1c7e01624b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.202	98738309af1746f6	Hey! Hey! What nonsense! What great stuff! All lies! Utter rubbish! Don't go to that scientist?...Whoa!	accepted	c9ca8cbe0249ff32	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.203	712ed36211911e98	Know about the scientist? That twisted scientist makes strange robots that move...So scary!	accepted	8c4870f3c21e9379	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.204	63a5505d9de16953	He's right here in town!\nMaybe he can help somehow?\n	accepted	eee515706b8746bd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.205	c952d769279e175c	Whoa! Whoa! Again!... Scientist?... Technician...	accepted	c81af31985e3e849	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.206	069e4e55ae84f8a4	Whoa! Another drunk! What's this about a scientist...? Scientist?...Robot?...Huh...	accepted	e1a91f73071431d7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.207	518a404c1c205506	What a headache...Scientist? What good stuff might he have?...Let's look! Maybe there's something good! 	accepted	811c7a56c8cf4568	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.208	c952d769279e175c	Whoa! Whoa! Again!... Scientist?... Technician...	accepted	c81af31985e3e849	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.209	94591873716bf658	Good heavens! What! This drunk! What happened to the scientist? Does it concern me...Scientist?	accepted	6be17e06375bc558	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.210	35f7912ad6ba1eba	Scientist? Maybe there's something good...Interesting!\n	accepted	4d213ea89c26aaa1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.211	e0d84ab4eacaa024	Is Endrant here!\nIs nobody here?!	accepted	f724a83ecd4233fb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.212	f93f5b6308f024d1	Ah! Hello! I hear you bought a cheap tank and then got into trouble, right? Sorry! I speak without thinking! Ha ha!	accepted	5be3780188b34fa7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.213	6b2f83e775878967	I know everything, even whether Lu Domini wets the bed every night! Enough of that! What's wrong with the tank?	accepted	dc672ef58ab68f15	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗；修回連是否每夜尿床都知道的邏輯，避免even if改成讓步條件；保持全知及知道是否尿床的語意，以短句通過既有四行預算
+ESPMES#122.214	729ad653524cecda	...Huh? Bed-wetting...	accepted	14c06845a903271e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.215	7300aad1a3676e32	Huh? What?	accepted	86dda2bcd0fe03f2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.216	438bb1e922289c40	Ha ha! That's hilarious...	accepted	04b68824392111fb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.217	d11bbf4e93f4ce7d	Damn you! Stop talking nonsense!	accepted	48a77ee3776b94b0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.218	e382af1bc046880d	Huh! Heh heh! Heh heh! Heh heh heh heh!	accepted	d5ecf0010e910a66	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.219	6f1f3527b4fc5b60	...Hmm! So...	accepted	24f571ceee64e2dd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.220	57f7f763b95790aa	Enough nonsense! Just give me the tank! But it'll cost plenty! Heh heh! Just kidding! Ha ha ha!	accepted	e79206e9a1889ce0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.221	30f3a506363e0db5	Would you like me to explain why?	accepted	fb56d33417ddec55	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.222	be05c70462020321	Right! Let's see why your tank acts up! It's among the prior civilization's greatest devices.	accepted	526b2a7f46821efc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.223	8d28d3a7b186a39d	Amazing! Magnificent! Even I don't know why it causes magnetic anomalies! That's why it happened!	accepted	56b17169513d9197	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.224	8aa237465c0e15ad	Don't worry! I invented this automatic dancer, "K. Ichwin"! With her, it won't happen again! Magnificent!	accepted	dbb81716a7e2e304	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.225	0f3b477ed79fae1c	This beautiful dancer is my dearest creation! Don't get any ideas about her! And the fee! Hmm! Forget it!	accepted	38e9af48e3831c2f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.226	56caa5a1825a3c68	...Moonlight before my bed...I thought it frost upon the ground...	accepted	2cc60d947b081bf6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.227	603537d85aeab20e	Still looking for Endrant?	accepted	8e633a000f6578ed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.228	c85c27ef0a2c7a98	Ha ha! Didn't I say a scholar knows the world from home? What's happened now? Hear my full explanation!	accepted	c03d63109ec6ea11	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.229	be05c70462020321	Right! Let's see why your tank acts up! It's among the prior civilization's greatest devices.	accepted	526b2a7f46821efc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.230	8d28d3a7b186a39d	Amazing! Magnificent! Even I don't know why it causes magnetic anomalies! That's why it happened!	accepted	56b17169513d9197	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.231	8aa237465c0e15ad	Don't worry! I invented this automatic dancer, "K. Ichwin"! With her, it won't happen again! Magnificent!	accepted	dbb81716a7e2e304	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.232	0f3b477ed79fae1c	This beautiful dancer is my dearest creation! Don't get any ideas about her! And the fee! Hmm! Forget it!	accepted	38e9af48e3831c2f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.233	f985cbacea52bfa2	...What exactly did we come here for...	accepted	479eb9cf1260b07a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.234	5208710371a2c555	Oh dear?\nThe tank's door is shut...	accepted	a228ef4acdf5704e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.235	6af22ae33595989e	Huh?\nWho's holding the door outside? We can't get out!	accepted	e882469b350383a9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.236	19c79a6f9765def4	Strange! Why can't we get out? There's no choice but to keep going!	accepted	c929467df49df54d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.237	9c78475ee597f489	Oh dear! This tank is broken!\nWhy is it racing everywhere!	accepted	d08e10f2532aab5c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.238	7f441260ad41003c	Strange!\nThis tank doesn't seem to move!	accepted	11c9a604c6bbba26	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.239	a850739b0adacf28	Huh?\nSomething must be odd about this tank?\n	accepted	d709cb88293a1b72	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.240	30599443ebac3659	Oh! It really is cursed... Good thing we have the automatic dancer...	accepted	436436bbab6156d6	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.241	30599443ebac3659	Oh! It really is cursed... Good thing we have the automatic dancer...	accepted	436436bbab6156d6	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.242	59a67004f418ee3e	Who knows what the curse will do... Could it affect the automatic dancer...	accepted	2efead2af230414d	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.243	c79b534a820ad232	? What happened to that curse? The automatic dancer seems to have sealed it.	accepted	1a04af907040b33a	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.244	727d4bc80998c461	Ha ha! The curse seems sealed! It's all thanks to the automatic dancer.	accepted	05c6eb9921007e18	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.245	80f1321147ea9129	The curse is sealed... Now we can continue our journey...	accepted	65c12285b706e484	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.246	fba2cd6abd87877e	This tank is cursed! Whoa!...Our stamina keeps dropping... Let's go back to town and investigate!	accepted	6d53075df3838771	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.247	85c50c5d6f0a8d02	Why does it hurt...\n...This tank is strange!\nLet's go back to town and investigate!	accepted	7c4f5ef6d9811cec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.248	80e55c231549edc0	Whoa!...Our stamina keeps dropping... This tank is the cause! We must get back to town quickly!	accepted	efdb2bf5a7d5d69d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.249	c497f08320ebddb6	Ouch!\nOur stamina is dropping! This damned tank!	accepted	b67647d6537031d9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.250	85e44319252d68c2	...This cursed tank! Our stamina seems to be slowly dropping. We must hurry back to town...	accepted	057ae786d51b55ae	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.251	a177672621c6756a	This! This is! Our stamina!...This tank is cursed! If we don't hurry back to town...	accepted	25136ee1495307de	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+ESPMES#122.252	79bffbbdb53e0927	Let me explain. I'll get straight to the point: my master wants a spouse, but his requirements are very high.	accepted	dcd64b09db2b5796	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.253	5008c4025795d56c	He's failed %4d times so far. He wants a suitable partner, for a better future for himself and his children.	accepted	7d0cae920e258d64	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.254	5008c4025795d56c	He's failed %4d times so far. He wants a suitable partner, for a better future for himself and his children.	accepted	7d0cae920e258d64	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.255	0e5c2ad767267a3d	The lady with you is very suitable for our master. If you agree, I'll give my entire fortune as payment. 	accepted	7840c6d2522ddd90	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.256	35cf16bdadcdc4b8	Go see the lord of Ashuwart Castle.	accepted	e072ac8dc1ccb47c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.257	35cf16bdadcdc4b8	Go see the lord of Ashuwart Castle.	accepted	e072ac8dc1ccb47c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.258	35cf16bdadcdc4b8	Go see the lord of Ashuwart Castle.	accepted	e072ac8dc1ccb47c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.259	35cf16bdadcdc4b8	Go see the lord of Ashuwart Castle.	accepted	e072ac8dc1ccb47c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.260	35cf16bdadcdc4b8	Go see the lord of Ashuwart Castle.	accepted	e072ac8dc1ccb47c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.261	35cf16bdadcdc4b8	Go see the lord of Ashuwart Castle.	accepted	e072ac8dc1ccb47c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.262	41d305011a786701	Shall we go help!	accepted	0d8371ead1a18eea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.263	41d305011a786701	Shall we go help!	accepted	0d8371ead1a18eea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.264	be2a683cb36ecd52	Let's see what has happened?	accepted	ddb4f6dabe9f9d15	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.265	b75a403ea5292467	It's Disred!\nWe're here to help you!	accepted	a5af9c505d2165b3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.266	5a0c896ba35064d8	Let's bring Domini back!	accepted	86a7fab07283adc3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.267	220c04b4d346b2ba	Hmm.\nGo protest to the lord.	accepted	de8b384577cc5106	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.268	5b971aecc5099dca	Suddenly I feel it won't work.\nReally!	accepted	71949e9db7c32e4f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.269	a10a54d795d871ab	So late to rescue me!\nThis was such an unpleasant experience...	accepted	0a5517c50158afb9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.270	bf77395497f42ad0	I'm terribly sorry...Please forgive me. I don't know how\nthings turned out like this.	accepted	008b7317f7a2c8f3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.271	c89cf1f9ddf43e8c	Hmm! You're the captain? Hmm! Good! Good! This lady suits me perfectly! I've decided! She's the one!	accepted	0fa879c9ce1803f9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.272	782e0c0aa9b6889b	What! This arrogant fool! A toad dreaming of swan meat! Who does he think he is! Don't make me laugh! Idiot!	accepted	f537aee20199a26b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.273	ef72d1220d7750b5	Please don't be like this! Help our country's people. I'll remember your kindness all my life! 	accepted	ebc987e2a441f963	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.274	ae29039b11981799	Heh heh! At last you're mine! I'm so happy! Right! When shall we marry...Tomorrow! The next day! Which is better?!	accepted	f4146be9d249cda4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.275	2a8b324e26f65d51	Huh! This fellow still won't give up!\nHa ha! Hilarious! Idiot!	accepted	63689f6ada2a3ab4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.276	0407ddaa1589ae81	...So dangerous...That was close...At least we're no ordinary people...	accepted	a91f6b07f528158e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.277	ef72d1220d7750b5	Please don't be like this! Help our country's people. I'll remember your kindness all my life! 	accepted	ebc987e2a441f963	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.278	92eab3de7ec84069	Whoa! Whoa! Mono! Jessie! Someone save me! That conceited fool can't get his way! Damn it!	accepted	d1392bb5dab234dd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.279	c89cf1f9ddf43e8c	Hmm! You're the captain? Hmm! Good! Good! This lady suits me perfectly! I've decided! She's the one!	accepted	0fa879c9ce1803f9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.280	9baa261024984f47	...What! This perverted cross-dresser! I've got goosebumps! He mustn't touch me! So disgusting!!	accepted	f68c9ca347354240	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.281	ef72d1220d7750b5	Please don't be like this! Help our country's people. I'll remember your kindness all my life! 	accepted	ebc987e2a441f963	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.282	ae29039b11981799	Heh heh! At last you're mine! I'm so happy! Right! When shall we marry...Tomorrow! The next day! Which is better?!	accepted	f4146be9d249cda4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.283	9baa261024984f47	...What! This perverted cross-dresser! I've got goosebumps! He mustn't touch me! So disgusting!!	accepted	f68c9ca347354240	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.284	ef72d1220d7750b5	Please don't be like this! Help our country's people. I'll remember your kindness all my life! 	accepted	ebc987e2a441f963	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.285	fafb13f325296970	I'm furious! Pervert!	accepted	7a76c54510fa62c0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.286	bf77395497f42ad0	I'm terribly sorry...Please forgive me. I don't know how\nthings turned out like this.	accepted	008b7317f7a2c8f3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.287	1f40a222a3be196d	Oh no! I can't get out! Let me out! Damn you!!...Sob, someone save me! 	accepted	8add908114a34dd2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.288	9983a63d3d1ea902	I'm getting old. Once married, I must have a child quickly to inherit my land.	accepted	a425d9178fdeb066	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.289	826880d998d81370	I hope to find a good partner, and soon.\nCan I count on you!\n	accepted	02a82692f3c03b96	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.290	cbd865fede50461b	Thanks! I'm counting on you!	accepted	096631307409d6f7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.291	235a352bbb164321	Sigh! No sympathy at all. I'll have to find someone else.\n	accepted	55f0a185aa808989	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.292	3920bc2ed8bdba96	Sigh! Not quite! She must suit my noble status. Sorry! Please try again!\n	accepted	e4264a618b23b293	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.293	ac294d655a2528d3	Why is it still like this? I don't have much time. Can't you help me?\n	accepted	f9324ff9425c026e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.294	17b41a11b8327490	Cough! Cough! Young fellow! Help me, and if it works, you can collect a reward from the lord! Want to try?	accepted	59ae660e679ab75e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.295	92bad5cd27030e19	Thanks for always looking after us! Everyone here lives safely and happily. Ha ha!	accepted	80e1bbe6fd98226e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.296	d39f14260805448e	It's!...Warm again...! Wonderful! Truly wonderful!	accepted	4a3c4fb0fea1de49	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.297	a2049d007b69eb13	What's wrong? What happened! Is another cold wave coming...	accepted	04178104f5c0f0b9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.298	f1c03348dc6c04f5	Sigh! What a problem! Everyone is troubled\nby this cold wave! What a headache...What can we do...?	accepted	f15689b36faf4edb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.299	e5900a4f506812e0	We were nearly frozen unconscious too. The castle guards saved us from freezing.\nWhat's going on?	accepted	ad6b6d5279b92a0b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.300	3716944663a18ad1	A device invented by one of our inventors has somehow broken down!\nCan you help us?	accepted	5757ca6ee548f849	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.301	04f699a726cd98e9	We're counting on you. I can't bear this cold!	accepted	db27ea46dd2bb32d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.302	aa8253399c8bea98	He should be in the cave!\nPlease hurry as much as you can! So cold!\n	accepted	8d873dac3b1da4c1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.303	2ff60f1a8e213ef5	Cough! Cough! What a disappointment! Such a shame! Sorry! I think I have a cold! I'll excuse myself! 	accepted	52bd8d15f786288d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.304	d52ff5fd525abe1d	Cough! Cough! Excuse me? Cough! Cough! Sorry! I! Cough! Cough!	accepted	0cf9a03cd64b0a40	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.305	18c6f35911e20432	Cough! Cough! A favor! Go to the neighboring country and find Rachia. He's an old friend of mine.	accepted	40096251a5ce0b33	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.306	853b9a0e9d0cac15	This cold wave is caused by my broken machine. Its parts must be replaced. My old friend should have them.	accepted	c60f596e7e8600a0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.307	551d256ea797592f	I'm old and ill,\nso I really can't do anything.\nThis task falls to you.	accepted	f5f539bfa3a11f3c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.308	08177271be4ea7da	We're counting on you. I can't bear this cold! Cough! Cough!	accepted	fa4f14ddcc4099fc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.309	2ff60f1a8e213ef5	Cough! Cough! What a disappointment! Such a shame! Sorry! I think I have a cold! I'll excuse myself! 	accepted	52bd8d15f786288d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.310	071c2a7c42729f3a	Thank you! Now I can repair it! We can rest easy! Cough!	accepted	9a3bc84779760aa1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.311	678d5ae3d9d6ca3f	No more problems! It's repaired!	accepted	b6b74b1c12bc4312	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.312	476f72a79e5b1e18	Please hurry! At this rate, I might freeze to death!	accepted	8dd50628faed6d96	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.313	74a78869a2b419de	Whoa! You're finally here! No problem! The old fellow already told me. Here's the part. Take it!	accepted	77e5606a152f5caf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.314	1a704cf2971c3be8	Repair part obtained!	accepted	ae74228be21ed575	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.315	0b09f8419c1399a6	What's wrong? Take it quickly! They're nearly freezing to death!	accepted	09aaa9184055f92a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.316	b3fa47e66fbc1a67	At last the device is repaired. Now they can rest easy!...Rest easy! ...Peace at last! 	accepted	46cb5aae857d803c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.317	9775d7f51ba193e1	No more worries from now on! Wonderful! Heh heh!\n	accepted	26c5012bbdd4d032	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.318	17b41a11b8327490	Cough! Cough! Young fellow! Help me, and if it works, you can collect a reward from the lord! Want to try?	accepted	59ae660e679ab75e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.319	92bad5cd27030e19	Thanks for always looking after us! Everyone here lives safely and happily. Ha ha!	accepted	80e1bbe6fd98226e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.320	43e7ffed43b93fcb	It's!...The temperature is normal again...! Wonderful! Truly wonderful!	accepted	7ca3d9a0ebd74971	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.321	2f062205c11f1189	What's wrong? What happened! Is another heat wave coming...	accepted	66f56959851e1005	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.322	cd03165c52d066d7	Sigh! What a problem! Everyone is troubled\nby this heat wave! What a headache...What can we do...?	accepted	6d5b099cbcffefbb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.323	ec44c861cb93b6f1	We were nearly unconscious from the heat too. The castle guards saved us from it.\nWhat's going on?	accepted	0a0c92c4b882711b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.324	3716944663a18ad1	A device invented by one of our inventors has somehow broken down!\nCan you help us?	accepted	5757ca6ee548f849	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.325	a51117182efafe26	We're counting on you. I can't bear this weather! I'm fainting from the heat!\n	accepted	f143b0c7e763ed4e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.326	de61a691c0f47cb7	Sigh!...What a shame! I never thought it would turn out this way!\n	accepted	600d2be75a5fc866	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.327	fa5cdf0956480f81	Cough! Cough! Excuse me? Cough! Cough! Sorry! I! Cough! Cough! My old ailment!	accepted	51e52ee96ee15800	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.328	18c6f35911e20432	Cough! Cough! A favor! Go to the neighboring country and find Rachia. He's an old friend of mine.	accepted	40096251a5ce0b33	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.329	14273b262c87e02a	This heat wave! It's caused by my broken machine. Its parts must be replaced. My old friend should have them.	accepted	bd3adf9229a583ae	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.330	551d256ea797592f	I'm old and ill,\nso I really can't do anything.\nThis task falls to you.	accepted	f5f539bfa3a11f3c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.331	a51117182efafe26	We're counting on you. I can't bear this weather! I'm fainting from the heat!\n	accepted	f143b0c7e763ed4e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.332	c7fb1bdcc2826152	Cough! Cough! What a letdown! Such a shame! Sorry! I may faint from the heat! Excuse me!	accepted	4213ad636a7be797	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.333	7a294db6314995e9	Thanks! Now I can repair it. No more worries!	accepted	8cd1e5ef251d4add	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.334	d5a6a6bd7443052a	No more problems!	accepted	e0640cbde538e09e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.335	33bec29283172746	What's wrong? Hurry and go! They're nearly dying from the heat!	accepted	530c0d9fe353465f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.336	74a78869a2b419de	Whoa! You're finally here! No problem! The old fellow already told me. Here's the part. Take it!	accepted	77e5606a152f5caf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.337	a67f7abcf82303fb	What's wrong? Take it quickly! They're nearly dying from the heat!	accepted	22a9276a3aca468d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.338	b3fa47e66fbc1a67	At last the device is repaired. Now they can rest easy!...Rest easy! ...Peace at last! 	accepted	46cb5aae857d803c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.339	9775d7f51ba193e1	No more worries from now on! Wonderful! Heh heh!\n	accepted	26c5012bbdd4d032	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.340	987f9e42186667ef	Did you know?\nThis box...\nThey say it won't open...	accepted	e10088b4e52eaad4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.341	0f805b12e5c52bbc	Hi! Heard of this box? They call it the Mystery Box! It seems to be connected to a treasure...	accepted	d4dee375963aa501	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.342	665f0ac6870aafcd	Hi, stranger!\nHere's a rumor!...They say a spirit in that box can grant you three wishes!	accepted	195b240edf6fd2f2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.343	da09d1cbe5091037	If you discover its secret, let us know!	accepted	e738a8d8f4d6a1be	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.344	772602107d2f02e7	Hey! Heard about the treasure chest? They say a peerless beauty lives inside! Shh! Keep it down!	accepted	2094c68f573bb7d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.345	f3ed20421e933266	Hi! I think I've heard of you! They say Lurein's king is looking for something strange? Weapons or something...	accepted	31e3e162b5d18a7f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.346	e52e95fb616e7906	I hear Lurein's king seeks treasures...Antiques, perhaps. And the reward seems quite large... 	accepted	9cd9feb3208436ac	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.347	e29806348282e4dd	...I hear a lord seeks a treasure chest. They say it contains a treasure map connected to ancient relics? 	accepted	942c04ae0e7eba59	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.348	9670999199deeead	...I hear a northern lord is looking for something? The reward seems quite large!\n	accepted	8f81f5e790302aae	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.349	fc1331f273e92859	The world is full of wonders, like Old Century legacies. They say a scholar can solve the Mystery Box's riddle! 	accepted	afe46ea0991727fc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.350	cfe8cd200322cfb3	A box that won't open?\n...I know someone who can open any box. A scholar, I think.	accepted	1fcc4bf1a1cb61f7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.351	4a5490de04d68334	...Here's a secret! A scholar says there's a key inside the chest. Hurry and find it!!!\n	accepted	6134bb30bd813498	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.352	036c15c139704072	... Lurein has much talent, many scholars and scientists. One is good at making robots. Female ones, I hear!	accepted	36236369da5f3377	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.353	7568c2f5300c7616	...What's inside that cave...? I once saw what looked like a door, but had no key. Maybe inside... 	accepted	60581e5ad24d38fd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.354	9e11359c073f9704	...I've seen that door too! Without a key, you'll never open it. There must be lots of treasure inside!	accepted	2da470320a121aed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.355	594a90dc1e17d2c4	In the cave?... Monsters... Spirits... What? No living allowed... Enter and you'll never leave...	accepted	4f5cc4128d1b9d98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.356	a65366f99e32a94c	...Women abducted by bandits are in that cave. Hurry and rescue them!! Perhaps...	accepted	ed5853d25273334d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.357	66e72ff83524c7cc	Oh no! All this detergent must go quickly.\nIt must go to...Rikaro Ni! Well?\n	accepted	fd02350cb2455132	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.358	f730946a38166cda	Thanks! I'm counting on you!	accepted	096631307409d6f7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.359	70f81510d1db427f	Detergent received!	accepted	3222afbd0c535aeb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.360	74ff78694cc49e8a	What a headache! No choice! I'll find someone else!\n	accepted	bc05d6d88ba8302f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.361	e01fcb9d681c8939	...What? The doors are shut! Wasn't this urgent?... What do we do with this detergent...? 	accepted	b6a758e8a2c614d3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.362	2b5a2123f69b56df	Huh? A day off? How could this happen! We came especially!\n	accepted	27ab0f615935803e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.363	018d4b8ff7853a5a	...Huh? Out of business?...What do we do with this detergent...?	accepted	f1a1476cbc6ea8c0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.364	fc2374c4d50ffaf8	Huh? The shop is closed!...We came to deliver detergent! What now?	accepted	9b31daa8843f87e9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.365	00b65c41ab5f2710	Oh dear! Why is it closed! What am I supposed to do?!\n	accepted	17ca32080946500d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.366	17939588d157ba14	Why is it closed?...What do we do with this detergent?\n	accepted	0243e5686b694cf9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.367	395412f9fca5d5ee	...Ha ha! What do you want? The owner is dead!\nA stray bullet yesterday...\nSo it's closed.\n	accepted	02ea8521c500362c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.368	1c19d92757a11d29	Heh heh! So much detergent! What are you using it for? What? Trade for this box....Hmm! That should be fine! 	accepted	f77853d08facaffc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.369	ab146c4c5ae4d9a7	Ha ha! Traded!\nBye! Take care of yourselves! Ha ha!	accepted	d72f1e4a971c793a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.370	9a0bb32d6bacf352	Traded detergent for a box!	accepted	d3800d4571765bf8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.371	b22d4171e8ac0f94	...Huh? Not trading!	accepted	987b1528970cfebf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.372	a508e89b64592457	Hmm?...This...This is genuine!...Give it to me and I'll reward you!\n	accepted	d9b9dd39640eac2a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.373	c2bf67b79946046e	Oh?...It's no use to you. Give it to me! Otherwise, I won't be polite! Everyone, prepare for battle! 	accepted	69a1c28b534c8710	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.374	8b2f722b8e842160	...Hmph! I won't give up!\nYou won't get off so easily next time!\n	accepted	d7ddb5bd63174af5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.375	7e0510dcc025ed28	Better hand it over quietly...\nDamn you lot! Don't make me force you!\nConsider your own interests!\n	accepted	a49a632a0d6229b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.376	ede8e8919b99acd1	Ha ha! Wonderful! Wonderful! You're sensible. Here's your\nreward, 5000000 G in all.\nThat should be enough!\n	accepted	9bc8bb03750ee39d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.377	c84f31e863549427	If there's nothing else, leave quickly! Unless you've found the treasure chest, but that's impossible! 	accepted	ec28f7bf920a8334	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.378	16a3a11277c6184b	What do you want...? I'm busy researching!\nIf it's nothing...Unless it's about the treasure chest!	accepted	a84aa34f583a9d07	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.379	adee9d2b067e63d1	Oh! It's you!\nI'm busy with something and can't entertain you.\nIf there's nothing, excuse me!\n	accepted	99b857b21c046815	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.380	69c9ba3089c2f96a	...Well! These things...This is, this...This is here...Hmm! You did well!\n	accepted	8d9f2082e57f18dc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.381	ae20a91c0fa6cd77	Huh? You brought the treasure chest...And the ancient document. This... !!! 	accepted	1f122d9fda83af17	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.382	4f7eddaf39694022	...The treasure chest!! Let's analyze it! My c-camera...Damn it! Where's my camera!\n	accepted	a1fa6715f2c371ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.383	a2da986d9df53121	... This is... a human head... Oh no...	accepted	ca0c65c0b2695d80	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.384	a2da986d9df53121	... This is... a human head... Oh no...	accepted	ca0c65c0b2695d80	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.385	b68d06cb5f807cc9	... This is... a human head... Or perhaps not...	accepted	654ced750164b756	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.386	53e81b09f92e266d	... A human head?... Huh...	accepted	555d6f5a32268383	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.387	30df10fd0c4f9f7c	... What is this, a human head?... So disgusting...	accepted	8ebafe367631db34	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.388	79baa448f6ec50cc	... Could it be... a human head... Hmm...	accepted	d78bcc2d6da55689	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.389	d11013c133336607	...I...I understand...Let me tell you! Take this key! Open that door! That's the...lega...	accepted	50ae264512d81d41	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗；依獨立審查保留遺字未完語氣，避免leg誤讀為肢體
+ESPMES#122.390	89d17e3c5782820b	...Take this key! Go claim that ancient legacy!\n	accepted	455c5bb94a512992	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.391	89d17e3c5782820b	...Take this key! Go claim that ancient legacy!\n	accepted	455c5bb94a512992	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.392	25f722976b9ed2ac	...Take this key! Go claim that ancient legacy!\nHurry and go!\n	accepted	d91f30e7f29ce9f9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.393	89d17e3c5782820b	...Take this key! Go claim that ancient legacy!\n	accepted	455c5bb94a512992	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.394	ef1fb45fafdbafcb	...Take this key! Go claim that ancient legacy!\nThis will be extraordinary!\n	accepted	698c2fb5e0e12cbe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.395	f7cb8422a6fe1bbf	...Take this key! Go claim that ancient legacy!\nHa ha! Ha ha!	accepted	a431d4b92c85fe4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.396	2ccd9f9de685d942	Ancient key obtained!	accepted	695dbfbe28ad4ce2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.397	23d23aa3fc77a456	What now? With this key, where should we go? We'll have to search everywhere!	accepted	a3bfbc11a351a1e9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.398	7ddd8ab51c0c5ab6	What's wrong? Need another explanation?	accepted	7859be6ff16fe118	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.399	6c5ae1ef0f90a959	All right! Listen carefully!	accepted	f9914b0185947a41	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.400	9b52895d4594c725	All right, then!...Set out quickly!	accepted	85eb69a10733422e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.401	35ffb57f43086834	What do you want? Huh? Isn't this...the Mystery Box!?	accepted	9d867f246ca1f9d2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.402	de55ee3e70640750	Has this day finally come...\n...Hmm! The ancient document should explain it!	accepted	634c67db3d4920d8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.403	0501c98cd46c03dc	The scholar opens the ancient document.	accepted	9ebc3fc6bf12b9d3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.404	ad4144298662e623	...There seems to be a record of this box. There are four "Examiners." You must seek answers from all four. 	accepted	7fd1c4aecf0b945d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.405	2840e4c6416437c3	"Sage of the East" "King of the Western Ruined Castle" "Religious Leader of the South" "General of the North" 	accepted	8d71303b0ea27596	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.406	c0b56ce928bf2897	If you answer them all,\nyou can obtain it. I'll give you this box. Take care.\n	accepted	cabd7bcf6bbf6093	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.407	be7c8a6c74d74537	First, find these four people.\nThen let's set out!\n	accepted	77f0ad558324611b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.408	3c7b63eacafce658	...The sorrowful toy...\n	accepted	927cdd7afabc1f2d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.409	18cf84415a783f18	...A toy not to be trifled with. Seal its sorrowful power, then come see me again... 	accepted	94ca7b11995eaf7b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.410	1cbcee5f8244539c	...You've finally brought it.\nThen I'll point out your path...\n	accepted	f41d1fcacd8f7b8d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.411	90b62c1462ebe3c0	First item obtained!	accepted	2332a4f28955d3f7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.412	1cbcee5f8244539c	...You've finally brought it.\nThen I'll point out your path...\n	accepted	f41d1fcacd8f7b8d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.413	d70e8c92b892260c	Second item obtained!	accepted	e7fa7338a96b2014	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.414	d9e3498d152f6eb7	...The pure goddess...\n	accepted	90798ef593d6883c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.415	e016d946c9149eb1	...The pure goddess who tests the heart! Come see me again!...\n	accepted	7e78cfdb1498157e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.416	5819619d0a754c75	... Oh! You seem to have the box... Good! Just take it to a certain place... Your mission will be done!	accepted	ec43c0b37fdc9aed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.417	5e7d0b80e010d786	Hmm? What do you want?\nI've nothing more to help you with...\n	accepted	c020033037bb5fad	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.418	1e9156a2398ceb1d	Men are forbidden here...\nNever bring men with you.\n	accepted	b78ec6d118cdbf06	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.419	1cbcee5f8244539c	...You've finally brought it.\nThen I'll point out your path...\n	accepted	f41d1fcacd8f7b8d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.420	1cc2c87230ff5d0d	Third item obtained!	accepted	0b32213933a15877	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.421	2f1fc4375410baed	...Shine with the light of dance...\n	accepted	4c61f50bb2a1c550	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.422	c44b181c5c7b68e0	...Let light shine from the dancer's hands, then come see me again...\n	accepted	8fa61a09024ef97e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.423	99dc715153670203	This seems to be the place...The door...Will monsters come out! Let's open it! 	accepted	18bf461dfee5983b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.424	3bc0e6aa4203bdc3	...This is it...Heh heh! Maybe it's all junk!	accepted	0807fc05413fbcea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.425	98d816f9f6313198	We finally got here!\nLet's try opening it!\n	accepted	646b0c65c7e6ff22	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.426	f996f01563034e52	We finally made it!\nHurry and open it!	accepted	fee680727f98f0c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.427	b80c9003f3e9ba41	... We're opening it...	accepted	e177f578729c263a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.428	5443d277680fd22b	This is the cave!\nWe're opening it!\n	accepted	09e7c6c781275d5a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.429	e086c1e30310b5ea	What's this! Such a magnificent door inside a cave. But without a key?\n	accepted	5ae2ab4bda385f35	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.430	ba5690658cb7ace8	What! This damned door...It won't open without a key.\n	accepted	2d7cbba47f468509	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.431	72c51b27d280c72e	A shut door in a cave...?\nIt seems we can't open it without a key.\n	accepted	275c337bdbd508ab	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.432	ffe800ee5733d26d	Why is there a door here!\nNo! We need a key! Damn it!\n	accepted	ad424b2acf6ddabc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.433	e815b0082eacc31a	What kind of door is this!\nWhat key opens it?\nWhat can we do!\n	accepted	f2b4d9a19768f83f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.434	8402744d0c89a9f1	The door is locked...\nIt won't open without a key.	accepted	f323eac7a2d74b9b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.435	eee15c12671789a7	... Terrifying... What is this... Who knows how much... Heh heh heh heh! We're rich!	accepted	9bd113789650776c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.436	eee15c12671789a7	... Terrifying... What is this... Who knows how much... Heh heh heh heh! We're rich!	accepted	9bd113789650776c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.437	bcd2d0d8bff891d4	... Wow... These are... Something I've never seen... I'm rich! Ha ha! Ha ha!	accepted	6e3a434c15728d06	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.438	eee15c12671789a7	... Terrifying... What is this... Who knows how much... Heh heh heh heh! We're rich!	accepted	9bd113789650776c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.439	bccec7c3e61d2d5a	... What on earth is this... Who knows how much... Ha ha ha ha! I'm rich!	accepted	30082caa68f3dd2e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.440	ec9fd69fab69251f	... Amazing... Amazing... Amazing! Too much to count... Ha ha ha ha! We're rich!	accepted	a322a3f49adef123	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.441	aff2e7e6d8fcdc7e	Found 10000000 G!!!	accepted	f05c9baeb78afae9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.442	687188194f5d4678	Nothing else here.	accepted	0786f9f8117918b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.443	687188194f5d4678	Nothing else here.	accepted	0786f9f8117918b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.444	687188194f5d4678	Nothing else here.	accepted	0786f9f8117918b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.445	687188194f5d4678	Nothing else here.	accepted	0786f9f8117918b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.446	687188194f5d4678	Nothing else here.	accepted	0786f9f8117918b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#122.447	687188194f5d4678	Nothing else here.	accepted	0786f9f8117918b5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.0	0233a920b158d9a8	Dinando?!\n	accepted	91fea4d787d365e9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.1	2fe946e0f70699ca	You finally came...\nI wonder if there's still time?\nOr should we give up...	accepted	402b7f946ef84217	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.2	099b7c580458161d	Stop kidding! I'm deep in debt like you, so don't come to me about money.	accepted	8090b85d205b2f5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.3	d88186833c6c0139	You really have important business with me...\n	accepted	c8958ab37e5fbdb7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.4	0e75d02174ffb89f	Fighting...\nfor Bayarans!?	accepted	ac5a060664d52e80	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.5	bb1993a9ad2197c8	Why?	accepted	5d8a995a6fa7cf7c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.6	e4e70c5a722d3db1	Wouldn't that be good?\nTravel around the continent a little and you'll understand!	accepted	51b661ba122027e8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.7	8e505e6a79b6a6b3	Leave it to me!\nWho do we ask for the details?	accepted	d0ccdf98e0fb11fc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.8	65a490869a4ad65e	Please see Staff Officer Bananris.\n	accepted	92ce36d66422e50a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.9	219fb5c8f8a012d0	Understood. I'll go see!	accepted	8ceb56d1a3d7239c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.10	9af97143786d388b	Is Dinando my ally?	accepted	d52a24ebaf08123e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.11	0c8c997e35158d2d	Please wait a moment...	accepted	d82f6fdb4da463c6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.12	9766a250d2f4902f	Please save Bayarans!	accepted	aea1c97423c2d9c1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.13	4378bdca826a3622	Dinando...\nI've decided...	accepted	177e443c0d64af9d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.14	5b96f52690218df5	There's only one way to repay our country's benefactors.\n	accepted	24bf17382fa50e85	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.15	b7b3d91fb26a1bbe	I'll travel with you.\n	accepted	37472a9079e1ddc1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.16	2539ee26a843961c	Huh?! Oh no...\n	accepted	162b0a5ba3ae5a1d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.17	50bb21666e4c6bdd	Is it a problem...?	accepted	f221c6ac22e291ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.18	62fe9f3dd4ad16e2	That's not what I meant...\nIt's just that we...	accepted	0a919fbb3092bb23	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.19	67eb5552a15ed7d6	Is it impossible? If you don't protect the princess... The king won't be pleased, you know?	accepted	c668cd9186eb44be	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.20	c6076d1b2fac7fc2	Why are you dawdling!\nDidn't I tell you to decide quickly?	accepted	0de9ebf21ab7a35a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.21	f4189555acd41ff0	...Only you...	accepted	96c1c913575310f6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.22	44177c80d50364ca	I've told you everything involved. I\nwon't change my mind.	accepted	940181c3b63ee409	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.23	e2f77a363d762dc4	No choice!\nTake her along!	accepted	ebb2a24b4fa0b23d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.24	83bf204ea5372162	Wow! Thanks!\nWe can travel together...\nI'm so happy!	accepted	25a9e97fcbb729df	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.25	ffd91a1d1c02a548	...You can't take me along...	accepted	bb8c64935eed027f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.26	db0068cfa520706a	That wasn't the original plan.	accepted	975d658b988b2b00	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.27	aa8a1e1eba901c2f	Princess...Take care of yourself from now on...	accepted	11873728ee8d73da	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.28	576f31886486c64e	Don't forget the reward!\nThe promised 1000000 G.	accepted	081ed5a52936b182	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.29	bc46375e75d95136	Thanks!\nBe sure to visit again when you can!	accepted	4f7bbf13d31ff9b6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.30	23e59013cb012b5f	Take care!\n	accepted	fbd139c19f032064	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.31	aef5322d78ebbc54	Take care!	accepted	e62073ea8f93e9e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.32	bf3476b1c0ea1f91	Dinando?\nPlease wait a moment...	accepted	d9c4ac40e1b0fa69	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.33	7384b85815a9b409	Ha ha! You've finally appeared... I've heard rumors about you. You're burdened with a large debt, right?	accepted	20efececf6809e9e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.34	5fa977108904668f	If you know that, you know\nhow badly we need money.	accepted	c6ac58432738108e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.35	3cee2da7e8ebb05b	Hmm! You've got skill...\nI should be able to ask you a favor...\nIs Jessie still the same?	accepted	3ee7adf309326159	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.36	111b0839e9a7dcbd	I'm still running here and there, unchanged!\nJust getting by!	accepted	16d1f0b39c3157c7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.37	5f1a2a6b669ec732	Unchanged since military academy.	accepted	57786877de5bfb70	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.38	c57bfe1765d222c6	...Hmm! We'll talk about that later.\nHow much do you know about Bayarans?	accepted	3d968723e2256eea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.39	f0ad4ee8cfe8b763	Rezniak attacked from behind.\nWe're in grave danger...	accepted	a190af0350e751d2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.40	a2eb921361320836	Two months ago, Rezniak's army broke the peace treaty and invaded.\nThey attack indiscriminately.	accepted	d56efbefb75c1e40	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.41	82394b8688866c60	I can't understand why they do this?\nWhat does Rezniak's queen intend?	accepted	871bbc6e574879cf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.42	6b57ec3930cac75a	Maybe something...happened inside?	accepted	5f206d3c22f90e16	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.43	e919a51f59623cea	But we've been friends for so long. Isn't this going too far! The king of Bayarans is deeply troubled.	accepted	050d26ff23d6fb96	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.44	4db66209bdde9c0d	Many in Rezniak's army are his own relatives!	accepted	b353680492909397	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.45	4c446c8c54bb5be8	Our king wants no direct conflict...but the situation is grave...	accepted	19fd72d2ca3a73c3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.46	86537627e4d1c15f	That's why you called us here.\nAll right!\nWe'll deal with Rezniak!	accepted	9bd0d0a7453d5484	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.47	3b0d030ea6a05e80	I'm counting on you!\nDon't flee when battle comes! We must end this war!	accepted	cd052e088ab34669	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.48	9d08f3bccedb097f	Hmm!\nFirst, we must...	accepted	3ae1ef78820a19dd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.49	e017ab4d0728ebcc	Recover Lifare and\nBarshagan Fortress.\nThe reward for these two operations is 100000 G.	accepted	fa8b9bba31ab890e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.50	a9e5791f248c7870	Do you accept these terms?	accepted	b2cbf321d0908ad0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.51	cf7617c7cc1dab4f	Then we're counting on you!\nWe'll prepare our defenses too!	accepted	d2ee08eb2118aa06	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.52	8e819fffda6a5195	Then! We leave all this\nto you.	accepted	1afd3971c7165ea2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.53	4447f8910113d285	Why refuse?\nAren't we friends?	accepted	9a00f8deb56826a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.54	463550dd80224afc	We must hold the front line quickly!	accepted	c70aacf68e9065b6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.55	fd66ed2d62118fa8	If Ridam Fortress falls too, it'll be hard to save Bayarans...	accepted	6d2a53dd41a95901	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.56	c5549240200a12cf	If we can recover Lifare...\nwe can supply and support the north.	accepted	becea85beeb0cbc4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.57	abce87cf682a203c	Hurry and recover Lifare!	accepted	fb8898c6cbe9f17d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.58	65d1ae6c80cf68db	Unless we recover Barshagan Fortress, our southern movements will be restricted.	accepted	7ed6aaf0b681ed98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.59	afaf54692f783063	The south is in grave danger. It'll be hard to win this battle. Think of something quickly!	accepted	add079d05ae0d4dd	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.60	29878a457c0e7688	That's Dinando's mercenary band for you!\n	accepted	8eff2785ead0ae4f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.61	75ef4a7dc9fb9187	The war is finally over...\n	accepted	5703dc20e3247c50	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.62	d3b2abf8d3a089da	Your brave fighting deserves admiration! Princess Filmea wants to see you.\n	accepted	a5d05abbb5582f81	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.63	1b62783b0c687793	There are postwar matters to handle too.	accepted	9d4b75d4ada55f36	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.64	c5e5edbf30574a33	It's been so long!\nHave you cleared your debt?	accepted	aee216dbf0c06039	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.65	e18a20c2f48305d1	Bayarans Castle recaptured!	accepted	860de18878568840	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.66	b9b29e67b072c4ab	Lifare recaptured!	accepted	6ebdaf6ed94f3481	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.67	4d7cd522ad61a917	Reyari captured!	accepted	d86a7dc6e768f2cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.68	9a1cdf33960df109	Barshagan Fortress recaptured!	accepted	1c54a05b4f1251d3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.69	a77af502f7b0db53	Chistam Fortress captured!	accepted	60458869480e353b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.70	c9bd7ffaa7df8247	Rezniak Castle captured!	accepted	9e223c6a891009fb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.71	f98b25c4c4c12615	Laru Brachia captured!	accepted	7ffe276623dc5cef	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.72	2d435161ab7a0e42	Brachia Castle captured!	accepted	4d64618750f259de	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.73	ddfc08f2792866dc	Here they come!	accepted	372352d7385a4992	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.74	9f7d9e1e8c9fde82	The intelligence officer reports unusual movements near Brachia's border.	accepted	1a67415c5e0a2372	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.75	2b17dcfd09f282fc	I hear Brachia's army is highly elite.\nAnd its military preparations are thorough.	accepted	2b6853812d4718e5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.76	197dab9d2c79a6b2	So the king plans to strike first.\n	accepted	af839aec868fc99a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.77	d81f31ef9c93ef9c	A successful surprise attack will bring victory. If it fails, a hard battle awaits!	accepted	ba27673034c6a672	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.78	ef520a0b35a9bfdc	That's your mission. Success earns 1000000 G.\nIt's a difficult task. Want to try?	accepted	2030f0a5a540f23b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.79	46db3aa9358551c4	Thank you!\nSee you at Brachia Castle!	accepted	660488134d3dae84	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.80	5bc800798192d1f3	Well then!	accepted	2281f23c76a7fd20	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.81	0e51bbd35c7c0ec1	Please help...\nBayarans's soldiers can't accomplish this mission...	accepted	7b41b21d66519fb6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.82	b7d265d754f053f0	I hear Rei Rezniak was captured at Brachia Castle...\nTime is short...	accepted	0144c07613cdd902	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.83	fa12cc905b09a66e	At last, back in Lifare. Next...the real operation begins...	accepted	4cf89b173859dca5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.84	76d471dab5ede7a1	According to my subordinates' reports...	accepted	3142cb873d25eb1f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.85	9064983baaae714b	Tia Fortress lies north of Lifare. Most of Rezniak's troops are gathered there.	accepted	86f2d3b23a16e85b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.86	be56fb1357003525	We must not let Rezniak's army recover its strength.\nI believe we must keep attacking!	accepted	a33da88dd0190407	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.87	0edacccee5e5c864	Well...Will you help?\nThe reward is 300000 G...	accepted	c7a014e2faf4b1e8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.88	a793d51e210d9dbc	Attack target: Tia Fortress.	accepted	24ca038b952cb491	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.89	637a4159cc823910	...Time is short!\nOur army must prepare quickly!\n	accepted	7acf44cd8c702340	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.90	80c39611378c2752	Won't you do even this for me?\n	accepted	681160b07b11b169	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.91	62f78c00e25c698c	Destroy the enemy at Tia Fortress!	accepted	0da09a8f5251f2ce	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.92	32975160a679a134	Word has arrived: armistice talks have broken down!	accepted	6b12dd40cbf20be8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.93	bfaee902fa9d0913	Why does Rezniak's queen keep fighting...	accepted	25ea07e367eb9853	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.94	a2806da9560f0b9f	Bayarans's royal family always thought war would never come. It seems they misjudged.	accepted	b95dd7f442713023	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.95	f375298b82d61b84	To keep Bayarans's land from destruction, we must avoid a long war of attrition.	accepted	081d42259e85b1ca	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.96	28b9dc3a7d60f6ff	Launch a lightning invasion and make Rezniak's queen abandon this course!	accepted	04fbffea08ae1841	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.97	4760524a608e906a	Bayarans's army will join the operation, of course.	accepted	0534d2a645c8b69c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.98	3333eb8bbe9ae88e	Join this operation too!	accepted	977b11840949cc2d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.99	2a42a4ceac5494a1	Well? Will you try attacking\nRezniak Castle?\nThe reward is 600000 G!	accepted	7737bd077a98da37	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.100	9936bc174f589167	Well? It would be wonderful if you accepted!	accepted	7e84846c1d8523e6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.101	54faa54d6fadfa72	Rezniak Castle is here.\n	accepted	f034b532a39d7519	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.102	ea103986b4bc497d	First north, east of the Ladis Road. It's hard to judge where to attack from...	accepted	6e398bba768f20ed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.103	fe20496ac4cde863	We'll do our best!\nBut please help us this time.	accepted	d2436a690f457040	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.104	a00f2c744a8229fc	Rezniak's queen won't change her mind...We must keep fighting...	accepted	d28252843965bd9f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.105	622fcf8e80287806	...We finally got here.\nWhy start a war...	accepted	37237b5fc46befa1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.106	9624abf986a34e61	Let me explain!	accepted	5c21c65708ea8933	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.107	6173339bd4e475e0	...I'm terribly sorry to all the people of Bayarans...But it was all for my daughter, Rei Rezniak.	accepted	5c968e3af2286bad	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.108	a09d9867e6dcf838	About two months ago...My daughter suddenly vanished...\nShe's my only daughter, and our country's heir.	accepted	2457ba988fb95f9a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.109	98bf7b4d8667d5e3	Then an envoy arrived from Brachia.\nHe carried a letter concerning Rei.	accepted	cac4f9fee1f4e772	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.110	3c62f4ba6afa891c	Rei is safe... enjoying our warm welcome in Brachia Castle. Princess Rei can return on only one condition.	accepted	4ac594049d61f91e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.111	3cc6190d6d7625e8	Declare war on Bayarans...\nand do not betray us...	accepted	16fd8472bd0473b3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.112	2b89610ab95c580b	So that's what happened.\nBrachia is probably ready to attack Bayarans by now!	accepted	ab7721c46a18c29d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.113	17b3600f4eb4e9d9	I must get back to Barshagan Fortress in Bayarans quickly\nand decide our strategy.	accepted	8b6a3b62dfbb264c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.114	65e424e78428da87	Right, your reward.\nPlease accept 600000 G...	accepted	454a6fbcee3cccc9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.115	1f80586936c4e130	Farewell for now.\n	accepted	c6a722550fdfcd55	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.116	f787606f0de7540a	...I have a favor to ask...	accepted	4129528d9078fd5d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.117	fdea96ac390b0437	Bayarans has become like this! It's all my fault!	accepted	cfbdd3fe07b3f917	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.118	c93c51bd34374935	I'd like...to ask a favor!	accepted	595b5d698d52054c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.119	e1788a9bc1fa1621	I'd like you to help...\nBayarans!\nI'll reward you.\nPlease accept this 500000 G...	accepted	d2e9680f42773832	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.120	50eccf967b63222f	...I'm counting on you for everything...	accepted	60dae0382dcef6a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.121	6dc7a43f5e9d5443	I'm terribly sorry...\n	accepted	0310db1ce238565b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.122	77289f41d298650b	Please tell all of Bayarans...	accepted	3570920a7d07e856	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.123	04c53b6e8a73aeeb	For my Rei...I truly don't know what to say...	accepted	005bbae4cd58aa0c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.124	5874d2e86b97c443	If you don't mind, stay in the castle a few more days...	accepted	cca7441d47d3d707	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.125	70a25432f23b9c7d	Unit recovered!	accepted	14421fb42640f325	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.126	71fab6def7e33c57	Thank you so much...	accepted	8b6b4cbbff7e25c4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.127	7d65fae6bbfdc406	We can go a little deeper...	accepted	ad553df8e1238b9d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.128	65c325297449e346	Let's go inside...	accepted	a04f5cff09fbda6b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.129	273161b1601b9df0	There seems to be no path...	accepted	af95688139275a31	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.130	3699e6f7777548f2	Return to the entrance!...	accepted	b9320dcc4d9dde98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.131	076a9aac9c20cd14	Mr. Dinando!\nPlease help our country!	accepted	9146a290a28613e3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.132	1dc6683ec54e525e	Huh? So suddenly?\nWhat do you mean?	accepted	c79ea991756b26ba	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.133	9cbba29b160817d9	This pass lets you through Rein Fortress to the east. Please come to Bayarans Castle.	accepted	5f3107e7379e1576	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.134	d705e5eb8d09b5b3	Please come to Bayarans Castle, whatever it takes...	accepted	c412194575956418	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.135	db8cb07fce8aabfa	Ah! She's already gone!\nBayarans Castle...A great eastern power...Shall we visit...	accepted	315648ec5d29fc22	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.136	5e1654f256c94d20	Are you Mr. Dinando...\nIf not, I can't discuss this...	accepted	8c678bd37d9d7093	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.137	3a4abec8dfc4ae41	Across the water is Rodagut Landing. Would you like to cross?	accepted	bdf0ff24e1cc5b7d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.138	66901358d74e30ae	Then! Come aboard!\nThe boat is leaving.	accepted	35e8151f369a0791	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.139	f13d8a96c1645586	I see! Come back when you want to go!	accepted	2182ce10eb7a450c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.140	072f54b347a5463b	Across the water is Palir Landing. Would you like to cross?	accepted	018ec4aeab8609f6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.141	66901358d74e30ae	Then! Come aboard!\nThe boat is leaving.	accepted	35e8151f369a0791	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.142	f13d8a96c1645586	I see! Come back when you want to go!	accepted	2182ce10eb7a450c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.143	bc03d3147a6caffe	We've secured a base in Brachia,\nso we can fight with peace of mind.	accepted	aec2d6e111a7c5ea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.144	d210d4022360e950	You've finally come.\nPrincess Rei should be in Brachia Castle.\n	accepted	0c43d153b6816e79	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.145	3f497cf396e1b1d6	Hurry!\nWho knows what Brachia's doomed king might do?\nFind Rei Rezniak!	accepted	d7b461171ca5354b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.146	7631e189e3dcf43c	Quickly rescue the princess from Brachia's king!\n	accepted	ef0205195d7b3e55	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.147	0fe154c4318ca8c9	I'm suddenly feeling unwell...Looks like I need the hospital.	accepted	5a0c1226e898dcdb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.148	86e53e5ca4315d0e	In its current state, our unit probably can't fight.\nLet's go to the hospital first!	accepted	55163ab873289d54	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.149	87782ccebb39fd43	We're ready.\nBut we may need to reorganize again.	accepted	f7e0ce43a0684202	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.150	f8e908c37627d586	I want to find Rei!\nBut I've no stamina left.\nI need the hospital.	accepted	ddcb95c75e149e17	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.151	d8126f8485c2ef1b	How can I fight with such a weak body?\nI must recover...	accepted	a1bd0e1c7168a5bf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.152	7eafb9b814f60ec3	I'm willing, but lack the strength. Looks like I can't search!\nWhat a problem!	accepted	59e90634766b0abb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.153	7f9c658434a5836c	Where next?	accepted	3e11abc63158d2af	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.154	7f9c658434a5836c	Where next?	accepted	3e11abc63158d2af	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.155	08360652986e558a	Where should we look?	accepted	251445598aba5560	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.156	4dbb0ebc14f216fb	Rei! Where are you?	accepted	d4b58f7d03217255	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.157	4dbb0ebc14f216fb	Rei! Where are you?	accepted	d4b58f7d03217255	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.158	26120fbb21350a43	Could she be hiding...here?	accepted	985ac81af100d9d2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.159	f7dbb57885cc0b59	You want to finish me off...\nIf I'm finished, you'll never find the princess!	accepted	2ef1506dbb17f32b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.160	279524a9d6643811	Help!	accepted	cd9b8e680471bd87	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.161	d5ddc476bcfc4fc9	Quiet!\nCome here!	accepted	5abf550aa8cc7c77	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.162	0e8ddeaada51bb04	I won't fail next time!	accepted	81d4638a96a11ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.163	0e8ddeaada51bb04	I won't fail next time!	accepted	81d4638a96a11ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.164	0e8ddeaada51bb04	I won't fail next time!	accepted	81d4638a96a11ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.165	0e8ddeaada51bb04	I won't fail next time!	accepted	81d4638a96a11ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.166	0e8ddeaada51bb04	I won't fail next time!	accepted	81d4638a96a11ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.167	634970c40f999e3c	...King of Brachia...Prepare yourself...	accepted	dadc04d70d612f69	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.168	d94594bea9993119	Useless! I won't fall that easily!	accepted	458ae3c5afe3271f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.169	c67d71fdbea6c5d1	You saved me!\nThank you! Thank you all!	accepted	a9ab1719b64c54f8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.170	b8c7b85c533c1ad0	At last, the war is over.\nLet's return to Bayarans Castle! You'll be paid when we arrive.	accepted	aa90f2dc4b1c019c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.171	41c0493fb2235dd4	A victorious homecoming!	accepted	da0dc784f0b0dfa8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#123.172	c8b8cc70279ca854	Defeated foe!	accepted	c9541e7fb77fa657	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.0	485f43fcdabcba62	Today is payday for Dinando's mercenary band.	accepted	3844f2bbce82633d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.1	b769f658b1afb483	Payday!	accepted	009d355e752efaef	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.2	3d6950d9828c9edb	...Nobody is employed,\nso no wages need paying.	accepted	e99963163550d031	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.3	b769f658b1afb483	Payday!	accepted	009d355e752efaef	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.4	38a8f53132611d53	This month's wages...\n%ld G in total.	accepted	abea2bd7234ecd5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.5	f67414e9b19fc8c2	Paid %ld G in wages to everyone!	accepted	cedd29c59877c1c4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.6	b769f658b1afb483	Payday!	accepted	009d355e752efaef	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.7	38a8f53132611d53	This month's wages...\n%ld G in total.	accepted	abea2bd7234ecd5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.8	6fca8370a1b8772c	...Whoa! Not enough money...\n	accepted	928bd42340774a8c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.9	0f582a731f559b86	Unable to pay wages!	accepted	f86d93afa6a7bf83	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+ESPMES#124.10	a796b416a0c24f00	Dinando,\nmany have broken their contracts and left %s...	accepted	edac639c9428b10c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗

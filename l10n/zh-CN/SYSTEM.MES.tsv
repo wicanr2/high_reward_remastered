@@ -1,0 +1,315 @@
+id	src_sha256	text	status	acc_sha	by	batch	date	note
+SYSTEM.MES#0	48e507c98b2d5dec	…嗯！先看看情况！\n好吧！待机！	accepted	99aa109e42628c80	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#1	cbe5f1537ae24193	别无精打采地。\n全员待机！	accepted	708e748a6ad850e6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#2	730f5af7d3fd2bf9	嗯！让我稍微想一下！\n先待机一会。	accepted	5aeb6522ff0c98f7	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#3	e5ecaca9c06be4df	好像没什么状况！\n大家待机！	accepted	db412b442efd4d90	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#4	e06b24073e9ed03d	暂时先休息一下！\n全员待机！	accepted	01bfd49060460e3c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#5	3521c9f79f733f04	全队待机！等待指示！	accepted	fca02edc88eae57f	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#6	7b97d8c691badea0	嗯！有点累了！\n全队休息！	accepted	10e82a8a21a38102	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#7	19373be7a868a7ce	啊！休息一下吧！\n在这儿休息！	accepted	8f31df94320c24bc	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#8	865ae241fb88485b	好吧！大家都蛮累的！\n稍微休息一下！	accepted	877af37be8fd341a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#9	d6e924528fcf17a1	嗯！先停一会儿吧！\n休ー息ー！	accepted	802f44d4eb3861d6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#10	aebf9a7fbf316a21	哇！有点累了！\n大伙儿休息。	accepted	03ec30c69099cfb2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#11	0e8559bb3c660ea7	全队各自休息！\n补充战力！	accepted	bc1a2a51ae85b6c9	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#12	8225c89fb115a0f7	总算到了！\n在这待机吧！	accepted	54f886362103fe3e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#13	48c103011b24cb1a	嗯！到了！到了！\n各自待机！	accepted	1d3ea4ac50af59b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#14	db219d46786374ad	嗯！到目的地了！\n　　　　　　　　　　　　　　　　\n先待机吧！	accepted	3aa8d6fd3b6af823	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#15	72d966048ad480fc	到达了！\n在这待机吧！	accepted	31e933b07e5ed0ca	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#16	b97fba31ffad9b2b	行军停止！大伙儿在此\n待机！	accepted	a3c2d4c4374ab888	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#17	326171cf647f1860	全队停！\n各自防御体势待机！	accepted	22f788711da8f2b3	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#18	f70c39ff18c8b5ec	呼！总算到这儿了…。\n先到城镇上再说、\n要先恢复镇静才行！	accepted	b665bcb9d33c27f8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#19	79d24f12cb39b507	情况紧急！\n先到城镇上再说、\n要先恢复镇静才行！	accepted	bc8d77da22d7489d	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#20	10a2c6dc74e3b20d	…不走是不行了！\n有什么事都待会儿\n再说！	accepted	e935ef2378e0f199	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#21	d7e509046e65be47	…战况不是很妙！\n先回去再说！哇！	accepted	8d2427446bc0554c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#22	503a745157170676	退却…。\n先回到城镇！\n重新准备！	accepted	a7fe47ffdb32fe49	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#23	8784c908a9d06838	好吧！退却！\n为下次的攻击！\n各自准备！	accepted	af7bf283f14da73c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#24	1930c30e608129f5	　%s　到达！\n进入吧！	accepted	41b5cecb43d5d4f4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#25	1930c30e608129f5	　%s　到达！\n进入吧！	accepted	41b5cecb43d5d4f4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#26	1930c30e608129f5	　%s　到达！\n进入吧！	accepted	41b5cecb43d5d4f4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#27	1930c30e608129f5	　%s　到达！\n进入吧！	accepted	41b5cecb43d5d4f4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#28	1930c30e608129f5	　%s　到达！\n进入吧！	accepted	41b5cecb43d5d4f4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#29	1930c30e608129f5	　%s　到达！\n进入吧！	accepted	41b5cecb43d5d4f4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#30	3218ca329043dd87	目标　%s　到达。\n接下来、准备攻击！	accepted	82d0b8077a5bc6b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#31	3218ca329043dd87	目标　%s　到达。\n接下来、准备攻击！	accepted	82d0b8077a5bc6b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#32	3218ca329043dd87	目标　%s　到达。\n接下来、准备攻击！	accepted	82d0b8077a5bc6b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#33	3218ca329043dd87	目标　%s　到达。\n接下来、准备攻击！	accepted	82d0b8077a5bc6b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#34	3218ca329043dd87	目标　%s　到达。\n接下来、准备攻击！	accepted	82d0b8077a5bc6b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#35	3218ca329043dd87	目标　%s　到达。\n接下来、准备攻击！	accepted	82d0b8077a5bc6b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#36	4ecd33f5629bd5e6	注意！对　%s　攻击开始！	accepted	3870a6ab87facf3e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#37	1adbc21073b2a7e3	好！对　%s　占领！\n攻击开始！	accepted	646c57e6681511fa	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#38	4ecd33f5629bd5e6	注意！对　%s　攻击开始！	accepted	3870a6ab87facf3e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#39	1adbc21073b2a7e3	好！对　%s　占领！\n攻击开始！	accepted	646c57e6681511fa	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#40	4ecd33f5629bd5e6	注意！对　%s　攻击开始！	accepted	3870a6ab87facf3e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#41	1adbc21073b2a7e3	好！对　%s　占领！\n攻击开始！	accepted	646c57e6681511fa	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#42	72acbc6ecbb5938d	哇！不行了！\n没办法！撤退吧！	accepted	2a396c0005925cb7	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#43	faa297bd4cc5a00a	…哇！惨了！惨了！\n被打败了！\n没办法！撤退吧！	accepted	8f0aa494d5d42a8f	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#44	faa297bd4cc5a00a	…哇！惨了！惨了！\n被打败了！\n没办法！撤退吧！	accepted	8f0aa494d5d42a8f	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#45	faa297bd4cc5a00a	…哇！惨了！惨了！\n被打败了！\n没办法！撤退吧！	accepted	8f0aa494d5d42a8f	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#46	faa297bd4cc5a00a	…哇！惨了！惨了！\n被打败了！\n没办法！撤退吧！	accepted	8f0aa494d5d42a8f	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#47	faa297bd4cc5a00a	…哇！惨了！惨了！\n被打败了！\n没办法！撤退吧！	accepted	8f0aa494d5d42a8f	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#48	14c61e2d476d84b8	不可能再这样飞行的！\n好吧！返回吧！	accepted	064691f1fc9ecf30	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#49	61ac6ff8c041154d	什么？飞弹逼近！\n伤脑筋！回去吧！	accepted	3daec77ccefcad6d	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#50	f2cc46510f63fc6e	再下去会飞行困难！\n没办法再撑下去了！\n还是先回去吧！	accepted	afe20f5b03d08835	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#51	61ac6ff8c041154d	什么？飞弹逼近！\n伤脑筋！回去吧！	accepted	3daec77ccefcad6d	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#52	61ac6ff8c041154d	什么？飞弹逼近！\n伤脑筋！回去吧！	accepted	3daec77ccefcad6d	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#53	980423ae0b7b94b6	损害报告！引擎受损！\n已支持不了啦！\n没有办法！回基地吧！	accepted	b958083485faa87b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#54	f8ab0ed0c836686a	哒哒哒…好像中弹了！\n什么？动弹不得！\n先撤退吧！	accepted	83532b777148eeee	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#55	7c9d482656f18279	中弹了！车辆行动不能？\n退却！退却！	accepted	1473f7514489fc45	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#56	247817d1ffe6282c	再这样前进下去！\n会损失惨重的！\n先撤退吧！	accepted	f1eadb7462c2e144	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#57	e26c42c3965cbac2	咦？被打坏了！\n伤脑筋！先撤退吧！	accepted	6c5bd83007cdde03	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#58	11d32b0b01e5b663	车辆行动不能！？\n退却！退却！动弹不得！\n真伤脑筋！	accepted	cdfecdcb935fa60e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#59	44192167395090f4	战车受到相当大的损坏！\n我们已经尽力了！\n只有放弃吧！	accepted	825c5ed3181c7eb2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#60	f6f6d4dfc1b164ea	已撑不下去了！\n休息！	accepted	8293bd4038b5a957	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#61	f6f6d4dfc1b164ea	已撑不下去了！\n休息！	accepted	8293bd4038b5a957	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#62	b20a9e8416f27809	大家都已经\n十分疲劳了…\n稍微休息一会儿！	accepted	b702dc18d3cf742b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#63	b20a9e8416f27809	大家都已经\n十分疲劳了…\n稍微休息一会儿！	accepted	b702dc18d3cf742b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#64	b20a9e8416f27809	大家都已经\n十分疲劳了…\n稍微休息一会儿！	accepted	b702dc18d3cf742b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#65	b20a9e8416f27809	大家都已经\n十分疲劳了…\n稍微休息一会儿！	accepted	b702dc18d3cf742b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#66	a73ef6046f14ef70	嗯！全员准备完毕！	accepted	0f2eac9503a0ebc1	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#67	0adfa99dcd8f1d14	全队员回复完毕！	accepted	5484a0b0452b4e67	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#68	625b44dc3d2231bc	商团全员体力\n回复完毕！	accepted	36b85b8d4d275d59	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#69	abdab8be5b276e25	大伙儿好像已恢复元气了！\n嗯！出发吧！	accepted	d4eb26e7eb6b30bf	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#70	3b1f97ae6392e389	大家都已恢复了！\n状况都不错！\n开始行动吧！	accepted	7961f89cb3d56ce4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#71	ee89c6d127c2b229	嗯！全队体力回复！	accepted	04a3e7f7893d5c92	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#72	acbcd4a2c8d65305	\n　　　很好！全员疲劳回复！　　	accepted	b555ef71ca18cd9f	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#73	46c18c9cc3369d10	\n　　　全队员疲劳回复！　　　　　　	accepted	aab5cb6611f7cd15	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#74	65b20dc59c7d0ba5	\n　　商团全员疲劳回复！　　　　　　　　\n嗯！很好！	accepted	401d6c73aff0a2b3	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#75	e83054c79f044874	\n大家都恢复疲劳了吧？\n很好！出发吧！	accepted	b1adacc54f49d46d	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#76	0a852d6eacd7eae3	大家都好好休息过了！　\n也都恢复了！　　　　　　\n开始行动吧！　　	accepted	a64ef54d38327a24	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#77	91bc36b3a47f8faf	\n很好！全队员疲劳回复！	accepted	f953c23dd5dadb1e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#78	0bb7489a3ef5726e	嗯！是　%s　！\n全员战斗准备！	accepted	077a26e65ccd78e0	Codex	full-20261006	2026-10-06	使用者2026-10-06接受語境修讀；字碼語意仍hypothesis非codec證實；ICU72.1簡中候選；未經譯文接受或母語審閱
+SYSTEM.MES#79	efd1180a81eae554	哦！　%s　打算向我挑战！\n全员战斗准备！	accepted	15c8dc72ba4be315	Codex	full-20261006	2026-10-06	使用者2026-10-06接受語境修讀；字碼語意仍hypothesis非codec證實；ICU72.1簡中候選；未經譯文接受或母語審閱
+SYSTEM.MES#80	0bb7489a3ef5726e	嗯！是　%s　！\n全员战斗准备！	accepted	077a26e65ccd78e0	Codex	full-20261006	2026-10-06	使用者2026-10-06接受語境修讀；字碼語意仍hypothesis非codec證實；ICU72.1簡中候選；未經譯文接受或母語審閱
+SYSTEM.MES#81	0bb7489a3ef5726e	嗯！是　%s　！\n全员战斗准备！	accepted	077a26e65ccd78e0	Codex	full-20261006	2026-10-06	使用者2026-10-06接受語境修讀；字碼語意仍hypothesis非codec證實；ICU72.1簡中候選；未經譯文接受或母語審閱
+SYSTEM.MES#82	c7d26ceda0da1292	　%s　…\n…打算对付我吗？\n全员突击准备！	accepted	0f42a89789e5c9f8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#83	5c52b02d3a68e31d	发现敌人！先行攻击！\n目标　%s　！\n攻击开始！	accepted	80691d8e0a9b8f36	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#84	dea3ea634a733c71	　%s　发现！\n开始攻击！	accepted	a896f7edef0433f0	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#85	744838147cd9502e	发现了！\n目标　%s　！\n攻击开始！	accepted	64979dc438d8d8e5	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#86	0ca8730b03b1ae15	哇！发现敌人…\n是　%s　！\n攻击！	accepted	60f92ca26f51283a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#87	bf0f42adc786f45c	敌部队发现！\n目标　%s　！\n攻击！	accepted	b2c53e29a963671e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#88	ddd0f7ba85782eed	敌人！\n目标　%s　！	accepted	f224816938e3cd74	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#89	cec3901910553244	攻击！\n敌　%s　发现！\n攻击开始！	accepted	5338493e1e3d2968	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#90	af7d17beefb2ef53	嗯！往　%s　退却。	accepted	8e9bb1cc936429eb	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#91	ed28ddfda0c10880	往　%s　退却。	accepted	374c4ce589642c65	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#92	af7d17beefb2ef53	嗯！往　%s　退却。	accepted	8e9bb1cc936429eb	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#93	af7d17beefb2ef53	嗯！往　%s　退却。	accepted	8e9bb1cc936429eb	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#94	320c57a4c2ebde6a	一点也没错！\n往　%s　开始退却！	accepted	b108375e553d152c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#95	af7d17beefb2ef53	嗯！往　%s　退却。	accepted	8e9bb1cc936429eb	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#96	74875107dfe9daea	嗯！要往那个方向去呢？	accepted	ffbb9e6bc278e474	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#97	74875107dfe9daea	嗯！要往那个方向去呢？	accepted	ffbb9e6bc278e474	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#98	74875107dfe9daea	嗯！要往那个方向去呢？	accepted	ffbb9e6bc278e474	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#99	74875107dfe9daea	嗯！要往那个方向去呢？	accepted	ffbb9e6bc278e474	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#100	74875107dfe9daea	嗯！要往那个方向去呢？	accepted	ffbb9e6bc278e474	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#101	74875107dfe9daea	嗯！要往那个方向去呢？	accepted	ffbb9e6bc278e474	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#102	b669417bebf85e02	咦？好像不能往这里去的\n样子？	accepted	a4d4256239f58a40	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#103	2bb85e80c13ccb9a	咦？这条路好像不通？	accepted	80dcc2b1df5e18c2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#104	dfdb093a0cb0da2f	咦？此路不通！\n不能往这里走！	accepted	181c159ccc1b7db4	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#105	2bb85e80c13ccb9a	咦？这条路好像不通？	accepted	80dcc2b1df5e18c2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#106	b669417bebf85e02	咦？好像不能往这里去的\n样子？	accepted	a4d4256239f58a40	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#107	b669417bebf85e02	咦？好像不能往这里去的\n样子？	accepted	a4d4256239f58a40	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#108	8cccde83662f76c2	哇！…撤退！	accepted	b89aa1f7f671120a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#109	c99da9e720759f51	枪林弹雨！快逃！	accepted	346b90890a62e067	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#110	2f126a4a3a845080	子弹是不长眼睛的！\n先溜为妙！	accepted	ebe45d975dcc244d	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#111	2998e0d2abde338e	哇！好痛！快跑！	accepted	7e0dac0cdcb4f0d6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#112	f6f3f28bcec6e78d	快逃啊！哇！	accepted	d3329044adbbe396	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#113	778427a79293bc8b	三十六计…逃！	accepted	5089674ba71b67ac	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#114	90821f5d2095b3c1	嗯！往　%s　潜入！	accepted	7caf9c384a1882a5	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#115	90821f5d2095b3c1	嗯！往　%s　潜入！	accepted	7caf9c384a1882a5	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#116	90821f5d2095b3c1	嗯！往　%s　潜入！	accepted	7caf9c384a1882a5	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#117	90821f5d2095b3c1	嗯！往　%s　潜入！	accepted	7caf9c384a1882a5	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#118	90821f5d2095b3c1	嗯！往　%s　潜入！	accepted	7caf9c384a1882a5	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#119	90821f5d2095b3c1	嗯！往　%s　潜入！	accepted	7caf9c384a1882a5	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#120	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#121	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#122	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#123	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#124	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#125	989e6343c3a16a14	哇！被发现了！\n赶快从　%s　脱出！\n快逃！	accepted	33669ea6db758be3	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#126	eb87fac1cf57f569	哇！被发现了！\n赶快从　%s　\n脱出！	accepted	e0fd8372a67749ff	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#127	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#128	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#129	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#130	7ca0dfb1bbcc5fbd	哇！被发现了！\n赶快从　%s　脱出！	accepted	cb648cd766051476	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#131	989e6343c3a16a14	哇！被发现了！\n赶快从　%s　脱出！\n快逃！	accepted	33669ea6db758be3	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#132	c3a422ed3e95c2cc	　%s　…是　%s　出击了！	accepted	ebfdbb70cf67055b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#133	5f0b84f9f5b43757	　%s　…\n是　%s　出击了！	accepted	c4b7b6b1b85e300b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#134	5f0b84f9f5b43757	　%s　…\n是　%s　出击了！	accepted	c4b7b6b1b85e300b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#135	5f0b84f9f5b43757	　%s　…\n是　%s　出击了！	accepted	c4b7b6b1b85e300b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#136	5f0b84f9f5b43757	　%s　…\n是　%s　出击了！	accepted	c4b7b6b1b85e300b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#137	5f0b84f9f5b43757	　%s　…\n是　%s　出击了！	accepted	c4b7b6b1b85e300b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#138	31aa19c437dda703	哇！炮击？\n　%s　的家伙！	accepted	18dd16b50a04e12e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#139	31aa19c437dda703	哇！炮击？\n　%s　的家伙！	accepted	18dd16b50a04e12e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#140	31aa19c437dda703	哇！炮击？\n　%s　的家伙！	accepted	18dd16b50a04e12e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#141	31aa19c437dda703	哇！炮击？\n　%s　的家伙！	accepted	18dd16b50a04e12e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#142	31aa19c437dda703	哇！炮击？\n　%s　的家伙！	accepted	18dd16b50a04e12e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#143	026e3295e3bf1f3f	　%s　的炮击！	accepted	1e200e7263551a0a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#144	2791c7e7bc77a215	　%s　…\n车辆部队出击！	accepted	2d7aafba3fbfb921	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#145	2791c7e7bc77a215	　%s　…\n车辆部队出击！	accepted	2d7aafba3fbfb921	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#146	2791c7e7bc77a215	　%s　…\n车辆部队出击！	accepted	2d7aafba3fbfb921	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#147	2791c7e7bc77a215	　%s　…\n车辆部队出击！	accepted	2d7aafba3fbfb921	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#148	2791c7e7bc77a215	　%s　…\n车辆部队出击！	accepted	2d7aafba3fbfb921	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#149	2791c7e7bc77a215	　%s　…\n车辆部队出击！	accepted	2d7aafba3fbfb921	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#150	398dfbeb58a8ba95	　%s　…\n航空部队出击！	accepted	16b8cd7af3985d1e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#151	398dfbeb58a8ba95	　%s　…\n航空部队出击！	accepted	16b8cd7af3985d1e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#152	398dfbeb58a8ba95	　%s　…\n航空部队出击！	accepted	16b8cd7af3985d1e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#153	398dfbeb58a8ba95	　%s　…\n航空部队出击！	accepted	16b8cd7af3985d1e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#154	398dfbeb58a8ba95	　%s　…\n航空部队出击！	accepted	16b8cd7af3985d1e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#155	398dfbeb58a8ba95	　%s　…\n航空部队出击！	accepted	16b8cd7af3985d1e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#156	81c6b73f5ebd06ee	哇！对空射击？\n　%s　的家伙！	accepted	35cfb0d103b2c4e8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#157	81c6b73f5ebd06ee	哇！对空射击？\n　%s　的家伙！	accepted	35cfb0d103b2c4e8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#158	81c6b73f5ebd06ee	哇！对空射击？\n　%s　的家伙！	accepted	35cfb0d103b2c4e8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#159	81c6b73f5ebd06ee	哇！对空射击？\n　%s　的家伙！	accepted	35cfb0d103b2c4e8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#160	81c6b73f5ebd06ee	哇！对空射击？\n　%s　的家伙！	accepted	35cfb0d103b2c4e8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#161	df48eb98289695cb	哇！对空射击？\n　%s的家伙！	accepted	f96788e2a79fdae9	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#162	91cf85ea656a6990	可恶！士兵们\n%d　的损伤！	accepted	fdeda3195d385833	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#163	91cf85ea656a6990	可恶！士兵们\n%d　的损伤！	accepted	fdeda3195d385833	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#164	91cf85ea656a6990	可恶！士兵们\n%d　的损伤！	accepted	fdeda3195d385833	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#165	91cf85ea656a6990	可恶！士兵们\n%d　的损伤！	accepted	fdeda3195d385833	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#166	91cf85ea656a6990	可恶！士兵们\n%d　的损伤！	accepted	fdeda3195d385833	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#167	91cf85ea656a6990	可恶！士兵们\n%d　的损伤！	accepted	fdeda3195d385833	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#168	5e444028caedd257	可恶！战车\n%d　的损伤！	accepted	786a7ccf4ce5f1d0	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#169	5e444028caedd257	可恶！战车\n%d　的损伤！	accepted	786a7ccf4ce5f1d0	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#170	5e444028caedd257	可恶！战车\n%d　的损伤！	accepted	786a7ccf4ce5f1d0	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#171	5e444028caedd257	可恶！战车\n%d　的损伤！	accepted	786a7ccf4ce5f1d0	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#172	5e444028caedd257	可恶！战车\n%d　的损伤！	accepted	786a7ccf4ce5f1d0	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#173	5e444028caedd257	可恶！战车\n%d　的损伤！	accepted	786a7ccf4ce5f1d0	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#174	87aefbb47a9a2771	可恶！飞行机\n%d　的损伤！	accepted	0f3a667d49cb1777	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#175	87aefbb47a9a2771	可恶！飞行机\n%d　的损伤！	accepted	0f3a667d49cb1777	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#176	87aefbb47a9a2771	可恶！飞行机\n%d　的损伤！	accepted	0f3a667d49cb1777	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#177	87aefbb47a9a2771	可恶！飞行机\n%d　的损伤！	accepted	0f3a667d49cb1777	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#178	87aefbb47a9a2771	可恶！飞行机\n%d　的损伤！	accepted	0f3a667d49cb1777	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#179	87aefbb47a9a2771	可恶！飞行机\n%d　的损伤！	accepted	0f3a667d49cb1777	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#180	0630b7b0fe970479	　%s　的部队。很好！对　%s　开始攻击！	accepted	3e586f2ad0a84015	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗；完整字詞保持，改由既定折行器重新折行
+SYSTEM.MES#181	0630b7b0fe970479	　%s　的部队。很好！对　%s　开始攻击！	accepted	3e586f2ad0a84015	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗；完整字詞保持，改由既定折行器重新折行
+SYSTEM.MES#182	0630b7b0fe970479	　%s　的部队。很好！对　%s　开始攻击！	accepted	3e586f2ad0a84015	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗；完整字詞保持，改由既定折行器重新折行
+SYSTEM.MES#183	0630b7b0fe970479	　%s　的部队。很好！对　%s　开始攻击！	accepted	3e586f2ad0a84015	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗；完整字詞保持，改由既定折行器重新折行
+SYSTEM.MES#184	0630b7b0fe970479	　%s　的部队。很好！对　%s　开始攻击！	accepted	3e586f2ad0a84015	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗；完整字詞保持，改由既定折行器重新折行
+SYSTEM.MES#185	0630b7b0fe970479	　%s　的部队。很好！对　%s　开始攻击！	accepted	3e586f2ad0a84015	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗；完整字詞保持，改由既定折行器重新折行
+SYSTEM.MES#186	fd46b14ee7e5526e	干得好！\n　%s　的部队\n已经消灭了！	accepted	c935ade14a698a2b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#187	fd46b14ee7e5526e	干得好！\n　%s　的部队\n已经消灭了！	accepted	c935ade14a698a2b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#188	fd46b14ee7e5526e	干得好！\n　%s　的部队\n已经消灭了！	accepted	c935ade14a698a2b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#189	fd46b14ee7e5526e	干得好！\n　%s　的部队\n已经消灭了！	accepted	c935ade14a698a2b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#190	fd46b14ee7e5526e	干得好！\n　%s　的部队\n已经消灭了！	accepted	c935ade14a698a2b	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#191	14737f4a7723a9c1	　%s　的\n防卫部队消灭了！	accepted	c78c5de5da6d7d36	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#192	e9617f7bd987f042	赢得十分辛苦…。\n%d　Ｇ到手！	accepted	d5aa8e42e19b4aee	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#193	e9617f7bd987f042	赢得十分辛苦…。\n%d　Ｇ到手！	accepted	d5aa8e42e19b4aee	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#194	e9617f7bd987f042	赢得十分辛苦…。\n%d　Ｇ到手！	accepted	d5aa8e42e19b4aee	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#195	e9617f7bd987f042	赢得十分辛苦…。\n%d　Ｇ到手！	accepted	d5aa8e42e19b4aee	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#196	e9617f7bd987f042	赢得十分辛苦…。\n%d　Ｇ到手！	accepted	d5aa8e42e19b4aee	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#197	e9617f7bd987f042	赢得十分辛苦…。\n%d　Ｇ到手！	accepted	d5aa8e42e19b4aee	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#198	2edcace5b5257651	轻而易举就胜了！\n%d　Ｇ到手！	accepted	b2f7093dbab4c3be	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#199	2edcace5b5257651	轻而易举就胜了！\n%d　Ｇ到手！	accepted	b2f7093dbab4c3be	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#200	2edcace5b5257651	轻而易举就胜了！\n%d　Ｇ到手！	accepted	b2f7093dbab4c3be	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#201	2edcace5b5257651	轻而易举就胜了！\n%d　Ｇ到手！	accepted	b2f7093dbab4c3be	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#202	2edcace5b5257651	轻而易举就胜了！\n%d　Ｇ到手！	accepted	b2f7093dbab4c3be	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#203	2edcace5b5257651	轻而易举就胜了！\n%d　Ｇ到手！	accepted	b2f7093dbab4c3be	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#204	c62659adb6f2ad80	…总算是胜了！\n%d　Ｇ到手！	accepted	ef12ba7326ddb98c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#205	c62659adb6f2ad80	…总算是胜了！\n%d　Ｇ到手！	accepted	ef12ba7326ddb98c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#206	c62659adb6f2ad80	…总算是胜了！\n%d　Ｇ到手！	accepted	ef12ba7326ddb98c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#207	c62659adb6f2ad80	…总算是胜了！\n%d　Ｇ到手！	accepted	ef12ba7326ddb98c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#208	c62659adb6f2ad80	…总算是胜了！\n%d　Ｇ到手！	accepted	ef12ba7326ddb98c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#209	c62659adb6f2ad80	…总算是胜了！\n%d　Ｇ到手！	accepted	ef12ba7326ddb98c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#210	da3277d5b08ea363	情况不妙…撤退！	accepted	259421f72a055c02	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#211	da3277d5b08ea363	情况不妙…撤退！	accepted	259421f72a055c02	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#212	fdadaa25f9b5f4b1	不得了…\n大家赶紧撒退…。	accepted	a12b93b3af9b4069	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#213	fdadaa25f9b5f4b1	不得了…\n大家赶紧撒退…。	accepted	a12b93b3af9b4069	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#214	fdadaa25f9b5f4b1	不得了…\n大家赶紧撒退…。	accepted	a12b93b3af9b4069	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#215	fdadaa25f9b5f4b1	不得了…\n大家赶紧撒退…。	accepted	a12b93b3af9b4069	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#216	2c416f55ca77d0c6	真可恨…失败了…	accepted	d7f1478c70b34ad8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#217	2c416f55ca77d0c6	真可恨…失败了…	accepted	d7f1478c70b34ad8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#218	2c416f55ca77d0c6	真可恨…失败了…	accepted	d7f1478c70b34ad8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#219	2c416f55ca77d0c6	真可恨…失败了…	accepted	d7f1478c70b34ad8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#220	2c416f55ca77d0c6	真可恨…失败了…	accepted	d7f1478c70b34ad8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#221	2c416f55ca77d0c6	真可恨…失败了…	accepted	d7f1478c70b34ad8	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#222	9fca1201ec649d09	…哇！惨败…全灭…。	accepted	aa811214190b37b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#223	9fca1201ec649d09	…哇！惨败…全灭…。	accepted	aa811214190b37b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#224	9fca1201ec649d09	…哇！惨败…全灭…。	accepted	aa811214190b37b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#225	9fca1201ec649d09	…哇！惨败…全灭…。	accepted	aa811214190b37b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#226	9fca1201ec649d09	…哇！惨败…全灭…。	accepted	aa811214190b37b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#227	9fca1201ec649d09	…哇！惨败…全灭…。	accepted	aa811214190b37b6	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#228	f1829b50b12397b2	很好！　%s　的\n防壁已破坏了！由此处进攻！	accepted	8e87519f8e94e69a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#229	f1829b50b12397b2	很好！　%s　的\n防壁已破坏了！由此处进攻！	accepted	8e87519f8e94e69a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#230	f1829b50b12397b2	很好！　%s　的\n防壁已破坏了！由此处进攻！	accepted	8e87519f8e94e69a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#231	f1829b50b12397b2	很好！　%s　的\n防壁已破坏了！由此处进攻！	accepted	8e87519f8e94e69a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#232	f1829b50b12397b2	很好！　%s　的\n防壁已破坏了！由此处进攻！	accepted	8e87519f8e94e69a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#233	f1829b50b12397b2	很好！　%s　的\n防壁已破坏了！由此处进攻！	accepted	8e87519f8e94e69a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#234	ef33383bcde28c55	哈哈！　%s　已\n占领成功！	accepted	fc2d277aa62c3a9c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#235	ef33383bcde28c55	哈哈！　%s　已\n占领成功！	accepted	fc2d277aa62c3a9c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#236	ef33383bcde28c55	哈哈！　%s　已\n占领成功！	accepted	fc2d277aa62c3a9c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#237	ef33383bcde28c55	哈哈！　%s　已\n占领成功！	accepted	fc2d277aa62c3a9c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#238	ef33383bcde28c55	哈哈！　%s　已\n占领成功！	accepted	fc2d277aa62c3a9c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#239	ef33383bcde28c55	哈哈！　%s　已\n占领成功！	accepted	fc2d277aa62c3a9c	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#240	60b3e3ae9790fd0a	嗯！这种状况下无法出击！	accepted	b26bd119a1b82a75	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#241	60b3e3ae9790fd0a	嗯！这种状况下无法出击！	accepted	b26bd119a1b82a75	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#242	60b3e3ae9790fd0a	嗯！这种状况下无法出击！	accepted	b26bd119a1b82a75	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#243	60b3e3ae9790fd0a	嗯！这种状况下无法出击！	accepted	b26bd119a1b82a75	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#244	60b3e3ae9790fd0a	嗯！这种状况下无法出击！	accepted	b26bd119a1b82a75	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#245	60b3e3ae9790fd0a	嗯！这种状况下无法出击！	accepted	b26bd119a1b82a75	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#246	fbd08b29aa3320fd	进入城镇吧！	accepted	f4f829c028c65320	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#247	fbd08b29aa3320fd	进入城镇吧！	accepted	f4f829c028c65320	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#248	fbd08b29aa3320fd	进入城镇吧！	accepted	f4f829c028c65320	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#249	fbd08b29aa3320fd	进入城镇吧！	accepted	f4f829c028c65320	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#250	fbd08b29aa3320fd	进入城镇吧！	accepted	f4f829c028c65320	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#251	fbd08b29aa3320fd	进入城镇吧！	accepted	f4f829c028c65320	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#252	788abb4f17506c89	哼！下次我一定赢！	accepted	22813763caf66a32	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#253	788abb4f17506c89	哼！下次我一定赢！	accepted	22813763caf66a32	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#254	788abb4f17506c89	哼！下次我一定赢！	accepted	22813763caf66a32	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#255	788abb4f17506c89	哼！下次我一定赢！	accepted	22813763caf66a32	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#256	788abb4f17506c89	哼！下次我一定赢！	accepted	22813763caf66a32	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#257	788abb4f17506c89	哼！下次我一定赢！	accepted	22813763caf66a32	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#258	e7641a88751abfcc	唉！怪自己学艺不精！	accepted	1901a3578e0766de	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#259	e7641a88751abfcc	唉！怪自己学艺不精！	accepted	1901a3578e0766de	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#260	e7641a88751abfcc	唉！怪自己学艺不精！	accepted	1901a3578e0766de	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#261	e7641a88751abfcc	唉！怪自己学艺不精！	accepted	1901a3578e0766de	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#262	e7641a88751abfcc	唉！怪自己学艺不精！	accepted	1901a3578e0766de	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#263	e7641a88751abfcc	唉！怪自己学艺不精！	accepted	1901a3578e0766de	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#264	faf3defa39b181a8	…现场已没有半个\n工人！\n只有停止建筑了！	accepted	44d8e5c89cd164cf	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#265	faf3defa39b181a8	…现场已没有半个\n工人！\n只有停止建筑了！	accepted	44d8e5c89cd164cf	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#266	8d4784de90e1cac8	工人都跑到那里去了？\n停止建筑！	accepted	1277cffea349952a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#267	faf3defa39b181a8	…现场已没有半个\n工人！\n只有停止建筑了！	accepted	44d8e5c89cd164cf	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#268	faf3defa39b181a8	…现场已没有半个\n工人！\n只有停止建筑了！	accepted	44d8e5c89cd164cf	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#269	faf3defa39b181a8	…现场已没有半个\n工人！\n只有停止建筑了！	accepted	44d8e5c89cd164cf	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#270	eb129f0a56d2868d	哇…不得了…\n…损害！咦？零？\n他们也太离谱了吧！	accepted	b824bf427ba7d15a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#271	eb129f0a56d2868d	哇…不得了…\n…损害！咦？零？\n他们也太离谱了吧！	accepted	b824bf427ba7d15a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#272	eb129f0a56d2868d	哇…不得了…\n…损害！咦？零？\n他们也太离谱了吧！	accepted	b824bf427ba7d15a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#273	eb129f0a56d2868d	哇…不得了…\n…损害！咦？零？\n他们也太离谱了吧！	accepted	b824bf427ba7d15a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#274	eb129f0a56d2868d	哇…不得了…\n…损害！咦？零？\n他们也太离谱了吧！	accepted	b824bf427ba7d15a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#275	eb129f0a56d2868d	哇…不得了…\n…损害！咦？零？\n他们也太离谱了吧！	accepted	b824bf427ba7d15a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#276	923a72048d984fa2	喂！停下手边的工作\n出去玩玩吧！	accepted	f4fc00718dba9786	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#277	923a72048d984fa2	喂！停下手边的工作\n出去玩玩吧！	accepted	f4fc00718dba9786	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#278	923a72048d984fa2	喂！停下手边的工作\n出去玩玩吧！	accepted	f4fc00718dba9786	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#279	923a72048d984fa2	喂！停下手边的工作\n出去玩玩吧！	accepted	f4fc00718dba9786	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#280	923a72048d984fa2	喂！停下手边的工作\n出去玩玩吧！	accepted	f4fc00718dba9786	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#281	923a72048d984fa2	喂！停下手边的工作\n出去玩玩吧！	accepted	f4fc00718dba9786	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#282	1c7c434271f085ec	不要再演下去了！\n还是出去旅行吧！	accepted	26667df046f0eca2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#283	1c7c434271f085ec	不要再演下去了！\n还是出去旅行吧！	accepted	26667df046f0eca2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#284	1c7c434271f085ec	不要再演下去了！\n还是出去旅行吧！	accepted	26667df046f0eca2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#285	1c7c434271f085ec	不要再演下去了！\n还是出去旅行吧！	accepted	26667df046f0eca2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#286	1c7c434271f085ec	不要再演下去了！\n还是出去旅行吧！	accepted	26667df046f0eca2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#287	1c7c434271f085ec	不要再演下去了！\n还是出去旅行吧！	accepted	26667df046f0eca2	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#288	ca141fa0de64d39f	已没有要爆击的\n目标了。\n打道回府吧！	accepted	f810e09f96ec5241	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#289	ca141fa0de64d39f	已没有要爆击的\n目标了。\n打道回府吧！	accepted	f810e09f96ec5241	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#290	ca141fa0de64d39f	已没有要爆击的\n目标了。\n打道回府吧！	accepted	f810e09f96ec5241	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#291	ca141fa0de64d39f	已没有要爆击的\n目标了。\n打道回府吧！	accepted	f810e09f96ec5241	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#292	ca141fa0de64d39f	已没有要爆击的\n目标了。\n打道回府吧！	accepted	f810e09f96ec5241	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#293	ca141fa0de64d39f	已没有要爆击的\n目标了。\n打道回府吧！	accepted	f810e09f96ec5241	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#294	51d69436f07b8663	嗯！防壁强化！	accepted	0ff4ac49fad2ec7a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#295	51d69436f07b8663	嗯！防壁强化！	accepted	0ff4ac49fad2ec7a	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#296	592bce8be89edade	防御也是战术。\n防壁强化！	accepted	66ed9377883dd249	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#297	592bce8be89edade	防御也是战术。\n防壁强化！	accepted	66ed9377883dd249	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#298	592bce8be89edade	防御也是战术。\n防壁强化！	accepted	66ed9377883dd249	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#299	592bce8be89edade	防御也是战术。\n防壁强化！	accepted	66ed9377883dd249	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#300	e21c3d76ef66d75c	　%s　的舞娘们在　%s　公演！	accepted	d4b8c7a163018323	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#301	707515405c963f98	公演受到好评。\n收入为　%ld　Ｇ。	accepted	51c9a702da78bfdd	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#302	1b735b76af7a9be8	公演还算可以。\n收入为　%ld　Ｇ。	accepted	a3c4fb8566bb3c43	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#303	c9f0bfe8b859fb6e	公演失败。\n没有收入。	accepted	d26ad6d36dded238	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#304	f2d3afb1d33689e3	　%s　的工人已把　%s　增筑完毕。	accepted	90b54ccff39599fa	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#305	a18de0f0394f03cc	工程算是十分顺利。\n耐久力已变成　%d　了。	accepted	a9b4ffc34ca22b3e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#306	a18de0f0394f03cc	工程算是十分顺利。\n耐久力已变成　%d　了。	accepted	a9b4ffc34ca22b3e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#307	a18de0f0394f03cc	工程算是十分顺利。\n耐久力已变成　%d　了。	accepted	a9b4ffc34ca22b3e	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#308	5d217d323e01cdfe	一人得到　%ld　的经验值。	accepted	b6bd6d6c8800a1c1	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#309	5d217d323e01cdfe	一人得到　%ld　的经验值。	accepted	b6bd6d6c8800a1c1	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#310	5d217d323e01cdfe	一人得到　%ld　的经验值。	accepted	b6bd6d6c8800a1c1	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#311	5d217d323e01cdfe	一人得到　%ld　的经验值。	accepted	b6bd6d6c8800a1c1	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#312	5d217d323e01cdfe	一人得到　%ld　的经验值。	accepted	b6bd6d6c8800a1c1	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗
+SYSTEM.MES#313	5d217d323e01cdfe	一人得到　%ld　的经验值。	accepted	b6bd6d6c8800a1c1	Codex	full-20261006	2026-10-06	ICU 72 簡體轉換候選；保留原意；未經使用者接受及母語者審閱；正式採用限制另驗

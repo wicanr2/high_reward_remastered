@@ -19,7 +19,7 @@ exec timeout "${HR_FULL_TIMEOUT:-3h}" docker run --rm --name hr-full-local-build
   --log-opt max-size=10m --log-opt max-file=3 \
   -u "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/docker.sock)" \
   -e HR_FULL_LOCAL=1 -e HR_WITH_HD=1 -e "HR_VERSION=$VERSION" \
-  -e "HR_FULL_EXTRAS=${HR_FULL_EXTRAS:-0}" \
+  -e "HR_FULL_EXTRAS=${HR_FULL_EXTRAS:-1}" \
   -v /usr/bin/docker:/usr/local/bin/docker:ro \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$ROOT:$ROOT:ro" \

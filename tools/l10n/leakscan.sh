@@ -54,7 +54,14 @@ scan() {
 
 # 工作樹清單：NUL 分隔，repo 相對路徑。fork 的路徑加 workplace/dosgolem/ 前綴，與 allowlist 的路徑空間一致。
 tracked_list() {
-  git -c core.quotepath=off ls-files -z
+  # 使用者 2026-10-06 授權 private repo 收錄 l10n TSV 的原文欄。
+  # 只排除正式表與純 Noto 碼表；其他路徑與所有編譯語言包照常掃描。
+  git -c core.quotepath=off ls-files -z | while IFS= read -r -d '' p; do
+    case "$p" in
+      l10n/zh-TW/*.tsv|l10n/zh-CN/*.tsv|l10n/ja/*.tsv|l10n/ko/*.tsv|l10n/en/*.tsv) continue ;;
+    esac
+    printf '%s\0' "$p"
+  done
   git -C "$DG" -c core.quotepath=off ls-files -z | while IFS= read -r -d '' p; do
     printf '%s/%s\0' "$DG" "$p"
   done

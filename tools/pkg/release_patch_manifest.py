@@ -34,12 +34,21 @@ for name in names:
 manifest = {
     "version": version,
     "visibility": "private",
-    "rights": "HD artwork derives from the original game; original game files are omitted.",
+    "rights": "Authorized HD and AI artwork and translations derive from the original game; pure Noto font data is under OFL. Original game files, music and compiled language packs are omitted. Private repository only.",
     "source_commit": source_commit,
     "dosgolem_commit": dosgolem_commit,
     "files": files,
 }
-temporary = directory / "SHA256SUMS.json.tmp"
+temporary = directory / "patch/SHA256SUMS.json.tmp"
 temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-os.replace(temporary, directory / "SHA256SUMS.json")
-print(directory / "SHA256SUMS.json")
+os.replace(temporary, directory / "patch/SHA256SUMS.json")
+# 根清冊包含本機完整版與 private patch；Release 上傳 patch 內清冊。
+root_manifest = directory / 'SHA256SUMS.json'
+combined = json.loads(root_manifest.read_text()) if root_manifest.is_file() else dict(manifest)
+previous = [entry for entry in combined.get('files', []) if not entry['path'].startswith('patch/')]
+combined.update(source_commit=source_commit, dosgolem_commit=dosgolem_commit)
+combined['files'] = previous + [dict(entry, distribution='private-repo') for entry in files]
+temporary = directory / 'SHA256SUMS.json.tmp'
+temporary.write_text(json.dumps(combined, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+os.replace(temporary, root_manifest)
+print(directory / "patch/SHA256SUMS.json")

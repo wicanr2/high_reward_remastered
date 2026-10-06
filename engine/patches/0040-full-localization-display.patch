@@ -1,0 +1,1149 @@
+From 6240d96a99fcbc3b743ef094c06ab798e2aefdd3 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Tue, 6 Oct 2026 17:26:36 +0800
+Subject: [PATCH] =?UTF-8?q?=E6=8E=A5=E5=85=A5=E5=85=A8=E9=87=8F=E5=A4=9A?=
+ =?UTF-8?q?=E8=AA=9E=E7=B3=BB=E8=88=87=E5=95=86=E5=BA=97=E5=8F=8A=E7=A1=AC?=
+ =?UTF-8?q?=E7=B7=A8=E7=A2=BC=E9=A1=AF=E7=A4=BA=E7=BF=BB=E8=AD=AF?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/cmd/hrl10n/build.go       |   7 +-
+ apps/hr/l10n/build.go             |  31 ++-
+ apps/hr/l10n/digest.go            |   2 +-
+ apps/hr/l10n/table.go             |   1 +
+ apps/hr/l10n/verify/verify.go     |   7 +-
+ apps/hr/play/display.go           | 154 ++++++++++++
+ apps/hr/play/game.go              |  21 +-
+ apps/hr/play/hdview.go            |  17 +-
+ apps/hr/play/i18n.go              |  10 +-
+ apps/hr/play/ingame_cjk_test.go   |   2 +-
+ apps/hr/play/ingame_en_test.go    |   2 +-
+ apps/hr/play/ingame_start.go      |  23 +-
+ apps/hr/play/ingame_start_test.go |  10 +-
+ apps/hr/play/main.go              |   1 +
+ apps/hr/runtime/display.go        | 398 ++++++++++++++++++++++++++++++
+ apps/hr/runtime/session.go        |  53 ++--
+ 16 files changed, 685 insertions(+), 54 deletions(-)
+ create mode 100644 apps/hr/play/display.go
+ create mode 100644 apps/hr/runtime/display.go
+
+diff --git a/apps/hr/cmd/hrl10n/build.go b/apps/hr/cmd/hrl10n/build.go
+index 5238c1c..d38a91c 100644
+--- a/apps/hr/cmd/hrl10n/build.go
++++ b/apps/hr/cmd/hrl10n/build.go
+@@ -50,6 +50,7 @@ func runBuild(args []string, _ io.Reader, stdout, stderr io.Writer) int {
+ 	withCand := fs.Bool("with-candidates", false, "採用 candidate 列（試作包，只在 hrl10n）")
+ 	allowCountry := fs.Bool("allow-country-offsets", false, "允許 COUNTRY.MES 有譯文（只在 hrl10n）")
+ 	allowShop := fs.Bool("allow-shoptab", false, "允許 SHOPTAB.TBL 有譯文（只在 hrl10n）")
++	displayShop := fs.Bool("display-shoptab", false, "SHOPTAB 名稱只用 UTF-8 顯示疊層，保留原版資料")
+ 	dupIDs := fs.Bool("dup-ids", false, "逐個重複來源群組列出 id（stderr，只列 id；預設只印各檔的群組數）")
+ 	if err := fs.Parse(args); err != nil {
+ 		if errors.Is(err, flag.ErrHelp) {
+@@ -73,7 +74,7 @@ func runBuild(args []string, _ io.Reader, stdout, stderr io.Writer) int {
+ 		PackRoot:   *out,
+ 		Code:       *code,
+ 		Mode:       l10n.Mode(*mode),
+-		Policy:     l10n.Policy{WithCandidates: *withCand, AllowCountryOffsets: *allowCountry, AllowShoptab: *allowShop},
++		Policy:     l10n.Policy{WithCandidates: *withCand, AllowCountryOffsets: *allowCountry, AllowShoptab: *allowShop, DisplayShoptab: *displayShop},
+ 		OrigHashes: origHashesOverride,
+ 	}
+ 	if cfg.PackRoot == "" {
+@@ -120,9 +121,9 @@ func runBuild(args []string, _ io.Reader, stdout, stderr io.Writer) int {
+ 		return 1
+ 	}
+ 	fmt.Fprintf(stdout, "dir=%s\nreused=%t\nmanifest-sha256=%s\n", res.Dir, res.Reused, res.ManifestSHA256)
+-	fmt.Fprintf(stderr, "hrl10n build：%s，模式 %s，採用 %d 列，輸入摘要 %s，建置器版本 %s\n",
++	fmt.Fprintf(stderr, "hrl10n build：%s，模式 %s，資料採用 %d 列，顯示採用 %d 列，輸入摘要 %s，建置器版本 %s\n",
+ 		map[bool]string{true: "重用既有語言包", false: "已建置"}[res.Reused],
+-		res.Manifest.Policy.Mode, res.Manifest.Adopted, res.Digest, res.Manifest.BuilderVersion)
++		res.Manifest.Policy.Mode, res.Manifest.Adopted, res.Manifest.DisplayAdopted, res.Digest, res.Manifest.BuilderVersion)
+ 	if len(res.Duplicates) > 0 {
+ 		var names []string
+ 		for n := range res.Duplicates {
+diff --git a/apps/hr/l10n/build.go b/apps/hr/l10n/build.go
+index 31097a2..03e6eb0 100644
+--- a/apps/hr/l10n/build.go
++++ b/apps/hr/l10n/build.go
+@@ -88,6 +88,9 @@ func (c Config) version() string {
+ 
+ // Validate 檢查設定（代碼、模式與政策旗標的組合）。Build 與 ExpectedDigest 都先呼叫它。
+ func (c Config) Validate() error {
++	if c.Policy.DisplayShoptab && c.Policy.AllowShoptab {
++		return errors.New("l10n: -display-shoptab 與 -allow-shoptab 不可同時使用")
++	}
+ 	if !codePattern.MatchString(c.Code) {
+ 		return fmt.Errorf("l10n: 代碼 %q 不合法（英數字、底線與連字號，最長 32 字）", c.Code)
+ 	}
+@@ -127,6 +130,7 @@ func (c Config) verifyPolicy() verify.Policy {
+ 		WithCandidates:      c.Policy.WithCandidates,
+ 		AllowCountryOffsets: c.Policy.AllowCountryOffsets,
+ 		AllowShoptab:        c.Policy.AllowShoptab,
++		DisplayShoptab:      c.Policy.DisplayShoptab,
+ 	}
+ }
+ 
+@@ -366,6 +370,20 @@ func Build(cfg Config) (*Result, error) {
+ 		InputDigest:    digest,
+ 		Adopted:        adopted,
+ 	}
++	if cfg.Policy.DisplayShoptab {
++		if raw, ok := tables[shopFile]; ok {
++			tbl, _ := LoadTable(bytes.NewReader(raw)) // render 已驗過同一份快照
++			for _, row := range tbl.Rows {
++				status := row.Status
++				if status == StatusAccepted && row.AccSHA != AccSHA(row.Text) {
++					status = StatusCandidate
++				}
++				if status == StatusAccepted || cfg.Policy.WithCandidates && status == StatusCandidate {
++					m.DisplayAdopted++
++				}
++			}
++		}
++	}
+ 	names := make([]string, 0, len(outs))
+ 	for n := range outs {
+ 		names = append(names, n)
+@@ -540,7 +558,18 @@ func (c Config) render(inputs, tables map[string][]byte, patch *glyphpatch.Patch
+ 			var vs []string
+ 			var aerr error
+ 			run := newWrapRun()
+-			if c.Code == codeEnglish {
++			if f.Kind == KindShop && c.Policy.DisplayShoptab {
++				policy := c.Policy
++				policy.AllowShoptab = true
++				_, _, vs, aerr = tbl.adopt(f, policy, func(item Item, row Row) ([]byte, []byte, []string) {
++					if row.Text == "" || strings.ContainsAny(row.Text, "\x00\n\t") {
++						return nil, nil, []string{"display-name: empty or control"}
++					}
++					// 名稱只交給 UTF-8 顯示層，不回填固定 20 bytes 欄位。
++					b := []byte(row.Text)
++					return b, b, nil
++				})
++			} else if c.Code == codeEnglish {
+ 				r, n, vs, aerr = tbl.adoptEnglish(f, c.Policy, patch)
+ 			} else if scalarCode(c.Code) {
+ 				r, n, vs, aerr = tbl.adoptScalar(f, c.Policy, c.Code, patch)
+diff --git a/apps/hr/l10n/digest.go b/apps/hr/l10n/digest.go
+index 2cae1f0..f70a0ac 100644
+--- a/apps/hr/l10n/digest.go
++++ b/apps/hr/l10n/digest.go
+@@ -28,7 +28,7 @@ var builderGolden []byte
+ //go:embed data/builder-l2-golden.txt
+ var builderL2Golden []byte
+ 
+-const builderContract = "hr-l10n-l2-ko8-v1"
++const builderContract = "hr-l10n-full-six-plus-shop-display-v1"
+ 
+ // versionOf 將 L1 golden 與目前 L2 golden／契約組成固定版本串流。
+ func versionOf(golden []byte) string {
+diff --git a/apps/hr/l10n/table.go b/apps/hr/l10n/table.go
+index e921104..039b55a 100644
+--- a/apps/hr/l10n/table.go
++++ b/apps/hr/l10n/table.go
+@@ -232,6 +232,7 @@ type Policy struct {
+ 	WithCandidates      bool // 採用 candidate 列（預設把 candidate 視為 keep）
+ 	AllowCountryOffsets bool // 允許 COUNTRY.MES 有非 keep 列
+ 	AllowShoptab        bool // 允許 SHOPTAB.TBL 有非 keep 列
++	DisplayShoptab      bool // 名稱只交給顯示疊層，保留原版固定欄位與識別值
+ }
+ 
+ // SerializeOptions 導出與這個政策配套的序列化選項：AllowCountryOffsets 為真時 COUNTRY.MES 重算精確偏移。
+diff --git a/apps/hr/l10n/verify/verify.go b/apps/hr/l10n/verify/verify.go
+index 79ea107..46b816d 100644
+--- a/apps/hr/l10n/verify/verify.go
++++ b/apps/hr/l10n/verify/verify.go
+@@ -55,6 +55,7 @@ type Policy struct {
+ 	WithCandidates      bool   `json:"with_candidates"`
+ 	AllowCountryOffsets bool   `json:"allow_country_offsets"`
+ 	AllowShoptab        bool   `json:"allow_shoptab"`
++	DisplayShoptab      bool   `json:"display_shoptab,omitempty"`
+ }
+ 
+ // Canonical 以固定順序序列化政策（輸入摘要用）：模式、with-candidates、allow-country-offsets、allow-shoptab。
+@@ -68,7 +69,8 @@ func (p Policy) Canonical() string {
+ 	return "mode=" + p.Mode +
+ 		";with-candidates=" + b(p.WithCandidates) +
+ 		";allow-country-offsets=" + b(p.AllowCountryOffsets) +
+-		";allow-shoptab=" + b(p.AllowShoptab)
++		";allow-shoptab=" + b(p.AllowShoptab) +
++		";display-shoptab=" + b(p.DisplayShoptab)
+ }
+ 
+ // Manifest 是語言包的 manifest.json。欄位順序固定、不含時間戳記與主機資訊，所以同輸入的建置輸出逐位元相同。
+@@ -83,7 +85,8 @@ type Manifest struct {
+ 	PatchHash      string            `json:"patch_hash"`   // 補丁雜湊（L1 為空字串）
+ 	BuilderVersion string            `json:"builder_version"`
+ 	InputDigest    string            `json:"input_digest"`
+-	Adopted        int               `json:"adopted"` // 實際被採用的非 keep 譯文列數
++	Adopted        int               `json:"adopted"`                   // 實際被採用的非 keep 譯文列數
++	DisplayAdopted int               `json:"display_adopted,omitempty"` // 顯示疊層採用，未改寫資料欄位
+ }
+ 
+ // Marshal 回傳 manifest.json 的位元組：兩格縮排、結尾一個 LF。
+diff --git a/apps/hr/play/display.go b/apps/hr/play/display.go
+new file mode 100644
+index 0000000..644dfd9
+--- /dev/null
++++ b/apps/hr/play/display.go
+@@ -0,0 +1,154 @@
++package main
++
++import (
++	"image"
++	"image/color"
++	"image/draw"
++	"image/png"
++	"os"
++	"strings"
++	"sync"
++
++	"github.com/hajimehoshi/ebiten/v2"
++	"golang.org/x/image/font"
++	"golang.org/x/image/font/opentype"
++	"golang.org/x/image/math/fixed"
++)
++
++type displayFaceEntry struct {
++	face font.Face
++	code string
++}
++
++var displayFaceCache sync.Map // UI goroutine owns font.Face after construction.
++
++func (g *game) displayFace() (font.Face, string) {
++	s, ok := g.s.(interface{ DisplayFont() (string, string) })
++	if !ok {
++		return nil, ""
++	}
++	path, code := s.DisplayFont()
++	if path == "" {
++		return nil, ""
++	}
++	if cached, ok := displayFaceCache.Load(path); ok {
++		entry := cached.(displayFaceEntry)
++		return entry.face, entry.code
++	}
++	entry := displayFaceEntry{code: code}
++	b, err := os.ReadFile(path)
++	if err == nil {
++		var f *opentype.Font
++		f, err = opentype.Parse(b)
++		if err == nil {
++			entry.face, err = opentype.NewFace(f, &opentype.FaceOptions{Size: 13, DPI: 72, Hinting: font.HintingNone})
++		}
++	}
++	if err != nil {
++		g.logf("顯示字型載入失敗 %s：%v", code, err)
++	}
++	displayFaceCache.Store(path, entry)
++	return entry.face, code
++}
++
++// drawDisplayText 只在遊戲畫面後合成，不觸及 DOS 字串與識別。
++// 各矩形使用固定行距，超寬單行縮小至矩形內；原版停在同一行時譯文亦停在同一行。
++func (g *game) drawDisplayText(screen *ebiten.Image) {
++	f := g.drawnFrame
++	if f == nil || len(f.Display) == 0 {
++		return
++	}
++	face, code := g.displayFace()
++	if face == nil {
++		return
++	}
++	for _, st := range f.Display {
++		if st.W < 1 || st.H < 1 {
++			continue
++		}
++		im := image.NewRGBA(image.Rect(0, 0, st.W, st.H))
++		// Erase only pixels written by the original text call. Leave unrelated art transparent.
++		for y := 0; y < st.H; y++ {
++			for x := 0; x < st.W; x++ {
++				i := y*st.W + x
++				if st.Before[i] == st.Expected[i] {
++					continue
++				}
++				c := f.DAC[f.Map[st.Before[i]&15]]
++				im.SetRGBA(x, y, color.RGBA{c[0], c[1], c[2], 255})
++			}
++		}
++		fg := f.DAC[f.Map[st.Color&15]]
++		lines := strings.Split(st.Text, "\n")
++		if st.H < 32 {
++			lines = []string{strings.Join(lines, " ")}
++		}
++		lineHeight := 16
++		if len(lines)*lineHeight > st.H {
++			lineHeight = st.H / len(lines)
++			if lineHeight < 1 {
++				lineHeight = 1
++			}
++		}
++		for line, value := range lines {
++			width := 0
++			for _, r := range value {
++				if code == "en" || r < 128 {
++					width += 8
++				} else {
++					width += 16
++				}
++			}
++			if width < 1 {
++				continue
++			}
++			ink := image.NewRGBA(image.Rect(0, 0, width, 16))
++			d := font.Drawer{Dst: ink, Src: image.NewUniform(color.RGBA{fg[0], fg[1], fg[2], 255}), Face: face}
++			x := 0
++			for _, r := range value {
++				d.Dot = fixed.P(x, 13)
++				d.DrawString(string(r))
++				if code == "en" || r < 128 {
++					x += 8
++				} else {
++					x += 16
++				}
++			}
++			if width <= st.W && lineHeight == 16 {
++				draw.Draw(im, image.Rect(0, line*lineHeight, width, line*lineHeight+16), ink, image.Point{}, draw.Over)
++			} else {
++				// Fit both axes without dropping any translated line.
++				fittedWidth := width
++				if fittedWidth > st.W {
++					fittedWidth = st.W
++				}
++				for y := 0; y < lineHeight && line*lineHeight+y < st.H; y++ {
++					for x := 0; x < fittedWidth; x++ {
++						c := ink.RGBAAt(x*width/fittedWidth, y*16/lineHeight)
++						if c.A != 0 {
++							im.SetRGBA(x, line*lineHeight+y, c)
++						}
++					}
++				}
++			}
++		}
++		texture := ebiten.NewImageFromImage(im)
++		op := &ebiten.DrawImageOptions{}
++		op.GeoM.Scale(2, 2)
++		op.GeoM.Translate(float64(st.X*2), float64((st.Y-40)*2))
++		screen.DrawImage(texture, op)
++		texture.Deallocate()
++	}
++}
++
++func writeDisplayScreenshot(path string, screen *ebiten.Image) error {
++	bounds := screen.Bounds()
++	rgba := image.NewRGBA(bounds)
++	screen.ReadPixels(rgba.Pix)
++	f, err := os.Create(path)
++	if err != nil {
++		return err
++	}
++	defer f.Close()
++	return png.Encode(f, rgba)
++}
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index b26bb96..8fffa07 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -121,11 +121,13 @@ type game struct {
+ 
+ 	// 兩張來源影像（惰性建立：第一次 Draw 才碰 GPU，Layout、Update 與截圖的單元測試不需要 GPU）。
+ 	// original：imgOrig（640x480 快照）畫成 GeoM.Scale(2, 2)；HD：imgHD（1280x960）1:1。
+-	imgOrig *ebiten.Image
+-	imgHD   *ebiten.Image
+-	rgba    []byte
+-	lastSq  uint64 // original：imgOrig 以遊戲 Seq 比對
+-	lastPub uint64 // HD：imgHD 以 hdView 的發佈計數比對
++	imgOrig    *ebiten.Image
++	imgHD      *ebiten.Image
++	rgba       []byte
++	lastSq     uint64      // original：imgOrig 以遊戲 Seq 比對
++	lastPub    uint64      // HD：imgHD 以 hdView 的發佈計數比對
++	drawnFrame *hrrt.Frame // 目前 GPU 底圖對應的快照，顯示疊層必須用同一份。
++	shotScreen *ebiten.Image
+ 
+ 	mx, my  int
+ 	btn     [2]bool
+@@ -331,6 +333,7 @@ func (g *game) Draw(screen *ebiten.Image) {
+ 	}
+ 	g.ensureImages()
+ 	g.drawGame(screen)
++	g.drawDisplayText(screen)
+ 
+ 	ht := newHudText(g.fonts, g.lang)
+ 	stopped := g.stopped()
+@@ -345,6 +348,7 @@ func (g *game) Draw(screen *ebiten.Image) {
+ 			g.hud.drawToast(screen, ht, toast)
+ 		}
+ 	}
++	g.shotScreen = screen
+ }
+ 
+ // drawGame 畫遊戲區（邏輯畫面 1280x800）：顯示來源以 sw.Display() 為準。
+@@ -354,7 +358,7 @@ func (g *game) drawGame(screen *ebiten.Image) {
+ 		filter = ebiten.FilterLinear
+ 	}
+ 	if g.sw.Display() == srcHD && g.hv != nil {
+-		if pub, ok := g.hv.upload(g.lastPub, func(rgba []byte) { g.imgHD.WritePixels(rgba) }); ok {
++		if pub, ok := g.hv.uploadDisplay(g.lastPub, func(rgba []byte, f *hrrt.Frame) { g.imgHD.WritePixels(rgba); g.drawnFrame = f }); ok {
+ 			g.lastPub = pub
+ 		}
+ 		r := image.Rect(0, topBlank*hdScale, vramW*hdScale, (topBlank+gameH)*hdScale)
+@@ -363,6 +367,7 @@ func (g *game) drawGame(screen *ebiten.Image) {
+ 	}
+ 	if f := g.s.Frame(); f != nil && f.Seq != g.lastSq && f.W == vramW && f.H == vramH {
+ 		g.lastSq = f.Seq
++		g.drawnFrame = f
+ 		f.RGBA(g.rgba)
+ 		g.imgOrig.WritePixels(g.rgba)
+ 	}
+@@ -443,7 +448,9 @@ func (g *game) screenshot() {
+ 	}
+ 	name := filepath.Join(dir, time.Now().Format("20060102-150405")+".png")
+ 	var err error
+-	if g.sw.Current() != themeOriginal && g.hdPNG != nil {
++	if g.shotScreen != nil {
++		err = writeDisplayScreenshot(name, g.shotScreen)
++	} else if g.sw.Current() != themeOriginal && g.hdPNG != nil {
+ 		err = g.hdPNG(name)
+ 		if errors.Is(err, errNoFrame) {
+ 			g.logf("F12：HD 畫面尚未就緒（%v），改存原版快照（640x400）", err)
+diff --git a/apps/hr/play/hdview.go b/apps/hr/play/hdview.go
+index aa3e492..02fcdff 100644
+--- a/apps/hr/play/hdview.go
++++ b/apps/hr/play/hdview.go
+@@ -9,6 +9,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
+ )
+ 
+ // errNoFrame 是 writePNG 在 ready 為空時回傳的哨兵錯誤（剛換素材、還沒有新畫面，或目前暫停）。
+@@ -38,10 +39,11 @@ type hdView struct {
+ 	discards uint64     // 因世代改變而丟棄的合成結果數（測試用）
+ 	seen     uint64     // run 已看到的 epoch 的鏡像（測試用，只由 run 在 mu 下寫）
+ 
+-	bufs [2][]byte // 兩個 (640*S) x (480*S) RGBA 緩衝區：一個是 ready（或空），另一個給 run 合成
+-	stop chan struct{}
+-	once sync.Once
+-	wg   sync.WaitGroup
++	bufs   [2][]byte      // 兩個 (640*S) x (480*S) RGBA 緩衝區：一個是 ready（或空），另一個給 run 合成
++	frames [2]*hrrt.Frame // 與 bufs 同槽，譯文疊層使用實際已發佈底圖的快照。
++	stop   chan struct{}
++	once   sync.Once
++	wg     sync.WaitGroup
+ }
+ 
+ // hdViewOption 是 newHDView 的建構選項。
+@@ -129,6 +131,7 @@ func (v *hdView) run() {
+ 		v.cmp.Compose(v.bufs[w], f.Px, f.W, f.H, f.Map, &f.DAC, f.Stamps)
+ 		v.mu.Lock()
+ 		if v.skipEpochCheck || v.epoch == epoch {
++			v.frames[w] = f
+ 			v.readyIdx, w = w, 1-w
+ 			v.pub++
+ 			v.pubFrom = assets
+@@ -143,12 +146,16 @@ func (v *hdView) run() {
+ // ready 為空時回 false（不論 pub 與 lastPub 是否相同：HD 到 HD 時剛發佈的舊畫面在同一幀被 SetAssets 清空，
+ // 這時上傳會閃出清空的緩衝區）。以發佈計數比對，不用遊戲 Seq（遊戲停機時 HD 到 HD 的新畫面仍能進入 imgHD）。
+ func (v *hdView) upload(lastPub uint64, fn func(rgba []byte)) (uint64, bool) {
++	return v.uploadDisplay(lastPub, func(rgba []byte, _ *hrrt.Frame) { fn(rgba) })
++}
++
++func (v *hdView) uploadDisplay(lastPub uint64, fn func(rgba []byte, f *hrrt.Frame)) (uint64, bool) {
+ 	v.mu.Lock()
+ 	defer v.mu.Unlock()
+ 	if v.readyIdx < 0 || v.pub == lastPub {
+ 		return lastPub, false
+ 	}
+-	fn(v.bufs[v.readyIdx])
++	fn(v.bufs[v.readyIdx], v.frames[v.readyIdx])
+ 	return v.pub, true
+ }
+ 
+diff --git a/apps/hr/play/i18n.go b/apps/hr/play/i18n.go
+index f394e55..41bb5c0 100644
+--- a/apps/hr/play/i18n.go
++++ b/apps/hr/play/i18n.go
+@@ -66,7 +66,7 @@ var trTable = map[lang]strs{
+ 		"status.game":                        "遊戲內文字：%s",
+ 		"status.sound":                       "聲音：%s",
+ 		"game.text.orig":                     "原版（繁體中文）",
+-		"game.text.partial":                  "語言包 %s（部分翻譯）",
++		"game.text.partial":                  "語言包 %s",
+ 		"game.text.verify":                   "語言包 %s（原版文字，驗證用）",
+ 		"game.text.pending":                  "已選 %s，下次啟動生效",
+ 		"game.text.unusable":                 "已選 %s，無法使用：%s",
+@@ -132,7 +132,7 @@ var trTable = map[lang]strs{
+ 		"status.game":                        "游戏内文字：%s",
+ 		"status.sound":                       "声音：%s",
+ 		"game.text.orig":                     "原版（繁体中文）",
+-		"game.text.partial":                  "语言包 %s（部分翻译）",
++		"game.text.partial":                  "语言包 %s",
+ 		"game.text.verify":                   "语言包 %s（原版文字，验证用）",
+ 		"game.text.pending":                  "已选 %s，下次启动生效",
+ 		"game.text.unusable":                 "已选 %s，无法使用：%s",
+@@ -198,7 +198,7 @@ var trTable = map[lang]strs{
+ 		"status.game":                        "게임 내 문자: %s",
+ 		"status.sound":                       "소리: %s",
+ 		"game.text.orig":                     "원본 (중국어 번체)",
+-		"game.text.partial":                  "언어 팩 %s (부분 번역)",
++		"game.text.partial":                  "언어 팩 %s",
+ 		"game.text.verify":                   "언어 팩 %s (원본 문자, 검증용)",
+ 		"game.text.pending":                  "%s 선택됨, 다음 실행부터 적용",
+ 		"game.text.unusable":                 "%s 선택됨, 사용할 수 없음: %s",
+@@ -264,7 +264,7 @@ var trTable = map[lang]strs{
+ 		"status.game":                        "In-game text: %s",
+ 		"status.sound":                       "Sound: %s",
+ 		"game.text.orig":                     "Original (Traditional Chinese)",
+-		"game.text.partial":                  "Language pack %s (partial translation)",
++		"game.text.partial":                  "Language pack %s",
+ 		"game.text.verify":                   "Language pack %s (original text, for verification)",
+ 		"game.text.pending":                  "%s selected, takes effect at next launch",
+ 		"game.text.unusable":                 "%s selected, unavailable: %s",
+@@ -330,7 +330,7 @@ var trTable = map[lang]strs{
+ 		"status.game":                        "ゲーム内の文字：%s",
+ 		"status.sound":                       "サウンド：%s",
+ 		"game.text.orig":                     "オリジナル（繁体字中国語）",
+-		"game.text.partial":                  "言語パック %s（一部翻訳）",
++		"game.text.partial":                  "言語パック %s",
+ 		"game.text.verify":                   "言語パック %s（元の文字、検証用）",
+ 		"game.text.pending":                  "%s を選択、次回起動から有効",
+ 		"game.text.unusable":                 "%s を選択、使用不可：%s",
+diff --git a/apps/hr/play/ingame_cjk_test.go b/apps/hr/play/ingame_cjk_test.go
+index 79334d6..7c10541 100644
+--- a/apps/hr/play/ingame_cjk_test.go
++++ b/apps/hr/play/ingame_cjk_test.go
+@@ -64,7 +64,7 @@ func TestPrepareCJKConfigAndAdoption(t *testing.T) {
+ 					t.Fatalf("%s：兩次建包設定不一致：%+v %+v", code, out, fb.cfgs)
+ 				}
+ 				cfg := fb.cfgs[0]
+-				if cfg.Code != string(code) || cfg.Mode != l10n.ModeTable || cfg.TableDir != actual || cfg.PatchDir != filepath.Join(actual, "glyph-patch") || cfg.Policy != (l10n.Policy{}) {
++				if cfg.Code != string(code) || cfg.Mode != l10n.ModeTable || cfg.TableDir != actual || cfg.PatchDir != filepath.Join(actual, "glyph-patch") || cfg.Policy != (l10n.Policy{AllowCountryOffsets: true, DisplayShoptab: true}) {
+ 					t.Fatalf("%s：實際同源設定不符：%+v", code, cfg)
+ 				}
+ 				e, sf := out.finish(hrrt.LangStatus{LangDir: out.LangDir}, nil)
+diff --git a/apps/hr/play/ingame_en_test.go b/apps/hr/play/ingame_en_test.go
+index 339225b..1684c20 100644
+--- a/apps/hr/play/ingame_en_test.go
++++ b/apps/hr/play/ingame_en_test.go
+@@ -161,7 +161,7 @@ func TestPrepareEnglishConfigAndZeroAdoption(t *testing.T) {
+ 				t.Fatalf("建置設定不一致：%+v %+v", out, fb.cfgs)
+ 			}
+ 			cfg := fb.cfgs[0]
+-			if cfg.Code != "en" || cfg.Mode != l10n.ModeTable || cfg.TableDir != filepath.Join(root, "en") || cfg.PatchDir != patch || cfg.Policy != (l10n.Policy{}) {
++			if cfg.Code != "en" || cfg.Mode != l10n.ModeTable || cfg.TableDir != filepath.Join(root, "en") || cfg.PatchDir != patch || cfg.Policy != (l10n.Policy{AllowCountryOffsets: true, DisplayShoptab: true}) {
+ 				t.Fatalf("英文設定：%+v", cfg)
+ 			}
+ 			e, sf := out.finish(hrrt.LangStatus{LangDir: out.LangDir}, nil)
+diff --git a/apps/hr/play/ingame_start.go b/apps/hr/play/ingame_start.go
+index be03374..a7089d4 100644
+--- a/apps/hr/play/ingame_start.go
++++ b/apps/hr/play/ingame_start.go
+@@ -47,12 +47,13 @@ type ingameInput struct {
+ 
+ // ingameBuild 是 prepareIngame 的結果。
+ type ingameBuild struct {
+-	Choice     ingameChoice
+-	Plan       ingamePlan
+-	LangDir    string    // 建置成功：語言層目錄（<包根>/files）；否則空
+-	LangDigest string    // 建置成功：先算好的預期輸入摘要；LangDir 非空時必非空
+-	Pack       effective // 建置成功：由 manifest 判出的種類（還沒經過 Session.Open 的驗證）
+-	Failed     bool      // 要建置而失敗（build-failed）
++	Choice          ingameChoice
++	Plan            ingamePlan
++	LangDir         string    // 建置成功：語言層目錄（<包根>/files）；否則空
++	LangDigest      string    // 建置成功：先算好的預期輸入摘要；LangDir 非空時必非空
++	DisplayTableDir string    // 顯示專用 MAIN／商店名稱的同源 UTF-8 譯文表
++	Pack            effective // 建置成功：由 manifest 判出的種類（還沒經過 Session.Open 的驗證）
++	Failed          bool      // 要建置而失敗（build-failed）
+ }
+ 
+ // langOptions 是要傳給 hrrt.Options 的 LangDir 與 LangDigest。只在語言包啟用（建置成功）時才非空；
+@@ -68,7 +69,7 @@ func (b ingameBuild) langOptions() (langDir, langDigest string) {
+ // 啟動成本只有幾次目錄探測。
+ //
+ // 要建置時：組 l10n.Config（原版目錄、輸出根 l10n-packs、table 模式的譯文表目錄 ＝ 找到的 l10n 根接 <代碼>/、
+-// 預設政策：三個旗標全關，這些旗標前端不提供），先 ExpectedDigest 算好預期摘要，再 Build，建置完成後比對
++// 正式政策：COUNTRY 使用精確偏移、SHOP 只翻譯顯示），先 ExpectedDigest 算好預期摘要，再 Build，建置完成後比對
+ // Result.Digest 與先算好的摘要，不等（建置期間譯文表被改動）記 build-failed。
+ func prepareIngame(in ingameInput) ingameBuild {
+ 	logf := in.Logf
+@@ -88,6 +89,7 @@ func prepareIngame(in ingameInput) ingameBuild {
+ 	if out.Plan.Kind == planTable {
+ 		cfg.Mode = l10n.ModeTable
+ 		cfg.TableDir = probe.TableDir
++		cfg.Policy = l10n.Policy{AllowCountryOffsets: true, DisplayShoptab: true}
+ 		if l2SupportedFor(c.Code) {
+ 			cfg.PatchDir = probe.PatchDir
+ 		}
+@@ -117,9 +119,12 @@ func prepareIngame(in ingameInput) ingameBuild {
+ 		return out.fail(logf, "建置期間輸入改變：先算的摘要 %s，建置結果 %s", shortHash(digest), shortHash(res.Digest))
+ 	}
+ 	out.LangDir, out.LangDigest = res.FilesDir(), digest
++	if cfg.Mode == l10n.ModeTable {
++		out.DisplayTableDir = probe.TableDir
++	}
+ 	out.Pack = effectiveFromManifest(res.Manifest.Policy.Mode, res.Manifest.Adopted, ingameCode(res.Manifest.Code))
+-	logf("ingame: pack-ready dir=%s reused=%v mode=%s code=%s adopted=%d manifest-sha256=%s digest=%s",
+-		res.Dir, res.Reused, res.Manifest.Policy.Mode, res.Manifest.Code, res.Manifest.Adopted, shortHash(res.ManifestSHA256), shortHash(digest))
++	logf("ingame: pack-ready dir=%s reused=%v mode=%s code=%s adopted=%d display-adopted=%d total=%d manifest-sha256=%s digest=%s",
++		res.Dir, res.Reused, res.Manifest.Policy.Mode, res.Manifest.Code, res.Manifest.Adopted, res.Manifest.DisplayAdopted, res.Manifest.Adopted+res.Manifest.DisplayAdopted, shortHash(res.ManifestSHA256), shortHash(digest))
+ 	return out
+ }
+ 
+diff --git a/apps/hr/play/ingame_start_test.go b/apps/hr/play/ingame_start_test.go
+index 8a29397..720025f 100644
+--- a/apps/hr/play/ingame_start_test.go
++++ b/apps/hr/play/ingame_start_test.go
+@@ -141,7 +141,7 @@ func TestPrepareIngameDefaultPathNeverCallsBuilder(t *testing.T) {
+ 	}
+ }
+ 
+-// 要建置時的 Config：原版目錄、輸出根、代碼、模式、預設政策（三個旗標全關）、table 模式的譯文表目錄 ＝ l10n 根接 <代碼>/。
++// Config 保留 identity 原版路徑；table 使用 COUNTRY 精確偏移與 SHOP 顯示專用政策。
+ func TestPrepareIngameConfig(t *testing.T) {
+ 	d := strings.Repeat("c", 64)
+ 	root := mkTables(t, "zh-TW")
+@@ -174,8 +174,12 @@ func TestPrepareIngameConfig(t *testing.T) {
+ 		if cfg.Mode != c.wantMode || cfg.Code != c.wantCode || cfg.OrigDir != "/the/orig" || cfg.PackRoot != "/the/packs" {
+ 			t.Errorf("%s：Config ＝ %+v", c.name, cfg)
+ 		}
+-		if cfg.Policy != (l10n.Policy{}) {
+-			t.Errorf("%s：前端不提供三個政策旗標，應全關：%+v", c.name, cfg.Policy)
++		wantPolicy := l10n.Policy{}
++		if c.wantTable {
++			wantPolicy = l10n.Policy{AllowCountryOffsets: true, DisplayShoptab: true}
++		}
++		if cfg.Policy != wantPolicy {
++			t.Errorf("%s：正式採用政策不符：%+v", c.name, cfg.Policy)
+ 		}
+ 		if c.wantTable {
+ 			if cfg.TableDir != filepath.Join(r, "zh-TW") {
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index e440311..66cc34f 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -171,6 +171,7 @@ func main() {
+ 		SaveDir: saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf,
+ 		HDHooks: plan.HDHooks, HDAssets: ts.BaseAssets(),
+ 		LangDir: langDir, LangDigest: langDigest, // 只在語言包啟用時才傳；LangDir 非空時 LangDigest 必非空，SkipLangDigest 不設
++		DisplayTableDir: ing.DisplayTableDir, DisplayCode: string(ing.Choice.Code),
+ 		DiagDir: filepath.Join(dd, "crash"), HangSeconds: 30, OnDiag: func(dir, reason string) { onDiag(dd, dir, reason) },
+ 	})
+ 	if err != nil {
+diff --git a/apps/hr/runtime/display.go b/apps/hr/runtime/display.go
+new file mode 100644
+index 0000000..b13f1bc
+--- /dev/null
++++ b/apps/hr/runtime/display.go
+@@ -0,0 +1,398 @@
++package runtime
++
++// 顯示專用翻譯。只觀察繪製呼叫與 VGA 像素，不寫入 DOS 記憶體或存檔。
++import (
++	"crypto/sha256"
++	"fmt"
++	"os"
++	"path/filepath"
++	"regexp"
++	"strconv"
++	"strings"
++	"unicode/utf8"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"golang.org/x/text/encoding/traditionalchinese"
++)
++
++// DisplayStamp 是原版完成繪字後的顯示區。Expected/Before 為區內原色索引。
++// 快照只攜帶仍然與原版像素相符的 stamp，避免舊譯文留在新畫面。
++type DisplayStamp struct {
++	X, Y, W, H       int
++	Text             string
++	Color            uint8
++	Before, Expected []uint8
++}
++
++type displayPattern struct {
++	source, target string
++	re             *regexp.Regexp
++}
++type displayPending struct {
++	stamp          DisplayStamp
++	ss, sp, cs, ip uint16
++	step           uint64
++}
++type displayObserver struct {
++	exact                map[string]string
++	patterns             []displayPattern
++	pending              []displayPending
++	stamps               []DisplayStamp
++	fontPath, code       string
++	mainCount, shopCount int
++}
++
++func decodeDisplay(raw []byte) string {
++	b, _ := traditionalchinese.Big5.NewDecoder().Bytes(raw)
++	return strings.TrimSpace(string(b))
++}
++
++func unescapeDisplay(s string) (string, error) {
++	var out strings.Builder
++	for i := 0; i < len(s); i++ {
++		if s[i] != '\\' {
++			out.WriteByte(s[i])
++			continue
++		}
++		i++
++		if i == len(s) {
++			return "", fmt.Errorf("trailing TSV escape")
++		}
++		switch s[i] {
++		case 'n':
++			out.WriteByte('\n')
++		case 't':
++			out.WriteByte('\t')
++		case '\\':
++			out.WriteByte('\\')
++		default:
++			return "", fmt.Errorf("unknown TSV escape")
++		}
++	}
++	return out.String(), nil
++}
++
++var displaySpecifier = regexp.MustCompile(`%[-+ #0]*[0-9]*(?:\.[0-9]+)?(?:l)?[sducxX]`)
++
++func (o *displayObserver) add(raw []byte, target string) {
++	source := decodeDisplay(raw)
++	if source == "" || target == "" {
++		return
++	}
++	target = strings.TrimSpace(target)
++	if !strings.Contains(source, "%") {
++		if _, exists := o.exact[source]; !exists {
++			o.exact[source] = target
++		}
++		return
++	}
++	srcSpecs := displaySpecifier.FindAllString(source, -1)
++	dstSpecs := displaySpecifier.FindAllString(target, -1)
++	if len(srcSpecs) == 0 {
++		// Literal percentages are display text, not a reason to drop a catalog row.
++		source = strings.ReplaceAll(source, "%%", "%")
++		target = strings.ReplaceAll(target, "%%", "%")
++		if _, exists := o.exact[source]; !exists {
++			o.exact[source] = target
++		}
++		return
++	}
++	if len(srcSpecs) != len(dstSpecs) {
++		return
++	}
++	for i := range srcSpecs {
++		if srcSpecs[i] != dstSpecs[i] {
++			return
++		}
++	}
++	idx := displaySpecifier.FindAllStringIndex(source, -1)
++	var p strings.Builder
++	p.WriteString("(?s)^")
++	previous := 0
++	for _, pair := range idx {
++		p.WriteString(regexp.QuoteMeta(source[previous:pair[0]]))
++		p.WriteString("(.*?)")
++		previous = pair[1]
++	}
++	p.WriteString(regexp.QuoteMeta(source[previous:]))
++	p.WriteString("$")
++	o.patterns = append(o.patterns, displayPattern{source, target, regexp.MustCompile(p.String())})
++}
++
++// LoadDisplayTranslations 綁定 MAIN 原版雜湊、各列來源摘要及 SHOP 固定欄。
++// keep/unresolved 列沒有替換；未知原文保持原版。
++func loadDisplayTranslations(root, dir, code string, image []byte) (*displayObserver, error) {
++	if dir == "" || code == "" || code == "zh-TW" {
++		return nil, nil
++	}
++	o := &displayObserver{exact: map[string]string{}, code: code, fontPath: filepath.Join(dir, "display-font.otf")}
++	if _, err := os.Stat(o.fontPath); err != nil {
++		return nil, fmt.Errorf("display font: %w", err)
++	}
++	shop, err := os.ReadFile(filepath.Join(root, "SHOPTAB.TBL"))
++	if err != nil {
++		return nil, err
++	}
++	for _, name := range []string{"MAIN.EXE.tsv", "SHOPTAB.TBL.tsv"} {
++		data, err := os.ReadFile(filepath.Join(dir, name))
++		if err != nil {
++			return nil, err
++		}
++		if len(data) > 8<<20 || !utf8.Valid(data) {
++			return nil, fmt.Errorf("invalid display table %s", name)
++		}
++		lines := strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
++		head := strings.Split(lines[0], "\t")
++		cols := map[string]int{}
++		for i, key := range head {
++			cols[key] = i
++		}
++		for _, key := range []string{"id", "text", "status"} {
++			if _, ok := cols[key]; !ok {
++				return nil, fmt.Errorf("display table missing %s", key)
++			}
++		}
++		hashColumn, hashWidth := "raw_sha256", 64
++		if _, ok := cols[hashColumn]; !ok {
++			hashColumn, hashWidth = "src_sha256", 16
++		}
++		if _, ok := cols[hashColumn]; !ok {
++			return nil, fmt.Errorf("display table missing source hash")
++		}
++		seen := map[string]bool{}
++		for n, line := range lines[1:] {
++			f := strings.Split(line, "\t")
++			if len(f) != len(head) {
++				return nil, fmt.Errorf("%s:%d columns", name, n+2)
++			}
++			id := f[cols["id"]]
++			if seen[id] {
++				return nil, fmt.Errorf("duplicate display ID %s", id)
++			}
++			seen[id] = true
++			if f[cols["status"]] != "accepted" {
++				continue
++			}
++			target, err := unescapeDisplay(f[cols["text"]])
++			if err != nil {
++				return nil, err
++			}
++			if name == "SHOPTAB.TBL.tsv" {
++				col, ok := cols["acc_sha"]
++				if !ok || fmt.Sprintf("%x", sha256.Sum256([]byte(target)))[:16] != f[col] {
++					continue
++				}
++			}
++			var raw []byte
++			if name == "MAIN.EXE.tsv" {
++				var seg, off uint32
++				if _, err := fmt.Sscanf(id, "MAIN@IDA:%x:%x", &seg, &off); err != nil {
++					return nil, fmt.Errorf("invalid MAIN ID %s", id)
++				}
++				start := int(seg*16+off) - 0x10000 + 18944
++				if start < 0 || start >= len(image) {
++					return nil, fmt.Errorf("MAIN offset %s", id)
++				}
++				for size := 1; size <= 512 && start+size <= len(image); size++ {
++					b := image[start : start+size]
++					if fmt.Sprintf("%x", sha256.Sum256(b))[:hashWidth] == f[cols[hashColumn]] {
++						raw = b
++						break
++					}
++				}
++				if raw == nil {
++					return nil, fmt.Errorf("MAIN source mismatch %s", id)
++				}
++				o.mainCount++
++			} else {
++				// Canonical IDs are SHOPTAB#row.field.
++				parts := strings.Split(strings.TrimPrefix(id, "SHOPTAB#"), ".")
++				if len(parts) != 2 {
++					return nil, fmt.Errorf("SHOP ID %s", id)
++				}
++				row, e1 := strconv.Atoi(parts[0])
++				field, e2 := strconv.Atoi(parts[1])
++				start := row*200 + field*25
++				if e1 != nil || e2 != nil || row < 0 || row >= 99 || field < 0 || field >= 8 || start+20 > len(shop) {
++					return nil, fmt.Errorf("SHOP ID %s", id)
++				}
++				raw = shop[start : start+20]
++				if fmt.Sprintf("%x", sha256.Sum256(raw))[:hashWidth] != f[cols[hashColumn]] {
++					return nil, fmt.Errorf("SHOP source mismatch %s", id)
++				}
++				o.shopCount++
++			}
++			o.add(raw, target)
++		}
++	}
++	return o, nil
++}
++
++func (o *displayObserver) translate(raw []byte) string {
++	source := decodeDisplay(raw)
++	if t, ok := o.exact[source]; ok {
++		return t
++	}
++	for _, p := range o.patterns {
++		captures := p.re.FindStringSubmatch(source)
++		if captures == nil {
++			continue
++		}
++		indices := displaySpecifier.FindAllStringIndex(p.target, -1)
++		var out strings.Builder
++		previous := 0
++		for i, index := range indices {
++			out.WriteString(p.target[previous:index[0]])
++			value := captures[i+1]
++			if t, ok := o.exact[strings.TrimSpace(value)]; ok {
++				value = t
++			}
++			out.WriteString(value)
++			previous = index[1]
++		}
++		out.WriteString(p.target[previous:])
++		return out.String()
++	}
++	return ""
++}
++
++func displayCString(m *machine.Machine, addr uint32, line bool) []byte {
++	var b []byte
++	for i := uint32(0); i < 512 && addr+i < uint32(len(m.Mem)); i++ {
++		c := m.Mem[addr+i]
++		if c == 0 || (line && c == 10) {
++			break
++		}
++		b = append(b, c)
++	}
++	return b
++}
++
++func displayCrop(px []uint8, width int, s DisplayStamp) []uint8 {
++	out := make([]uint8, s.W*s.H)
++	for y := 0; y < s.H; y++ {
++		copy(out[y*s.W:], px[(s.Y+y)*width+s.X:(s.Y+y)*width+s.X+s.W])
++	}
++	return out
++}
++
++func (o *displayObserver) pre(m *machine.Machine) {
++	c := m.CPU
++	if c.Seg[cpu.CS] != 0x16EC || (c.IP != 0x15E7 && c.IP != 0x1676 && c.IP != 0x18AC) {
++		return
++	}
++	// An outer translated text object owns its rectangle; ignore its nested lines.
++	if len(o.pending) > 0 {
++		return
++	}
++	ss, sp := c.Seg[cpu.SS], c.R[cpu.SP]
++	arg := func(n uint16) uint16 { return m.Read16(cpu.Linear(ss, sp+4+n*2)) }
++	st := DisplayStamp{X: int(int16(arg(0))), Y: int(int16(arg(1))) + 40, H: 16, Color: uint8(arg(2)) & 15}
++	var raw []byte
++	if c.IP == 0x18AC {
++		obj := cpu.Linear(arg(1), arg(0))
++		if obj+16 >= uint32(len(m.Mem)) {
++			return
++		}
++		st.X, st.Y, st.W, st.H, st.Color = int(int16(m.Read16(obj+4))), int(int16(m.Read16(obj+6)))+40, int(m.Read16(obj+8)), int(m.Read16(obj+10)), 15
++		raw = displayCString(m, cpu.Linear(m.Read16(obj+14), m.Read16(obj+12)), false)
++	} else if c.IP == 0x1676 {
++		st.W, st.Color = int(arg(2)), uint8(arg(3))&15
++		raw = displayCString(m, cpu.Linear(arg(7), arg(6)), true)
++	} else {
++		raw = displayCString(m, cpu.Linear(arg(6), arg(5)), false)
++		st.W = len(raw) * 8
++	}
++	st.Text = o.translate(raw)
++	if st.Text == "" {
++		return
++	}
++	if st.X < 0 || st.Y < 40 || st.W < 1 || st.H < 15 || st.X >= 640 || st.Y >= 440 {
++		return
++	}
++	if st.W > 640-st.X {
++		st.W = 640 - st.X
++	}
++	if st.H > 440-st.Y {
++		st.H = 440 - st.Y
++	}
++	w, h, px := m.Planar()
++	if w != 640 || h != 480 {
++		return
++	}
++	st.Before = displayCrop(px, w, st)
++	o.pending = append(o.pending, displayPending{st, ss, sp + 4, m.Read16(cpu.Linear(ss, sp+2)), m.Read16(cpu.Linear(ss, sp)), m.Steps})
++}
++
++func (o *displayObserver) post(m *machine.Machine) {
++	if len(o.pending) == 0 {
++		return
++	}
++	p := o.pending[0]
++	c := m.CPU
++	if m.Steps-p.step > 10_000_000 {
++		o.pending = nil
++		return
++	}
++	if c.Seg[cpu.CS] != p.cs || c.IP != p.ip || c.Seg[cpu.SS] != p.ss || c.R[cpu.SP] != p.sp {
++		return
++	}
++	w, h, px := m.Planar()
++	if w == 640 && h == 480 {
++		p.stamp.Expected = displayCrop(px, w, p.stamp)
++		changed := false
++		for i := range p.stamp.Expected {
++			if p.stamp.Before[i] != p.stamp.Expected[i] {
++				changed = true
++				break
++			}
++		}
++		// An identical redraw leaves the existing stamp/background intact.
++		if !changed {
++			o.pending = nil
++			return
++		}
++		// Latest draw owns any overlapping rectangle.
++		kept := o.stamps[:0]
++		for _, old := range o.stamps {
++			if old.X >= p.stamp.X+p.stamp.W || old.X+old.W <= p.stamp.X || old.Y >= p.stamp.Y+p.stamp.H || old.Y+old.H <= p.stamp.Y {
++				kept = append(kept, old)
++			}
++		}
++		o.stamps = append(kept, p.stamp)
++		if len(o.stamps) > 512 {
++			o.stamps = o.stamps[len(o.stamps)-512:]
++		}
++	}
++	o.pending = nil
++}
++
++func (o *displayObserver) snapshot(f *Frame) {
++	kept := o.stamps[:0]
++	for _, s := range o.stamps {
++		matches := true
++		for y := 0; y < s.H && matches; y++ {
++			for x := 0; x < s.W; x++ {
++				i := y*s.W + x
++				if f.Px[(s.Y+y)*f.W+s.X+x] != s.Expected[i] {
++					matches = false
++					break
++				}
++			}
++		}
++		if matches {
++			kept = append(kept, s)
++			f.Display = append(f.Display, s)
++		}
++	}
++	o.stamps = kept
++}
++
++// DisplayFont returns the immutable active display catalog/font identity.
++func (s *Session) DisplayFont() (string, string) {
++	if s.display == nil {
++		return "", ""
++	}
++	return s.display.fontPath, s.display.code
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index b1f0ff0..eb1a1b3 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -40,6 +40,8 @@ const (
+ 
+ // Options 是 Open 的選項。
+ type Options struct {
++	// DisplayTableDir/DisplayCode 啟用 MAIN 與 SHOP 的顯示專用 UTF-8 譯文，不改 DOS 資料。
++	DisplayTableDir, DisplayCode string
+ 	// SaveDir 是可寫暫存層（dosgolem 的 d.Scratch）；空字串表示唯讀（寫入只記帳）。
+ 	SaveDir string
+ 	// LangDir 是語言層目錄（語言包的 files/，docs/spec/008 第 3.1 節）；空字串 ＝ 沒有語言層，行為與沒有這個欄位時相同。
+@@ -125,14 +127,15 @@ func (s *Stop) Normal() bool { return s != nil && (s.Kind == StopQuit || s.Kind
+ // Frame 是 Run 在滑鼠輪詢點產生的畫面快照，建立後不再修改（docs/spec/003 第 3 節、004 第 5.1 節）。
+ // 只複製像素值與調色盤；轉成 RGB 由使用者在自己的執行緒做（RGBA），不佔模擬迴圈的時間。
+ type Frame struct {
+-	W, H   int
+-	Px     []uint8       // W*H 個像素值，0 至 15（Machine.Planar）
+-	Map    [16]uint8     // 像素值到 DAC 索引（EGA 屬性暫存器，VGA.DACIndex）
+-	DAC    [256][3]uint8 // 8 位元 RGB
+-	Steps  uint64
+-	Ticks  uint64
+-	Seq    uint64
+-	Stamps []*hd.Stamp // 有效戳記（序號遞增；沒開掛鉤時為 nil）
++	Display []DisplayStamp
++	W, H    int
++	Px      []uint8       // W*H 個像素值，0 至 15（Machine.Planar）
++	Map     [16]uint8     // 像素值到 DAC 索引（EGA 屬性暫存器，VGA.DACIndex）
++	DAC     [256][3]uint8 // 8 位元 RGB
++	Steps   uint64
++	Ticks   uint64
++	Seq     uint64
++	Stamps  []*hd.Stamp // 有效戳記（序號遞增；沒開掛鉤時為 nil）
+ }
+ 
+ // RGBA 把畫面轉成每像素 4 bytes 的 RGBA（alpha 255）寫進 dst（長度至少 W*H*4）。
+@@ -193,14 +196,15 @@ type Session struct {
+ 	stackTop uint16
+ 	minSP    uint16
+ 
+-	mu     sync.Mutex
+-	inbox  []Event
+-	stats  Stats
+-	frame  atomic.Pointer[Frame]
+-	ov     *hd.Overlay
+-	snd    *soundHooks // docs/spec/007；nil ＝ 關閉
+-	want   atomic.Bool
+-	frmSeq uint64
++	mu      sync.Mutex
++	inbox   []Event
++	stats   Stats
++	frame   atomic.Pointer[Frame]
++	ov      *hd.Overlay
++	display *displayObserver
++	snd     *soundHooks // docs/spec/007；nil ＝ 關閉
++	want    atomic.Bool
++	frmSeq  uint64
+ 
+ 	// 以下欄位只由持有機器的迴圈（Run 或 RunSteps）使用。
+ 	held           [2]bool
+@@ -274,6 +278,14 @@ func Open(root string, opt Options) (*Session, error) {
+ 		return nil, err
+ 	}
+ 	s.d.Install()
++	s.display, err = loadDisplayTranslations(root, opt.DisplayTableDir, opt.DisplayCode, img)
++	if err != nil {
++		s.logf("顯示譯文無法載入，MAIN 與商店名稱維持原版：%v", err)
++		s.display = nil
++	}
++	if s.display != nil {
++		s.logf("顯示譯文 %s：MAIN=%d SHOP=%d，原版記憶體及存檔保持不變", opt.DisplayCode, s.display.mainCount, s.display.shopCount)
++	}
+ 	s.noDiag = opt.NoDiag
+ 	s.initDiag()
+ 	if opt.SaveDir != "" {
+@@ -428,6 +440,9 @@ func (s *Session) stepBatch(n int) *Stop {
+ 		if ov != nil {
+ 			ov.Pre(m)
+ 		}
++		if s.display != nil {
++			s.display.pre(m)
++		}
+ 		if err := m.Step(); err != nil {
+ 			return &Stop{Kind: StopCPUError, Msg: "CPU 錯誤：" + err.Error()}
+ 		}
+@@ -442,6 +457,9 @@ func (s *Session) stepBatch(n int) *Stop {
+ 		if ov != nil && ov.Pending() > 0 {
+ 			ov.Post(m)
+ 		}
++		if s.display != nil {
++			s.display.post(m)
++		}
+ 		if d.Exited {
+ 			switch d.ExitCode {
+ 			case 1:
+@@ -514,6 +532,9 @@ func (s *Session) snapshot() {
+ 	if s.ov != nil {
+ 		f.Stamps = s.ov.Snapshot()
+ 	}
++	if s.display != nil {
++		s.display.snapshot(f)
++	}
+ 	s.frmSeq++
+ 	f.Seq = s.frmSeq
+ 	s.lastSnap = time.Now()
+-- 
+2.43.0
+

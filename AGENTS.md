@@ -1,5 +1,19 @@
 # 高報酬戰將 Remastered：專案規則
 
+## 現行交付決定（2026-10-06）
+
+本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式 `v.1.0.0-20261006`：
+
+- M10 完成條件改為全量文字接入、五語可切換，以及 README 執行截圖。停止追加玩家路徑、存讀檔、平台實機及 parity 抽驗；後續問題由 GitHub Issue 回報。這項決定不把未驗範圍升為原版 exact。
+- M8 停止追加畫面抽樣。595 項完整 AI 主題以現有定稿交付，包含一項服務拒絕後沿用 HD 的替代圖。
+- `l10n/` 譯文表、純 Noto 五檔字模補丁與 `hd-ai/` 新版素材可提交、一般推送至既有 private repo，並納入私人 Release。原版文字衍生物的內容掃描命中限於已授權的 `l10n/` 表；其他路徑維持既有洩漏判準。
+- repo 保持 PRIVATE。原版 EXE、DAT、字型、音樂與含原版資料的編譯語言包仍不進 Git 或 GitHub Release。含遊戲的三平台完整版及原版配樂推廣片放在 `dist-all/<版本>/full-local/`、`promo/`；私人 Release 的三平台包放在 `patch/`，提供合法原版匯入入口。
+- 版號、封包與影片依 `~/.codex/knowledge-base/local/retro-remake-release-versioning.md`、`retro-remake-dist-all-output.md` 及技能 `~/.codex/skills/reverse-engineer-retro-game-remake/SKILL.md`。不覆寫舊 tag／Release。
+
+MAIN／SHOP 顯示契約見 `docs/spec/009-display-only-main-shop-localization.md`；全量建包契約見 `docs/spec/008-ingame-text-localization.md` 第 3.2.5 節。
+
+現行素材入口是 `hd-ai/catalog.tsv`、`hd-ai/provenance.tsv`；譯文入口是 `l10n/<代碼>/` 及 `l10n/ACCEPTANCE.json`。逐輪結果記在 `WORKLOG.md`。
+
 ## 1. 專案定位與範圍
 
 本專案處理 DOS 遊戲《高報酬戰將》。需求來源是 `IDEA.md`，拆成四項工作：
@@ -196,11 +210,11 @@ RE 證據 → DRAFT 規格 → 證據審查 → READY 規格 → 實作 → 同�
 | M4 | 長跑，定位停機點並分類 | 進行中：隨機輸入與介面探索兩條線已建（`docs/re/011`、`docs/re/012`）；覆蓋不足（overlay 讀取起點 17 至 20 個，共 139 個）；遊玩機器人已建並跑完 2 組 2 遊戲小時（`docs/re/016`）；計時器擾動、音效路徑未量，戰鬥進行只在機器人的截圖裡出現過（種子 2 兩張） |
 | M5 | 用 IDA 分析停機點，寫 DRAFT 規格與修復方案 | 進行中：堆疊溢位已定位，規格 `docs/spec/002` READY 並已實作；是否即使用者說的當機未確認，其他停機點未找到 |
 | M6 | 圖像格式解碼、清冊、HD 替換機制規格，再交美術專家 | 進行中：格式解碼完成；繪圖原語逆向（`docs/re/009` DRAFT）；替換機制規格 `docs/spec/004` READY，掛鉤、驗證、合成與前端已實作（`docs/re/014`）；美術 v2 素材已進 `hd/`，使用者整體接受（全部 accepted）；HD 化完成 |
-| M7 | 三平台前端、打包與發行前驗證 | 進行中：規格 `docs/spec/003` READY，執行層、前端、三平台打包腳本已實作；Linux 與 Windows（Wine）已驗，macOS 只驗結構；HD 前端在 Linux（Xvfb）與 Windows（Wine，標題畫面）驗過，macOS 沒有；三平台發行包已用含 HD 前端的版本重建（`docs/re/013` 第 4.1 節），另有含 HD 素材的包在 `dist-all/with-hd/`（第 4.2 節，只供私人流通）；2026-10-03 修正長跑記憶體成長缺陷（`Session.idleForTrim`）後的包見第 4.3 節（`v0.1.0-hd` 含該缺陷，已由 `v0.1.1-hd` 取代），加入聲音與 F1 至 F4 之後的包（不含 HD）見第 4.4 節。2026-10-04 的 `v.0.1.0-20261004` 本機完整版含清冊 148 個原版檔與 595 張 HD 圖，Linux 實包進新遊戲、Windows ZIP 在 Wine 顯示標題、macOS universal ZIP 靜態驗收，36 秒推廣影片與 manifest 已產生；全數只留 `dist-all/<版本>/`，收據 `smoke/RESULTS.txt`。同版號的首個私人預發行包少了 AppImage `usr/share/doc/LICENSE`，已由 `v.0.1.1-20261004` 取代：新版三平台 `patch/` 包只含執行器與 HD 圖，遠端 SHA-256 與清冊一致；原版遊戲檔案及推廣影片仍留本機。本機 `v.0.2.0-20261006` 三平台含遊戲、HD、AI、五語各 17 試點及全量接受文字附件，全文附件未接入遊戲；Linux AI／韓文正常新遊戲與 Windows Wine AI／英文標題啟動通過，macOS 雙架構靜態通過，36 秒推廣片及 manifest 已產生，入口 `dist-all/v.0.2.0-20261006/smoke/RESULTS.txt`。片頭片尾未做，macOS 實機未驗，聲音見 M11 |
+| M7 | 三平台前端、打包與發行 | 正式交付版 `v.1.0.0-20261006` 重建中；本機完整版含原版遊戲，private Release 含引擎、HD、AI、譯文與純 Noto 補丁。停止追加玩家與平台實機抽驗，保留既有 Linux／Wine／macOS 結構收據的範圍；原版配樂推廣片只留本機。 |
 
-| M8 | AI theme：以原版為底重繪（本機 `workplace/ai-hd/technical/full-theme/`） | 本機定稿：九張代表圖已獲使用者接受；其餘 586 張中 585 張生成，`VS.MRG:23` 被圖像服務拒絕而保留已驗收 HD。共 595 項均有可載入的 2 倍尺寸圖，594 項通過格式契約，1 項以 HD 替代；來源雜湊、遮罩、地圖幾何與清冊已驗。地圖及細小圖示以既有 HD 幾何和 AI 紋理合成，文字圖保留原字形；背景 `VS.MRG:14`、`:20` 採校正第二版。Linux Xvfb 已用 `-hd-ai` 啟動並以 F2 切回原版；本機完整版另在 Windows Wine 驗 AI 標題啟動，macOS 只核對包內結構；遊戲全程、平台實機與公開發行未驗或未授權。素材及收據在忽略版控的 `workplace/ai-hd/` 或 `dist-all/`，不在 Git 或 Release |
+| M8 | AI 重繪主題 | 定稿交付：`hd-ai/` 共595項，594 AI重繪或合成、1 HD替代；新版素材已獲准進 private repo 及私人發行。使用者取消追加畫面抽樣，後續問題回報 GitHub。 |
 | M9 | 前端 F1 功能說明、F2 切換 theme（原版、HD、AI）、F3 聲音開關、F4 切換介面語言 | 進行中：規格 `docs/spec/006`（READY 第七版，2026-10-04，七輪審查，與 `docs/spec/007` 同一提交升 READY）；靜態普查完成（`docs/re/021`：`MAIN.EXE` 的讀鍵呼叫點都不使用鍵值，保留 F2、F3、F4 不影響遊戲，強推論）；實作已提交 fork 的 `hr` 分支（`c9c8ec3` hd 與 runtime、`aaaf999` play，補丁 `engine/patches/0026`、`0028`）：hd 與 runtime 40 與 15 項測試、play 132 項測試（含 `-race`）、突變驗證、`gui-lang` 與 `gui-theme` 端對端（HD 差異像素 87.8%，門檻 50%）通過；未驗：真實雙核容器內的 `Lowered`（此容器的 Xvfb 軟體繪圖本身跑不到 18.2 Hz，斷言無效）、預載時間與 RSS 收據、macOS 與 Windows 的執行、`-scale 1`、`-linear`、全螢幕。F3 是本專案為聲音開關選的鍵，使用者沒有指定；`docs/spec/003` 的保留鍵表已同步。遊戲內文字的 F4 語意見 M10 |
-| M10 | 遊戲內文字多語系（繁體、簡體、韓文、英文、日文） | 進行中：五語各 17 項試點已接受，008 第 3.2.1 至 3.2.4 建包／前端窄範圍 CONFORMED，版本 `55af19f2`，Linux 正常開場及據點已驗，收據 `docs/re/027` 至 `032`；本機完整版的韓文開場與 Windows Wine 英文冷建包／標題另在 `dist-all/v.0.2.0-20261006/smoke/`，macOS 只驗結構。四個新語言七檔全量各 2559 項已獲使用者接受，原 17 accepted 所有欄位保持；獨立完整語意審查及修訂補核完成，未經母語者審閱。接受收據在 `workplace/l10n-work/full-acceptance.json`，尚未全部接入遊戲。17 原文異常採使用者同意的語境修讀，仍為 hypothesis。完整本機字模候選含簡中 1448、日文 1142、韓文 751 字及英文 953 字組；正式折行每語 1767 非 SHOP 通過，792 SHOP 未知窗格仍拒絕，COUNTRY 11 項採用開關未開、ESPMES 394 項玩家路徑未觀測。MAIN 另有原始位元組核對過的 1314 項掃描稿，保留非文字與控制序列疑義；尚無 009 READY 掛鉤，名稱及武器未知不因候選完成升級。集中入口 `workplace/l10n-work/full-review.html`、`full-review-manifest.json` 與 `workplace/l10n-src/full-source-index.json`。韓文空白維持 8 px，保留 106 碼、可配上限 3170；既有兩種子字模觀測只證明該路徑。完整 L2／L3、戰鬥與存讀檔、平台實跑及語言包發行仍待完成。譯文、補丁與語言包均只留本機 |
+| M10 | 遊戲內五語文字 | 四個新語言七檔各2559接受譯文，六檔1767項資料接入及商店792項顯示接入；MAIN／存檔名稱顯示疊層保持原始識別。繁中原版及17校訂保留。F4下次啟動生效，五語截圖進README；譯文與純Noto補丁獲准private版控及發行。使用者免除追加L2/L3、戰鬥／存讀檔及平台抽樣，不宣稱全遊戲parity或母語審閱。 |
 | M11 | 原版音樂與音效播放 | 進行中：規格 `docs/spec/007`（READY 第五版（2026-10-04，五輪審查，與 `docs/spec/006` 同一提交升 READY）；最終驗證收據在 `docs/re/019` 第 10 節）；證據 `docs/re/018`、收據 `docs/re/019`（27 個 MID 離線驗收通過，機器人 2 遊戲小時 x 2 種子 completed）；實作已提交 fork 的 `hr` 分支（`adeb3e4`，補丁 `engine/patches/0027`）。聽感由使用者試聽（`workplace/out/music/wav/`），音色是本專案自寫的 FM 近似，沒有原版錄音可對拍；真實音訊裝置、macOS、GOLD 與 ALCOHOL 路徑、存檔 A/B 未驗 |
 
 M6 的格式解碼不依賴 M4 與 M5，M3 之後可與 M4 並行。M8 至 M11 彼此獨立，F2 可載入本機 AI theme；含 AI 素材的發行仍須另行決定。

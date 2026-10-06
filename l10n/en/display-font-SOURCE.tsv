@@ -1,0 +1,7 @@
+field	value
+font	Noto Sans CJK Regular 2.004
+face_index	3
+source_sha256	b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a
+output_sha256	d3dacca122a648ddbec3509bcd69b0eacf63bb05161c4b7cc33086fd2ddf046e
+method	fontTools 4.66.1 TTC face extraction; unmodified outlines
+license	SIL OFL 1.1; display-font-OFL.txt

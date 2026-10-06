@@ -1,0 +1,32 @@
+blank_column	7
+blank_scalar	U+0020
+cell	15x15
+charmap_sha256	1b57af148d35ddf3146c60ebe6fc9b4f0fa0303aeb84323d353d5d57826787fd
+container_image_id	sha256:f9ea24396753f49d4c215763aa8726755041f0b523f93c9bdbffd76b8e358fca
+face_index	3
+face_name	Noto Sans CJK TC
+font_file	NotoSansCJK-Regular.ttc
+font_sha256	b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a
+font_version	Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603
+fonttools_version	4.66.1
+format	hr-l2-source-v1
+glyphs_sha256	0c381c0de6e449a987166ad29de9080df49918ef2e9c43a311fc41a2cf7b1534
+half_origin	0,0;8,0
+language	en
+ofl_sha256	f47ac356aaafd53b53c6c784b3d63e265bf2dc9fe452d4ba5aee4b9b0bf51ca8
+pillow_version	12.3.0
+pixel_size	10
+placement	pair2x7-baseline11
+rasterizer_sha256	d926cfedb7e893a569459d3bee10518340c1ad0e5e040a431b4a3adcda35ca56
+rasterizer_version	hr-l2-rasterizer-draft-v1
+reserved_sha256	1c841eb8a768ec79051090f39371abc582da8c30a8f2811b26a3089ee015a1fe
+shrink	width-gt7:BILINEAR:7x15
+source_anchor	ls
+source_canvas	12x15
+source_clipping	canvas-before-getbbox
+source_crop	0,0,bbox-right,15
+source_origin	0,11
+threshold	128
+unicode_version	15.0.0
+unit_mode	pair2x7
+units_sha256	96500de4d1aa0eb49959e96b20a6d75c9e926265e4adbfa7e5b8ddeb6c3c6032

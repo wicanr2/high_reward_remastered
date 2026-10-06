@@ -1,0 +1,23 @@
+cell	15x15
+charmap_sha256	fa05e2a018a4156493e206081a94130ef5ca8f62408943bbf7a0971fa2bddcae
+container_image_id	sha256:f9ea24396753f49d4c215763aa8726755041f0b523f93c9bdbffd76b8e358fca
+face_index	2
+face_name	Noto Sans CJK SC
+font_file	NotoSansCJK-Regular.ttc
+font_sha256	b76b0433203017ca80401b2ee0dd69350349871c4b19d504c34dbdd80541690a
+font_version	Version 2.004;hotconv 1.0.118;makeotfexe 2.5.65603
+fonttools_version	4.66.1
+format	hr-l2-source-v1
+glyphs_sha256	2edcd988c334abe47e4faa844d4759758bcc6afab1ff307e11d1ff068e4e29bc
+language	zh-CN
+ofl_sha256	f47ac356aaafd53b53c6c784b3d63e265bf2dc9fe452d4ba5aee4b9b0bf51ca8
+pillow_version	12.3.0
+pixel_size	13
+placement	mask-center-floor
+rasterizer_sha256	d926cfedb7e893a569459d3bee10518340c1ad0e5e040a431b4a3adcda35ca56
+rasterizer_version	hr-l2-rasterizer-draft-v1
+reserved_sha256	1c841eb8a768ec79051090f39371abc582da8c30a8f2811b26a3089ee015a1fe
+threshold	128
+unicode_version	15.0.0
+unit_mode	scalar15
+units_sha256	20f29b9c53aa925e0d2a1eb817e74f732809d1461d26e2068464d49dc0ef853e

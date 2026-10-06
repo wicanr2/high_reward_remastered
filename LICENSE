@@ -43,6 +43,8 @@ the English translation below is provided for convenience only）。
   (c) 本儲存庫為了文件、研究與展示的目的，收錄了少量含有原版素材的片段，
       包括：從原版檔案量測得出的檔案清冊、雜湊、位址與格式分析表（不含原版內容本身）。這些片段中屬於
       原版素材的部分不在本條款的授權範圍內；其收錄依據是研究與評論之目的。
+      本 private 儲存庫另收錄 hd/、hd-ai/ 的原版美術衍生圖、docs/images/ 執行截圖，
+      以及 l10n/ 的原文欄位；其中原版或第三方享有權利的部分不由本條款授權。
       著作權人創作的譯文與量測所得的資料表屬於本作品，在著作權人享有權利的
       範圍內依本條款授權；譯文是原版文字的衍生著作，使用譯文重現遊戲仍以
       自備原版為前提。
@@ -196,7 +198,10 @@ separate agreement with the copyright holder.
    (c) For documentation, research and demonstration this repository contains
        small excerpts that include Original Assets: file inventories, hashes, addresses and format analysis tables measured from Original Assets (without the Original Assets themselves). The Original-Asset portions of
        these excerpts are outside this license and are included for research
-       and commentary. Translations and measured tables authored by the
+       and commentary. This private repository also contains derivative art in hd/
+       and hd-ai/, runtime screenshots in docs/images/, and source-text columns in
+       l10n/. Original and third-party portions are not licensed by this license.
+       Translations and measured tables authored by the
        copyright holder are part of the Work and are licensed under these
        terms to the extent of the copyright holder's rights in them; the
        translations are derivative of the original text, and using them to

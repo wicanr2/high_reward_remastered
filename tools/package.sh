@@ -23,9 +23,9 @@ DG="workplace/dosgolem"
 WITH_HD="${HR_WITH_HD:-0}"   # 1 ＝ 把 hd/ 放進包內（含原版美術的衍生物，只供私人流通）
 FULL_LOCAL="${HR_FULL_LOCAL:-0}" # 1 ＝ 本機完整版
 RELEASE_PATCH="${HR_RELEASE_PATCH:-0}" # 1 ＝ 正式版號、不含原版的私人 Release 包
-FULL_EXTRAS="${HR_FULL_EXTRAS:-0}" # 1 ＝ 本機完整 AI、五語試點與已接受全文附件
-if [ "$FULL_EXTRAS" = 1 ] && [ "$FULL_LOCAL" != 1 ]; then
-  echo "HR_FULL_EXTRAS 只可用於 HR_FULL_LOCAL=1 的本機封包" >&2; exit 2
+FULL_EXTRAS="${HR_FULL_EXTRAS:-0}" # 1 ＝ 已授權的 private AI、全量譯文與純 Noto 字模
+if [ "$FULL_EXTRAS" = 1 ] && [ "$FULL_LOCAL" != 1 ] && [ "$RELEASE_PATCH" != 1 ]; then
+  echo "HR_FULL_EXTRAS 只可用於正式本機或 private Release 封包" >&2; exit 2
 fi
 HRV="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 DGV="$(git -C "$DG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
@@ -167,9 +167,21 @@ leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
   if ! tools/pkg/py.sh leakscan.py "/w/${STAGE#workplace/}/inventory.tsv" "/w/${1#workplace/}"; then
     echo "可散布的包夾帶原版檔，中止" >&2; exit 1
   fi
-  # 內容判準（docs/spec/008 第 3.9 節）：原版資料檔與 OP*.TXT 的對白。原版缺席時失敗，不略過。
+  local assets="$1"
+  if [ -d "$1/usr/bin" ]; then assets="$1/usr/bin"; fi
+  if [ -d "$1/Contents/Resources" ]; then assets="$1/Contents/Resources"; fi
+  if [ "$FULL_EXTRAS" = 1 ]; then
+    python3 tools/pkg/local_extras.py verify "$ROOT" "$assets"
+  fi
+  # 已授權的 l10n 僅由上方精確檔案清冊驗證；其餘檔案仍套用原版文字內容判準。
   test -f workplace/orig/MAIN.EXE || { echo "缺 workplace/orig/MAIN.EXE：內容判準無法執行，閘門失敗" >&2; exit 1; }
-  if ! tools/l10n/leakscan.sh "$1"; then
+  local scan_paths=() entry
+  if [ "$FULL_EXTRAS" = 1 ]; then
+    while IFS= read -r -d '' entry; do scan_paths+=("$entry"); done < <(find "$1" -type f ! -path "$assets/l10n/*" -print0)
+  else
+    scan_paths=("$1")
+  fi
+  if ! tools/l10n/leakscan.sh "${scan_paths[@]}"; then
     echo "可散布的包含原版文字（內容判準），中止" >&2; exit 1
   fi
   echo "[package] 外洩掃描通過：$1"

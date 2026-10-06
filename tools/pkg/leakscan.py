@@ -26,8 +26,9 @@ with open(inv, encoding="utf-8") as f:
             if c[1] != "0":
                 hashes.add(c[2])
 hit = []
-# 譯文表與語言包的路徑不得出現在發行包內（docs/spec/008 第 3.9 節第 6 項；語言包含原版位元組，譯文表是衍生著作）。
-L10N_DIRS = {"l10n", "l10n-packs"}
+# 2026-10-06 使用者授權譯文表及純 Noto 補丁放入 private repo。
+# 編譯語言包仍含原版位元組，由玩家本機建置，不得放入 Release。
+L10N_DIRS = {"l10n-packs"}
 for r, dirs, files in os.walk(root):
     for d in dirs:
         if d.lower() in L10N_DIRS:

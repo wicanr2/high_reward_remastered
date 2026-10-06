@@ -1,0 +1,315 @@
+id	src_sha256	text	status	acc_sha	by	batch	date	note
+SYSTEM.MES#0	48e507c98b2d5dec	…음! 상황부터 보자!\n좋아! 대기!	accepted	c37032054901cf04	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#1	cbe5f1537ae24193	풀이 죽어 있지 마.\n전원 대기!	accepted	2dcfee89b89f8be6	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#2	730f5af7d3fd2bf9	음! 잠깐 생각하자!\n우선 잠시 대기해.	accepted	4676e0f56a8e7d5e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#3	e5ecaca9c06be4df	별일은 없는 것 같군!\n모두 대기!	accepted	1f68eb380dac14ba	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#4	e06b24073e9ed03d	우선 좀 쉬자!\n전원 대기!	accepted	6a28f999b7cbb65b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#5	3521c9f79f733f04	전 부대 대기! 지시를 기다려!	accepted	fd5cd08373939071	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#6	7b97d8c691badea0	음! 좀 지쳤군!\n전 부대 휴식!	accepted	5ed6062fff285092	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#7	19373be7a868a7ce	아! 잠깐 쉬자!\n여기서 휴식!	accepted	c9436d51e8203091	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#8	865ae241fb88485b	좋아! 다들 지쳤군!\n조금 쉬자!	accepted	a396a23d50cc1c4c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#9	d6e924528fcf17a1	음! 잠깐 멈추자!\n쉬ー어ー!	accepted	8ed675d644f27c93	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#10	aebf9a7fbf316a21	와! 좀 지쳤어!\n모두 쉬자.	accepted	6eed94536dcd3fb8	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#11	0e8559bb3c660ea7	전 부대 각자 휴식!\n전력을 보충해!	accepted	3d339a002191d607	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#12	8225c89fb115a0f7	드디어 도착했군!\n여기서 대기하자!	accepted	cc1ee785b43850f2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#13	48c103011b24cb1a	음! 왔군! 왔어!\n각자 대기!	accepted	646456e58e239ed4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#14	db219d46786374ad	음! 목적지에 왔군!\n                \n우선 대기하자!	accepted	c620198da8418b0f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#15	72d966048ad480fc	도착했다!\n여기서 대기하자!	accepted	efb9e02b007b0e72	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#16	b97fba31ffad9b2b	행군 중지! 모두 여기서\n대기!	accepted	8222297c3ece2152	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#17	326171cf647f1860	전 부대 정지!\n각자 방어 태세로 대기!	accepted	59602af04631f87d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#18	f70c39ff18c8b5ec	휴! 드디어 여기까지….\n우선 마을로 가자.\n진정부터 해야겠어!	accepted	4839f3c74ca7cc76	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#19	79d24f12cb39b507	상황이 급해!\n우선 마을로 가자.\n진정부터 해야겠어!	accepted	1e7510b9877fc737	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#20	10a2c6dc74e3b20d	…이제 떠나야겠어!\n무슨 일이든 나중에\n말하자!	accepted	df2c9d8ed78f545c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#21	d7e509046e65be47	…전황이 좋지 않군!\n우선 돌아가자! 와!	accepted	4b58af0a2acd78d2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#22	503a745157170676	후퇴….\n우선 마을로 돌아가자!\n다시 준비해!	accepted	73425c2aa7084e96	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#23	8784c908a9d06838	좋아! 후퇴!\n다음 공격을 위해!\n각자 준비해!	accepted	4b5bf82ce9816bdc	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#24	1930c30e608129f5	 %s 도착!\n들어가자!	accepted	157125fe8fd75bc3	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#25	1930c30e608129f5	 %s 도착!\n들어가자!	accepted	157125fe8fd75bc3	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#26	1930c30e608129f5	 %s 도착!\n들어가자!	accepted	157125fe8fd75bc3	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#27	1930c30e608129f5	 %s 도착!\n들어가자!	accepted	157125fe8fd75bc3	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#28	1930c30e608129f5	 %s 도착!\n들어가자!	accepted	157125fe8fd75bc3	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#29	1930c30e608129f5	 %s 도착!\n들어가자!	accepted	157125fe8fd75bc3	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#30	3218ca329043dd87	목표 %s 도착.\n다음은 공격 준비!	accepted	a422fc0997b5c81e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#31	3218ca329043dd87	목표 %s 도착.\n다음은 공격 준비!	accepted	a422fc0997b5c81e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#32	3218ca329043dd87	목표 %s 도착.\n다음은 공격 준비!	accepted	a422fc0997b5c81e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#33	3218ca329043dd87	목표 %s 도착.\n다음은 공격 준비!	accepted	a422fc0997b5c81e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#34	3218ca329043dd87	목표 %s 도착.\n다음은 공격 준비!	accepted	a422fc0997b5c81e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#35	3218ca329043dd87	목표 %s 도착.\n다음은 공격 준비!	accepted	a422fc0997b5c81e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#36	4ecd33f5629bd5e6	주의! %s 공격 개시!	accepted	fe4355d736242988	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#37	1adbc21073b2a7e3	좋아! %s 점령이다!\n공격 개시!	accepted	341c32bebd20dd14	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#38	4ecd33f5629bd5e6	주의! %s 공격 개시!	accepted	fe4355d736242988	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#39	1adbc21073b2a7e3	좋아! %s 점령이다!\n공격 개시!	accepted	341c32bebd20dd14	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#40	4ecd33f5629bd5e6	주의! %s 공격 개시!	accepted	fe4355d736242988	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#41	1adbc21073b2a7e3	좋아! %s 점령이다!\n공격 개시!	accepted	341c32bebd20dd14	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#42	72acbc6ecbb5938d	와! 이제 안 되겠어!\n어쩔 수 없지! 후퇴하자!	accepted	cecdd1f8ca19c5f8	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#43	faa297bd4cc5a00a	…와! 큰일이군!\n패배했다!\n어쩔 수 없지! 후퇴하자!	accepted	bf45987960735a9f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#44	faa297bd4cc5a00a	…와! 큰일이군!\n패배했다!\n어쩔 수 없지! 후퇴하자!	accepted	bf45987960735a9f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#45	faa297bd4cc5a00a	…와! 큰일이군!\n패배했다!\n어쩔 수 없지! 후퇴하자!	accepted	bf45987960735a9f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#46	faa297bd4cc5a00a	…와! 큰일이군!\n패배했다!\n어쩔 수 없지! 후퇴하자!	accepted	bf45987960735a9f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#47	faa297bd4cc5a00a	…와! 큰일이군!\n패배했다!\n어쩔 수 없지! 후퇴하자!	accepted	bf45987960735a9f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#48	14c61e2d476d84b8	더는 이렇게 날 수 없어!\n좋아! 돌아가자!	accepted	1caf99253efff87f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#49	61ac6ff8c041154d	뭐? 미사일이 온다!\n골치 아프군! 돌아가자!	accepted	a4b8ed3db8355afb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#50	f2cc46510f63fc6e	더 가면 비행이 어려워!\n이제 버틸 수 없어!\n우선 돌아가자!	accepted	f18e700455a1d528	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#51	61ac6ff8c041154d	뭐? 미사일이 온다!\n골치 아프군! 돌아가자!	accepted	a4b8ed3db8355afb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#52	61ac6ff8c041154d	뭐? 미사일이 온다!\n골치 아프군! 돌아가자!	accepted	a4b8ed3db8355afb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#53	980423ae0b7b94b6	피해 보고! 엔진 손상!\n더는 버틸 수 없다!\n어쩔 수 없지! 기지로 귀환!	accepted	f2a656afc4e4e202	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#54	f8ab0ed0c836686a	타타타…맞은 것 같아!\n뭐? 움직일 수 없어!\n우선 후퇴하자!	accepted	88bf032562220ff7	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#55	7c9d482656f18279	맞았다! 차량 기동 불능?\n후퇴! 후퇴!	accepted	ee8c33a1771f457c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#56	247817d1ffe6282c	계속 이렇게 전진하면!\n피해가 엄청날 거야!\n우선 후퇴하자!	accepted	8bfb8748df6cc1d4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#57	e26c42c3965cbac2	어? 망가졌군!\n골치 아프네! 우선 후퇴!	accepted	63cb68deeed4639f	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#58	11d32b0b01e5b663	차량 기동 불능!?\n후퇴! 후퇴! 움직일 수 없어!\n골치 아프군!	accepted	8d9cab79161ba939	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#59	44192167395090f4	전차가 크게 손상됐다!\n우리는 최선을 다했어!\n포기할 수밖에 없군!	accepted	aa06a4288fa817cc	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#60	f6f6d4dfc1b164ea	이제 버틸 수 없어!\n쉬자!	accepted	621166db067485c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#61	f6f6d4dfc1b164ea	이제 버틸 수 없어!\n쉬자!	accepted	621166db067485c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#62	b20a9e8416f27809	모두 벌써\n아주 지쳤군…\n잠깐 쉬자!	accepted	73360277d9438a4e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#63	b20a9e8416f27809	모두 벌써\n아주 지쳤군…\n잠깐 쉬자!	accepted	73360277d9438a4e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#64	b20a9e8416f27809	모두 벌써\n아주 지쳤군…\n잠깐 쉬자!	accepted	73360277d9438a4e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#65	b20a9e8416f27809	모두 벌써\n아주 지쳤군…\n잠깐 쉬자!	accepted	73360277d9438a4e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#66	a73ef6046f14ef70	음! 전원 준비 완료!	accepted	70b85dd6ce40c1ac	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#67	0adfa99dcd8f1d14	전 부대원 회복 완료!	accepted	0b3aac594a152a04	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#68	625b44dc3d2231bc	상단 전원 체력\n회복 완료!	accepted	4d4cebf1b4061a10	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#69	abdab8be5b276e25	다들 기운을 되찾았군!\n음! 출발하자!	accepted	d58ff45691561228	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#70	3b1f97ae6392e389	모두 회복했다!\n상태도 좋아!\n행동 개시!	accepted	8f62295bd3cf3855	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#71	ee89c6d127c2b229	음! 전 부대 체력 회복!	accepted	e5ce14065f0d2fce	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#72	acbcd4a2c8d65305	\n　　　좋아! 전원 피로 회복!　　	accepted	3231af90f5babdf5	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#73	46c18c9cc3369d10	\n　　　전 부대원 피로 회복!    　　	accepted	b12dbe41da64387b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#74	65b20dc59c7d0ba5	\n  상단 전원 피로 회복!        \n음! 좋아!	accepted	53d193b5dcadd073	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#75	e83054c79f044874	\n다들 피로가 풀렸겠지?\n좋아! 출발하자!	accepted	856a330e97d7b272	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#76	0a852d6eacd7eae3	모두 잘 쉬었군!　\n다 회복했어!　　　　　　\n행동 개시!　　	accepted	883d2f64a627a953	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#77	91bc36b3a47f8faf	\n좋아! 전 부대원 피로 회복!	accepted	a0e173ac495d0945	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#78	0bb7489a3ef5726e	음! %s!\n전원 전투 준비!	accepted	be0d3e4c5aacffac	Codex	full-ko-20261006	2026-10-06	使用者接受語境修讀；新譯 candidate；修讀僅 hypothesis，非 codec confirmed；未經母語者審閱；韓文普通空白採 8 px；原 decode 警告及來源雜湊保留；窗口及正式包另驗；依獨立審查改中性辨識句，動態姓名不依尾音添加不適合的다後綴
+SYSTEM.MES#79	efd1180a81eae554	오! 나에게 도전하려는 자는 %s!\n전원 전투 준비!	accepted	097c243fbf580c47	Codex	full-ko-20261006	2026-10-06	使用者接受語境修讀；新譯 candidate；修讀僅 hypothesis，非 codec confirmed；未經母語者審閱；韓文普通空白採 8 px；原 decode 警告及來源雜湊保留；窗口及正式包另驗；依獨立審查使用中性句型，不猜動態姓名尾音助詞，保持向我挑戰及全員準備
+SYSTEM.MES#80	0bb7489a3ef5726e	음! %s!\n전원 전투 준비!	accepted	be0d3e4c5aacffac	Codex	full-ko-20261006	2026-10-06	使用者接受語境修讀；新譯 candidate；修讀僅 hypothesis，非 codec confirmed；未經母語者審閱；韓文普通空白採 8 px；原 decode 警告及來源雜湊保留；窗口及正式包另驗；依獨立審查改中性辨識句，動態姓名不依尾音添加不適合的다後綴
+SYSTEM.MES#81	0bb7489a3ef5726e	음! %s!\n전원 전투 준비!	accepted	be0d3e4c5aacffac	Codex	full-ko-20261006	2026-10-06	使用者接受語境修讀；新譯 candidate；修讀僅 hypothesis，非 codec confirmed；未經母語者審閱；韓文普通空白採 8 px；原 decode 警告及來源雜湊保留；窗口及正式包另驗；依獨立審查改中性辨識句，動態姓名不依尾音添加不適合的다後綴
+SYSTEM.MES#82	c7d26ceda0da1292	 %s …\n…나를 상대할 셈인가?\n전원 돌격 준비!	accepted	ac2a7f4add259c40	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗；我保留為單數第一人稱，不新增我們
+SYSTEM.MES#83	5c52b02d3a68e31d	적 발견! 선제공격이다!\n목표 %s !\n공격 개시!	accepted	5ea1f90a8b317019	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#84	dea3ea634a733c71	 %s 발견!\n공격 개시!	accepted	c9365bb155c50c2a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#85	744838147cd9502e	찾았다!\n목표 %s !\n공격 개시!	accepted	344d5a250f77316b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#86	0ca8730b03b1ae15	와! 적을 발견했다…\n %s 군!\n공격!	accepted	8d7dd8c562f33bfa	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#87	bf0f42adc786f45c	적 부대 발견!\n목표 %s !\n공격!	accepted	b5898eabbc5f67b3	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#88	ddd0f7ba85782eed	적이다!\n목표 %s !	accepted	29c0c5e3fc23e639	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#89	cec3901910553244	공격!\n적 %s 발견!\n공격 개시!	accepted	d14b7a2261675015	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#90	af7d17beefb2ef53	음! %s 쪽으로 후퇴.	accepted	2a0f454ef51583e2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#91	ed28ddfda0c10880	 %s 쪽으로 후퇴.	accepted	182a84afdb5bf460	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#92	af7d17beefb2ef53	음! %s 쪽으로 후퇴.	accepted	2a0f454ef51583e2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#93	af7d17beefb2ef53	음! %s 쪽으로 후퇴.	accepted	2a0f454ef51583e2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#94	320c57a4c2ebde6a	맞아!\n %s 쪽으로 후퇴 개시!	accepted	1f1d893fc7ba8fcc	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#95	af7d17beefb2ef53	음! %s 쪽으로 후퇴.	accepted	2a0f454ef51583e2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#96	74875107dfe9daea	음! 어느 쪽으로 갈까?	accepted	347cf85de6d3aa0b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#97	74875107dfe9daea	음! 어느 쪽으로 갈까?	accepted	347cf85de6d3aa0b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#98	74875107dfe9daea	음! 어느 쪽으로 갈까?	accepted	347cf85de6d3aa0b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#99	74875107dfe9daea	음! 어느 쪽으로 갈까?	accepted	347cf85de6d3aa0b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#100	74875107dfe9daea	음! 어느 쪽으로 갈까?	accepted	347cf85de6d3aa0b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#101	74875107dfe9daea	음! 어느 쪽으로 갈까?	accepted	347cf85de6d3aa0b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#102	b669417bebf85e02	어? 이쪽으로는 갈 수 없는\n것 같은데?	accepted	5c0b32ef1317a818	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#103	2bb85e80c13ccb9a	어? 이 길은 막혔나?	accepted	18cab53f139d0c0a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#104	dfdb093a0cb0da2f	어? 길이 막혔군!\n이쪽으로는 못 가!	accepted	1b63fb10afd06fa4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#105	2bb85e80c13ccb9a	어? 이 길은 막혔나?	accepted	18cab53f139d0c0a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#106	b669417bebf85e02	어? 이쪽으로는 갈 수 없는\n것 같은데?	accepted	5c0b32ef1317a818	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#107	b669417bebf85e02	어? 이쪽으로는 갈 수 없는\n것 같은데?	accepted	5c0b32ef1317a818	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#108	8cccde83662f76c2	와!…후퇴!	accepted	23cc0a18d7bfed1a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#109	c99da9e720759f51	총알이 빗발쳐! 어서 도망쳐!	accepted	c202661b4acd1df8	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#110	2f126a4a3a845080	총알에는 눈이 없어!\n우선 도망치는 게 낫겠어!	accepted	d34a811d0058031d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#111	2998e0d2abde338e	와! 아파! 어서 뛰어!	accepted	18b1b9dcf4573657	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#112	f6f3f28bcec6e78d	어서 도망쳐! 와!	accepted	21d322d26a882d6b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#113	778427a79293bc8b	삼십육계…도망쳐!	accepted	fdf987566aa61071	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#114	90821f5d2095b3c1	음! %s 쪽으로 잠입!	accepted	1fa9726db2be2170	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#115	90821f5d2095b3c1	음! %s 쪽으로 잠입!	accepted	1fa9726db2be2170	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#116	90821f5d2095b3c1	음! %s 쪽으로 잠입!	accepted	1fa9726db2be2170	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#117	90821f5d2095b3c1	음! %s 쪽으로 잠입!	accepted	1fa9726db2be2170	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#118	90821f5d2095b3c1	음! %s 쪽으로 잠입!	accepted	1fa9726db2be2170	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#119	90821f5d2095b3c1	음! %s 쪽으로 잠입!	accepted	1fa9726db2be2170	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#120	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#121	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#122	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#123	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#124	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#125	989e6343c3a16a14	와! 들켰다!\n어서 %s 에서 탈출해!\n도망쳐!	accepted	74582e7d2db3254a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#126	eb87fac1cf57f569	와! 들켰다!\n어서 %s 에서\n탈출해!	accepted	40c975153cf6fc57	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#127	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#128	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#129	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#130	7ca0dfb1bbcc5fbd	와! 들켰다!\n어서 %s 에서 탈출해!	accepted	c6bba9fd272d0cb4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#131	989e6343c3a16a14	와! 들켰다!\n어서 %s 에서 탈출해!\n도망쳐!	accepted	74582e7d2db3254a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#132	c3a422ed3e95c2cc	 %s … %s 가 출격했다!	accepted	04b7ae4d48cb2cf1	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#133	5f0b84f9f5b43757	 %s …\n %s 가 출격했다!	accepted	c8545fbf06491e4a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#134	5f0b84f9f5b43757	 %s …\n %s 가 출격했다!	accepted	c8545fbf06491e4a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#135	5f0b84f9f5b43757	 %s …\n %s 가 출격했다!	accepted	c8545fbf06491e4a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#136	5f0b84f9f5b43757	 %s …\n %s 가 출격했다!	accepted	c8545fbf06491e4a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#137	5f0b84f9f5b43757	 %s …\n %s 가 출격했다!	accepted	c8545fbf06491e4a	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#138	31aa19c437dda703	와! 포격?\n %s 녀석들!	accepted	b2ccaf7aa1fd4643	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#139	31aa19c437dda703	와! 포격?\n %s 녀석들!	accepted	b2ccaf7aa1fd4643	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#140	31aa19c437dda703	와! 포격?\n %s 녀석들!	accepted	b2ccaf7aa1fd4643	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#141	31aa19c437dda703	와! 포격?\n %s 녀석들!	accepted	b2ccaf7aa1fd4643	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#142	31aa19c437dda703	와! 포격?\n %s 녀석들!	accepted	b2ccaf7aa1fd4643	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#143	026e3295e3bf1f3f	 %s 의 포격!	accepted	a97a81bd15c8a0ef	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#144	2791c7e7bc77a215	 %s …\n차량 부대 출격!	accepted	eed9bd22376eca4d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#145	2791c7e7bc77a215	 %s …\n차량 부대 출격!	accepted	eed9bd22376eca4d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#146	2791c7e7bc77a215	 %s …\n차량 부대 출격!	accepted	eed9bd22376eca4d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#147	2791c7e7bc77a215	 %s …\n차량 부대 출격!	accepted	eed9bd22376eca4d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#148	2791c7e7bc77a215	 %s …\n차량 부대 출격!	accepted	eed9bd22376eca4d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#149	2791c7e7bc77a215	 %s …\n차량 부대 출격!	accepted	eed9bd22376eca4d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#150	398dfbeb58a8ba95	 %s …\n항공 부대 출격!	accepted	b4f38727592cc246	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#151	398dfbeb58a8ba95	 %s …\n항공 부대 출격!	accepted	b4f38727592cc246	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#152	398dfbeb58a8ba95	 %s …\n항공 부대 출격!	accepted	b4f38727592cc246	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#153	398dfbeb58a8ba95	 %s …\n항공 부대 출격!	accepted	b4f38727592cc246	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#154	398dfbeb58a8ba95	 %s …\n항공 부대 출격!	accepted	b4f38727592cc246	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#155	398dfbeb58a8ba95	 %s …\n항공 부대 출격!	accepted	b4f38727592cc246	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#156	81c6b73f5ebd06ee	와! 대공 사격?\n %s 녀석들!	accepted	1a46053fad65f978	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#157	81c6b73f5ebd06ee	와! 대공 사격?\n %s 녀석들!	accepted	1a46053fad65f978	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#158	81c6b73f5ebd06ee	와! 대공 사격?\n %s 녀석들!	accepted	1a46053fad65f978	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#159	81c6b73f5ebd06ee	와! 대공 사격?\n %s 녀석들!	accepted	1a46053fad65f978	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#160	81c6b73f5ebd06ee	와! 대공 사격?\n %s 녀석들!	accepted	1a46053fad65f978	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#161	df48eb98289695cb	와! 대공 사격?\n %s 녀석들!	accepted	1a46053fad65f978	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#162	91cf85ea656a6990	젠장! 병사들이\n%d 피해를 입었다!	accepted	bf076fe21d19fa6c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#163	91cf85ea656a6990	젠장! 병사들이\n%d 피해를 입었다!	accepted	bf076fe21d19fa6c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#164	91cf85ea656a6990	젠장! 병사들이\n%d 피해를 입었다!	accepted	bf076fe21d19fa6c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#165	91cf85ea656a6990	젠장! 병사들이\n%d 피해를 입었다!	accepted	bf076fe21d19fa6c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#166	91cf85ea656a6990	젠장! 병사들이\n%d 피해를 입었다!	accepted	bf076fe21d19fa6c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#167	91cf85ea656a6990	젠장! 병사들이\n%d 피해를 입었다!	accepted	bf076fe21d19fa6c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#168	5e444028caedd257	젠장! 전차가\n%d 피해를 입었다!	accepted	260aa37c9015e1c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#169	5e444028caedd257	젠장! 전차가\n%d 피해를 입었다!	accepted	260aa37c9015e1c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#170	5e444028caedd257	젠장! 전차가\n%d 피해를 입었다!	accepted	260aa37c9015e1c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#171	5e444028caedd257	젠장! 전차가\n%d 피해를 입었다!	accepted	260aa37c9015e1c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#172	5e444028caedd257	젠장! 전차가\n%d 피해를 입었다!	accepted	260aa37c9015e1c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#173	5e444028caedd257	젠장! 전차가\n%d 피해를 입었다!	accepted	260aa37c9015e1c4	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#174	87aefbb47a9a2771	젠장! 비행기가\n%d 피해를 입었다!	accepted	0ff66d24cd67f900	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#175	87aefbb47a9a2771	젠장! 비행기가\n%d 피해를 입었다!	accepted	0ff66d24cd67f900	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#176	87aefbb47a9a2771	젠장! 비행기가\n%d 피해를 입었다!	accepted	0ff66d24cd67f900	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#177	87aefbb47a9a2771	젠장! 비행기가\n%d 피해를 입었다!	accepted	0ff66d24cd67f900	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#178	87aefbb47a9a2771	젠장! 비행기가\n%d 피해를 입었다!	accepted	0ff66d24cd67f900	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#179	87aefbb47a9a2771	젠장! 비행기가\n%d 피해를 입었다!	accepted	0ff66d24cd67f900	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#180	0630b7b0fe970479	 %s 의 부대.\n좋아! %s 공격 개시!	accepted	0926a049fe99ab86	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#181	0630b7b0fe970479	 %s 의 부대.\n좋아! %s 공격 개시!	accepted	0926a049fe99ab86	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#182	0630b7b0fe970479	 %s 의 부대.\n좋아! %s 공격 개시!	accepted	0926a049fe99ab86	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#183	0630b7b0fe970479	 %s 의 부대.\n좋아! %s 공격 개시!	accepted	0926a049fe99ab86	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#184	0630b7b0fe970479	 %s 의 부대.\n좋아! %s 공격 개시!	accepted	0926a049fe99ab86	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#185	0630b7b0fe970479	 %s 의 부대.\n좋아! %s 공격 개시!	accepted	0926a049fe99ab86	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#186	fd46b14ee7e5526e	잘했다!\n %s 의 부대를\n섬멸했다!	accepted	1e5ced7094855c4b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#187	fd46b14ee7e5526e	잘했다!\n %s 의 부대를\n섬멸했다!	accepted	1e5ced7094855c4b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#188	fd46b14ee7e5526e	잘했다!\n %s 의 부대를\n섬멸했다!	accepted	1e5ced7094855c4b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#189	fd46b14ee7e5526e	잘했다!\n %s 의 부대를\n섬멸했다!	accepted	1e5ced7094855c4b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#190	fd46b14ee7e5526e	잘했다!\n %s 의 부대를\n섬멸했다!	accepted	1e5ced7094855c4b	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#191	14737f4a7723a9c1	 %s 의\n방어 부대를 섬멸했다!	accepted	9082995fde0867c9	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#192	e9617f7bd987f042	힘겹게 이겼군….\n%d Ｇ를 얻었다!	accepted	9802221c82b2fc75	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#193	e9617f7bd987f042	힘겹게 이겼군….\n%d Ｇ를 얻었다!	accepted	9802221c82b2fc75	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#194	e9617f7bd987f042	힘겹게 이겼군….\n%d Ｇ를 얻었다!	accepted	9802221c82b2fc75	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#195	e9617f7bd987f042	힘겹게 이겼군….\n%d Ｇ를 얻었다!	accepted	9802221c82b2fc75	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#196	e9617f7bd987f042	힘겹게 이겼군….\n%d Ｇ를 얻었다!	accepted	9802221c82b2fc75	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#197	e9617f7bd987f042	힘겹게 이겼군….\n%d Ｇ를 얻었다!	accepted	9802221c82b2fc75	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#198	2edcace5b5257651	손쉽게 이겼다!\n%d Ｇ를 얻었다!	accepted	b61692fc4eff2d21	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#199	2edcace5b5257651	손쉽게 이겼다!\n%d Ｇ를 얻었다!	accepted	b61692fc4eff2d21	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#200	2edcace5b5257651	손쉽게 이겼다!\n%d Ｇ를 얻었다!	accepted	b61692fc4eff2d21	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#201	2edcace5b5257651	손쉽게 이겼다!\n%d Ｇ를 얻었다!	accepted	b61692fc4eff2d21	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#202	2edcace5b5257651	손쉽게 이겼다!\n%d Ｇ를 얻었다!	accepted	b61692fc4eff2d21	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#203	2edcace5b5257651	손쉽게 이겼다!\n%d Ｇ를 얻었다!	accepted	b61692fc4eff2d21	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#204	c62659adb6f2ad80	…겨우 이겼군!\n%d Ｇ를 얻었다!	accepted	e777a317c18a92bb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#205	c62659adb6f2ad80	…겨우 이겼군!\n%d Ｇ를 얻었다!	accepted	e777a317c18a92bb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#206	c62659adb6f2ad80	…겨우 이겼군!\n%d Ｇ를 얻었다!	accepted	e777a317c18a92bb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#207	c62659adb6f2ad80	…겨우 이겼군!\n%d Ｇ를 얻었다!	accepted	e777a317c18a92bb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#208	c62659adb6f2ad80	…겨우 이겼군!\n%d Ｇ를 얻었다!	accepted	e777a317c18a92bb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#209	c62659adb6f2ad80	…겨우 이겼군!\n%d Ｇ를 얻었다!	accepted	e777a317c18a92bb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#210	da3277d5b08ea363	상황이 나빠…후퇴!	accepted	83d02477fbb9f521	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#211	da3277d5b08ea363	상황이 나빠…후퇴!	accepted	83d02477fbb9f521	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#212	fdadaa25f9b5f4b1	큰일이군…\n모두 어서 후퇴해….	accepted	3ea755017be671a5	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#213	fdadaa25f9b5f4b1	큰일이군…\n모두 어서 후퇴해….	accepted	3ea755017be671a5	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#214	fdadaa25f9b5f4b1	큰일이군…\n모두 어서 후퇴해….	accepted	3ea755017be671a5	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#215	fdadaa25f9b5f4b1	큰일이군…\n모두 어서 후퇴해….	accepted	3ea755017be671a5	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#216	2c416f55ca77d0c6	분하다…실패했어…	accepted	db7a191fdda1a92d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#217	2c416f55ca77d0c6	분하다…실패했어…	accepted	db7a191fdda1a92d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#218	2c416f55ca77d0c6	분하다…실패했어…	accepted	db7a191fdda1a92d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#219	2c416f55ca77d0c6	분하다…실패했어…	accepted	db7a191fdda1a92d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#220	2c416f55ca77d0c6	분하다…실패했어…	accepted	db7a191fdda1a92d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#221	2c416f55ca77d0c6	분하다…실패했어…	accepted	db7a191fdda1a92d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#222	9fca1201ec649d09	…와! 참패…전멸….	accepted	951f2a0bc2a20ecd	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#223	9fca1201ec649d09	…와! 참패…전멸….	accepted	951f2a0bc2a20ecd	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#224	9fca1201ec649d09	…와! 참패…전멸….	accepted	951f2a0bc2a20ecd	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#225	9fca1201ec649d09	…와! 참패…전멸….	accepted	951f2a0bc2a20ecd	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#226	9fca1201ec649d09	…와! 참패…전멸….	accepted	951f2a0bc2a20ecd	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#227	9fca1201ec649d09	…와! 참패…전멸….	accepted	951f2a0bc2a20ecd	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#228	f1829b50b12397b2	좋아! %s 의\n방벽을 부쉈다! 여기로 진격!	accepted	36b9acba60aa00eb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#229	f1829b50b12397b2	좋아! %s 의\n방벽을 부쉈다! 여기로 진격!	accepted	36b9acba60aa00eb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#230	f1829b50b12397b2	좋아! %s 의\n방벽을 부쉈다! 여기로 진격!	accepted	36b9acba60aa00eb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#231	f1829b50b12397b2	좋아! %s 의\n방벽을 부쉈다! 여기로 진격!	accepted	36b9acba60aa00eb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#232	f1829b50b12397b2	좋아! %s 의\n방벽을 부쉈다! 여기로 진격!	accepted	36b9acba60aa00eb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#233	f1829b50b12397b2	좋아! %s 의\n방벽을 부쉈다! 여기로 진격!	accepted	36b9acba60aa00eb	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#234	ef33383bcde28c55	하하! %s 를\n점령했다!	accepted	4df1669d7a1d0380	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#235	ef33383bcde28c55	하하! %s 를\n점령했다!	accepted	4df1669d7a1d0380	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#236	ef33383bcde28c55	하하! %s 를\n점령했다!	accepted	4df1669d7a1d0380	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#237	ef33383bcde28c55	하하! %s 를\n점령했다!	accepted	4df1669d7a1d0380	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#238	ef33383bcde28c55	하하! %s 를\n점령했다!	accepted	4df1669d7a1d0380	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#239	ef33383bcde28c55	하하! %s 를\n점령했다!	accepted	4df1669d7a1d0380	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#240	60b3e3ae9790fd0a	음! 이런 상황에선 출격 불가!	accepted	4897003a790b2df1	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#241	60b3e3ae9790fd0a	음! 이런 상황에선 출격 불가!	accepted	4897003a790b2df1	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#242	60b3e3ae9790fd0a	음! 이런 상황에선 출격 불가!	accepted	4897003a790b2df1	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#243	60b3e3ae9790fd0a	음! 이런 상황에선 출격 불가!	accepted	4897003a790b2df1	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#244	60b3e3ae9790fd0a	음! 이런 상황에선 출격 불가!	accepted	4897003a790b2df1	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#245	60b3e3ae9790fd0a	음! 이런 상황에선 출격 불가!	accepted	4897003a790b2df1	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#246	fbd08b29aa3320fd	마을로 들어가자!	accepted	52e5678feccc28ad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#247	fbd08b29aa3320fd	마을로 들어가자!	accepted	52e5678feccc28ad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#248	fbd08b29aa3320fd	마을로 들어가자!	accepted	52e5678feccc28ad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#249	fbd08b29aa3320fd	마을로 들어가자!	accepted	52e5678feccc28ad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#250	fbd08b29aa3320fd	마을로 들어가자!	accepted	52e5678feccc28ad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#251	fbd08b29aa3320fd	마을로 들어가자!	accepted	52e5678feccc28ad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#252	788abb4f17506c89	흥! 다음에는 반드시 이긴다!	accepted	e910b7ae04c5a3a2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#253	788abb4f17506c89	흥! 다음에는 반드시 이긴다!	accepted	e910b7ae04c5a3a2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#254	788abb4f17506c89	흥! 다음에는 반드시 이긴다!	accepted	e910b7ae04c5a3a2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#255	788abb4f17506c89	흥! 다음에는 반드시 이긴다!	accepted	e910b7ae04c5a3a2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#256	788abb4f17506c89	흥! 다음에는 반드시 이긴다!	accepted	e910b7ae04c5a3a2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#257	788abb4f17506c89	흥! 다음에는 반드시 이긴다!	accepted	e910b7ae04c5a3a2	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#258	e7641a88751abfcc	아! 실력이 모자란 내 탓이군!	accepted	3573c68327cc2c3e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#259	e7641a88751abfcc	아! 실력이 모자란 내 탓이군!	accepted	3573c68327cc2c3e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#260	e7641a88751abfcc	아! 실력이 모자란 내 탓이군!	accepted	3573c68327cc2c3e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#261	e7641a88751abfcc	아! 실력이 모자란 내 탓이군!	accepted	3573c68327cc2c3e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#262	e7641a88751abfcc	아! 실력이 모자란 내 탓이군!	accepted	3573c68327cc2c3e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#263	e7641a88751abfcc	아! 실력이 모자란 내 탓이군!	accepted	3573c68327cc2c3e	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#264	faf3defa39b181a8	…현장에 일꾼이\n하나도 없어!\n공사를 멈출 수밖에 없군!	accepted	ffaa68f540dc75a6	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#265	faf3defa39b181a8	…현장에 일꾼이\n하나도 없어!\n공사를 멈출 수밖에 없군!	accepted	ffaa68f540dc75a6	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#266	8d4784de90e1cac8	일꾼들은 다 어디 갔지?\n공사 중지!	accepted	29121d7727e5e6e9	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#267	faf3defa39b181a8	…현장에 일꾼이\n하나도 없어!\n공사를 멈출 수밖에 없군!	accepted	ffaa68f540dc75a6	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#268	faf3defa39b181a8	…현장에 일꾼이\n하나도 없어!\n공사를 멈출 수밖에 없군!	accepted	ffaa68f540dc75a6	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#269	faf3defa39b181a8	…현장에 일꾼이\n하나도 없어!\n공사를 멈출 수밖에 없군!	accepted	ffaa68f540dc75a6	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#270	eb129f0a56d2868d	와…큰일이군…\n…피해! 어? 0이라고?\n너무 엉터리잖아!	accepted	9e793fe810ed8c0c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#271	eb129f0a56d2868d	와…큰일이군…\n…피해! 어? 0이라고?\n너무 엉터리잖아!	accepted	9e793fe810ed8c0c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#272	eb129f0a56d2868d	와…큰일이군…\n…피해! 어? 0이라고?\n너무 엉터리잖아!	accepted	9e793fe810ed8c0c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#273	eb129f0a56d2868d	와…큰일이군…\n…피해! 어? 0이라고?\n너무 엉터리잖아!	accepted	9e793fe810ed8c0c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#274	eb129f0a56d2868d	와…큰일이군…\n…피해! 어? 0이라고?\n너무 엉터리잖아!	accepted	9e793fe810ed8c0c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#275	eb129f0a56d2868d	와…큰일이군…\n…피해! 어? 0이라고?\n너무 엉터리잖아!	accepted	9e793fe810ed8c0c	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#276	923a72048d984fa2	어이! 하던 일을 멈추고\n놀러 나가자!	accepted	494a18e535bf6aad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#277	923a72048d984fa2	어이! 하던 일을 멈추고\n놀러 나가자!	accepted	494a18e535bf6aad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#278	923a72048d984fa2	어이! 하던 일을 멈추고\n놀러 나가자!	accepted	494a18e535bf6aad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#279	923a72048d984fa2	어이! 하던 일을 멈추고\n놀러 나가자!	accepted	494a18e535bf6aad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#280	923a72048d984fa2	어이! 하던 일을 멈추고\n놀러 나가자!	accepted	494a18e535bf6aad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#281	923a72048d984fa2	어이! 하던 일을 멈추고\n놀러 나가자!	accepted	494a18e535bf6aad	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#282	1c7c434271f085ec	공연은 이제 그만!\n여행이나 떠나자!	accepted	a8c80af2842cf516	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#283	1c7c434271f085ec	공연은 이제 그만!\n여행이나 떠나자!	accepted	a8c80af2842cf516	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#284	1c7c434271f085ec	공연은 이제 그만!\n여행이나 떠나자!	accepted	a8c80af2842cf516	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#285	1c7c434271f085ec	공연은 이제 그만!\n여행이나 떠나자!	accepted	a8c80af2842cf516	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#286	1c7c434271f085ec	공연은 이제 그만!\n여행이나 떠나자!	accepted	a8c80af2842cf516	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#287	1c7c434271f085ec	공연은 이제 그만!\n여행이나 떠나자!	accepted	a8c80af2842cf516	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#288	ca141fa0de64d39f	더 폭격할\n목표가 없다.\n돌아가자!	accepted	7fb5d2f494ac7579	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#289	ca141fa0de64d39f	더 폭격할\n목표가 없다.\n돌아가자!	accepted	7fb5d2f494ac7579	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#290	ca141fa0de64d39f	더 폭격할\n목표가 없다.\n돌아가자!	accepted	7fb5d2f494ac7579	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#291	ca141fa0de64d39f	더 폭격할\n목표가 없다.\n돌아가자!	accepted	7fb5d2f494ac7579	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#292	ca141fa0de64d39f	더 폭격할\n목표가 없다.\n돌아가자!	accepted	7fb5d2f494ac7579	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#293	ca141fa0de64d39f	더 폭격할\n목표가 없다.\n돌아가자!	accepted	7fb5d2f494ac7579	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#294	51d69436f07b8663	음! 방벽 강화!	accepted	37ef75f4f3133f41	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#295	51d69436f07b8663	음! 방벽 강화!	accepted	37ef75f4f3133f41	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#296	592bce8be89edade	방어도 전술이지.\n방벽 강화!	accepted	b444c3ca0eea6af0	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#297	592bce8be89edade	방어도 전술이지.\n방벽 강화!	accepted	b444c3ca0eea6af0	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#298	592bce8be89edade	방어도 전술이지.\n방벽 강화!	accepted	b444c3ca0eea6af0	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#299	592bce8be89edade	방어도 전술이지.\n방벽 강화!	accepted	b444c3ca0eea6af0	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#300	e21c3d76ef66d75c	 %s 의 무희들이 %s 에서 공연!	accepted	75df734542b24c39	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#301	707515405c963f98	공연이 호평을 받았다.\n수입은 %ld Ｇ.	accepted	2819bb3111cdbee6	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#302	1b735b76af7a9be8	공연은 무난했다.\n수입은 %ld Ｇ.	accepted	86a4f93da0209ffe	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#303	c9f0bfe8b859fb6e	공연 실패.\n수입은 없다.	accepted	c026c62269fdbd49	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#304	f2d3afb1d33689e3	 %s 의 일꾼들이 %s 증축을 마쳤다.	accepted	cf2ce141614e5a59	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#305	a18de0f0394f03cc	공사가 아주 순조로웠다.\n내구력이 %d 가 되었다.	accepted	a6b86ed39ff58836	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#306	a18de0f0394f03cc	공사가 아주 순조로웠다.\n내구력이 %d 가 되었다.	accepted	a6b86ed39ff58836	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#307	a18de0f0394f03cc	공사가 아주 순조로웠다.\n내구력이 %d 가 되었다.	accepted	a6b86ed39ff58836	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#308	5d217d323e01cdfe	한 사람당 경험치 %ld 획득.	accepted	2c128e8207eb3e7d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#309	5d217d323e01cdfe	한 사람당 경험치 %ld 획득.	accepted	2c128e8207eb3e7d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#310	5d217d323e01cdfe	한 사람당 경험치 %ld 획득.	accepted	2c128e8207eb3e7d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#311	5d217d323e01cdfe	한 사람당 경험치 %ld 획득.	accepted	2c128e8207eb3e7d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#312	5d217d323e01cdfe	한 사람당 경험치 %ld 획득.	accepted	2c128e8207eb3e7d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗
+SYSTEM.MES#313	5d217d323e01cdfe	한 사람당 경험치 %ld 획득.	accepted	2c128e8207eb3e7d	Codex	full-ko-20261006	2026-10-06	全量本機候選；未經母語者審閱；韓文普通空白採 8 px；窗口與正式包另驗

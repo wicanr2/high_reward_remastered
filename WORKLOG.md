@@ -439,3 +439,17 @@
 - 沿既有 `tools/promo.sh` 加 `HR_PROMO_THEME=ai`，以本次 AppImage 標題與韓文開場、舊已接受 HD 戰鬥對照，以及從原版 `MAP2.MID` 產生的 FM 近似音源製成 36 秒本機投影片式推廣片。命中推廣片路由並載入 FFmpeg 入口；`promo/rights.json` 逐項列來源、方法與本機限制。H.264 1280×720／30 fps、AAC 單聲道通過；平均 −15.7 dB、峰值 −3.5 dB，無意外黑幀或靜音，凍結只在刻意的靜態圖段。contact sheet 已目視，標題與字幕未裁切；收據 `promo/validation.json`。
 - `tools/finalize_full_local.sh` 寫入版本根 LICENSE 與 `SHA256SUMS.json`，記錄三平台、影片、來源提交及驗收收據摘要。這批含原版、AI 與譯文的完整封包、影片和資料均不提交或上傳；私人 Release `v.0.1.1-20261004` 未覆寫。完整通關、全量翻譯接線、真實音訊裝置與平台實機驗收仍未完成。
 - tag `v.0.2.0-20261006` 綁定實際建包來源 `5c5ae22`，收尾文件另作提交；既有 tag 未移動。Issue #1 已更新全量接受及封包範圍，保持開啟。提交前 repo 仍 PRIVATE，root 850／fork 1345 個追蹤檔沒有原版、全量 AI、譯文或語言包；2195 檔內容掃描的 12 筆與已確認的 028 基準完全相同。產物與收據均 1000:1000，工作根無 root-owned 或 `.md` 目錄，封包及收據 SHA 與 manifest 一致。最終稽核、push gate 與審查報告已掛入本機來源索引。
+
+### 1.0.0 正式交付、private 素材版控及驗收範圍調整（2026-10-06）
+
+- 使用者取消 Issue #1 的追加玩家路徑及平台驗證，改以全量接線、五語切換與 README 截圖為完成条件；Issue #2 停止追加美術抽樣。後續缺陷由本 repo Issue 回報。此決定不把未驗路徑變成 exact。
+- 使用者明確允許修改規則、將譯文與新版素材上傳既有 private repo，並指定正式1.0.0重新建三平台完整版、Release與推廣片。現行版號 `v.1.0.0-20261006`；不覆寫舊 tag。`AGENTS.md` 頁首記錄新決定，舊的l10n／AI禁版控政策不再適用本私人交付。
+- 全量595項AI主題移入既有規劃的 `hd-ai/`，四語接受七表及完整字模移入 `l10n/`，17項試點保存在本機備份。原版完整檔案與含原版資料的編譯語言包仍不入Git。LICENSE第2條(c)補美術衍生物、執行截圖及表內原文排除範圍。
+- 四語全量Build成功，builder `f4e366a3`：每語1767項資料採用，792項商店顯示採用。商店固定20-byte欄位有六個英文譯名超長，因此以原版資料加顯示疊層接線，未截短接受譯文、未改識別或存檔。收據 `workplace/l10n-work/full-build-integration.json`。
+- 打包腳本以 `hd-ai/` 與 `l10n/` 為共同來源，私人Release附美術、譯文及純OFL字型，原版148檔只進本機完整版。真實stage核對595項AI、四語各2559七表與MAIN補表、Noto字型；原版檔名、完整SHA、音訊及compiled packs外洩掃描零命中。
+- 路由載入retro-remake技能、版號與dist-all契約、顯示／語意隔離、README標準及FFmpeg推廣片入口。推廣片採本版畫面、五語展示與既有HD戰鬥對照，配樂沿用原版MAP2.MID的FM近似，不另造配樂；合成採60秒有界投影片，不用zoompan。
+- MAIN及商店疊層只觀察既有16EC文字入口，原版EXE、VGA、存檔和回傳值不改。四語MAIN表各1314位置，採用簡中1312、日文1308、韓文1296、英文1312；其他未知列keep。完整OFL Noto供顯示層使用，來源摘要逐列核對。009記錄幾何、原像素戳記、兩軸縮放與失敗原文回退。
+- 窄審抓到同幀同步、零差異戳記、SHOP接受摘要和失敗回退四個接線缺口，實作均修正；F12改保存實際合成圖，多行完整縮放。四語Open與前端compile通過，不追加玩家或平台抽樣。首次截圖啟動時實作仍在修訂，主代理停止該次擷取、保留initial輸出，待固定版本重建後重抓。
+- fork只做本機提交 `6240d96`，第40份format-patch存於 `engine/patches/0040-full-localization-display.patch`，不推公開dosgolem上游。
+- 五語正常新遊戲畫面已擷取，後四次不傳語言flag，直接讀前一次F4持久化偏好；每語日誌確認全量包1767＋792、MAIN顯示表及pack-active。五张原尺寸圖和四個新語言總覽進docs/images並由README引用。收據 `workplace/out/readme-l10n-full-v1/receipt.json`，前端SHA-256 `05bb37f6f7d49d9fd672663bc9c1b5beb2d20d040993d28739624561d78a39da`。沒有追加戰鬥、存讀檔或平台抽樣。
+- 唯讀收尾報告 `workplace/spec-review/v1-integration-review.md` 補核目前具體阻擋0。追蹤原檔完整雜湊零命中，PRIVATE核對成立；最終內容掃描2822檔仍只有與既有基準逐位元相同的12筆，授權l10n正式表按新規則排除，其他來源照常檢查。

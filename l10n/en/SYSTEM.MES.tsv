@@ -1,0 +1,315 @@
+id	src_sha256	text	status	acc_sha	by	batch	date	note
+SYSTEM.MES#0	48e507c98b2d5dec	...Hmm! Let's see how it goes!\nAll right! Stand by!	accepted	4d7c624b7dfdf8a7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#1	cbe5f1537ae24193	Don't look so glum.\nEveryone, stand by!	accepted	06f3efe4b823d5ab	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#2	730f5af7d3fd2bf9	Hmm! Let me think a moment!\nStand by for now.	accepted	d5982250ab394dff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#3	e5ecaca9c06be4df	Nothing seems to be happening!\nEveryone, stand by!	accepted	b4fe00834c397c7c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#4	e06b24073e9ed03d	Let's take a short break!\nEveryone, stand by!	accepted	5574309e37dad8d3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#5	3521c9f79f733f04	All units, stand by!\nAwait orders!	accepted	59dc7193479f38d8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#6	7b97d8c691badea0	Hmm! I'm a little tired!\nEveryone, rest!	accepted	5eac7a0c586d93ec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#7	19373be7a868a7ce	Ah! Let's take a break!\nRest here!	accepted	11f96e4d31abd66c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#8	865ae241fb88485b	All right! Everyone is tired!\nTake a short break!	accepted	ecd6337bb4a6e774	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#9	d6e924528fcf17a1	Hmm! Let's stop a moment!\nTake...a...break!	accepted	696a1a888e353848	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#10	aebf9a7fbf316a21	Whoa! I'm a little tired!\nEveryone, rest.	accepted	6bd6ace81ebc799a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#11	0e8559bb3c660ea7	All units, take a break!\nRecover your strength!	accepted	5db1ccbc6135e321	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#12	8225c89fb115a0f7	At last, we're here!\nLet's stand by here!	accepted	6233aa14a9d88666	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#13	48c103011b24cb1a	Hmm! We're here! We're here!\nEveryone, stand by!	accepted	92d9fe5fe733e4a8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#14	db219d46786374ad	Hmm! We've reached our goal!\n                \nStand by for now!	accepted	0e94e1ba5e5afb60	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#15	72d966048ad480fc	We've arrived!\nLet's stand by here!	accepted	29e2a6811d8634c6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#16	b97fba31ffad9b2b	Halt the march! Everyone,\nstand by here!	accepted	917a4265d7b70cbe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#17	326171cf647f1860	All units, halt!\nTake defensive positions\nand stand by!	accepted	11a68861813f315c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#18	f70c39ff18c8b5ec	Whew! We finally made it...\nLet's get to town first.\nWe need to settle our nerves!	accepted	b1243f384804a502	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#19	79d24f12cb39b507	It's an emergency!\nLet's get to town first.\nWe need to settle our nerves!	accepted	d9c64b1302932f2b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#20	10a2c6dc74e3b20d	...We have to leave now!\nWhatever it is,\nwe'll talk about it later!	accepted	544a2947c1c91029	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#21	d7e509046e65be47	...The battle isn't going well!\nLet's get back first! Whoa!	accepted	84b8ebef52678728	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#22	503a745157170676	Retreat...\nBack to town first!\nGet ready again!	accepted	c1a681d4ef2ae78b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#23	8784c908a9d06838	All right! Retreat!\nEveryone, get ready\nfor the next attack!	accepted	895298ba9eba75d3	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#24	1930c30e608129f5	We've reached %s!\nLet's go in!	accepted	063eb2128ff4cb5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#25	1930c30e608129f5	We've reached %s!\nLet's go in!	accepted	063eb2128ff4cb5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#26	1930c30e608129f5	We've reached %s!\nLet's go in!	accepted	063eb2128ff4cb5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#27	1930c30e608129f5	We've reached %s!\nLet's go in!	accepted	063eb2128ff4cb5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#28	1930c30e608129f5	We've reached %s!\nLet's go in!	accepted	063eb2128ff4cb5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#29	1930c30e608129f5	We've reached %s!\nLet's go in!	accepted	063eb2128ff4cb5e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#30	3218ca329043dd87	Target reached: %s!\nPrepare to attack!	accepted	5d5c3931f6bfafed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#31	3218ca329043dd87	Target reached: %s!\nPrepare to attack!	accepted	5d5c3931f6bfafed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#32	3218ca329043dd87	Target reached: %s!\nPrepare to attack!	accepted	5d5c3931f6bfafed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#33	3218ca329043dd87	Target reached: %s!\nPrepare to attack!	accepted	5d5c3931f6bfafed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#34	3218ca329043dd87	Target reached: %s!\nPrepare to attack!	accepted	5d5c3931f6bfafed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#35	3218ca329043dd87	Target reached: %s!\nPrepare to attack!	accepted	5d5c3931f6bfafed	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#36	4ecd33f5629bd5e6	Attention!\nBegin attacking %s!	accepted	e6b6b76dfe3ef904	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#37	1adbc21073b2a7e3	Good! Capture %s!\nBegin the attack!	accepted	da770dc1d2c46cec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#38	4ecd33f5629bd5e6	Attention!\nBegin attacking %s!	accepted	e6b6b76dfe3ef904	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#39	1adbc21073b2a7e3	Good! Capture %s!\nBegin the attack!	accepted	da770dc1d2c46cec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#40	4ecd33f5629bd5e6	Attention!\nBegin attacking %s!	accepted	e6b6b76dfe3ef904	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#41	1adbc21073b2a7e3	Good! Capture %s!\nBegin the attack!	accepted	da770dc1d2c46cec	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#42	72acbc6ecbb5938d	Whoa! We can't go on!\nThere's no choice! Retreat!	accepted	391764e99f244d46	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#43	faa297bd4cc5a00a	...Whoa! This is bad! Bad!\nWe've been beaten!\nThere's no choice! Retreat!	accepted	096acaa5cd42abb0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#44	faa297bd4cc5a00a	...Whoa! This is bad! Bad!\nWe've been beaten!\nThere's no choice! Retreat!	accepted	096acaa5cd42abb0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#45	faa297bd4cc5a00a	...Whoa! This is bad! Bad!\nWe've been beaten!\nThere's no choice! Retreat!	accepted	096acaa5cd42abb0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#46	faa297bd4cc5a00a	...Whoa! This is bad! Bad!\nWe've been beaten!\nThere's no choice! Retreat!	accepted	096acaa5cd42abb0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#47	faa297bd4cc5a00a	...Whoa! This is bad! Bad!\nWe've been beaten!\nThere's no choice! Retreat!	accepted	096acaa5cd42abb0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#48	14c61e2d476d84b8	We can't keep flying like this!\nAll right! Turn back!	accepted	28dd0843bc749b1b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#49	61ac6ff8c041154d	What? Incoming missile!\nWhat a pain! Let's head back!	accepted	d7b0cc1d219e442d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#50	f2cc46510f63fc6e	We can't keep flying much longer!\nWe can't hold out!\nLet's head back first!	accepted	33cb83c4de76ee04	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#51	61ac6ff8c041154d	What? Incoming missile!\nWhat a pain! Let's head back!	accepted	d7b0cc1d219e442d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#52	61ac6ff8c041154d	What? Incoming missile!\nWhat a pain! Let's head back!	accepted	d7b0cc1d219e442d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#53	980423ae0b7b94b6	Damage report! Engine hit!\nIt can't hold out!\nNo choice! Back to base!	accepted	248e003480bc2c9e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#54	f8ab0ed0c836686a	Rat-a-tat...I think we're hit!\nWhat? We can't move!\nRetreat for now!	accepted	1d6355d3f1504841	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#55	7c9d482656f18279	We're hit! The vehicle won't move?\nRetreat! Retreat!	accepted	85ec41fa03329fc9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#56	247817d1ffe6282c	If we keep advancing,\nwe'll suffer heavy losses!\nRetreat for now!	accepted	0223940f332253ee	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#57	e26c42c3965cbac2	Huh? It's broken!\nWhat a pain! Retreat for now!	accepted	7449cba9b2c75e6a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#58	11d32b0b01e5b663	The vehicle won't move!?\nRetreat! Retreat! We can't move!\nWhat a pain!	accepted	6f8dc876f90b80f2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#59	44192167395090f4	The tank is badly damaged!\nWe've done all we can!\nWe'll have to give up!	accepted	60f3dc532bdd0119	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#60	f6f6d4dfc1b164ea	We can't hold out any longer!\nRest!	accepted	b258b02f41359850	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#61	f6f6d4dfc1b164ea	We can't hold out any longer!\nRest!	accepted	b258b02f41359850	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#62	b20a9e8416f27809	Everyone is\ncompletely exhausted...\nTake a short break!	accepted	4c8f81716d2266c6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#63	b20a9e8416f27809	Everyone is\ncompletely exhausted...\nTake a short break!	accepted	4c8f81716d2266c6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#64	b20a9e8416f27809	Everyone is\ncompletely exhausted...\nTake a short break!	accepted	4c8f81716d2266c6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#65	b20a9e8416f27809	Everyone is\ncompletely exhausted...\nTake a short break!	accepted	4c8f81716d2266c6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#66	a73ef6046f14ef70	Hmm! Everyone is ready!	accepted	4452a8118bf9f7c1	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#67	0adfa99dcd8f1d14	All members have recovered!	accepted	cf99b055af137390	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#68	625b44dc3d2231bc	Everyone in the caravan\nhas recovered their stamina!	accepted	874980968ff97ca4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#69	abdab8be5b276e25	Everyone seems refreshed!\nHmm! Let's go!	accepted	dcb6ff340f20643f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#70	3b1f97ae6392e389	Everyone has recovered!\nWe're all in good shape!\nLet's get moving!	accepted	9d74d516a4d7edc2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#71	ee89c6d127c2b229	Hmm! All units' stamina restored!	accepted	8d13dc1f85e6885e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#72	acbcd4a2c8d65305	\nGood! Everyone's fatigue is gone!	accepted	79324b98a9f39a1f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#73	46c18c9cc3369d10	\nAll members' fatigue is gone!	accepted	8c88ce9d16a4b6e6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#74	65b20dc59c7d0ba5	\nThe caravan's fatigue is gone!\nHmm! Good!	accepted	c022ccdd21bb32cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#75	e83054c79f044874	\nEveryone has rested enough, right?\nGood! Let's go!	accepted	d302d78c09c502ef	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#76	0a852d6eacd7eae3	Everyone has had a good rest!\nWe're all recovered!\nLet's get moving!	accepted	6625547c61ff78ea	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#77	91bc36b3a47f8faf	\nGood! All members' fatigue is gone!	accepted	07f197e88a1b3825	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#78	0bb7489a3ef5726e	Hmm! It's %s! Everyone, prepare for battle!	accepted	14d3f802f643ce82	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+SYSTEM.MES#79	efd1180a81eae554	Oh! %s means to challenge me! Everyone, prepare for battle!	accepted	6f15b369c78c5b76	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+SYSTEM.MES#80	0bb7489a3ef5726e	Hmm! It's %s! Everyone, prepare for battle!	accepted	14d3f802f643ce82	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+SYSTEM.MES#81	0bb7489a3ef5726e	Hmm! It's %s! Everyone, prepare for battle!	accepted	14d3f802f643ce82	Codex	full-20261006	2026-10-06	使用者接受語境修讀；修讀為hypothesis，原始SrcSHA/raw不變；英文候選未接受，未經母語者審閱；固定預烘字組及正式Prepare待驗
+SYSTEM.MES#82	c7d26ceda0da1292	%s...\n...Are you coming after me?\nEveryone, prepare to charge!	accepted	7c32857ad51fb99e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#83	5c52b02d3a68e31d	Enemy spotted! Strike first!\nTarget: %s!\nBegin the attack!	accepted	3fd09680579e56a6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#84	dea3ea634a733c71	%s spotted!\nBegin the attack!	accepted	1ea4f5657c9a04bc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#85	744838147cd9502e	Spotted!\nTarget: %s!\nBegin the attack!	accepted	a7c9409e2102e1c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#86	0ca8730b03b1ae15	Whoa! Enemy spotted...\nIt's %s!\nAttack!	accepted	1c6c75206d008d9b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#87	bf0f42adc786f45c	Enemy unit spotted!\nTarget: %s!\nAttack!	accepted	c02c6af14f4225db	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#88	ddd0f7ba85782eed	Enemy!\nTarget: %s!	accepted	57adc92bf675156d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#89	cec3901910553244	Attack!\nEnemy sighted: %s!\nBegin the attack!	accepted	0e015b96ce46628d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#90	af7d17beefb2ef53	Hmm! Retreat toward %s.	accepted	8d8d25363e3245bc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#91	ed28ddfda0c10880	Retreat toward %s.	accepted	7e83be7dcb07c2bf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#92	af7d17beefb2ef53	Hmm! Retreat toward %s.	accepted	8d8d25363e3245bc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#93	af7d17beefb2ef53	Hmm! Retreat toward %s.	accepted	8d8d25363e3245bc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#94	320c57a4c2ebde6a	That's right!\nBegin retreating toward %s!	accepted	b9b6a8224c09724a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#95	af7d17beefb2ef53	Hmm! Retreat toward %s.	accepted	8d8d25363e3245bc	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#96	74875107dfe9daea	Hmm! Which way should we go?	accepted	f56229b0b4eae41e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#97	74875107dfe9daea	Hmm! Which way should we go?	accepted	f56229b0b4eae41e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#98	74875107dfe9daea	Hmm! Which way should we go?	accepted	f56229b0b4eae41e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#99	74875107dfe9daea	Hmm! Which way should we go?	accepted	f56229b0b4eae41e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#100	74875107dfe9daea	Hmm! Which way should we go?	accepted	f56229b0b4eae41e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#101	74875107dfe9daea	Hmm! Which way should we go?	accepted	f56229b0b4eae41e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#102	b669417bebf85e02	Huh? It looks like\nwe can't go this way?	accepted	58726997371c0691	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#103	2bb85e80c13ccb9a	Huh? Is this road blocked?	accepted	cacacb816a6d7e6b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#104	dfdb093a0cb0da2f	Huh? The road is blocked!\nWe can't go this way!	accepted	61eb39c6ad137ab8	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#105	2bb85e80c13ccb9a	Huh? Is this road blocked?	accepted	cacacb816a6d7e6b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#106	b669417bebf85e02	Huh? It looks like\nwe can't go this way?	accepted	58726997371c0691	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#107	b669417bebf85e02	Huh? It looks like\nwe can't go this way?	accepted	58726997371c0691	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#108	8cccde83662f76c2	Whoa!...Retreat!	accepted	5f1d9f5378594072	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#109	c99da9e720759f51	Bullets everywhere! Run!	accepted	aaa112c6d68d17f0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#110	2f126a4a3a845080	Bullets don't care who they hit!\nWe'd better get out of here!	accepted	066868c120eaf616	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#111	2998e0d2abde338e	Whoa! That hurts! Run!	accepted	841e1ef1efc36d69	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#112	f6f3f28bcec6e78d	Run for it! Whoa!	accepted	a6aeff6f9a1bb990	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#113	778427a79293bc8b	Of all the stratagems...run!	accepted	f4ed83003ebe5580	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#114	90821f5d2095b3c1	Hmm! Infiltrate %s!	accepted	f1ae86a22ebc5f6d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#115	90821f5d2095b3c1	Hmm! Infiltrate %s!	accepted	f1ae86a22ebc5f6d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#116	90821f5d2095b3c1	Hmm! Infiltrate %s!	accepted	f1ae86a22ebc5f6d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#117	90821f5d2095b3c1	Hmm! Infiltrate %s!	accepted	f1ae86a22ebc5f6d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#118	90821f5d2095b3c1	Hmm! Infiltrate %s!	accepted	f1ae86a22ebc5f6d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#119	90821f5d2095b3c1	Hmm! Infiltrate %s!	accepted	f1ae86a22ebc5f6d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#120	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#121	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#122	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#123	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#124	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#125	989e6343c3a16a14	Whoa! We've been spotted!\nGet out of %s quickly!\nRun!	accepted	2d9bc8d152180f6e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#126	eb87fac1cf57f569	Whoa! Spotted!\nFlee quickly from %s!	accepted	f180777c070bd8bf	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#127	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#128	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#129	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#130	7ca0dfb1bbcc5fbd	Whoa! We've been spotted!\nGet out of %s quickly!	accepted	4032a8f5dda6398b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#131	989e6343c3a16a14	Whoa! We've been spotted!\nGet out of %s quickly!\nRun!	accepted	2d9bc8d152180f6e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#132	c3a422ed3e95c2cc	%s...%s has launched an attack!	accepted	156714c67ab30c05	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#133	5f0b84f9f5b43757	%s...\n%s has launched an attack!	accepted	2e453b2bcac7857f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#134	5f0b84f9f5b43757	%s...\n%s has launched an attack!	accepted	2e453b2bcac7857f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#135	5f0b84f9f5b43757	%s...\n%s has launched an attack!	accepted	2e453b2bcac7857f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#136	5f0b84f9f5b43757	%s...\n%s has launched an attack!	accepted	2e453b2bcac7857f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#137	5f0b84f9f5b43757	%s...\n%s has launched an attack!	accepted	2e453b2bcac7857f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#138	31aa19c437dda703	Whoa! Shelling?\nThose bastards from %s!	accepted	56f1d9d535345d5a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#139	31aa19c437dda703	Whoa! Shelling?\nThose bastards from %s!	accepted	56f1d9d535345d5a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#140	31aa19c437dda703	Whoa! Shelling?\nThose bastards from %s!	accepted	56f1d9d535345d5a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#141	31aa19c437dda703	Whoa! Shelling?\nThose bastards from %s!	accepted	56f1d9d535345d5a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#142	31aa19c437dda703	Whoa! Shelling?\nThose bastards from %s!	accepted	56f1d9d535345d5a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#143	026e3295e3bf1f3f	Shelling from %s!	accepted	d5be4a7b6c100498	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#144	2791c7e7bc77a215	%s...\nVehicle unit, deploy!	accepted	fde90c098310b42b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#145	2791c7e7bc77a215	%s...\nVehicle unit, deploy!	accepted	fde90c098310b42b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#146	2791c7e7bc77a215	%s...\nVehicle unit, deploy!	accepted	fde90c098310b42b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#147	2791c7e7bc77a215	%s...\nVehicle unit, deploy!	accepted	fde90c098310b42b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#148	2791c7e7bc77a215	%s...\nVehicle unit, deploy!	accepted	fde90c098310b42b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#149	2791c7e7bc77a215	%s...\nVehicle unit, deploy!	accepted	fde90c098310b42b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#150	398dfbeb58a8ba95	%s...\nAir unit, deploy!	accepted	3c48a75d1367485b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#151	398dfbeb58a8ba95	%s...\nAir unit, deploy!	accepted	3c48a75d1367485b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#152	398dfbeb58a8ba95	%s...\nAir unit, deploy!	accepted	3c48a75d1367485b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#153	398dfbeb58a8ba95	%s...\nAir unit, deploy!	accepted	3c48a75d1367485b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#154	398dfbeb58a8ba95	%s...\nAir unit, deploy!	accepted	3c48a75d1367485b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#155	398dfbeb58a8ba95	%s...\nAir unit, deploy!	accepted	3c48a75d1367485b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#156	81c6b73f5ebd06ee	Whoa! Anti-aircraft fire?\nThose bastards from %s!	accepted	efe47fba18717668	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#157	81c6b73f5ebd06ee	Whoa! Anti-aircraft fire?\nThose bastards from %s!	accepted	efe47fba18717668	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#158	81c6b73f5ebd06ee	Whoa! Anti-aircraft fire?\nThose bastards from %s!	accepted	efe47fba18717668	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#159	81c6b73f5ebd06ee	Whoa! Anti-aircraft fire?\nThose bastards from %s!	accepted	efe47fba18717668	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#160	81c6b73f5ebd06ee	Whoa! Anti-aircraft fire?\nThose bastards from %s!	accepted	efe47fba18717668	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#161	df48eb98289695cb	Whoa! Anti-aircraft fire?\nThose bastards from %s!	accepted	efe47fba18717668	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#162	91cf85ea656a6990	Damn it! The soldiers took\n%d damage!	accepted	ee9777561a967f7b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#163	91cf85ea656a6990	Damn it! The soldiers took\n%d damage!	accepted	ee9777561a967f7b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#164	91cf85ea656a6990	Damn it! The soldiers took\n%d damage!	accepted	ee9777561a967f7b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#165	91cf85ea656a6990	Damn it! The soldiers took\n%d damage!	accepted	ee9777561a967f7b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#166	91cf85ea656a6990	Damn it! The soldiers took\n%d damage!	accepted	ee9777561a967f7b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#167	91cf85ea656a6990	Damn it! The soldiers took\n%d damage!	accepted	ee9777561a967f7b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#168	5e444028caedd257	Damn it! The tank took\n%d damage!	accepted	724e5d72e9746da9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#169	5e444028caedd257	Damn it! The tank took\n%d damage!	accepted	724e5d72e9746da9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#170	5e444028caedd257	Damn it! The tank took\n%d damage!	accepted	724e5d72e9746da9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#171	5e444028caedd257	Damn it! The tank took\n%d damage!	accepted	724e5d72e9746da9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#172	5e444028caedd257	Damn it! The tank took\n%d damage!	accepted	724e5d72e9746da9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#173	5e444028caedd257	Damn it! The tank took\n%d damage!	accepted	724e5d72e9746da9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#174	87aefbb47a9a2771	Damn it! The aircraft took\n%d damage!	accepted	aab08edbc3f92407	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#175	87aefbb47a9a2771	Damn it! The aircraft took\n%d damage!	accepted	aab08edbc3f92407	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#176	87aefbb47a9a2771	Damn it! The aircraft took\n%d damage!	accepted	aab08edbc3f92407	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#177	87aefbb47a9a2771	Damn it! The aircraft took\n%d damage!	accepted	aab08edbc3f92407	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#178	87aefbb47a9a2771	Damn it! The aircraft took\n%d damage!	accepted	aab08edbc3f92407	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#179	87aefbb47a9a2771	Damn it! The aircraft took\n%d damage!	accepted	aab08edbc3f92407	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#180	0630b7b0fe970479	%s's unit.\nGood! Begin attacking %s!	accepted	ab9c52e4a6fc26ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#181	0630b7b0fe970479	%s's unit.\nGood! Begin attacking %s!	accepted	ab9c52e4a6fc26ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#182	0630b7b0fe970479	%s's unit.\nGood! Begin attacking %s!	accepted	ab9c52e4a6fc26ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#183	0630b7b0fe970479	%s's unit.\nGood! Begin attacking %s!	accepted	ab9c52e4a6fc26ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#184	0630b7b0fe970479	%s's unit.\nGood! Begin attacking %s!	accepted	ab9c52e4a6fc26ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#185	0630b7b0fe970479	%s's unit.\nGood! Begin attacking %s!	accepted	ab9c52e4a6fc26ff	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#186	fd46b14ee7e5526e	Well done!\n%s's unit\nhas been wiped out!	accepted	9a3625b8ffdbbade	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#187	fd46b14ee7e5526e	Well done!\n%s's unit\nhas been wiped out!	accepted	9a3625b8ffdbbade	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#188	fd46b14ee7e5526e	Well done!\n%s's unit\nhas been wiped out!	accepted	9a3625b8ffdbbade	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#189	fd46b14ee7e5526e	Well done!\n%s's unit\nhas been wiped out!	accepted	9a3625b8ffdbbade	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#190	fd46b14ee7e5526e	Well done!\n%s's unit\nhas been wiped out!	accepted	9a3625b8ffdbbade	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#191	14737f4a7723a9c1	%s's\ndefending unit is wiped out!	accepted	83ae095fb1d98150	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#192	e9617f7bd987f042	A hard-won victory...\n%d G gained!	accepted	4fda89d039c4391a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#193	e9617f7bd987f042	A hard-won victory...\n%d G gained!	accepted	4fda89d039c4391a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#194	e9617f7bd987f042	A hard-won victory...\n%d G gained!	accepted	4fda89d039c4391a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#195	e9617f7bd987f042	A hard-won victory...\n%d G gained!	accepted	4fda89d039c4391a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#196	e9617f7bd987f042	A hard-won victory...\n%d G gained!	accepted	4fda89d039c4391a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#197	e9617f7bd987f042	A hard-won victory...\n%d G gained!	accepted	4fda89d039c4391a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#198	2edcace5b5257651	An easy victory!\n%d G gained!	accepted	35b17e4372abd6cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#199	2edcace5b5257651	An easy victory!\n%d G gained!	accepted	35b17e4372abd6cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#200	2edcace5b5257651	An easy victory!\n%d G gained!	accepted	35b17e4372abd6cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#201	2edcace5b5257651	An easy victory!\n%d G gained!	accepted	35b17e4372abd6cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#202	2edcace5b5257651	An easy victory!\n%d G gained!	accepted	35b17e4372abd6cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#203	2edcace5b5257651	An easy victory!\n%d G gained!	accepted	35b17e4372abd6cb	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#204	c62659adb6f2ad80	...We finally won!\n%d G gained!	accepted	2fdc98f57e70a7a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#205	c62659adb6f2ad80	...We finally won!\n%d G gained!	accepted	2fdc98f57e70a7a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#206	c62659adb6f2ad80	...We finally won!\n%d G gained!	accepted	2fdc98f57e70a7a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#207	c62659adb6f2ad80	...We finally won!\n%d G gained!	accepted	2fdc98f57e70a7a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#208	c62659adb6f2ad80	...We finally won!\n%d G gained!	accepted	2fdc98f57e70a7a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#209	c62659adb6f2ad80	...We finally won!\n%d G gained!	accepted	2fdc98f57e70a7a5	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#210	da3277d5b08ea363	Things look bad...Retreat!	accepted	15235c6a1f85b8ae	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#211	da3277d5b08ea363	Things look bad...Retreat!	accepted	15235c6a1f85b8ae	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#212	fdadaa25f9b5f4b1	This is terrible...\nEveryone, retreat quickly...	accepted	f31c4ffce4d5ec7d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#213	fdadaa25f9b5f4b1	This is terrible...\nEveryone, retreat quickly...	accepted	f31c4ffce4d5ec7d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#214	fdadaa25f9b5f4b1	This is terrible...\nEveryone, retreat quickly...	accepted	f31c4ffce4d5ec7d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#215	fdadaa25f9b5f4b1	This is terrible...\nEveryone, retreat quickly...	accepted	f31c4ffce4d5ec7d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#216	2c416f55ca77d0c6	Damn it...We failed...	accepted	1ef79b1c0f8c4d4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#217	2c416f55ca77d0c6	Damn it...We failed...	accepted	1ef79b1c0f8c4d4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#218	2c416f55ca77d0c6	Damn it...We failed...	accepted	1ef79b1c0f8c4d4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#219	2c416f55ca77d0c6	Damn it...We failed...	accepted	1ef79b1c0f8c4d4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#220	2c416f55ca77d0c6	Damn it...We failed...	accepted	1ef79b1c0f8c4d4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#221	2c416f55ca77d0c6	Damn it...We failed...	accepted	1ef79b1c0f8c4d4a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#222	9fca1201ec649d09	...Whoa! A crushing defeat...\nEveryone wiped out...	accepted	45abe956f5aae1c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#223	9fca1201ec649d09	...Whoa! A crushing defeat...\nEveryone wiped out...	accepted	45abe956f5aae1c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#224	9fca1201ec649d09	...Whoa! A crushing defeat...\nEveryone wiped out...	accepted	45abe956f5aae1c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#225	9fca1201ec649d09	...Whoa! A crushing defeat...\nEveryone wiped out...	accepted	45abe956f5aae1c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#226	9fca1201ec649d09	...Whoa! A crushing defeat...\nEveryone wiped out...	accepted	45abe956f5aae1c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#227	9fca1201ec649d09	...Whoa! A crushing defeat...\nEveryone wiped out...	accepted	45abe956f5aae1c9	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#228	f1829b50b12397b2	Good! %s's\ndefenses are destroyed!\nAttack through here!	accepted	fbb025d84b3a69d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#229	f1829b50b12397b2	Good! %s's\ndefenses are destroyed!\nAttack through here!	accepted	fbb025d84b3a69d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#230	f1829b50b12397b2	Good! %s's\ndefenses are destroyed!\nAttack through here!	accepted	fbb025d84b3a69d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#231	f1829b50b12397b2	Good! %s's\ndefenses are destroyed!\nAttack through here!	accepted	fbb025d84b3a69d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#232	f1829b50b12397b2	Good! %s's\ndefenses are destroyed!\nAttack through here!	accepted	fbb025d84b3a69d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#233	f1829b50b12397b2	Good! %s's\ndefenses are destroyed!\nAttack through here!	accepted	fbb025d84b3a69d4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#234	ef33383bcde28c55	Ha ha! Captured: %s!	accepted	f7622b73654eee98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#235	ef33383bcde28c55	Ha ha! Captured: %s!	accepted	f7622b73654eee98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#236	ef33383bcde28c55	Ha ha! Captured: %s!	accepted	f7622b73654eee98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#237	ef33383bcde28c55	Ha ha! Captured: %s!	accepted	f7622b73654eee98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#238	ef33383bcde28c55	Ha ha! Captured: %s!	accepted	f7622b73654eee98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#239	ef33383bcde28c55	Ha ha! Captured: %s!	accepted	f7622b73654eee98	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#240	60b3e3ae9790fd0a	Hmm! We can't deploy like this!	accepted	8ec2c27dd20bce65	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#241	60b3e3ae9790fd0a	Hmm! We can't deploy like this!	accepted	8ec2c27dd20bce65	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#242	60b3e3ae9790fd0a	Hmm! We can't deploy like this!	accepted	8ec2c27dd20bce65	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#243	60b3e3ae9790fd0a	Hmm! We can't deploy like this!	accepted	8ec2c27dd20bce65	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#244	60b3e3ae9790fd0a	Hmm! We can't deploy like this!	accepted	8ec2c27dd20bce65	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#245	60b3e3ae9790fd0a	Hmm! We can't deploy like this!	accepted	8ec2c27dd20bce65	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#246	fbd08b29aa3320fd	Let's enter town!	accepted	626188e398348a47	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#247	fbd08b29aa3320fd	Let's enter town!	accepted	626188e398348a47	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#248	fbd08b29aa3320fd	Let's enter town!	accepted	626188e398348a47	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#249	fbd08b29aa3320fd	Let's enter town!	accepted	626188e398348a47	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#250	fbd08b29aa3320fd	Let's enter town!	accepted	626188e398348a47	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#251	fbd08b29aa3320fd	Let's enter town!	accepted	626188e398348a47	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#252	788abb4f17506c89	Hmph! I'll win next time!	accepted	00cf88eaa4272030	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#253	788abb4f17506c89	Hmph! I'll win next time!	accepted	00cf88eaa4272030	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#254	788abb4f17506c89	Hmph! I'll win next time!	accepted	00cf88eaa4272030	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#255	788abb4f17506c89	Hmph! I'll win next time!	accepted	00cf88eaa4272030	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#256	788abb4f17506c89	Hmph! I'll win next time!	accepted	00cf88eaa4272030	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#257	788abb4f17506c89	Hmph! I'll win next time!	accepted	00cf88eaa4272030	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#258	e7641a88751abfcc	Ah! I've only my lack of skill\nto blame!	accepted	c44d3cc09c076ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#259	e7641a88751abfcc	Ah! I've only my lack of skill\nto blame!	accepted	c44d3cc09c076ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#260	e7641a88751abfcc	Ah! I've only my lack of skill\nto blame!	accepted	c44d3cc09c076ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#261	e7641a88751abfcc	Ah! I've only my lack of skill\nto blame!	accepted	c44d3cc09c076ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#262	e7641a88751abfcc	Ah! I've only my lack of skill\nto blame!	accepted	c44d3cc09c076ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#263	e7641a88751abfcc	Ah! I've only my lack of skill\nto blame!	accepted	c44d3cc09c076ca6	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#264	faf3defa39b181a8	...Not a single worker\nis left on site!\nWe'll have to stop building!	accepted	1ab56df1f94a70e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#265	faf3defa39b181a8	...Not a single worker\nis left on site!\nWe'll have to stop building!	accepted	1ab56df1f94a70e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#266	8d4784de90e1cac8	Where have all the workers gone?\nStop construction!	accepted	3726ed42c62a4277	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#267	faf3defa39b181a8	...Not a single worker\nis left on site!\nWe'll have to stop building!	accepted	1ab56df1f94a70e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#268	faf3defa39b181a8	...Not a single worker\nis left on site!\nWe'll have to stop building!	accepted	1ab56df1f94a70e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#269	faf3defa39b181a8	...Not a single worker\nis left on site!\nWe'll have to stop building!	accepted	1ab56df1f94a70e0	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#270	eb129f0a56d2868d	Whoa...This is bad...\n...Damage! Huh? Zero?\nThey're unbelievable!	accepted	c99dd62be938021e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#271	eb129f0a56d2868d	Whoa...This is bad...\n...Damage! Huh? Zero?\nThey're unbelievable!	accepted	c99dd62be938021e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#272	eb129f0a56d2868d	Whoa...This is bad...\n...Damage! Huh? Zero?\nThey're unbelievable!	accepted	c99dd62be938021e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#273	eb129f0a56d2868d	Whoa...This is bad...\n...Damage! Huh? Zero?\nThey're unbelievable!	accepted	c99dd62be938021e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#274	eb129f0a56d2868d	Whoa...This is bad...\n...Damage! Huh? Zero?\nThey're unbelievable!	accepted	c99dd62be938021e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#275	eb129f0a56d2868d	Whoa...This is bad...\n...Damage! Huh? Zero?\nThey're unbelievable!	accepted	c99dd62be938021e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#276	923a72048d984fa2	Hey! Put down your work\nand go have some fun!	accepted	5b0c573d310e3bfe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#277	923a72048d984fa2	Hey! Put down your work\nand go have some fun!	accepted	5b0c573d310e3bfe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#278	923a72048d984fa2	Hey! Put down your work\nand go have some fun!	accepted	5b0c573d310e3bfe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#279	923a72048d984fa2	Hey! Put down your work\nand go have some fun!	accepted	5b0c573d310e3bfe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#280	923a72048d984fa2	Hey! Put down your work\nand go have some fun!	accepted	5b0c573d310e3bfe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#281	923a72048d984fa2	Hey! Put down your work\nand go have some fun!	accepted	5b0c573d310e3bfe	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#282	1c7c434271f085ec	Don't perform any more!\nLet's go traveling instead!	accepted	0b246c916ca00ae2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#283	1c7c434271f085ec	Don't perform any more!\nLet's go traveling instead!	accepted	0b246c916ca00ae2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#284	1c7c434271f085ec	Don't perform any more!\nLet's go traveling instead!	accepted	0b246c916ca00ae2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#285	1c7c434271f085ec	Don't perform any more!\nLet's go traveling instead!	accepted	0b246c916ca00ae2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#286	1c7c434271f085ec	Don't perform any more!\nLet's go traveling instead!	accepted	0b246c916ca00ae2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#287	1c7c434271f085ec	Don't perform any more!\nLet's go traveling instead!	accepted	0b246c916ca00ae2	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#288	ca141fa0de64d39f	There's no target\nleft to bomb.\nLet's head home!	accepted	fd97ace023a14f5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#289	ca141fa0de64d39f	There's no target\nleft to bomb.\nLet's head home!	accepted	fd97ace023a14f5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#290	ca141fa0de64d39f	There's no target\nleft to bomb.\nLet's head home!	accepted	fd97ace023a14f5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#291	ca141fa0de64d39f	There's no target\nleft to bomb.\nLet's head home!	accepted	fd97ace023a14f5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#292	ca141fa0de64d39f	There's no target\nleft to bomb.\nLet's head home!	accepted	fd97ace023a14f5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#293	ca141fa0de64d39f	There's no target\nleft to bomb.\nLet's head home!	accepted	fd97ace023a14f5b	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#294	51d69436f07b8663	Hmm! Reinforce the defenses!	accepted	e1c16aa56fc17e9f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#295	51d69436f07b8663	Hmm! Reinforce the defenses!	accepted	e1c16aa56fc17e9f	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#296	592bce8be89edade	Defense is a tactic too.\nReinforce the defenses!	accepted	82e9f2c5d8aa9f1c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#297	592bce8be89edade	Defense is a tactic too.\nReinforce the defenses!	accepted	82e9f2c5d8aa9f1c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#298	592bce8be89edade	Defense is a tactic too.\nReinforce the defenses!	accepted	82e9f2c5d8aa9f1c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#299	592bce8be89edade	Defense is a tactic too.\nReinforce the defenses!	accepted	82e9f2c5d8aa9f1c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#300	e21c3d76ef66d75c	%s's dancers perform in %s!	accepted	49c72ebba792b55c	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#301	707515405c963f98	The show was well received.\nEarnings: %ld G.	accepted	6bcadcd2348aeb97	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#302	1b735b76af7a9be8	The show went fairly well.\nEarnings: %ld G.	accepted	fff463d5e220e9f4	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#303	c9f0bfe8b859fb6e	The show failed.\nNo earnings.	accepted	386fd30422bc3e0e	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#304	f2d3afb1d33689e3	%s's workers finished expanding %s.	accepted	45497d239f8cb4f7	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#305	a18de0f0394f03cc	Construction went very smoothly.\nDurability is now %d.	accepted	0ff0ef0d1a28e70a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#306	a18de0f0394f03cc	Construction went very smoothly.\nDurability is now %d.	accepted	0ff0ef0d1a28e70a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#307	a18de0f0394f03cc	Construction went very smoothly.\nDurability is now %d.	accepted	0ff0ef0d1a28e70a	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#308	5d217d323e01cdfe	Each person gained %ld experience.	accepted	f52016ded9726e5d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#309	5d217d323e01cdfe	Each person gained %ld experience.	accepted	f52016ded9726e5d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#310	5d217d323e01cdfe	Each person gained %ld experience.	accepted	f52016ded9726e5d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#311	5d217d323e01cdfe	Each person gained %ld experience.	accepted	f52016ded9726e5d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#312	5d217d323e01cdfe	Each person gained %ld experience.	accepted	f52016ded9726e5d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗
+SYSTEM.MES#313	5d217d323e01cdfe	Each person gained %ld experience.	accepted	f52016ded9726e5d	Codex	full-20261006	2026-10-06	全量英文候選；未經母語者審閱；字模、版面及遊戲路徑另驗

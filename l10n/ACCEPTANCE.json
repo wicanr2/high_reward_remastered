@@ -1,0 +1,71 @@
+{
+  "date": "2026-10-06",
+  "user_statement": "接受全部翻譯, 然後打包完整版三平台, 完整版包含遊戲",
+  "scope": "Four languages, seven data files; MAIN drafts excluded by the acceptance question",
+  "native_reviewed": false,
+  "review_record_digest": "f5ab8bcce10c5fcf781419af8344c0020c5c4a9af05201255688fdbbdf85b8c8",
+  "seven_review_digest": "f6a33f3168c3071149a399cd4f384b5859aa74ed5232aa799d29b2d8f6719eb7",
+  "review_sha256": "c368c49b3366937595cf48480718e6bd5f5b626cfd1147f1ac640a843e23b54e",
+  "languages": {
+    "zh-CN": {
+      "accepted": 2559,
+      "newly_accepted": 2542,
+      "existing_accepted_unchanged": 17,
+      "text_unchanged": true,
+      "table_sha256": {
+        "COUNTRY.MES.tsv": "934ade597ce84751362a3f17594e95b33e015447777ad463c9447754794e8de6",
+        "SP.MES.tsv": "8968bc4d18a220234c08437bbcde9166a58fe69346d606c4c1d43ac4a5ba197c",
+        "SYSTEM.MES.tsv": "49a0bc251b6e49cad363a6bf5d6f8ced76a52bf253bee4332a654eed61a311c4",
+        "UWASA.MES.tsv": "be491268d6aea0932be2e4a277bee6193bcada710e4b6463551d954e95cab55c",
+        "POWERMES.MES.tsv": "5a85ae60dec72a075b44df6cd212521064155da95a36bd2184cd701a827ea1d2",
+        "ESPMES.MRG.tsv": "545ca66bb9d6685749cb07e38e60480dab14f69742d7c3109f97218bca7e3f78",
+        "SHOPTAB.TBL.tsv": "991ef3aa66b42c5757090e46ffddb9e23c44bb91f43d9a23b5789a41f3cb5f26"
+      }
+    },
+    "ja": {
+      "accepted": 2559,
+      "newly_accepted": 2542,
+      "existing_accepted_unchanged": 17,
+      "text_unchanged": true,
+      "table_sha256": {
+        "COUNTRY.MES.tsv": "663c5883025fcb2d7c8d04813048e5440e34351da92b1d4175de617136e35064",
+        "SP.MES.tsv": "7daf233aa55ed468335933fa61c7d0c406c08b79790834a8964c3e0cba573226",
+        "SYSTEM.MES.tsv": "cb068479455732f689b6acaeffc42288f5f95edea02b446225cbd460021bf4cb",
+        "UWASA.MES.tsv": "b8cdbb05226a31a2660ccef49a11ba625811e0e8085e35d78713301de35446d0",
+        "POWERMES.MES.tsv": "5a9662cb2f8c8ad7b7c46ab84631e58e328e3a9f9e66627ffff8d52856f692e7",
+        "ESPMES.MRG.tsv": "279a1a724b77c51e5fb8956b27c198ae17c63f39166ebb7661bd436803e94f24",
+        "SHOPTAB.TBL.tsv": "da6ff3b757f45e20ca9752297a1ed6c8f163cc8ed2bd7db0951ef04e91fe3626"
+      }
+    },
+    "ko": {
+      "accepted": 2559,
+      "newly_accepted": 2542,
+      "existing_accepted_unchanged": 17,
+      "text_unchanged": true,
+      "table_sha256": {
+        "COUNTRY.MES.tsv": "4e07077bce8170742d250c8ff0825d84697cecc90118806b18009aeaeb71e08d",
+        "SP.MES.tsv": "9ab2cc264c0dbe596d2007892994cd3976efd18e188f98783688ccd87dcc7f19",
+        "SYSTEM.MES.tsv": "4d436a997c9d6134f2fae9c658117e20ff2ab14f0b8ac6123e544d647d68ac16",
+        "UWASA.MES.tsv": "b0e03ffbc6bddac250ed8211a8c6629f969ebe442e33e85369dd217763a60690",
+        "POWERMES.MES.tsv": "71bff47042c8f6db2fcf60e09807de5cc790bc1c752bae3499b19300d52b31bf",
+        "ESPMES.MRG.tsv": "7c3853ea5ee19aa27b69b297c87aad6fec7472ad9ed29f2c4f810ecceee76f03",
+        "SHOPTAB.TBL.tsv": "e73edfdbee6319bfde36ea4f821bcf364d4d9e999e384f10ea92ff53f5d6e64a"
+      }
+    },
+    "en": {
+      "accepted": 2559,
+      "newly_accepted": 2542,
+      "existing_accepted_unchanged": 17,
+      "text_unchanged": true,
+      "table_sha256": {
+        "COUNTRY.MES.tsv": "ef15107f8759aab5513dc7abd86fd225dc31113ccbf06c046590535db8604cdc",
+        "SP.MES.tsv": "0ce360eecf8778c9da360c5cde2cd3fa79544f046333f04c828d73dd2d3fdc13",
+        "SYSTEM.MES.tsv": "ca46aafce84a17b080980dd2f87c0e04839bcde462d9dc4a04525447d4c4d670",
+        "UWASA.MES.tsv": "e83f755a23fac449d3fe7a2e7cea00ab22877301709b48cacb653919d5177f9e",
+        "POWERMES.MES.tsv": "02d9105e780f4244ef9c40699928e35685d885ddf82ce2282a4f93f76cad74c8",
+        "ESPMES.MRG.tsv": "4e8de2ab6d6f53f3a0c1f961fefacb4393409a4463b98a3d8cf0db7cb34cab04",
+        "SHOPTAB.TBL.tsv": "b0e4bd1eb6b997c2ed175a72314c77d2bdbf26e711beb39731e606ceeb95c632"
+      }
+    }
+  }
+}
