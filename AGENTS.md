@@ -1,13 +1,23 @@
 # 高報酬戰將 Remastered：專案規則
 
+## 現行公開決定（2026-10-06）
+
+使用者明確要求將 `wicanr2/high_reward_remastered` 轉成 public，並新增原版與 HD 肖像的人物介紹。本節優先於下文 PRIVATE、衍生素材只限私人版控及私人發行的限制。
+
+- 公開範圍包含目前儲存庫與 Git 歷史中的 `hd/`、`hd-ai/`、`l10n/`、研究文件、執行截圖及既有 Release 的衍生素材；新增人物介紹用六張原版肖像放在 `docs/images/characters/`，入口為 `docs/characters.md`。LICENSE 第 2 條 (c) 排除其中原版與第三方權利。
+- 原版完整 EXE、資料檔、字庫、音樂、編譯語言包、存檔與原始診斷仍不提交、不上傳。含遊戲的本機完整版及原版配樂推廣片維持本機交付。
+- 一般 push 前確認遠端為 PUBLIC，取代下文的 PRIVATE 檢查。轉公開前須核對全部 Git 歷史的原版完整 blob 與檔案路徑，並執行 `tools/l10n/leakscan.sh --history`，把授權譯文與既有研究片段命中記入 WORKLOG；不因衍生素材已獲公開授權而重寫歷史。
+- README 故事前言放在標題後，人物介紹需從 README 提供入口。人物名稱、簡介及肖像配對以遊戲內文字與既有畫面為依據，不補造背景。
+- 人物介紹授權包含姓名。`docs/characters.md` 的 `ESPMES.MRG@A1FC.0`、`@A36B.0`、`@A568.0`、`@BA42.0` 四筆內容命中均已核對為主角姓名，這四筆與既有 12 筆基準共同作為 push 前核對清單。原段長度限制使其中部分不適用短段 allowlist，故只在本路徑作授權例外，不排除整份文件，也不修改掃描器。
+
 ## 現行交付決定（2026-10-06）
 
 本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式 `v.1.0.0-20261006`：
 
 - M10 完成條件改為全量文字接入、五語可切換，以及 README 執行截圖。停止追加玩家路徑、存讀檔、平台實機及 parity 抽驗；後續問題由 GitHub Issue 回報。這項決定不把未驗範圍升為原版 exact。
 - M8 停止追加畫面抽樣。595 項完整 AI 主題以現有定稿交付，包含一項服務拒絕後沿用 HD 的替代圖。
-- `l10n/` 譯文表、純 Noto 五檔字模補丁與 `hd-ai/` 新版素材可提交、一般推送至既有 private repo，並納入私人 Release。原版文字衍生物的內容掃描命中限於已授權的 `l10n/` 表；其他路徑維持既有洩漏判準。
-- repo 保持 PRIVATE。原版 EXE、DAT、字型、音樂與含原版資料的編譯語言包仍不進 Git 或 GitHub Release。含遊戲的三平台完整版及原版配樂推廣片放在 `dist-all/<版本>/full-local/`、`promo/`；私人 Release 的三平台包放在 `patch/`，提供合法原版匯入入口。
+- `l10n/` 譯文表、純 Noto 五檔字模補丁與 `hd-ai/` 新版素材可提交、一般推送，並納入 Release。原版文字衍生物的內容掃描命中限於已授權的 `l10n/` 表；其他路徑維持既有洩漏判準。
+- repo 公開。原版 EXE、DAT、字型、音樂與含原版資料的編譯語言包仍不進 Git 或 GitHub Release。含遊戲的三平台完整版及原版配樂推廣片放在 `dist-all/<版本>/full-local/`、`promo/`；Release 的三平台包放在 `patch/`，提供合法原版匯入入口。
 - 版號、封包與影片依 `~/.codex/knowledge-base/local/retro-remake-release-versioning.md`、`retro-remake-dist-all-output.md` 及技能 `~/.codex/skills/reverse-engineer-retro-game-remake/SKILL.md`。不覆寫舊 tag／Release。
 
 MAIN／SHOP 顯示契約見 `docs/spec/009-display-only-main-shop-localization.md`；全量建包契約見 `docs/spec/008-ingame-text-localization.md` 第 3.2.5 節。

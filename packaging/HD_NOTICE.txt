@@ -6,7 +6,8 @@ HD 素材說明
 權利人尚未查證；這些衍生圖不屬於 RRSAL-1.0 涵蓋的「本作品」（LICENSE 第 1 條 (a)），
 也沒有取得原版權利人的散布授權。
 
-本包只供使用者私人流通與驗收，不得公開散布、上傳或商用。
+使用者已決定隨儲存庫及發行包公開這些衍生圖。這項決定不授與原版美術的權利，
+原版及第三方享有權利的部分仍排除於本專案 LICENSE 之外。
 
 內容
 ----
@@ -25,4 +26,6 @@ English
 The PNG files here are derivatives of the original game's artwork (2x algorithmic upscale and
 de-dithering). The original artwork belongs to its respective rights holders, who have not been
 identified. These derivatives are not covered by RRSAL-1.0 and are not licensed for distribution.
-This package is for private circulation and review only. Do not publish, upload or use commercially.
+The maintainer has chosen to publish these derivatives with the repository and releases.
+This decision grants no rights in the original artwork; original and third-party portions remain
+outside the project license.

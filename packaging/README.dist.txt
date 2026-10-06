@@ -35,7 +35,8 @@ Windows %AppData%）。原版資料夾不會被修改。截圖放在同一層的
 授權
 ----
 見 LICENSE（RRSAL-1.0）與 THIRD_PARTY_NOTICES.txt。
-此版含 HD、AI 美術及原版文字衍生譯文，只供 private repo 使用，不授權公開散布。
+此版含 HD、AI 美術及原版文字衍生譯文，依使用者決定隨公開儲存庫發行。
+原版及第三方享有權利的部分不由本專案授權，見 LICENSE 第 2 條 (c)。
 
 English
 -------

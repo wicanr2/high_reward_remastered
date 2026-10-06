@@ -466,3 +466,15 @@
 - 交付雜湊 `patch/HighReward-v.1.0.0-20261006-macos.zip`：fd0f706584a773cae8046dac308a8f6f26d5c18a5451d9d6adf975791437f01a，160254732 bytes。
 - 交付雜湊 `LICENSE`：0124f27bf523d56d07994ca9f6d94d55515815f43156eab06215ca1b8dd43def，20675 bytes。
 - repo仍PRIVATE，根及fork工作樹乾淨；工作根沒有root-owned檔或*.md目錄，交付均1000:1000。本輪hr-*容器全部退出並刪除，未清理其他專案資源。僅收尾文件追加提交，不移动正式tag。
+
+### 公開儲存庫、故事前言與人物頁（2026-10-06）
+
+- 使用者明確要求將既有 repo 轉成 public，並在 README 最前面補故事前言；後續新增人物 Markdown，要求原版與 HD portrait。現行公開範圍記在 AGENTS.md 頁首，涵蓋既有美術、譯文、展示文件及 Release 衍生素材；原版完整檔案、編譯語言包、含遊戲完整版與原版配樂影片仍留本機。
+- 路由命中 README 標準、文件職責及公開權利邊界，載入 `~/.codex/knowledge-base/local/retro-remake-readme-standard.md`、`project-document-responsibilities.md` 與 grilling。文字依 humanizer 技能整理；未重新訪談已由使用者明確指定的公開方式。
+- 全部 refs／tags 的 2529 個 Git 物件與 148 項原版輸入核對，原版完整 blob 零命中、禁止檔案路徑零命中。初次路徑檢查把 36 個同名美術目錄當成來源檔案，改用 `git cat-file` 物件型別確認全是 tree，沒有誤收原版資料。收據 `workplace/out/public-history-original-audit.json`。
+- `tools/l10n/leakscan.sh --history` 完成。主 repo 1716 筆命中，其中 1707 筆在本次公開授權的 l10n 表，另 9 筆為既有研究／工具片段，分別是 `docs/spec/004-hd-overlay.md` 7 筆、`tools/img/decode_all.py` 2 筆。忽略版控的 fork 歷史另有 93 筆，沒有上傳 fork；當前樹仍依既有基準檢查。全歷史原始收據 `workplace/out/leakscan-public-history.tsv`，分類見 `public-documentation-audit.json`。不重寫歷史、不移動 tag、不替換已發行封包。
+- README 標題後改放故事前言，原故事位置移除重複段落，修正新遊戲畫面的連結。新增 `docs/characters.md`，介紹開場六位人物並列原版、演算法 HD 與 OpenAI 重繪；README 的前言及導航表均有入口。
+- 肖像 `FACE.MRG:0` 至 `:5` 的名稱配對核對既有正常開場截圖、對齊試點畫面與 MAIN 原文名稱欄。簡介只轉述開場對白與隊伍名稱，不補造身世。只將人物頁需要的六張 128×160 原版 PNG 放進 `docs/images/characters/`，HD 與 AI 直接引用既有素材。
+- LICENSE 第 2 條 (c) 移除 private 描述，補列人物肖像，保留原版與第三方权利排除。更新素材入口、008 的現行授權及未來封包的說明，原版完整包限制保持有效。人物頁與 README 的全部本機連結存在，六張肖像尺寸及來源 SHA-256 已核對，檔案擁有者均為 1000:1000。擁有權掃描曾遇既有原版工作區的失效符號連結，改用 lstat 後完成，工作根沒有 root-owned 檔案或 *.md 目錄。
+- 新人物頁初次內容掃描多六筆：兩筆簡介與開場原句有連續字串重疊，已改用自己的敘述；其餘四筆全是主角姓名。姓名屬使用者明確要求的人物介紹，四筆路徑／單位列在 AGENTS.md 的窄範圍例外，不排除整份文件、不變更掃描器，也不把原段長度超過限制的項目塞進短段 allowlist。
+- 最後內容掃描 2835 個追蹤檔案，16 筆命中逐項等於既有 12 筆基準加四筆人物姓名授權項，沒有其他新增命中。`git diff --cached --check` 通過，原版禁止路徑零命中，Docker 工作根擁有權檢查通過。
