@@ -453,3 +453,16 @@
 - fork只做本機提交 `6240d96`，第40份format-patch存於 `engine/patches/0040-full-localization-display.patch`，不推公開dosgolem上游。
 - 五語正常新遊戲畫面已擷取，後四次不傳語言flag，直接讀前一次F4持久化偏好；每語日誌確認全量包1767＋792、MAIN顯示表及pack-active。五张原尺寸圖和四個新語言總覽進docs/images並由README引用。收據 `workplace/out/readme-l10n-full-v1/receipt.json`，前端SHA-256 `05bb37f6f7d49d9fd672663bc9c1b5beb2d20d040993d28739624561d78a39da`。沒有追加戰鬥、存讀檔或平台抽樣。
 - 唯讀收尾報告 `workplace/spec-review/v1-integration-review.md` 補核目前具體阻擋0。追蹤原檔完整雜湊零命中，PRIVATE核對成立；最終內容掃描2822檔仍只有與既有基準逐位元相同的12筆，授權l10n正式表按新規則排除，其他來源照常檢查。
+- 主repo素材與README提交 `ea275b1` 已一般推送，正式tag `v.1.0.0-20261006` 綁定該建包來源，fork為 `6240d96`。乾淨輸入重建full-local及private patch各三包，逐包stage／verify有148原版檔（只限full）、595HD、595AI、四語七檔2559、MAIN及OFL字型；私人包原版外洩掃描零命中。Windows／macOS不追加玩家抽樣，macOS結構核對維持未實機界線。
+- 實際full-local AppImage解出後用包內資料啟動，沒有外部original/l10n掛載；英文全量1767＋792與MAIN1312在正常新遊戲生效，截圖作為本版推廣片素材。收據 `dist-all/v.1.0.0-20261006/smoke/receipt.json`；五語切換收據一併保存在smoke。
+- 推廣片60秒，H.2641280×720／30fps及AAC通過，平均−15.7dB、峰值−3.5dB，無意外黑幀或靜音；靜態停留是投影片分鏡，contact sheet已目視核對標題及字幕。音源是原版MAP2.MID的本專案FM近似，無人工新造配樂。影片含原版音樂衍生內容，只留本機。
+- 正式Release（非draft、非prerelease）已發布：https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.0-20261006 。上傳三平台private patch、SHA256SUMS.json及LICENSE共5資產，GitHub回傳的SHA-256全部與本機一致；回讀收據 `smoke/remote-release.json`。含遊戲的完整版與推廣片只在本機。Issue1、2依使用者新條件結案，遠端open Issue為0。
+- 交付雜湊 `full-local/HighReward-v.1.0.0-20261006-x86_64.AppImage`：dee3562ee17915642a3103414c08edf23067de1d8bf20beaff5724334f17b4ba，156916216 bytes。
+- 交付雜湊 `full-local/HighReward-v.1.0.0-20261006-win64.zip`：6997febe5065634f81c798675fa2872883998b34e66da322ea052c452dd18b13，158711148 bytes。
+- 交付雜湊 `full-local/HighReward-v.1.0.0-20261006-macos.zip`：d7abb804d9bee12a5c2fe779ec2e365343fe6e9ae0727636d270f949b15dd75d，162825702 bytes。
+- 交付雜湊 `promo/HighReward-v.1.0.0-20261006-promo.mp4`：5d3dd4530d90cf0484a3bc9112bfff48ee0c4d3b1cdf0d373530e1f1ca1a8d7c，4281864 bytes。
+- 交付雜湊 `patch/HighReward-v.1.0.0-20261006-x86_64.AppImage`：0856afcdf97b30602f8bd2e29830d3462b1bbe571440a71eef7c1c7ceeaa6ba6，154491384 bytes。
+- 交付雜湊 `patch/HighReward-v.1.0.0-20261006-win64.zip`：99739bc355862b28bc642b8b5353aa9d7c3ff2e1638c99ba7aadd8f4db19ca47，156140186 bytes。
+- 交付雜湊 `patch/HighReward-v.1.0.0-20261006-macos.zip`：fd0f706584a773cae8046dac308a8f6f26d5c18a5451d9d6adf975791437f01a，160254732 bytes。
+- 交付雜湊 `LICENSE`：0124f27bf523d56d07994ca9f6d94d55515815f43156eab06215ca1b8dd43def，20675 bytes。
+- repo仍PRIVATE，根及fork工作樹乾淨；工作根沒有root-owned檔或*.md目錄，交付均1000:1000。本輪hr-*容器全部退出並刪除，未清理其他專案資源。僅收尾文件追加提交，不移动正式tag。
