@@ -475,6 +475,7 @@
 - `tools/l10n/leakscan.sh --history` 完成。主 repo 1716 筆命中，其中 1707 筆在本次公開授權的 l10n 表，另 9 筆為既有研究／工具片段，分別是 `docs/spec/004-hd-overlay.md` 7 筆、`tools/img/decode_all.py` 2 筆。忽略版控的 fork 歷史另有 93 筆，沒有上傳 fork；當前樹仍依既有基準檢查。全歷史原始收據 `workplace/out/leakscan-public-history.tsv`，分類見 `public-documentation-audit.json`。不重寫歷史、不移動 tag、不替換已發行封包。
 - README 標題後改放故事前言，原故事位置移除重複段落，修正新遊戲畫面的連結。新增 `docs/characters.md`，介紹開場六位人物並列原版、演算法 HD 與 OpenAI 重繪；README 的前言及導航表均有入口。
 - 肖像 `FACE.MRG:0` 至 `:5` 的名稱配對核對既有正常開場截圖、對齊試點畫面與 MAIN 原文名稱欄。簡介只轉述開場對白與隊伍名稱，不補造身世。只將人物頁需要的六張 128×160 原版 PNG 放進 `docs/images/characters/`，HD 與 AI 直接引用既有素材。
-- LICENSE 第 2 條 (c) 移除 private 描述，補列人物肖像，保留原版與第三方权利排除。更新素材入口、008 的現行授權及未來封包的說明，原版完整包限制保持有效。人物頁與 README 的全部本機連結存在，六張肖像尺寸及來源 SHA-256 已核對，檔案擁有者均為 1000:1000。擁有權掃描曾遇既有原版工作區的失效符號連結，改用 lstat 後完成，工作根沒有 root-owned 檔案或 *.md 目錄。
+- LICENSE 第 2 條 (c) 移除 private 描述，補列人物肖像，保留原版與第三方權利排除。更新素材入口、008 的現行授權及未來封包的說明，原版完整包限制保持有效。人物頁與 README 的全部本機連結存在，六張肖像尺寸及來源 SHA-256 已核對，檔案擁有者均為 1000:1000。擁有權掃描曾遇既有原版工作區的失效符號連結，改用 lstat 後完成，工作根沒有 root-owned 檔案或 *.md 目錄。
 - 新人物頁初次內容掃描多六筆：兩筆簡介與開場原句有連續字串重疊，已改用自己的敘述；其餘四筆全是主角姓名。姓名屬使用者明確要求的人物介紹，四筆路徑／單位列在 AGENTS.md 的窄範圍例外，不排除整份文件、不變更掃描器，也不把原段長度超過限制的項目塞進短段 allowlist。
 - 最後內容掃描 2835 個追蹤檔案，16 筆命中逐項等於既有 12 筆基準加四筆人物姓名授權項，沒有其他新增命中。`git diff --cached --check` 通過，原版禁止路徑零命中，Docker 工作根擁有權檢查通過。
+- 文件與肖像提交 `be0995e` 已一般推送；`gh repo edit --visibility public --accept-visibility-change-consequences` 成功，遠端回讀確認 PUBLIC。無憑證 Docker 連線讀取 README、人物頁與主角原版／HD／AI 三張圖均回傳 HTTP 200，位元組與本機一致。正式 `v.1.0.0-20261006` tag、Release 資產及封包未替換。主 repo 與 fork 工作樹乾淨，hr-* 容器無殘留；本段另作收尾文件提交。
