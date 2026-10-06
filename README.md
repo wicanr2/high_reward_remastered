@@ -12,7 +12,7 @@
 
 用 [dosgolem](https://github.com/wicanr2/dosgolem) 在 Linux、Windows、macOS 執行 DOS 版《高報酬戰將》，加入堆疊溢位修補、HD 與 OpenAI 重繪圖層，以及繁中、簡中、日文、韓文、英文。
 
-**[1.0.0 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.0-20261006)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
+**[1.0.1 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.1-20261006)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
 
 ## 新版 AI 手繪風格
 
@@ -68,19 +68,19 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 畫面 | 原版、595 項 HD、595 項 AI 三種圖層 |
 | 語言 | 五語介面與遊戲文字，譯文及純 Noto 字模隨發行包提供 |
 | 聲音 | 原版 MIDI 的 FM 近似播放與 PCM 音效；沒有音訊裝置時靜音 |
-| 發行 | `v.1.0.0-20261006` 三平台正式 Release；本機完整版及 60 秒推廣片集中於 `dist-all/` |
+| 發行 | `v.1.0.1-20261006` 三平台正式 Release；本機完整版及 60 秒推廣片集中於 `dist-all/` |
 
 使用者已取消追加遊玩與美術抽樣，後續問題請回報 [GitHub Issues](https://github.com/wicanr2/high_reward_remastered/issues)。本版不宣稱完整通關或全遊戲原版 parity。macOS 未簽章，未做 Windows／macOS 實機驗收。唯一現況入口為 [AGENTS.md](AGENTS.md)，歷程見 [WORKLOG.md](WORKLOG.md)。
 
 ## 執行
 
-1. 下載 [正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.0-20261006) 對應平台的包。
+1. 下載 [正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.1-20261006) 對應平台的包。
 2. 將合法原版 `MAIN.EXE` 所在資料夾內容放入 `original/`。AppImage 使用同層 `original/`；Windows 使用程式旁的目錄；macOS 使用 `HighReward.app/Contents/Resources/original/`。也可用 `-orig <目錄>` 指定。本機完整版已附原版。
 3. 啟動遊戲，用滑鼠操作。macOS 首次開啟可右鍵選「打開」；筆電功能鍵可能需要 Fn。
 
 | 按鍵 | 功能 |
 |---|---|
-| F1 | 說明與目前狀態 |
+| F1 | 開啟／收起幫助指令 |
 | F2 | 切換原版、HD、AI 圖層 |
 | F3 | 聲音開關 |
 | F4 | 五語選擇，遊戲文字下次啟動生效 |
@@ -91,6 +91,8 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 存檔、截圖、診斷與語言包位於使用者資料目錄的 `high_reward/`：Linux `~/.config`、Windows `%AppData%`、macOS `~/Library/Application Support`。原版資料夾保持不變。診斷含原版記憶體，請透過私人管道提供給維護者。
 
+![F1 五語幫助指令](docs/images/f1-help.png)
+
 ## 建置與交付
 
 所有建置、轉檔及遊戲執行都在 Docker。原版位於 `workplace/orig/`，dosgolem 副本位於 `workplace/dosgolem/`；遊戲專屬提交備份在 `engine/patches/`。
@@ -98,13 +100,14 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 入口 | 用途 |
 |---|---|
 | `tools/play.sh build` | 建置 Linux 前端 |
-| `HR_VERSION=v.1.0.0-20261006 tools/package_full_local.sh` | 重建含遊戲的三平台本機完整版 |
-| `HR_VERSION=v.1.0.0-20261006 tools/package_release_patch.sh` | 重建不含原版遊戲檔的三平台 Release 包 |
-| `HR_VERSION=v.1.0.0-20261006 HR_PROMO_THEME=ai tools/promo.sh` | 用本版畫面、五語展示及原版 MIDI 的 FM 近似配樂製作 60 秒推廣片 |
+| `HR_VERSION=v.1.0.1-20261006 tools/package_full_local.sh` | 重建含遊戲的三平台本機完整版 |
+| `HR_VERSION=v.1.0.1-20261006 tools/package_release_patch.sh` | 重建不含原版遊戲檔的三平台 Release 包 |
+| `HR_VERSION=v.1.0.1-20261006 tools/promo.sh` | 以實際 F2 切換、地圖與部隊操作、F1 幫助錄影製作 1080p 推廣片 |
+| `tools/capture_promo.sh <名稱>` | 實際前端錄影，正常滑鼠與按鍵操作，收據位於 `workplace/out/<名稱>/` |
 | `tools/l10n/capture_full.py` | Docker 內擷取五語新遊戲畫面及 F4 下次啟動切換 |
 | `tools/l10n/bakeglyphs.sh` | 從固定 Noto 來源重烘字模補丁 |
 
-目前交付目錄為 `dist-all/v.1.0.0-20261006/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是推廣片，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。含原版遊戲的完整版與原版配樂影片只留本機。
+目前交付目錄為 `dist-all/v.1.0.1-20261006/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是推廣片，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。含原版遊戲的完整版與原版配樂影片只留本機。
 
 ## 文件與素材
 

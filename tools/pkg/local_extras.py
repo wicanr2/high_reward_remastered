@@ -1,4 +1,4 @@
-"""打包已授權的 private AI 主題、譯文表及純 Noto 字模補丁。"""
+"""打包已授權公開的 AI 主題、譯文表及純 Noto 字模補丁。"""
 import hashlib
 import json
 from pathlib import Path
@@ -68,7 +68,7 @@ def check_assets(folder):
     receipt_path = folder / 'PRIVATE_CONTENTS.json'
     regular(receipt_path)
     receipt = json.loads(receipt_path.read_text(encoding='utf-8'))
-    if receipt['visibility'] != 'private' or not receipt['full_text_activated']:
+    if receipt['visibility'] != 'public' or not receipt['full_text_activated']:
         raise ValueError('新版素材清冊的適用範圍不符')
     if (folder / 'l10n-packs').exists():
         raise ValueError('封包不得包含帶原版位元組的編譯語言包')
@@ -107,9 +107,9 @@ if mode == 'stage':
         if (source / 'MAIN.EXE.tsv').exists():
             main_counts[code] = len(table_rows(source / 'MAIN.EXE.tsv', accepted_only=False))
     with (dest / 'README.txt').open('a', encoding='utf-8') as target:
-        target.write('\n新版美術與多語系\n----------------\n含 595 項 AI 主題，F2 可切換原版、HD、AI。\nF4 切換繁中、簡中、韓文、英文、日文介面；重新啟動後套用遊戲內語言。\n四個新語言各含七檔 2559 項譯文。繁中保留原版文字及已接受的 17 項修訂。\n首次啟動會在使用者資料目錄建置語言包，不改動原版檔案。\n美術與譯文含原版衍生內容，只供 private repo 使用，不授權公開散布。\n')
+        target.write('\n新版美術與多語系\n----------------\n含 595 項 AI 主題，F2 可切換原版、HD、AI。\nF4 切換繁中、簡中、韓文、英文、日文介面；重新啟動後套用遊戲內語言。\n四個新語言各含七檔 2559 項譯文。繁中保留原版文字及已接受的 17 項修訂。\n首次啟動會在使用者資料目錄建置語言包，不改動原版檔案。\n美術與譯文依維護者決定公開；原版與第三方權利不在 LICENSE 授權範圍內。\n')
     files = {str(path.relative_to(dest)): digest(path) for directory in ['hd-ai', 'l10n'] for path in (dest / directory).rglob('*') if path.is_file()}
-    receipt = dict(visibility='private', ai_images=595, adopted_seven_file_rows=counts,
+    receipt = dict(visibility='public', ai_images=595, adopted_seven_file_rows=counts,
                    main_table_rows=main_counts, full_text_activated=True,
                    compiled_language_packs_included=False, files_sha256=files)
     (dest / 'PRIVATE_CONTENTS.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
@@ -118,4 +118,4 @@ elif mode == 'verify':
     receipt = check_assets(dest)
 else:
     raise ValueError('需指定 stage 或 verify')
-print(f'[private-assets] {mode}: AI 595 項、四語七檔各 2559 項，無編譯語言包')
+print(f'[authorized-assets] {mode}: AI 595 項、四語七檔各 2559 項，無編譯語言包')

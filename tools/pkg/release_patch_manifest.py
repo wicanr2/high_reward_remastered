@@ -1,4 +1,4 @@
-"""Record checksums for the three private Release packages without original game files."""
+"""Record checksums for the three public Release packages without original game files."""
 
 import hashlib
 import json
@@ -33,8 +33,8 @@ for name in names:
 
 manifest = {
     "version": version,
-    "visibility": "private",
-    "rights": "Authorized HD and AI artwork and translations derive from the original game; pure Noto font data is under OFL. Original game files, music and compiled language packs are omitted. Private repository only.",
+    "visibility": "public",
+    "rights": "Maintainer-authorized HD and AI artwork and translations derive from the original game; pure Noto font data is under OFL. Original game files, music and compiled language packs are omitted. Third-party rights remain excluded by LICENSE.",
     "source_commit": source_commit,
     "dosgolem_commit": dosgolem_commit,
     "files": files,
@@ -42,12 +42,12 @@ manifest = {
 temporary = directory / "patch/SHA256SUMS.json.tmp"
 temporary.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 os.replace(temporary, directory / "patch/SHA256SUMS.json")
-# 根清冊包含本機完整版與 private patch；Release 上傳 patch 內清冊。
+# 根清冊包含本機完整版與公開補丁；Release 上傳 patch 內清冊。
 root_manifest = directory / 'SHA256SUMS.json'
 combined = json.loads(root_manifest.read_text()) if root_manifest.is_file() else dict(manifest)
 previous = [entry for entry in combined.get('files', []) if not entry['path'].startswith('patch/')]
 combined.update(source_commit=source_commit, dosgolem_commit=dosgolem_commit)
-combined['files'] = previous + [dict(entry, distribution='private-repo') for entry in files]
+combined['files'] = previous + [dict(entry, distribution='public-release') for entry in files]
 temporary = directory / 'SHA256SUMS.json.tmp'
 temporary.write_text(json.dumps(combined, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 os.replace(temporary, root_manifest)

@@ -12,13 +12,15 @@
 
 ## 現行交付決定（2026-10-06）
 
-本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式 `v.1.0.0-20261006`：
+本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式發行。現行修訂版為 `v.1.0.1-20261006`，舊版維持原狀：
 
 - M10 完成條件改為全量文字接入、五語可切換，以及 README 執行截圖。停止追加玩家路徑、存讀檔、平台實機及 parity 抽驗；後續問題由 GitHub Issue 回報。這項決定不把未驗範圍升為原版 exact。
 - M8 停止追加畫面抽樣。595 項完整 AI 主題以現有定稿交付，包含一項服務拒絕後沿用 HD 的替代圖。
 - `l10n/` 譯文表、純 Noto 五檔字模補丁與 `hd-ai/` 新版素材可提交、一般推送，並納入 Release。原版文字衍生物的內容掃描命中限於已授權的 `l10n/` 表；其他路徑維持既有洩漏判準。
 - repo 公開。原版 EXE、DAT、字型、音樂與含原版資料的編譯語言包仍不進 Git 或 GitHub Release。含遊戲的三平台完整版及原版配樂推廣片放在 `dist-all/<版本>/full-local/`、`promo/`；Release 的三平台包放在 `patch/`，提供合法原版匯入入口。
 - 版號、封包與影片依 `~/.codex/knowledge-base/local/retro-remake-release-versioning.md`、`retro-remake-dist-all-output.md` 及技能 `~/.codex/skills/reverse-engineer-retro-game-remake/SKILL.md`。不覆寫舊 tag／Release。
+
+使用者追加要求 F1 改為幫助指令，推廣片加入真實 F2 切換與遊玩錄影，並改善債務欄可讀性。F1 契約見 `docs/spec/006-frontend-help-theme-language.md` 第 3 節；錄影入口是 `tools/capture_promo.sh`，合成入口是 `tools/promo.sh`。這是交付錄影，不重新開啟已取消的額外遊玩驗收。
 
 MAIN／SHOP 顯示契約見 `docs/spec/009-display-only-main-shop-localization.md`；全量建包契約見 `docs/spec/008-ingame-text-localization.md` 第 3.2.5 節。
 

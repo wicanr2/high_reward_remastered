@@ -33,13 +33,13 @@ for name in names:
     with path.open("rb") as f:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             digest.update(chunk)
-    scope = 'private-repo' if name.startswith('patch/') else 'local-only'
+    scope = 'public-release' if name.startswith('patch/') or name == 'LICENSE' else 'local-only'
     files.append({"path": name, "bytes": path.stat().st_size, "sha256": digest.hexdigest(), "distribution": scope})
 
 manifest = {
     "version": version,
-    "visibility": "local-full-and-private-patch",
-    "rights": "full-local and promo contain original game or music and remain local. Private patch includes authorized HD, AI art, translations and pure Noto fonts; original game files and compiled language packs are omitted. No public distribution permission established.",
+    "visibility": "local-full-and-public-patch",
+    "rights": "Full-local and promo contain original game or music and remain local. Public patch includes maintainer-authorized HD, AI art, translations and pure Noto fonts; original game files and compiled language packs are omitted. Third-party rights remain excluded by LICENSE.",
     "files": files,
 }
 for key, variable in [('source_commit', 'HR_SOURCE_COMMIT'), ('dosgolem_commit', 'HR_DOSGOLEM_COMMIT')]:

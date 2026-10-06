@@ -479,3 +479,10 @@
 - 新人物頁初次內容掃描多六筆：兩筆簡介與開場原句有連續字串重疊，已改用自己的敘述；其餘四筆全是主角姓名。姓名屬使用者明確要求的人物介紹，四筆路徑／單位列在 AGENTS.md 的窄範圍例外，不排除整份文件、不變更掃描器，也不把原段長度超過限制的項目塞進短段 allowlist。
 - 最後內容掃描 2835 個追蹤檔案，16 筆命中逐項等於既有 12 筆基準加四筆人物姓名授權項，沒有其他新增命中。`git diff --cached --check` 通過，原版禁止路徑零命中，Docker 工作根擁有權檢查通過。
 - 文件與肖像提交 `be0995e` 已一般推送；`gh repo edit --visibility public --accept-visibility-change-consequences` 成功，遠端回讀確認 PUBLIC。無憑證 Docker 連線讀取 README、人物頁與主角原版／HD／AI 三張圖均回傳 HTTP 200，位元組與本機一致。正式 `v.1.0.0-20261006` tag、Release 資產及封包未替換。主 repo 與 fork 工作樹乾淨，hr-* 容器無殘留；本段另作收尾文件提交。
+
+### F1 幫助與真實操作推廣片修訂（2026-10-06）
+
+- 使用者指出 F1 應為幫助指令，舊推廣片文字過小，缺少手繪切換與實際遊玩。登記 Issue #3，採新修訂版 v.1.0.1-20261006，不替換既有正式發行。
+- 路由命中 FFmpeg 推廣片入口與版號契約，載入 retro-remake 技能。F1 以五語操作提示取代工程統計，保留原按鍵、語言重啟語意與 21 列幾何。Noto 字型重烘後窄測試全過，唯讀審查無阻擋；收據 workplace/spec-review/f1-help-v101-review.md。
+- fork 提交 28c1c2d，備份 engine/patches/0041-f1-help-controls.patch。新增有界 Xvfb 實錄入口 tools/capture_promo.sh 與 tools/render_promo.py，正常滑鼠、F1、F2、F4 操作，不注入 state、存檔或記憶體。README 新增 F1 畫面及錄影入口。
+- 新版封包的素材清冊與 README 改為已授權公開範圍，仍不放原版檔案於 Release。PRIVATE_CONTENTS.json 檔名保留既有相容性，內容 visibility 改為 public。本機完整版與原版配樂影片仍只留本機。
