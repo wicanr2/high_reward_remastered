@@ -486,3 +486,12 @@
 - 路由命中 FFmpeg 推廣片入口與版號契約，載入 retro-remake 技能。F1 以五語操作提示取代工程統計，保留原按鍵、語言重啟語意與 21 列幾何。Noto 字型重烘後窄測試全過，唯讀審查無阻擋；收據 workplace/spec-review/f1-help-v101-review.md。
 - fork 提交 28c1c2d，備份 engine/patches/0041-f1-help-controls.patch。新增有界 Xvfb 實錄入口 tools/capture_promo.sh 與 tools/render_promo.py，正常滑鼠、F1、F2、F4 操作，不注入 state、存檔或記憶體。README 新增 F1 畫面及錄影入口。
 - 新版封包的素材清冊與 README 改為已授權公開範圍，仍不放原版檔案於 Release。PRIVATE_CONTENTS.json 檔名保留既有相容性，內容 visibility 改為 public。本機完整版與原版配樂影片仍只留本機。
+
+- 正式建包來源為主 repo `c3a5ba45e09a3d5dd0440a2cc5b4e061e2ccd354`、fork `28c1c2daab2fc7a048f83c0dbca4bafe9d31b84d`。三平台 full-local 與 patch 從乾淨工作樹重建；full 各有清冊 148 原版檔、595 HD、595 AI 與五語素材，patch 原版檔名／雜湊及非授權文字掃描零命中。macOS 仍只驗 universal 結構，沒有實機驗收。
+- 實際 AppImage 解出後僅用包內原版與語言素材啟動，正常新遊戲與 F1 幫助成立，英文七檔 1767＋792 及 MAIN 1312 接線成立；最後重建的 Linux 執行檔 SHA-256 與已啟動版本相同。收據 `dist-all/v.1.0.1-20261006/smoke/full-static.json`、`smoke/linux/receipt.json`。
+- 推廣片改用 Xvfb／x11grab 無損來源錄影，保留正常 F2、F1、F4 與滑鼠輸入。60 秒中 52 秒出自實錄，只有片頭片尾使用靜態卡。內容含原版到 HD、再到 AI 手繪切換、開場對話、部隊指令選單及移動目標選擇；未聲稱完成戰鬥或通關。
+- 影片為 H.264 1920×1080、30 fps、1800 幀及 AAC；遊戲畫面保留原像素，債務區四倍放大，另附與截圖一致的清晰數值。配樂沿用 MAP2.MID 的既有 FM 近似，平均 −15.7 dB、峰值 −3.5 dB，無黑幀或意外靜音。凍結偵測記錄對話、選單等待與片頭片尾的刻意停留，錄影片段內有實際畫面及游標變化。字幕、F2 與遊玩畫面均已目視核對。
+- 影片 `promo/HighReward-v.1.0.1-20261006-promo.mp4` 為 5,643,826 bytes，SHA-256 `eabed1db27f7a1136dd980a7b0f62c38624fbb3958184d818a901d47335e41ee`。完整來源雜湊、分鏡時間與權利分類在同目錄 `rights.json`；封包雜湊在版本根目錄 `SHA256SUMS.json`。
+- 一般推送前確認 PUBLIC、原版禁止路徑零命中；內容掃描 2840 個追蹤檔，16 筆逐項等於既有 12 筆基準及四筆已授權人物姓名。Go 原始檔空白檢查通過；根 repo 的 format-patch 保留原始 diff 上下文前綴，排除補丁備份後文件與腳本空白檢查通過。
+- 正式 tag 綁定上述建包來源，Release 已發布：<https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.1-20261006>。三平台公開補丁、SHA256SUMS.json 與 LICENSE 共五資產，遠端 SHA-256 全部與本機一致；收據 `smoke/remote-release.json`。含遊戲完整版及原版配樂影片只在本機。Issue #3 已結案，舊版 tag、Release 與交付物均保留。
+- Docker 收尾無本專案容器殘留；工作根 98,680 項擁有權檢查沒有 root-owned 檔案或 *.md 目錄。README 已提供新版 F1 截圖與現行 Release 入口，本段另作收尾文件提交，不移動正式 tag。
