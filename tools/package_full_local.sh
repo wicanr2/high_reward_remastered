@@ -4,6 +4,9 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${HR_VERSION:?請設定 HR_VERSION=v.<主>.<次>.<修訂>-YYYYMMDD}"
+[[ "$VERSION" =~ ^v\.[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}$ ]] || { echo "版號格式錯誤" >&2; exit 2; }
+test -z "$(git -C "$ROOT" status --porcelain)" || { echo "本機完整版需要乾淨工作樹" >&2; exit 2; }
+test -z "$(git -C "$ROOT/workplace/dosgolem" status --porcelain)" || { echo "dosgolem 副本需要乾淨工作樹" >&2; exit 2; }
 TARGET="${1:-all}"
 case "$TARGET" in all|appimage|windows|macos) ;; *) echo "目標需為 all、appimage、windows 或 macos" >&2; exit 2;; esac
 IMAGE="eob-remake-release:1.26.7-ebiten2.9.9-audio"
@@ -16,6 +19,7 @@ exec timeout "${HR_FULL_TIMEOUT:-3h}" docker run --rm --name hr-full-local-build
   --log-opt max-size=10m --log-opt max-file=3 \
   -u "$(id -u):$(id -g)" --group-add "$(stat -c %g /var/run/docker.sock)" \
   -e HR_FULL_LOCAL=1 -e HR_WITH_HD=1 -e "HR_VERSION=$VERSION" \
+  -e "HR_FULL_EXTRAS=${HR_FULL_EXTRAS:-0}" \
   -v /usr/bin/docker:/usr/local/bin/docker:ro \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$ROOT:$ROOT:ro" \

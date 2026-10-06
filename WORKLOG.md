@@ -426,3 +426,10 @@
 - 集中本機入口 `workplace/l10n-work/full-review.html` 支援四語、資料檔、狀態及原／譯文搜尋，並列原文與使用者採用修讀；`full-review-manifest.json` 保存目前七表、MAIN、來源、字模、工具與審查報告摘要。全部 15492 個審閱位置的 TSV／JSON／來源映射及正式試點欄位核對通過。無網路 Chrome 實測 100 筆分頁、語言 3873 項、SP 116 項及試點四語搜尋，無 JavaScript 錯誤；樣張及收據只留本機。Chrome 初次使用錯誤的 image cache 路徑，改用映像既有路徑後乾淨重跑，未建立重複工具鏈。
 - 此輪完成完整文字候選及本機字模候選，尚待使用者接受全量七檔，MAIN 草稿另驗。完整 L2／L3、戰鬥與存讀檔、Windows／macOS 實跑及發行範圍仍未完成。README 只更新穩定摘要，AGENTS 第 13 節更新唯一目前狀態；全量文字、原版、美術與字模候選未加入 Git。
 - 提交前 repo 仍 PRIVATE，git 身分為 `wicanr2@gmail.com`。主 repo 849／fork 1345 個追蹤檔核對原版檔名與完整 SHA-256，沒有誤追蹤；洩漏掃描 2194 檔的 12 筆與 028 第 5 節逐項相同，沒有新增命中。`final-repo-audit.json`、`final-push-gate.json` 已掛入本機來源索引；工作根無 root-owned 或 `.md` 目錄，審閱頁為 1000:1000，本輪 `hr-*` 容器無遺留。只提交現況文件至 private 主 repo，不推送公開 fork。
+
+### 全量譯文接受與新版本機完整版（2026-10-06，續）
+
+- 使用者接受前一個問題限定的四語七檔全量譯文，並要求含遊戲的三平台完整版。四語各 2559 項全設 accepted，共 10236 項；新增接受摘要由跳脫還原後文字計算，原試點各 17 項所有欄位及全部譯文字句不變。原候選、JSON 及預算快照以 `.preaccept` 保留；接受收據與審閱頁在 `workplace/l10n-work/`，MAIN 草稿不在此次接受範圍。
+- 接受登記工具首次把 `POWERMES.MES` 寫成 `POWER.MES`，在找檔時停止。改用 canonical 實際檔名，從 `.preaccept` 快照乾淨核對重跑；四語 TSV／JSON 嚴格映射、來源及原接受欄位通過。這是工具檔名錯誤，沒有改原版或譯文。
+- `tools/package_full_local.sh` 新增明示本機附加旗標 `HR_FULL_EXTRAS=1`，由 `tools/pkg/local_extras.py` 複製 595 項 AI 主題、五語各 17 項試點與四語各 2559 項接受文字附件。附件不接入遊戲；未知窗格、未觀測路徑及 MAIN 掛鉤保持原閘門。一般 Release 包拒絕這個旗標，也不附全文或 AI。真實資料試裝與清冊核對、shell 語法通過；本輪預定版號 `v.0.2.0-20261006`，不覆寫舊 tag 或 Release。
+- 唯讀窄審 `workplace/spec-review/local-bundle-review.md` 發現接受附件尚未綁定接受收據及 Windows README 無 BOM。stage／verify 已逐表核對 `ACCEPTANCE.json` SHA，Windows 主 README 與附件 README 改 UTF-8 BOM、CRLF；真實資料重跑通過，補核無阻擋。命中 Windows ZIP 路由並載入 `local/windows-zip-utf8-packaging.md`；來源索引保留審查入口。完整版入口另守主 repo 及 fork 乾淨工作樹。

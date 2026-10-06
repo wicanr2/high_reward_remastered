@@ -23,6 +23,10 @@ DG="workplace/dosgolem"
 WITH_HD="${HR_WITH_HD:-0}"   # 1 ＝ 把 hd/ 放進包內（含原版美術的衍生物，只供私人流通）
 FULL_LOCAL="${HR_FULL_LOCAL:-0}" # 1 ＝ 本機完整版
 RELEASE_PATCH="${HR_RELEASE_PATCH:-0}" # 1 ＝ 正式版號、不含原版的私人 Release 包
+FULL_EXTRAS="${HR_FULL_EXTRAS:-0}" # 1 ＝ 本機完整 AI、五語試點與已接受全文附件
+if [ "$FULL_EXTRAS" = 1 ] && [ "$FULL_LOCAL" != 1 ]; then
+  echo "HR_FULL_EXTRAS 只可用於 HR_FULL_LOCAL=1 的本機封包" >&2; exit 2
+fi
 HRV="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
 DGV="$(git -C "$DG" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 VER="${HR_VERSION:-$HRV-dg$DGV}"
@@ -122,6 +126,17 @@ stage_common() { # $1 目的目錄
   if [ "$WITH_HD" = 1 ]; then cat packaging/README.hd.txt >> "$1/README.txt"; fi
   cp LICENSE "$1/LICENSE"
   make_notices "$1/THIRD_PARTY_NOTICES.txt"
+  if [ "$FULL_EXTRAS" = 1 ]; then
+    python3 tools/pkg/local_extras.py stage "$ROOT" "$1"
+  fi
+  if [ "${HR_LOCAL_WINDOWS_TEXT:-0}" = 1 ]; then
+    python3 - "$1/README.txt" <<'PY'
+from pathlib import Path
+import sys
+p = Path(sys.argv[1])
+p.write_text(p.read_text(encoding='utf-8-sig'), encoding='utf-8-sig', newline='\r\n')
+PY
+  fi
 }
 
 stage_hd() { # $1 包內放 hd 的位置（HR_WITH_HD=1 才做）
@@ -140,7 +155,12 @@ leak_scan() { # $1 要掃的目錄（workplace 內，repo 相對）
     if [ -d "$1/usr/bin/original" ]; then original="$1/usr/bin/original"; fi
     if [ -d "$1/Contents/Resources/original" ]; then original="$1/Contents/Resources/original"; fi
     python3 tools/pkg/full_local.py "$INV" "$original"
-    test ! -e "$1/l10n" && test ! -e "$1/l10n-packs" || { echo "完整版不得夾帶譯文表或語言包" >&2; exit 1; }
+    local assets="$(dirname "$original")"
+    if [ "$FULL_EXTRAS" = 1 ]; then
+      python3 tools/pkg/local_extras.py verify "$ROOT" "$assets"
+    else
+      test ! -e "$assets/l10n" && test ! -e "$assets/l10n-packs" || { echo "完整版不得夾帶未授權譯文表或語言包" >&2; exit 1; }
+    fi
     return
   fi
   cp "$INV" "$STAGE/inventory.tsv"
@@ -219,7 +239,7 @@ do_windows() {
   rm -rf "$STAGE/win"; mkdir -p "$dir"
   go_build windows 0 /out/pkg-hr-play.exe "-H=windowsgui"
   cp workplace/out/pkg-hr-play.exe "$dir/hr-play.exe"
-  stage_common "$dir"
+  HR_LOCAL_WINDOWS_TEXT=1 stage_common "$dir"
   stage_hd "$dir"
   leak_scan "$dir"
   keep_latest "$DIST/HighReward-*-win64.zip" "$out"
