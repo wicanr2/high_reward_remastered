@@ -18,6 +18,10 @@ names = [
     f"full-local/HighReward-{version}-macos.zip",
     f"promo/HighReward-{version}-promo.mp4",
 ]
+license_source = pathlib.Path("/license")
+if license_source.is_file():
+    (root / "LICENSE").write_bytes(license_source.read_bytes())
+    names.append("LICENSE")
 files = []
 for name in names:
     path = root / name
@@ -32,9 +36,24 @@ for name in names:
 manifest = {
     "version": version,
     "visibility": "local-only",
-    "rights": "Contains original game files, HD derivatives, or original music derivatives; no public distribution permission established.",
+    "rights": "Contains original game files, HD or AI art, translation and original music derivatives; no public distribution permission established.",
     "files": files,
 }
+static = root / "smoke/full-static.json"
+if static.is_file():
+    receipt = json.loads(static.read_text())
+    if receipt["version"] != version:
+        raise ValueError("驗收收據版本不符")
+    manifest.update(build_source=receipt["build_source"], fork_source=receipt["fork_source"],
+                    original_files_per_platform=receipt["original_files_per_platform"],
+                    pilot_per_language=receipt["pilot_per_language"],
+                    accepted_full_per_new_language=receipt["accepted_full_per_new_language"],
+                    full_text_activated=receipt["full_text_activated"],
+                    verification={"linux": "Xvfb normal new-game path; AI and Korean pilot; F1/F2/F4", "windows": "Wine title boot and English pilot; no real-device test", "macos": receipt["macos"]})
+    manifest["verification_receipts_sha256"] = {
+        str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in [static, root / "smoke/linux/receipt.json", root / "smoke/windows/RESULTS.txt", root / "promo/ffprobe.json", root / "promo/rights.json"]
+    }
 dest = root / "SHA256SUMS.json"
 temp = root / "SHA256SUMS.json.tmp"
 temp.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

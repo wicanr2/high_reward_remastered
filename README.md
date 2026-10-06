@@ -63,7 +63,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | HD 圖層 | 595 張 2 倍圖，使用者看過六個代表畫面的合成圖後整體接受。精靈、頭像、戰鬥舞台背景、標題地圖與游標有替換，大地形底圖、文字與框線仍是原版像素 | `docs/spec/004`、`docs/re/014`、`docs/re/015` |
 | AI 重繪圖層 | 本機主題有 595 項圖像。585 張新增圖由 OpenAI 生成，另有 9 張先前接受的代表圖；1 張因服務拒絕而沿用 HD。已驗尺寸、遮罩與 F2 切換，尚未逐畫面驗收；素材不在發行包 | `AGENTS.md` M8、`WORKLOG.md` |
 | 遊戲內多語系 | 五語各 17 項試點已接通本機建包，韓文採 8 像素空白。四個新語言的七檔全量譯文已由使用者接受，尚待逐批導入。Linux 開場對白、據點、重用與失敗回退只驗過試點；既有私人 Release 不含語言包，預設遊戲內文字仍是原版繁中 | `docs/spec/008`、`docs/re/031`、`docs/re/032` |
-| 發行包 | [私人 Release `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 提供 Linux AppImage、Windows zip、macOS universal，含 HD 圖層，不含原版遊戲檔案。本機 `v.0.1.0-20261004` 完整封包含原版，36 秒推廣影片也只供私人驗收。Linux 已從實包進入新遊戲，Windows 在 Wine 內顯示標題，macOS 只驗結構，沒有實機 | `docs/re/013`、`dist-all/v.0.1.1-20261004/smoke/RESULTS.txt` |
+| 發行包 | [私人 Release `v.0.1.1-20261004`](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.0.1.1-20261004) 含 HD、不含原版遊戲。本機完整版 `v.0.2.0-20261006` 提供 Linux AppImage、Windows zip、macOS universal zip，含遊戲、HD、AI、五語各 17 項試點及全量接受譯文附件。全文附件未接入遊戲。Linux 實包進新遊戲、Windows 在 Wine 顯示標題，macOS 只驗結構；36 秒推廣片只留本機 | `WORKLOG.md`、`dist-all/v.0.2.0-20261006/smoke/RESULTS.txt` |
 
 ## 主要成果
 
