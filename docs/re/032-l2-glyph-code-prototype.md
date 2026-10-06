@@ -268,3 +268,56 @@ confirmed 範圍限 `ESPMES#121.0`、`#121.1` 的 01A3 合成對白。行尾試�
 前端補充驗證 `workplace/spec-review/cjk-play-platform-verification.md` 與 `workplace/out/re-text/cjk-play-platform/` 保存全套 race、vet、Windows PE 與 macOS universal 切片收據。Windows、macOS universal SHA-256 分別為 `37939d2113a1dbc01b1c63aa33ead43a86309719e07077112e310c3759730b73`、`313997f1b8e7330a318d2b2280480e036a71142ffda0ffbe8cdec4bd3de0bf29`。Go 映像缺 `file` 只讓末段結構 wrapper 回 127，沿用 osxcross 的 `file` 與獨立 PE／fat 解析補驗通過，沒有改產品或重編挑結果。
 
 主代理讀完審查及平台報告後，只修正三處舊英文限定註解，並替沿用名稱的 golden 測試補三語範圍說明，沒有改行為或 golden。fork 建包與前端分別提交 `935e6a5`、`ff9459d`，備份 [`0036`](../../engine/patches/0036-apps-hr-l10n-scalar-build-008.patch)、[`0037`](../../engine/patches/0037-apps-hr-play-cjk-l10n-008.patch)。主代理按上述實作、正常玩家與目視收據將第 3.2.3 窄範圍升 CONFORMED。本機最新開發版 `workplace/out/bin/hr-play` SHA-256 `b0c040c417f6a2f53a7d9e044eead269b2f40d770b3f8769c85d685345ecc5ad`，與 GUI 執行檔的差異包含提交及建置身分，沒有重宣稱一份新 GUI 收據。
+
+
+### 韓文 8 px 定案與正式接線閘門（2026-10-06）
+
+使用者選「韓文8 像素」，普通 U+0020 採 raw 0x21，字面驚嘆號另取 Noto 雙碼。原型時點的待決記錄保留；正式接線依 [008 第 3.2.4](../spec/008-ingame-text-localization.md) 窄契約，經獨立唯讀審查無阻擋後升 READY。本節不外推全遊戲或發行。
+
+#### 固定韓文字模葉層
+
+`workplace/spec-review/ko-glyph-audit-report.md` 及 `workplace/out/re-text/ko-leaf-audit.json` 是本機收據入口。主代理已核對報告與 JSON；收據 SHA-256 `67deba8ff58dc68db99d4fbee1ae645b1f60a8f014733a36ffd844d5c7166b0a`。17 項來源與接受摘要均吻合，173 個單 scalar 清冊排除 101 個普通空白，字面驚嘆號配 `E040`，普通 U+0020 沒有 Lookup。
+
+兩份五檔 `ko-pilot-bake1`／`ko-pilot-bake2` 逐位元相同。固定 Noto Sans CJK KR 2.004、face 1、13 px、mask-center-floor、閾值 128，字型及 OFL 身分沿前節；Pillow 12.3.0、fontTools 4.66.1、Unicode 15.0.0，image `yuan-analysis:1` 的 ID 沿本文件烘製器契約。五檔 Load、Lookup、全 13867 格 Apply 及零採用 identity 通過。原版清冊 148 檔於製作前後逐檔核對，全部不變。這是檔案與索引的 confirmed 驗證，沒有原版韓文語句 oracle。
+
+| 產物 | SHA-256 |
+|---|---|
+| `glyphs-ko.bin` | `3ea2fb22c48570a6266aae37e712661c1d61805716fa58cfcfd102b2c8d4a8ff` |
+| `charmap-ko.tsv` | `f46d9d3bdb28297c9ebec5bc039683c58d4b12998350e74a438dd10f638971ae` |
+| `SOURCE.txt` | `08c6b90d7c98f376861744e712b60efe8662943a00a0254eea2c6d705e03ebf1` |
+| 五檔補丁摘要 | `8206a80bb994c8dea10bcfa36c2279041313e5a7aeb58f8f219d6de60e5cee04` |
+| 完整 CFONT | `4efd04bb03cfbd5baba81d82c635c4a620292fd30c3b488f9eb2c6369a6e6e55` |
+| `units-ko-pilot-v1.tsv` | `77ab3708bdef3c96c8c0ac308076c852063233434e9befe45d851370e7f2d192` |
+
+重烘入口：`tools/l10n/bakeglyphs.sh ko workplace/out/re-text/units-ko-pilot-v1.tsv <未使用名稱>`，順序呼叫兩次，不覆寫舊收據。清冊工具 `workplace/m10-ko-units.py` SHA-256 `0a2ad94ac6ae0dd40fb4683ac295d498ab88b0e5f8e3e5287253eb59d7d71d1b`；完整格驗證 `workplace/m10-ko-leaf-audit.go` SHA-256 `61a027c592846ccd667722ff23a987d514142da7498df48b4a1272066de87d27`。Go 容器、唯讀掛載、離線 module cache 與入口命令同本機報告。
+
+#### 正式韓文建包與正常前端
+
+本機實作報告 `workplace/spec-review/ko-build-implementation-report.md`，獨立讀回收據 `workplace/out/re-text/ko-build-formal-pilot-audit.json`。主代理的 `workplace/m10-ko-build-audit.go` 不呼叫 production Prepare，逐字查固定碼本並明示來源 U+0020 轉單碼 `0x21`，再按 typed 原項目取窗口及末端預算。逐項空白數與最終輸出相同，合計 101；17 項讀回、未採用文字、完整 CFONT、零列八檔、摘要、重用、缺字無包及暫存、舊包與九檔原版不變全部通過。據點折為三行 64／52／41 bytes，所有對白每行不超過 30 bytes。沒有採用原型修改過的原版副本。
+
+| 身分 | SHA-256 或值 |
+|---|---|
+| 建置器版本／契約 | `55af19f2`／`hr-l10n-l2-ko8-v1` |
+| 正式韓文輸入摘要 | `e2b7e05d461846e61985efa62cfd53a3b98091716a06c762447dcd2e0b79c01b` |
+| manifest | `5ceda5a11959e067052937e2a555be206eb52c8696cfc13ba502ee28b64c2113` |
+| 獨立建包收據 | `291f27d766b70682ebfa4589b051819d2926f48f7ccd8cfb1b2a7b67b8eeb842` |
+| 獨立讀回探針 | `010de08df7ef5edcf21f423ffc29465e2230914cf50a9ea36371060a73f3891d` |
+| L1 golden，保持 | `a96d619d9e50a273c046f793f0f4c053ff20d0384b25d57033644593a465a7e7` |
+| 原十五段 L2 golden 前綴，保持 | `c0dabd8867ca99a6b41450c25e9443e93d97ab4d02fbb4c9f0e858afa94ffd5a` |
+| 新 L2 golden | `43289a2bfddc96a24c0e48c410232f0383740b6601bc3b0c17f818f413e7441c` |
+| `ko-gui-v1/receipt.json` | `314851f395611be740d3a0c40064e8eff136fdbebdd62364ee0fe98bcc9863d6` |
+| GUI 執行檔 | `99c5d80e70b038ddeb74a64d21c48298da3eb3ed9fc421a3600f00d9b3f4c5ef` |
+
+正常 GUI 入口 `bash tools/l10n/verify_en_gui.sh <新的標籤> ko`，輸出在 `workplace/out/re-text/<標籤>/`。`ko-gui-v1` 六階段乾淨退出：冷建 17 項、新遊戲全部對白與據點、F4 下次啟動選英文但無表、重用、損壞包保留另建 `-2`、缺補丁及無效補丁回原版。F4 不改本次已啟用包。28 張 PNG 加六份終端 log 的 SHA-256 逐檔重算吻合。完整畫面與接受表並列頁在 `ko-gui-v1/visual-review/page-1.png` 至 `page-5.png`；主代理逐張核對上、下與中央框的 16 句及據點三行，字形與空白可辨、字面驚嘆號正常，沒有裁切。接受狀態沿使用者先前確認的譯文，未經母語者審閱。
+
+建包、budget 與 CLI 全回歸、race、vet 通過，含真實簡中、日文、韓文各 17 項及原有英文／繁中 golden；前端全套、韓文窄 race、vet 通過。獨立審查最先捕捉前端的舊支援守護仍排除 ko，修正後同工具鏈乾淨重跑。正式包探針第一次在 Docker 啟動前就因不存在的掛載來源被 `test -d` 停下，改用既有 `out/re-text`；GUI 摘要核對第一版誤將 28 張畫面加六份 log 當成 34 張 PNG，改按實際清單重驗通過。兩項是驗證腳本問題，沒有變更產品迎合檢查。
+
+平台報告 `workplace/spec-review/ko-platform-report.md`，收據 `workplace/out/re-text/ko-play-platform/verification.json` SHA-256 `5cd57161af674d262088bfa188e5813e2d0d54f4495259d7ab5af6d58b58ff2b`。Windows amd64 前端與四目標 CLI 編譯／結構通過；macOS 前端兩架構及 universal 切片逐位元相同，SDK 15.5、最低 11.0。Go 1.26.7 純 Go macOS CLI 最低 12.0，尚未統一發行下限。3016 個來源檔前後不變。沒有 Windows／macOS 實跑，不重建 Release、不宣稱完整 L2／L3 或全量多語完成。
+
+已驗五檔裝入本機 `l10n/ko/glyph-patch/`。譯文、補丁、語言包、收據與畫面只留忽略版控的本機路徑，不加入 Git 或發行包。
+
+
+獨立終審 `workplace/spec-review/ko8-integration-implementation-review.md` 已核程式、golden、字模、正式建包及 GUI／平台收據，無未解阻擋。主代理只將 008 第 3.2.4 窄範圍升 CONFORMED。fork 提交 `c1fbbe8`、`48ae45f`，備份 [`0038`](../../engine/patches/0038-apps-hr-l10n-ko8-008.patch)、[`0039`](../../engine/patches/0039-apps-hr-play-ko-l10n-008.patch)，不推送 dosgolem 公開上游。
+
+
+本機最新開發前端 `workplace/out/bin/hr-play` 由乾淨 fork `48ae45f` 重建，SHA-256 `e02ad28bf46d3576359555381f70f52e45e6b132a317ee3dbf6d48b4e2e2c307`。與 GUI 執行檔的差異含提交與建置身分，不將這次重建當成新 GUI 收據。

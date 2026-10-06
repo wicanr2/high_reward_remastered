@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# READY 008 3.2.2、3.2.3：正常前端冷建包、玩家輸入、重用及回退。
+# READY 008 3.2.2 至 3.2.4：正常前端冷建包、玩家輸入、重用及回退。
 # 本機表／補丁唯讀，畫面與含原版內容的包只在 workplace/out/re-text/。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -9,7 +9,8 @@ case "$CODE" in
   en) PATCH="workplace/l3-visual-20261005/patches/en-bake5" ;;
   zh-CN) PATCH="workplace/l3-visual-20261005/patches/sc-pilot-bake1" ;;
   ja) PATCH="workplace/l3-visual-20261005/patches/ja-pilot-bake1" ;;
-  *) echo '只支援 en、zh-CN、ja 試點' >&2; exit 2 ;;
+  ko) PATCH="workplace/l3-visual-20261005/patches/ko-pilot-bake1" ;;
+  *) echo '只支援 en、zh-CN、ja、ko 試點' >&2; exit 2 ;;
 esac
 [[ "$LABEL" =~ ^[a-z0-9-]{1,40}$ ]] || { echo '輸出標籤不合法' >&2; exit 2; }
 IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"

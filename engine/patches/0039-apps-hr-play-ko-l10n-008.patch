@@ -1,0 +1,122 @@
+From 48ae45f52001ff12758a70c4324dce96241ec6c9 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Tue, 6 Oct 2026 11:29:02 +0800
+Subject: [PATCH] =?UTF-8?q?=E5=95=9F=E7=94=A8=E9=9F=93=E6=96=87=E5=90=8C?=
+ =?UTF-8?q?=E6=BA=90=E8=AA=9E=E8=A8=80=E5=8C=85=E8=88=87=E5=89=8D=E7=AB=AF?=
+ =?UTF-8?q?=E9=A9=97=E6=94=B6?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/play/ingame.go          |  4 ++--
+ apps/hr/play/ingame_cjk_test.go | 10 +++++-----
+ apps/hr/play/ingame_en_test.go  |  2 +-
+ apps/hr/play/ingame_test.go     |  6 +++---
+ 4 files changed, 11 insertions(+), 11 deletions(-)
+
+diff --git a/apps/hr/play/ingame.go b/apps/hr/play/ingame.go
+index 547dd64..faa3875 100644
+--- a/apps/hr/play/ingame.go
++++ b/apps/hr/play/ingame.go
+@@ -70,8 +70,8 @@ const (
+ var reasonKeys = []reasonKey{reasonNoTable, reasonBuildFailed, reasonVerifyFailed, reasonNoPatch, reasonUnsupported}
+ 
+ // l2SupportedFor 是正式路徑的逐語言支援範圍（docs/spec/008 第 3.2.2、3.2.3 節）。
+-// 繁中沿用 L1；L2 接英文、簡中與日文，韓文仍不可用。
+-func l2SupportedFor(c ingameCode) bool { return c == icEN || c == icCN || c == icJA }
++// 繁中沿用 L1；008 第 3.2.1 至 3.2.4 接英文、簡中、日文與 8 px 空白韓文。
++func l2SupportedFor(c ingameCode) bool { return c == icEN || c == icCN || c == icJA || c == icKO }
+ 
+ // unavailReason 是 avail(X) 為假時的原因鍵，依序判定、先中先停（docs/spec/008 第 3.8 節）：
+ // 沒有該語言的譯文表 → no-table；L2 尚未實作 → unsupported-language；補丁不在手 → no-patch。
+diff --git a/apps/hr/play/ingame_cjk_test.go b/apps/hr/play/ingame_cjk_test.go
+index 48b2ad9..79334d6 100644
+--- a/apps/hr/play/ingame_cjk_test.go
++++ b/apps/hr/play/ingame_cjk_test.go
+@@ -14,7 +14,7 @@ import (
+ )
+ 
+ func TestCJKProbeUsesSameSourceAndCode(t *testing.T) {
+-	for _, code := range []ingameCode{icCN, icJA} {
++	for _, code := range []ingameCode{icCN, icJA, icKO} {
+ 		t.Run(string(code), func(t *testing.T) {
+ 			high, low := mkTables(t, string(code)), mkTables(t, string(code))
+ 			lowPatch := addGlyphPatch(t, low, string(code))
+@@ -47,7 +47,7 @@ func TestCJKProbeUsesSameSourceAndCode(t *testing.T) {
+ }
+ 
+ func TestPrepareCJKConfigAndAdoption(t *testing.T) {
+-	for _, code := range []ingameCode{icCN, icJA} {
++	for _, code := range []ingameCode{icCN, icJA, icKO} {
+ 		for _, explicit := range []bool{false, true} {
+ 			for _, adopted := range []int{0, 17} {
+ 				root := mkTables(t, string(code))
+@@ -84,7 +84,7 @@ func TestPrepareCJKConfigAndAdoption(t *testing.T) {
+ }
+ 
+ func TestPrepareCJKFailuresUseOriginal(t *testing.T) {
+-	for _, code := range []ingameCode{icCN, icJA} {
++	for _, code := range []ingameCode{icCN, icJA, icKO} {
+ 		for _, tc := range []struct {
+ 			name                string
+ 			digestErr, buildErr error
+@@ -126,7 +126,7 @@ func TestPrepareCJKFailuresUseOriginal(t *testing.T) {
+ }
+ 
+ func TestCJKZeroAdoptionSelectionRelations(t *testing.T) {
+-	for _, code := range []ingameCode{icCN, icJA} {
++	for _, code := range []ingameCode{icCN, icJA, icKO} {
+ 		e := effective{effIdentityPack, code}
+ 		for _, selected := range ingameValues {
+ 			want := selected == code || selected == icTW || selected == icIdentity
+@@ -138,7 +138,7 @@ func TestCJKZeroAdoptionSelectionRelations(t *testing.T) {
+ }
+ 
+ func TestGameCJKPatchAtF4AndZeroAdoption(t *testing.T) {
+-	for _, code := range []ingameCode{icCN, icJA} {
++	for _, code := range []ingameCode{icCN, icJA, icKO} {
+ 		root := mkTables(t, string(code))
+ 		language := lang(code)
+ 		gr := newGameRig(t, themeOriginal, nil, withLang(language), withIngame(ingameRuntime{Avail: availabilityFunc(l10n.TableSearch{Flag: root})}))
+diff --git a/apps/hr/play/ingame_en_test.go b/apps/hr/play/ingame_en_test.go
+index 48750a2..339225b 100644
+--- a/apps/hr/play/ingame_en_test.go
++++ b/apps/hr/play/ingame_en_test.go
+@@ -128,7 +128,7 @@ func TestPrepareIngameProductionPerCode(t *testing.T) {
+ 				fb := &fakeBuilder{digest: strings.Repeat("a", 64), res: mkResult("/packs/p", strings.Repeat("a", 64), "table", 1, string(code))}
+ 				in, _ := newInput(t, ingameChoice{Code: code}, fb, root)
+ 				out := prepareIngame(in)
+-				supported := code == icEN || code == icCN || code == icJA
++				supported := code == icEN || code == icCN || code == icJA || code == icKO
+ 				want := planIngame(in.Choice, tables, supported, patch)
+ 				if out.Plan != want {
+ 					t.Fatalf("code=%s table=%v patch=%v: %+v want=%+v", code, tables, patch, out.Plan, want)
+diff --git a/apps/hr/play/ingame_test.go b/apps/hr/play/ingame_test.go
+index 73a5f9e..27b177c 100644
+--- a/apps/hr/play/ingame_test.go
++++ b/apps/hr/play/ingame_test.go
+@@ -143,9 +143,9 @@ func TestPlanIngameRules(t *testing.T) {
+ 	if a.Kind != planIdentity || b.Kind != planNone {
+ 		t.Errorf("((zh-TW, 明示), 無表) ＝ %v、((zh-TW, 非明示), 無表) ＝ %v", a.Kind, b.Kind)
+ 	}
+-	// 正式 L2 接線支援英文、簡中、日文；純函式的完整真值表仍保留。
++	// 正式 L2 接線支援英文、簡中、日文、韓文；純函式的完整真值表仍保留。
+ 	for _, c := range ingameValues {
+-		if l2SupportedFor(c) != (c == icEN || c == icCN || c == icJA) {
++		if l2SupportedFor(c) != (c == icEN || c == icCN || c == icJA || c == icKO) {
+ 			t.Errorf("%s：L2 支援範圍不符", c)
+ 		}
+ 	}
+@@ -423,7 +423,7 @@ func TestIngameStatusIdentityPackNotPartial(t *testing.T) {
+ // ---- 性質測試：前置條件域內窮舉，函式有定義 ----
+ 
+ func TestIngameStatusProperty(t *testing.T) {
+-	effs := []effective{eOrig, eIdTW, eIdID, eZeroTbl, eTable, eOther(icCN), eOther(icKO), eOther(icEN), eOther(icJA), {effIdentityPack, icEN}, {effIdentityPack, icCN}, {effIdentityPack, icJA}}
++	effs := []effective{eOrig, eIdTW, eIdID, eZeroTbl, eTable, eOther(icCN), eOther(icKO), eOther(icEN), eOther(icJA), {effIdentityPack, icEN}, {effIdentityPack, icCN}, {effIdentityPack, icJA}, {effIdentityPack, icKO}}
+ 	fails := []startFail{noFail}
+ 	for _, c := range ingameValues {
+ 		for _, r := range []reasonKey{reasonBuildFailed, reasonVerifyFailed} {
+-- 
+2.43.0
+

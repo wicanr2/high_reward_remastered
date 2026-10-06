@@ -1,4 +1,4 @@
-"""Local READY en/zh-CN/ja GUI receipt. Run through verify_en_gui.sh in Docker.
+"""Local READY en/zh-CN/ja/ko GUI receipt. Run through verify_en_gui.sh in Docker.
 
 Uses normal mouse/keyboard input. Screens require independent visual review;
 the automated receipt proves package activation/reuse/fallback and input trace.
@@ -37,7 +37,7 @@ def stop(process):
 def run(label, code='en'):
     if not re.fullmatch('[a-z0-9-]{1,40}', label):
         raise ValueError('invalid output label')
-    next_code = {'en': 'ja', 'zh-CN': 'ko', 'ja': 'zh-TW'}.get(code)
+    next_code = {'en': 'ja', 'zh-CN': 'ko', 'ja': 'zh-TW', 'ko': 'en'}.get(code)
     if next_code is None:
         raise ValueError('unsupported pilot language')
     base = Path('/out') / label
