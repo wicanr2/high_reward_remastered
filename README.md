@@ -4,6 +4,12 @@
 
 本專案是獨立的第三方保存與研究專案，與原版權利人沒有隸屬、合作或授權關係。
 
+## 新版 AI 手繪風格
+
+![新版 AI 重繪的夥伴對話畫面](docs/images/ai-full-companions.png)
+
+新版肖像由 OpenAI 依原版美術重繪，採手繪風格。上圖是載入完整 595 項 AI 主題後，從新遊戲正常操作擷取的畫面。遊戲規則、文字與座標沿用原版；地形、文字與框線仍可看到原版像素。目前 AI 素材只留本機，私人 Release 尚未包含。
+
 ## 原版檔案與權利邊界
 
 - 本 repo 不含原版的執行檔、資料檔、字型、圖像與音樂。請自備一份合法取得的原版（內含 `MAIN.EXE` 的資料夾）。
@@ -91,9 +97,13 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 ### AI 重繪的新遊戲畫面
 
-![同一段新遊戲對話，左為原版，右為 AI 重繪圖層](docs/images/compare-ai-newgame.png)
+![同一段新遊戲對話，左為原版，右為完整 AI 重繪圖層](docs/images/compare-ai-full-newgame.png)
 
-在 Linux 的 Xvfb 內正常點選「新遊戲開始」，再以 F2 切換圖層擷取同一段對話。右側肖像使用本機 AI 重繪圖層；對白與地圖仍由原版 `MAIN.EXE` 繪製。這張圖只驗證此處的顯示，AI 圖層尚未隨發行包提供。
+在 Linux 的 Xvfb 內正常點選「新遊戲開始」，再以 F2 切換圖層擷取同一段對話。右側載入完整 AI 主題，肖像由 OpenAI 重繪；對白仍由原版 `MAIN.EXE` 繪製。
+
+![新版 AI 重繪的家族對話畫面](docs/images/ai-full-family.png)
+
+繼續開場對話可看到其他角色的重繪肖像。這批畫面確認開場的顯示與切換，沒有涵蓋遊戲全程。擷取入口為 `tools/ai/capture_readme.sh`，來源與畫面摘要記在 `WORKLOG.md`。
 
 ### 戰鬥佈陣
 
@@ -168,6 +178,7 @@ macOS 版沒有簽章，首次開啟請右鍵選「打開」。
 | `tools/play.sh gui-diag` | Xvfb 內啟動視窗、按 Ctrl+D，確認診斷產生 |
 | `tools/play.sh test-hd` | `apps/hr/hd` 的測試（含 `-race`） |
 | `tools/play.sh gui-lang`、`gui-theme` | Xvfb 內按 F4 循環語言、按 F2 切 theme，比對截圖 |
+| `bash tools/ai/capture_readme.sh <新的標籤>` | 在 Docker 內正常操作新遊戲，擷取完整 AI 主題與 F2 對照；需本機原版、開發前端及 AI 主題，畫面與來源摘要留在 `workplace/out/` |
 | `bash tools/l10n/verify_en_gui.sh <新的標籤> [代碼]` | Xvfb 內驗所選語言試點、重用、F4 下次啟動、缺補丁回退與損壞包重建；代碼可用 `en`、`zh-CN`、`ja`、`ko`，省略時預設英文，需本機表及補丁，畫面留在 `workplace/` |
 
 原版缺失時，依賴它的測試會明確 skip，不使用替代品。

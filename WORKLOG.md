@@ -403,3 +403,12 @@
 - fork 提交 `c1fbbe8`、`48ae45f`，備份 `0038`、`0039`；不推送公開 dosgolem 上游。韓文五檔已裝入忽略版控的 `l10n/ko/glyph-patch/`，README 更新穩定現況與使用入口，AGENTS 更新唯一 M10 狀態。全量譯文、完整 L2／L3、戰鬥／存讀檔抽驗及平台實跑仍待完成。
 - 乾淨 fork 重建的本機 `workplace/out/bin/hr-play` SHA-256 `e02ad28bf46d3576359555381f70f52e45e6b132a317ee3dbf6d48b4e2e2c307`，補丁與原版未進版控。遠端 Issue #1 已更新試點收據及待辦，保持開啟；既有私人 Release 未重建或覆寫。
 - 推送前 repo 仍 PRIVATE。root 844／fork 1345 個追蹤檔核對原版檔名及完整雜湊，沒有原版、譯文表或語言包；洩漏掃描 2189 檔只命中與 028 第 5 節逐項相同的 12 筆基準。工作根沒有 root-owned 或 `.md` 目錄，產物 1000:1000；本輪容器均已收掉。只有主 repo 做一般提交與推送。
+
+### README 完整 AI 主題畫面與全量翻譯開工（2026-10-06）
+
+- 使用者要求先更新 GitHub README 的新版手繪風格畫面，並完成全量翻譯。此次少量執行截圖可提交至 private repo；全量 AI 素材、原版與譯文仍留本機。命中 README 截圖、字模與規格閘門路由，載入 README 標準、文件職責及規格工作流，文字依 humanizer 核對。
+- `tools/ai/capture_readme.sh` 與 `.py` 在既有 Go／Ebiten image 中啟動本機前端，載入完整 AI 主題，以正常滑鼠從標題走到開場對話，另以 F2 擷取原版對照及 F1 狀態。沒有注入存檔或記憶體。六張原始畫面、輸入與日誌收據留在 `workplace/out/readme-ai-full-20261006/`；主代理核對開場五位角色肖像、原版對照及 F1 的 AI 主題狀態。
+- README 前段加入夥伴畫面，畫廊換成完整 AI 主題的原版對照及家族畫面。圖為 OpenAI 重繪的手繪風格，沒有宣稱人工繪製或全遊戲視覺驗收；現有私人 Release 不含 AI 素材。前端 SHA-256 `e02ad28bf46d3576359555381f70f52e45e6b132a317ee3dbf6d48b4e2e2c307`；主題 catalog `80b83ccc18d21cfc9451d0dc5f31bace81ed334d4f61131f5693b855d7b9c7e6`、provenance `ce59277f51fad5d0b84576481880667063d956e2030241901d0241d2577be315`。
+- 提交圖片 SHA-256：`ai-full-companions.png` 為 `557657a423261436b8414d8469ba873366468a5745c48151c025bbba0dd47c47`；`ai-full-family.png` 為 `fc70276bf109e39faea402f9b62ea58c5c97f1af27bf36d29faed9ce98bb486f`；並排對照 `compare-ai-full-newgame.png` 為 `3b18e9cbcaa028f3c04ae92054ed4230fd102663989f5284b59656b733e467e2`。兩張單幅維持原截圖，並排圖只左右拼接。
+- 全量七檔來源共 2,559 項、1,799 種唯一來源，七檔 SHA、解析序列化 identity 及既有五語 85 項來源吻合。canonical、來源索引及唯讀盤點報告只留 `workplace/l10n-src/full-source-index.json` 與 `workplace/spec-review/full-text-inventory.md`。英文、日文與韓文分批實譯已開始；17 項原文解碼警告保留待追查，SHOPTAB 與 COUNTRY 文字候選不擴張正式採用政策，硬編碼及存檔名字尚無正式掛鉤。此次開工沒有改寫既有接受表。
+- 推送前 PRIVATE、849 個主 repo 追蹤檔的原版檔名及 SHA 核對、13 個 README 圖片連結與腳本語法通過。洩漏掃描共 2,194 檔，12 筆與 028 基準逐項相同，沒有新增命中。擁有權探針先遇到既有外部符號連結，改用 lstat 重跑，工作根沒有 root-owned 或 `.md` 目錄；三張新圖均為 1000:1000。擷取工具加入只清理本次命名容器的退出 trap。
