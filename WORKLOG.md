@@ -412,3 +412,17 @@
 - 提交圖片 SHA-256：`ai-full-companions.png` 為 `557657a423261436b8414d8469ba873366468a5745c48151c025bbba0dd47c47`；`ai-full-family.png` 為 `fc70276bf109e39faea402f9b62ea58c5c97f1af27bf36d29faed9ce98bb486f`；並排對照 `compare-ai-full-newgame.png` 為 `3b18e9cbcaa028f3c04ae92054ed4230fd102663989f5284b59656b733e467e2`。兩張單幅維持原截圖，並排圖只左右拼接。
 - 全量七檔來源共 2,559 項、1,799 種唯一來源，七檔 SHA、解析序列化 identity 及既有五語 85 項來源吻合。canonical、來源索引及唯讀盤點報告只留 `workplace/l10n-src/full-source-index.json` 與 `workplace/spec-review/full-text-inventory.md`。英文、日文與韓文分批實譯已開始；17 項原文解碼警告保留待追查，SHOPTAB 與 COUNTRY 文字候選不擴張正式採用政策，硬編碼及存檔名字尚無正式掛鉤。此次開工沒有改寫既有接受表。
 - 推送前 PRIVATE、849 個主 repo 追蹤檔的原版檔名及 SHA 核對、13 個 README 圖片連結與腳本語法通過。洩漏掃描共 2,194 檔，12 筆與 028 基準逐項相同，沒有新增命中。擁有權探針先遇到既有外部符號連結，改用 lstat 重跑，工作根沒有 root-owned 或 `.md` 目錄；三張新圖均為 1000:1000。擷取工具加入只清理本次命名容器的退出 trap。
+
+### 四語七檔全量候選、修讀及獨立審查（2026-10-06，續）
+
+- README 的完整 AI 主題截圖已於 `dccc52f` 一般推送至 private origin。全量翻譯命中 TSV 與顯示／語意隔離路由，結論前重讀 `local/localization-display-semantic-isolation.md`；文件職責沿 `local/project-document-responsibilities.md`。沒有改遊戲識別值、存檔、正式採用政策或既有 Release。
+- 四個新語言各完成七檔 2559 項，共 10236 個文字位置。每語保留正式試點 17 accepted，新增 2542 candidate；沒有空白 keep 掩蓋可讀對白。英、日、韓分批實譯，簡中用固定 ICU 72.1 並經語意修訂。canonical 七檔來源 SHA-256 `fb1270080e0426f32111d25a5941cf3cfe50a49d89db769107779049bece9f1a`，1799 個唯一 raw 群組按來源合併；來源、printf 及既有接受欄位核對通過。
+- MAIN 原始位元組核對後另列 1314 項、872 個唯一來源。嚴格掃描中的字模雜訊及兩筆重定位不符項排除，收據在 `workplace/l10n-src/full-main-inventory.json`、`full-main-rejected.json`；來源 SHA-256 `229417bedd0bcf15121fdf4042f8ebc2c2fabf2e4a158ef655588153f9ebc609`。這些包含診斷與存檔欄位，仍是草稿；非文字、字面控制序列及名稱／武器未證實的項目保留限制，不宣稱已完成 009 或可採用。
+- 17 項原文非標準字碼先留空不猜。使用者看過 `full-decoding-review.html` 後採用語境修讀，四語各 17 項均已補齊並獨立審查。決策在 `workplace/l10n-src/full-repair-decision.json`；修讀是 hypothesis，不是 codec 證明。原版檔案及存檔未改，新譯文沒有因修讀決策升為 accepted。
+- 獨立完整語意審查逐項讀唯一來源及 MAIN 草稿，修正日文漏國名、交換誤譯、未證實的姓名合併，韓文新增情節、人稱、招親與修理用具含義，及英文縮句的條件邏輯。英文城市引用按索引及鄰接證據統一，原文異體同城仍標強推論；未證實的軍隊及人物關係不合併。語意審查與新增修讀補核共九份報告，由 `full-source-index.json` 及集中審閱頁掛入口，均未宣稱母語者驗收。
+- 真實正式折行顯示簡中 15、日文 13、韓文 29 項可只重排換行，另縮短韓文四個 ID 及英文 135 項候選；既有 accepted 保持。後續語意修訂再核正式預算，沒有放寬驗證器。韓文動態姓名四句改中性句型避免尾音助詞猜測，普通空白仍採 8 px。最後每語 1767 非 SHOP 項通過，792 SHOP 因未知窗格仍拒絕；COUNTRY 11 項開關未開、ESPMES 394 項正常玩家路徑未觀測，文字通過不解除政策或證據閘門。
+- 完整字模候選重烘至本機 `workplace/l3-visual-20261005/patches/`：簡中 1448 字 `full-sc-seven-v3`，日文 1142 字 `full-ja-seven-v2`，韓文 751 字 `full-ko-seven-v2`，英文 953 字組 `full-en-seven-v3`。五檔摘要及正式 CFONT zero-adoption identity 在各語 `budget-seven-final.json` 與集中 manifest；英文 v3 五檔與 v2 相同。未安裝這些完整補丁或用候選建正式語言包。
+- 最終嚴格 TSV／JSON 鏡映抓到英文一筆首組字面引號被審查工具誤當 CSV 刪除。只恢復 JSON 鏡映，TSV、Prepare 及原譯文未改；作者與獨立審者追加勘誤，保留舊報告。MAIN 未解值的 JSON null 與 TSV 空欄按其 schema 處理，沒有猜補。兩者列驗證工具問題，不列產品缺陷。
+- 集中本機入口 `workplace/l10n-work/full-review.html` 支援四語、資料檔、狀態及原／譯文搜尋，並列原文與使用者採用修讀；`full-review-manifest.json` 保存目前七表、MAIN、來源、字模、工具與審查報告摘要。全部 15492 個審閱位置的 TSV／JSON／來源映射及正式試點欄位核對通過。無網路 Chrome 實測 100 筆分頁、語言 3873 項、SP 116 項及試點四語搜尋，無 JavaScript 錯誤；樣張及收據只留本機。Chrome 初次使用錯誤的 image cache 路徑，改用映像既有路徑後乾淨重跑，未建立重複工具鏈。
+- 此輪完成完整文字候選及本機字模候選，尚待使用者接受全量七檔，MAIN 草稿另驗。完整 L2／L3、戰鬥與存讀檔、Windows／macOS 實跑及發行範圍仍未完成。README 只更新穩定摘要，AGENTS 第 13 節更新唯一目前狀態；全量文字、原版、美術與字模候選未加入 Git。
+- 提交前 repo 仍 PRIVATE，git 身分為 `wicanr2@gmail.com`。主 repo 849／fork 1345 個追蹤檔核對原版檔名與完整 SHA-256，沒有誤追蹤；洩漏掃描 2194 檔的 12 筆與 028 第 5 節逐項相同，沒有新增命中。`final-repo-audit.json`、`final-push-gate.json` 已掛入本機來源索引；工作根無 root-owned 或 `.md` 目錄，審閱頁為 1000:1000，本輪 `hr-*` 容器無遺留。只提交現況文件至 private 主 repo，不推送公開 fork。
