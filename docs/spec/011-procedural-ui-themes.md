@@ -1,6 +1,6 @@
 # 011：程序介面的 HD 與 AI 主題
 
-狀態：READY。2026-10-07。兩份獨立唯讀審查與複核無剩餘阻擋，報告 `workplace/out/review-ui-spec-a.md`、`review-ui-spec-b.md`。證據見 [034](../re/034-procedural-ui-panels.md)。美術方向依 `hd-ai/ui-panel-ai-v1.json` 的已接受決定及連續漸層要求，v2 樣張是補充參考。
+狀態：READY，實作與技術驗收完成，實際介面仍待使用者過目。2026-10-08。兩份獨立唯讀審查與複核無剩餘阻擋，報告 `workplace/out/review-ui-spec-a.md`、`review-ui-spec-b.md`。證據見 [034](../re/034-procedural-ui-panels.md)。美術方向依 `hd-ai/ui-panel-ai-v1.json` 的已接受決定及連續漸層要求，v2 樣張是補充參考。
 
 ## 範圍與輸入
 
@@ -63,3 +63,10 @@
 - 呈現：無文字區移除原版交錯底紋，字形不變，譯文擦除與背景一致，開閉板面恢復 metadata；含競態檢查。
 - 正常 GUI：標題點新遊戲，F2 等切換完成後擷取三主題，對話與資訊面板，抽驗英文或韓文及 F12。不注入 state，不追加已取消的 M10 全路徑或平台實機 gate。
 - Linux 實際封包驗證，Windows／macOS 編譯及既有結構核對；macOS 實機仍未驗。只聲明實測切片，不寫全部介面或原版 exact。
+
+## 技術驗收收據
+
+- fork `686581d`，備份 `engine/patches/0043-procedural-ui-themes.patch`。原版 A/B 兩側各 106000000 步的機器狀態相同；窄測、完整前端競態測試及獨立完成前審查通過，入口見 [034](../re/034-procedural-ui-panels.md#實作與驗證入口)。
+- `v.1.0.2-20261008` 六包由根 `2c9d2eb`、fork `686581d` 乾淨重建。素材、版號、來源、SHA-256、三平台格式均通過獨立核對。
+- 實際完整版 AppImage 只使用內附資源，以正常新遊戲、F2、F1、F12 及左右鍵抽測。三主題截圖與英文譯文背景已目視核對；英文資料採用 1767、顯示採用 792、MAIN 採用 1312。這不追加全遊戲翻譯驗收。
+- 本機收據：`dist-all/v.1.0.2-20261008/smoke/full-static.json`、`smoke/linux/receipt.json`；HD／AI 畫面為同目錄 `linux/theme-1.png`、`linux/theme-2.png`。實際畫面接受前維持 READY，不把技術通過改寫成美術定稿或正式發行。

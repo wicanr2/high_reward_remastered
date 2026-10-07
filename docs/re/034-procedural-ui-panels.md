@@ -55,7 +55,7 @@
 - 原版隔離與窄測：`ui-runtime-original-ab.log`、`ui-runtime-stride.log`、`ui-runtime-final-regressions.log`、`ui-play-final-regressions.log`，均在 `workplace/out/`。
 - 正常畫面與錄影：`workplace/out/ui-final-gui/`、`ui-english-gui/`。前者等 HD／AI 實際完成載入後取樣；圖片已從 README 提供入口。
 
-這些結果尚不代替實際發行包驗證或使用者的美術過目。
+實際候選包 `v.1.0.2-20261008` 已通過六包獨立內容／格式核對及 Linux AppRun 正常輸入抽測。入口為 `workplace/out/package-static-v102-report.md`、`dist-all/v.1.0.2-20261008/smoke/full-static.json`、`smoke/linux/receipt.json`。新介面仍待使用者過目，Windows／macOS 沒有原生執行收據，不把本切片升為全部介面完成。
 
 ## 勘誤回查
 

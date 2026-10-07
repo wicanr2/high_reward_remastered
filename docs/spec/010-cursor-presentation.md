@@ -1,6 +1,6 @@
 # 010：獨立滑鼠呈現
 
-狀態：READY。2026-10-07，唯讀審查及複核無剩餘阻擋，報告 `workplace/out/review-cursor-spec.txt`。依據 [033](../re/033-cursor-presentation.md)，修正 Linux AppImage 游標閃爍與移動跳格。範圍包含原版、HD、AI theme；沒有 HD 掛鉤時亦可工作。
+狀態：CONFORMED。2026-10-08。依據 [033](../re/033-cursor-presentation.md)，修正 Linux AppImage 游標閃爍與移動跳格。範圍包含原版、HD、AI theme；沒有 HD 掛鉤時亦可工作。完成範圍限於下列收據，不含使用者桌面的實機延遲測量。
 
 ## 契約
 
@@ -20,3 +20,11 @@
 - 正常 Linux GUI：標題點新遊戲、進入遊戲、移動與左右鍵，F2 三種 theme、F1、F12。錄製前後畫面，檢查游標不消失、不留舊位置影像。不得由 direct-entry 或修改狀態取代。
 - 發行重新建置 Linux AppImage；其他平台編譯並保留 macOS 實機未驗的限制。沒有承諾 DOS 输入或整個遊戲加速。
 - 原版精靈與背景只存在玩家的原版資料及本機研究輸出，不加入版控。規格只保存定位與契約。
+
+## 完成收據
+
+- 規格與實作獨立審查：`workplace/out/review-cursor-spec.txt`、`review-cursor-implementation-a.md`、`review-cursor-implementation-b.md`。
+- 執行層及前端競態測試、停止到期與異常格式回歸入口見 [033](../re/033-cursor-presentation.md#2026-10-08-修正與收尾入口)。本機 fork `b687256` 實作游標，`686581d` 整合板面交界。
+- 候選版 `v.1.0.2-20261008` 六包從根 `2c9d2eb`、fork `686581d` 的乾淨來源建立。三平台格式與內容核對通過；Windows／macOS 未實機執行。
+- 實際完整版 AppImage 經 AppRun 啟動，只使用包內資料；正常新遊戲、移動、左右鍵、F2 三主題、F1、F12 通過。598 個錄影取樣幀全為單游標，未偵測及雙游標均為 0，F12 比對 272／272 個不透明像素。
+- 機器收據：`dist-all/v.1.0.2-20261008/smoke/full-static.json`、`smoke/linux/receipt.json`、`smoke/linux/cursor-validation.json`。實包執行器 SHA-256 `117eb4e4cc31521a0856ea17b2ca8e95cef738d9eabe5ee028b5855d52557140`，不與先前未注入正式版號的候選執行檔混用。

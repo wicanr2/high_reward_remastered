@@ -523,3 +523,25 @@
 - 建包前主機 gh 認證成立，遠端 PUBLIC。內容掃描 2871 個追蹤檔案、3728 個文字單位，16 筆逐項等於既有12筆與四筆已授權人物姓名；沒有新命中，不修改掃描器或 allowlist。首次掃描多加不存在的 `--tracked` 選項，在用法檢查停止；改回既定無參數入口重跑。語法、擁有權與 root/fork 原版檔名核對通過。
 
 - 首輪 full／patch 的 Linux、Windows 建成，macOS universal 編譯亦成立，但驗證 helper 仍預設已消失的 psychicwar image。回查 dist-all 契約並核所有 pkg helper 後，統一 macOS／HD／AppImage 驗證的固定 image 路由。這是工具入口遺漏；候選產物未發布。保存同一版號，從下一個乾淨工具來源提交重建六包，保留原介面與游標程式提交不變。
+
+### v.1.0.2 候選封包與實包驗證（2026-10-08）
+
+- 乾淨建包來源為根 `2c9d2ebc84fc5225933410b9fd4ace16f9e05d58`、fork `686581d34032d6b8a7209f033cf779f23ff73262`。full-local 與 patch 各三包完成，正式版仍為 `v.1.0.1-20261006`；沒有新 tag、Release、Issue 留言或狀態變更。
+- 獨立靜態驗證六包全通過。完整版各 148 原版檔的大小／SHA-256 全符清冊；補丁包原版檔名、非空原版完整雜湊及音訊均零命中，沒有編譯語言包。每包的 HD 595、AI 595、介面 PNG／JSON、五語表、MAIN、OFL 與來源素材及接受收據相同。Windows PE、ZIP CRC／UTF-8、README BOM／CRLF、macOS 雙架構、plist／ICNS／執行位元、Linux 固定 runtime／解包均通過。報告 `workplace/out/package-static-v102-report.md`，重跑入口 `verify-ui-packages-v102.py`，收據 `dist-all/v.1.0.2-20261008/smoke/full-static.json`。
+- 首次靜態腳本假設 `go version -m` 會保留 `-ldflags`，被 `-trimpath` metadata 推翻。修為核對正式版號 literal 與 vcs.revision／vcs.modified，再用同容器命令乾淨重跑；這是驗證腳本問題。另由實際 AppRun 的 `-version` 回讀 `hr-play v.1.0.2-20261008`。
+- 實際完整版 AppImage 解出後唯讀掛載，以它自己的 AppRun 與內附原版、HD、AI、l10n 執行，沒有外部遊戲資料。正常標題點新遊戲、滑鼠移動與左右鍵、F2 三主題、F1、F12 通過，三主題與英文背景已目視核對。英文採用 1767＋792、MAIN 1312，沒有追加全遊戲翻譯抽樣。程式 `workplace/out/capture_v102_bundle.py` 沿 `tools/capture_promo.py`，正常輸入與包內資源條件保存於 `smoke/linux/receipt.json`。首次準備腳本缺 Docker 的 stdin 轉送，在啟動前的檔案存在檢查停止；補 `-i` 後重跑，沒有產品修改。
+- 實包執行器 SHA-256 `117eb4e4cc31521a0856ea17b2ca8e95cef738d9eabe5ee028b5855d52557140`。錄影中 598 個取樣幀皆單游標，漏畫與雙游標為 0，F12 原版模板 272／272。方法沿 `workplace/out/check-cursor-final.py`，收據 `smoke/linux/cursor-validation.json`。先前 standalone 的 918 幀與不同執行器雜湊另存，沒有混稱同一輪。
+- `tools/finalize_full_local.sh`、`tools/finalize_release_patch.sh` 保存六包清冊，根 manifest 納入靜態及 Linux 啟動收據雜湊。此次沒有新增推廣片，也沒有把舊影片換名。完整版與執行中建出的語言包只留本機。010 升 CONFORMED，011 的技術驗收完成，但依 AGENTS 第 8 節等待使用者過目實際介面後才能定稿。
+
+| 交付路徑（皆在 `dist-all/v.1.0.2-20261008/`） | 位元組 | SHA-256 |
+|---|---:|---|
+| `full-local/HighReward-v.1.0.2-20261008-x86_64.AppImage` | 158255608 | `c293418e60f391c78613ccec5059ba1fa9a5b52c13e500edc91b8cc32c1beca9` |
+| `full-local/HighReward-v.1.0.2-20261008-win64.zip` | 160096601 | `469dbd62ada2bfc0ecd6c54f399667a79dd73fb34c0418c57005985ba09004e9` |
+| `full-local/HighReward-v.1.0.2-20261008-macos.zip` | 164335532 | `dfba764767d4cfcb060a78bf701e8098841a47ca856afdc6b5573196646025bf` |
+| `patch/HighReward-v.1.0.2-20261008-x86_64.AppImage` | 155826680 | `2fad862bc6b0cca7676dd1945b91cca24255b0ecfd1d0c434ab3b4376eed6e94` |
+| `patch/HighReward-v.1.0.2-20261008-win64.zip` | 157525645 | `e8df5ee51239989dd0a4a9771310d9b36b648d6fe4187562ef9adb4b119fb52c` |
+| `patch/HighReward-v.1.0.2-20261008-macos.zip` | 161764571 | `a7e9096d59a86f47069250b54914e13f5c99e39d566c02aa3fa61c8a5c07357a` |
+
+- Windows／macOS 只做編譯與結構驗證，未原生執行；Linux Xvfb 不代表使用者桌面延遲驗收。未觀測介面原語回退原版，沒有升級全遊戲 parity 聲明。實際英文 AI 圖更新既有 `docs/images/ui-ai-en.png`，其餘 HD／AI 圖仍為相同實作的正常新遊戲畫面。最終 Git、洩漏與 Docker 檢查另追加於本段。
+- 收尾核對 `workplace/out/v102-final-audit.py`、`v102-final-audit.json`：主 repo／fork 追蹤檔無原版同名檔及非空完整 SHA 命中，dist-all 未追蹤，README 本機連結與 manifest 收據雜湊全符合。104909 項擁有權檢查無 root-owned 檔案或 *.md 目錄，hr-* 容器無殘留。游標核對的巢狀 bind 曾在 smoke 留下兩個空白 root-owned 佔位；逐項確認目錄為空、檔案為 0 bytes 後僅移除這兩項，同容器方法重跑通過，不改真正輸入或收據。
+- 推送前主機 gh 認證成功、遠端 PUBLIC；最後內容掃描仍為既有 12 筆及四筆授權人物姓名，共 16 筆，沒有新增命中。根文件／腳本空白與語法檢查通過，fork 工作樹乾淨。程式與工具鏈已提交為 `6975482`、`2c9d2eb`，本段與驗收文件依既有授權作一般推送；不推送 dosgolem fork，候選包與本機診斷不加入 Git。

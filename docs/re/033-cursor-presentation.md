@@ -12,9 +12,10 @@
 | 中間畫面風險 | 輪詢點以外快照可能取到擦除或重畫階段，見規格 004 第 5.1 節 |
 | 原版規則 | 保留滑鼠範圍、按鍵事件、輪詢及遊戲時鐘 |
 | 修正 | 本機 fork `b687256` 游標修正、`686581d` 五尺寸板面主題；補丁 0042、0043，正式發行仍為 1.0.1 |
-| 最近測試 | 2026-10-08 完整前端與 UI／游標競態測試、獨立完成前審查通過；原版 A/B 兩側各 106000000 步，機器狀態相同 |
-| GUI 證據 | `workplace/out/ui-final-gui/` 正常新遊戲含 F2 三主題、F1、F12、左右鍵；918 幀全為單游標，F12 模板 272／272；英文入口 `ui-english-gui/` |
-| 下一閘門 | 從乾淨來源建立 `v.1.0.2-20261008` 六包並驗實際 AppImage；macOS universal 已編譯，仍未實機驗收 |
+| 最近測試 | 2026-10-08 完整前端與 UI／游標競態測試、獨立完成前審查、六包靜態驗證及實際 AppImage 抽測通過；原版 A/B 兩側各 106000000 步，機器狀態相同 |
+| GUI 證據 | 候選實包 `dist-all/v.1.0.2-20261008/smoke/linux/` 正常新遊戲含 F2 三主題、F1、F12、左右鍵；598 幀全為單游標，F12 模板 272／272。先前 standalone 的 918 幀另留 `workplace/out/ui-final-gui/` |
+| 候選交付 | `dist-all/v.1.0.2-20261008/`，full-local／patch 各三包；建包根 `2c9d2eb`、fork `686581d`，大小與雜湊見版本根及 patch 清冊 |
+| 下一閘門 | 使用者過目實際 HD／AI 介面並決定定稿與發行；尚未建立新 tag／Release 或改 Issue。Windows／macOS 未實機驗收 |
 | 介面主題工作 | [034](034-procedural-ui-panels.md) 與 [011](../spec/011-procedural-ui-themes.md)：五尺寸 PLATE2 已接線，原版回退覆蓋未知原語；實際美術畫面仍待使用者過目 |
 
 ## 證據
@@ -53,6 +54,8 @@
 - `workplace/out/ui-runtime-final-regressions.log`、`ui-play-final-regressions.log`：同值字形、保存身分、非 80-byte 列距、已驗游標的 pending 交界及 RGBA／Frame／style 三元組測試。
 - `workplace/out/review-ui-final.md`、`review-ui-cursor-boundary.md`：完整唯讀審查與最後游標交界複核。
 - `workplace/out/ui-final-gui/cursor-validation.json`：最終執行檔 `cd4d69a3b9530577de99a3202d1119196091b22f256e8cc9db8a2327b9c71589`，918 幀無漏畫／雙游標，F12 完整匹配；方法 `workplace/out/check-cursor-final.py`。
+- `workplace/out/package-static-v102-report.md`、`verify-ui-packages-v102.py`：六包獨立內容／格式驗證與重跑程式；機器收據 `dist-all/v.1.0.2-20261008/smoke/full-static.json`。
+- `dist-all/v.1.0.2-20261008/smoke/linux/receipt.json`、`cursor-validation.json`：實際 AppRun 僅使用包內資源啟動；正式版號已注入，執行器 SHA-256 `117eb4e4cc31521a0856ea17b2ca8e95cef738d9eabe5ee028b5855d52557140`。598 幀皆單游標，F12 272／272。正常輸入程式 `workplace/out/capture_v102_bundle.py` 沿 `tools/capture_promo.py`，沒有注入狀態。
 
 主題圖上的橄欖色斜塊曾被當成背景殘留；完整游標模板比對顯示它是原版游標的前景色。保留這個圖形，沒有改畫游標。另由窄測獨立找出的 pending 取消下方板面缺口已修正；不把兩者混稱同一原因。
 

@@ -34,6 +34,8 @@ AppImage 工具鏈為 `hr-appimage:runtime-recovery-r1`，入口 `tools/rebuild_
 
 現行素材入口是 `hd-ai/catalog.tsv`、`hd-ai/provenance.tsv`；譯文入口是 `l10n/<代碼>/` 及 `l10n/ACCEPTANCE.json`。逐輪結果記在 `WORKLOG.md`。
 
+2026-10-08 游標規格 010 已 CONFORMED；五尺寸介面 011 已實作並通過技術驗收，實際美術待使用者過目。候選 `v.1.0.2-20261008` 的 full-local／patch 各三包由根 `2c9d2eb`、fork `686581d` 建立，入口 `docs/re/033-cursor-presentation.md`。六包靜態與 Linux 實包抽測通過，未做 Windows／macOS 實機驗收。候選尚未發行，正式版仍為 `v.1.0.1-20261006`。
+
 ## 1. 專案定位與範圍
 
 本專案處理 DOS 遊戲《高報酬戰將》。需求來源是 `IDEA.md`，拆成四項工作：

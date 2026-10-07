@@ -11,10 +11,11 @@
 # 一般發行包不含原版素材（AGENTS.md 第 2 節）：玩家自備，放在執行檔旁的 original/。
 # 產出前以 tools/pkg/leakscan.py 依 docs/re/source-inventory.tsv 的檔名與雜湊掃描，有命中就不出包。
 # 建置一律在 Docker（--rm、目前 UID、--network none）。映像用本機已有的：
-#   Go 與 ebiten 2.9.9：eob-remake-go:1.26.7-ebiten2.9.9      （HR_GO_IMAGE）
-#   macOS 交叉編譯：    psychicwar-osxcross:latest              （HR_MAC_IMAGE）
-#   AppImage：          psychicwar-appimage:latest              （HR_APPIMAGE_IMAGE）
-# 這些映像屬於其他專案，這裡只 `docker run --rm`，不修改、不刪除。
+#   Go 與 ebiten 2.9.9：hr-go-ebiten:1.26.7-2.9.9-r1           （HR_GO_IMAGE）
+#   macOS 交叉編譯：    hr-osxcross:1.26.7-15.5-r1              （HR_MAC_IMAGE）
+#   AppImage：          hr-appimage:runtime-recovery-r1         （HR_APPIMAGE_IMAGE）
+# 建置來源在 tools/docker/，重建入口為 tools/rebuild_toolchain.sh 與
+# tools/rebuild_appimage_toolchain.sh。macOS SDK 只留本機；支援範圍見 AGENTS.md。
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
