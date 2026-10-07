@@ -74,7 +74,9 @@ try:
         event = dict(action, at=round(time.monotonic() - started, 3))
         events.append(event)
         kind = action['kind']
-        if kind == 'click':
+        if kind == 'move':
+            command('xdotool', 'mousemove', str(action['x']), str(action['y']))
+        elif kind == 'click':
             command('xdotool', 'mousemove', str(action['x']), str(action['y']))
             command('xdotool', 'mousedown', str(action.get('button', 1)))
             time.sleep(.15)
@@ -83,6 +85,16 @@ try:
             command('xdotool', 'keydown', action['key'])
             time.sleep(.2)
             command('xdotool', 'keyup', action['key'])
+        elif kind == 'wait_theme':
+            theme = action['theme']
+            if theme not in ('original', 'hd', 'ai'):
+                raise ValueError(theme)
+            deadline = time.monotonic() + min(action.get('timeout', 30), 60)
+            while 'theme ready: ' + theme not in (out / 'play.log').read_text():
+                if client.poll() is not None or time.monotonic() >= deadline:
+                    raise RuntimeError('主題未完成切換：' + theme)
+                time.sleep(.1)
+            event['completed_at'] = round(time.monotonic() - started, 3)
         elif kind == 'shot':
             shot(action['name'])
         elif kind == 'record':

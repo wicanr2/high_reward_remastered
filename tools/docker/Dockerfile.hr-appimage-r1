@@ -1,0 +1,30 @@
+# HR AppImage builder：精確恢復既有公開 v.1.0.1-20261006 包的 runtime。
+# 來源對照：/home/anr2/cht/psychic-war/tools/docker/appimage.Dockerfile（唯讀）。
+# 不下載 continuous runtime；context 只有 Dockerfile 與已核對的 runtime 前綴。
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
+
+LABEL org.opencontainers.image.title="HR AppImage builder" \
+      org.opencontainers.image.version="runtime-recovery-r1" \
+      org.opencontainers.image.description="Replacement for retired psychicwar-appimage; fixed runtime recovered without Squashfs/game payload" \
+      hr.runtime.sha256="1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends squashfs-tools file \
+    && mkdir -p /usr/local/share/hr-appimage \
+    && dpkg-query -W -f='${Package}\t${Version}\n' > /usr/local/share/hr-appimage/packages.tsv \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 hr \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/sh hr \
+    && install -d -o 1000 -g 1000 /work
+
+COPY runtime /opt/runtime-x86_64
+RUN printf '%s  %s\n' \
+        '1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf' \
+        '/opt/runtime-x86_64' | sha256sum -c - \
+    && chmod 755 /opt/runtime-x86_64
+
+USER 1000:1000
+WORKDIR /work
+ENV LANG=C.UTF-8
+RUN test "$(/opt/runtime-x86_64 --appimage-offset)" = 944632
+CMD ["sh"]

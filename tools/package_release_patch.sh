@@ -8,7 +8,7 @@ test -z "$(git -C "$ROOT" status --porcelain)" || { echo "正式發行包需要�
 test -z "$(git -C "$ROOT/workplace/dosgolem" status --porcelain)" || { echo "dosgolem 副本需要乾淨工作樹" >&2; exit 2; }
 TARGET="${1:-all}"
 case "$TARGET" in all|appimage|windows|macos) ;; *) echo "目標需為 all、appimage、windows 或 macos" >&2; exit 2;; esac
-IMAGE="eob-remake-release:1.26.7-ebiten2.9.9-audio"
+IMAGE="${HR_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 test -d "$ROOT/workplace" && test -d "$ROOT/workplace/orig" && test -d "$ROOT/dist-all"
 test -f "$ROOT/tools/package.sh" && test -f "$ROOT/workplace/orig/MAIN.EXE"
 test -f /usr/bin/docker && test -S /var/run/docker.sock

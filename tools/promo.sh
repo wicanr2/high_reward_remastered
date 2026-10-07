@@ -11,7 +11,7 @@ FONTDIR=/usr/share/fonts/opentype/noto
 test -d "$DELIVERY" && test -d "$LIVE" && test -d "$ENGLISH"
 test -f "$LIVE/receipt.json" && test -f "$ENGLISH/receipt.json"
 test -f "$FONTDIR/NotoSansCJK-Bold.ttc" && test -f "$ROOT/workplace/out/music/wav/MAP2.wav"
-IMAGE=eob-remake-go:1.26.7-ebiten2.9.9-video-ime1
+IMAGE="${HR_CAPTURE_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 docker image inspect "$IMAGE" >/dev/null
 exec timeout "${HR_PROMO_TIMEOUT:-25m}" docker run --rm --name hr-promo-render \
   --network none --memory 4g --cpus 3 --pids-limit 256 \

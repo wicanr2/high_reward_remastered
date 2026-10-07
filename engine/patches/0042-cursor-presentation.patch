@@ -1,0 +1,827 @@
+From b687256216dada03521ee7a1e97a092ea4ee1156 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Wed, 7 Oct 2026 18:52:21 +0800
+Subject: [PATCH] =?UTF-8?q?=E7=8D=A8=E7=AB=8B=E7=B9=AA=E8=A3=BD=E6=B8=B8?=
+ =?UTF-8?q?=E6=A8=99=E4=B8=A6=E4=BF=AE=E6=AD=A3=E9=87=8D=E7=95=AB=E5=9B=9E?=
+ =?UTF-8?q?=E9=80=80=E8=88=87=E4=B8=BB=E9=A1=8C=E5=BA=95=E5=9C=96=E9=85=8D?=
+ =?UTF-8?q?=E5=B0=8D?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/play/cursor.go         |  54 +++++++
+ apps/hr/play/cursor_test.go    |  94 +++++++++++
+ apps/hr/play/game.go           |  20 ++-
+ apps/hr/play/game_test.go      |   4 +-
+ apps/hr/play/hdview.go         |   4 +
+ apps/hr/play/ingame_test.go    |   2 +-
+ apps/hr/play/main.go           |   5 +-
+ apps/hr/runtime/cursor.go      | 148 +++++++++++++++++
+ apps/hr/runtime/cursor_test.go | 284 +++++++++++++++++++++++++++++++++
+ apps/hr/runtime/session.go     |  47 +++---
+ 10 files changed, 634 insertions(+), 28 deletions(-)
+ create mode 100644 apps/hr/play/cursor.go
+ create mode 100644 apps/hr/play/cursor_test.go
+ create mode 100644 apps/hr/runtime/cursor.go
+ create mode 100644 apps/hr/runtime/cursor_test.go
+
+diff --git a/apps/hr/play/cursor.go b/apps/hr/play/cursor.go
+new file mode 100644
+index 0000000..fff01b9
+--- /dev/null
++++ b/apps/hr/play/cursor.go
+@@ -0,0 +1,54 @@
++package main
++
++import (
++	"bytes"
++
++	"github.com/hajimehoshi/ebiten/v2"
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++func cursorPosition(c *hrrt.Cursor, x, y int) (int, int, bool) {
++	if c == nil || x < 0 || y < 0 || x >= logicalW || y >= logicalH {
++		return 0, 0, false
++	}
++	x, y = cursorToGame(x, y)
++	if c.MaxX > 0 {
++		x = min(c.MaxX, max(c.MinX, x))
++	}
++	if c.MaxY > 0 {
++		y = min(c.MaxY, max(c.MinY, y+40)) - 40
++	}
++	return max(0, x-c.HotX) * 2, max(0, y-c.HotY) * 2, true
++}
++
++func (g *game) drawCursor(screen *ebiten.Image) {
++	f := g.drawnFrame
++	if f == nil || f.Cursor == nil || !f.CursorManaged {
++		return
++	}
++	x, y := g.env.cursor()
++	x, y, ok := cursorPosition(f.Cursor, x, y)
++	if !ok {
++		return
++	}
++	rgba := make([]byte, 40*32*4)
++	for i, p := range f.Cursor.Pixels {
++		if p == hd.Transparent {
++			continue
++		}
++		c := f.DAC[f.Map[p&15]]
++		copy(rgba[i*4:], []byte{c[0], c[1], c[2], 255})
++	}
++	if g.imgCursor == nil {
++		g.imgCursor = ebiten.NewImage(40, 32)
++	}
++	if !bytes.Equal(rgba, g.cursorRGBA) {
++		g.imgCursor.WritePixels(rgba)
++		g.cursorRGBA = rgba
++	}
++	op := &ebiten.DrawImageOptions{}
++	op.GeoM.Scale(2, 2)
++	op.GeoM.Translate(float64(x), float64(y))
++	screen.DrawImage(g.imgCursor, op)
++}
+diff --git a/apps/hr/play/cursor_test.go b/apps/hr/play/cursor_test.go
+new file mode 100644
+index 0000000..3513f1e
+--- /dev/null
++++ b/apps/hr/play/cursor_test.go
+@@ -0,0 +1,94 @@
++package main
++
++import (
++	"time"
++
++	"github.com/hajimehoshi/ebiten/v2"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++	"testing"
++)
++
++func TestCursorPositionImmediateAndBounds(t *testing.T) {
++	c := &hrrt.Cursor{MaxX: 639, MinY: 40, MaxY: 439}
++	for x := 100; x < 116; x++ {
++		got, y, ok := cursorPosition(c, x*2, 202)
++		if !ok || got != x*2 || y != 202 {
++			t.Fatalf("snapped x=%d: %d,%d", x, got, y)
++		}
++	}
++	c.MinX, c.MaxX, c.MinY, c.MaxY = 265, 375, 205, 235
++	x, y, ok := cursorPosition(c, 10, 10)
++	if !ok || x != 530 || y != 330 {
++		t.Fatal("title bounds")
++	}
++	x, y, ok = cursorPosition(c, 1200, 700)
++	if !ok || x != 750 || y != 390 {
++		t.Fatal("inclusive upper bounds")
++	}
++	c.HotX, c.HotY = 3, 4
++	x, y, _ = cursorPosition(c, 600, 350)
++	if x != 594 || y != 342 {
++		t.Fatal("hotspot")
++	}
++	c = &hrrt.Cursor{HotX: 5, HotY: 5}
++	x, y, _ = cursorPosition(c, 0, 0)
++	if x != 0 || y != 0 {
++		t.Fatal("hotspot lower clamp")
++	}
++	for _, p := range [][2]int{{-1, 0}, {0, -1}, {1280, 1}, {1, 800}} {
++		if _, _, ok := cursorPosition(c, p[0], p[1]); ok {
++			t.Fatal("outside window")
++		}
++	}
++	if _, _, ok := cursorPosition(nil, 100, 100); ok {
++		t.Fatal("hidden cursor")
++	}
++}
++
++func TestCursorFrameMatchesRetainedOriginalImage(t *testing.T) {
++	gr := newGameRig(t, themeOriginal, []themeID{themeHD})
++	g := gr.g
++	g.ensureImages()
++	screen := ebiten.NewImage(logicalW, logicalH)
++	f := gr.ss.frame
++	f.CursorManaged = true
++	f.Cursor = &hrrt.Cursor{}
++	g.drawGame(screen)
++	original := g.drawnFrame
++	if original == nil || original.Cursor == nil {
++		t.Fatal("original frame not uploaded")
++	}
++	// 上一次 HD 底圖的游標已隱藏；原版底圖仍是舊的 visible 快照。
++	g.hdFrame = newFakeFrame(vramW, vramH, 2)
++	g.drawnFrame = g.hdFrame
++	gr.ss.frame = newFakeFrame(vramW, vramH, 3)
++	gr.ss.frame.CursorPending = true
++	gr.ss.frame.CursorDeadline = time.Now().Add(100 * time.Millisecond)
++	g.drawGame(screen)
++	if g.drawnFrame != original {
++		t.Fatal("retained original image used cursor from another GPU image")
++	}
++	// 沒有新快照，原本 Pending 的同一張 frame 仍會到期發布 raw。
++	time.Sleep(time.Until(gr.ss.frame.CursorDeadline) + time.Millisecond)
++	g.drawGame(screen)
++	if g.drawnFrame == original || g.drawnFrame.CursorManaged || g.lastSq != 3 {
++		t.Fatal("stopped pending frame never reached original GPU image")
++	}
++}
++
++func TestCursorUnrestrictedBoundsAndFarEdges(t *testing.T) {
++	c := &hrrt.Cursor{MinX: 100, MinY: 100} // Max=0：不套用該軸範圍。
++	for _, tc := range []struct{ x, y, wantX, wantY int }{
++		{0, 0, 0, 0}, {1, 1, 0, 0}, {1279, 799, 1278, 798},
++	} {
++		x, y, ok := cursorPosition(c, tc.x, tc.y)
++		if !ok || x != tc.wantX || y != tc.wantY {
++			t.Fatalf("position %d,%d: %d,%d %v", tc.x, tc.y, x, y, ok)
++		}
++	}
++	c = &hrrt.Cursor{MinX: 500, MaxX: 100, MinY: 300, MaxY: 200}
++	x, y, ok := cursorPosition(c, 0, 0)
++	if !ok || x != 200 || y != 320 {
++		t.Fatal("inverted bounds differ from DOS sequential clamp")
++	}
++}
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index 8fffa07..2eaabec 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -127,7 +127,11 @@ type game struct {
+ 	lastSq     uint64      // original：imgOrig 以遊戲 Seq 比對
+ 	lastPub    uint64      // HD：imgHD 以 hdView 的發佈計數比對
+ 	drawnFrame *hrrt.Frame // 目前 GPU 底圖對應的快照，顯示疊層必須用同一份。
++	origFrame  *hrrt.Frame // imgOrig 配對的快照，主題切換時即使沒有新快照也沿用它。
++	hdFrame    *hrrt.Frame // imgHD 配對的快照。
+ 	shotScreen *ebiten.Image
++	imgCursor  *ebiten.Image
++	cursorRGBA []byte
+ 
+ 	mx, my  int
+ 	btn     [2]bool
+@@ -348,6 +352,7 @@ func (g *game) Draw(screen *ebiten.Image) {
+ 			g.hud.drawToast(screen, ht, toast)
+ 		}
+ 	}
++	g.drawCursor(screen)
+ 	g.shotScreen = screen
+ }
+ 
+@@ -358,19 +363,24 @@ func (g *game) drawGame(screen *ebiten.Image) {
+ 		filter = ebiten.FilterLinear
+ 	}
+ 	if g.sw.Display() == srcHD && g.hv != nil {
+-		if pub, ok := g.hv.uploadDisplay(g.lastPub, func(rgba []byte, f *hrrt.Frame) { g.imgHD.WritePixels(rgba); g.drawnFrame = f }); ok {
++		if pub, ok := g.hv.uploadDisplay(g.lastPub, func(rgba []byte, f *hrrt.Frame) { g.imgHD.WritePixels(rgba); g.hdFrame = f }); ok {
+ 			g.lastPub = pub
+ 		}
++		g.drawnFrame = g.hdFrame
+ 		r := image.Rect(0, topBlank*hdScale, vramW*hdScale, (topBlank+gameH)*hdScale)
+ 		screen.DrawImage(g.imgHD.SubImage(r).(*ebiten.Image), &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest})
+ 		return
+ 	}
+ 	if f := g.s.Frame(); f != nil && f.Seq != g.lastSq && f.W == vramW && f.H == vramH {
+-		g.lastSq = f.Seq
+-		g.drawnFrame = f
+-		f.RGBA(g.rgba)
+-		g.imgOrig.WritePixels(g.rgba)
++		f = f.Presentation()
++		if f != nil {
++			g.lastSq = f.Seq
++			g.origFrame = f
++			f.RGBA(g.rgba)
++			g.imgOrig.WritePixels(g.rgba)
++		}
+ 	}
++	g.drawnFrame = g.origFrame
+ 	op := &ebiten.DrawImageOptions{Filter: filter}
+ 	op.GeoM.Scale(2, 2)
+ 	screen.DrawImage(g.imgOrig.SubImage(image.Rect(0, topBlank, vramW, topBlank+gameH)).(*ebiten.Image), op)
+diff --git a/apps/hr/play/game_test.go b/apps/hr/play/game_test.go
+index 3f42bfd..32969e7 100644
+--- a/apps/hr/play/game_test.go
++++ b/apps/hr/play/game_test.go
+@@ -505,8 +505,8 @@ func shots(t *testing.T, dir string) []string {
+ 	return m
+ }
+ 
+-// F12 截圖依「目前 theme」選路徑（original 存 640x400，HD 存 1280x800），不依 hv 是否存在；
+-// HD theme 下 writePNG 回 errNoFrame（ready 為空）時，退回存原版快照（640x400）並記一行。
++// 第一個 Draw 之前的 F12 後備路徑：依 theme 保存原版或 HD，HD 尚無畫面時退回原版快照。
++// Draw 之後所有 theme 都保存 1280x800 的實際合成畫面，包含文字與獨立游標。
+ func TestScreenshotByTheme(t *testing.T) {
+ 	// original：即使有 HD 掛鉤，也存 640x400，且不呼叫 HD 的 writePNG
+ 	called := 0
+diff --git a/apps/hr/play/hdview.go b/apps/hr/play/hdview.go
+index 02fcdff..2ef356e 100644
+--- a/apps/hr/play/hdview.go
++++ b/apps/hr/play/hdview.go
+@@ -126,6 +126,10 @@ func (v *hdView) run() {
+ 		if f == nil || f.Seq == last {
+ 			continue
+ 		}
++		f = f.Presentation()
++		if f == nil {
++			continue
++		}
+ 		last = f.Seq
+ 		v.cmp.SetAssets(assets)
+ 		v.cmp.Compose(v.bufs[w], f.Px, f.W, f.H, f.Map, &f.DAC, f.Stamps)
+diff --git a/apps/hr/play/ingame_test.go b/apps/hr/play/ingame_test.go
+index 27b177c..49107fe 100644
+--- a/apps/hr/play/ingame_test.go
++++ b/apps/hr/play/ingame_test.go
+@@ -516,7 +516,7 @@ func TestIngameF1TextTemplates(t *testing.T) {
+ 		want string
+ 	}{
+ 		{origF1, "原版（繁體中文）"},
+-		{partial(icTW), "語言包 繁體中文（部分翻譯）"},
++		{partial(icTW), "語言包 繁體中文"},
+ 		{verifyUse(icTW), "語言包 繁體中文（原版文字，驗證用）"},
+ 		{verifyUse(icIdentity), "語言包 identity（原版文字，驗證用）"},
+ 		{pending(icKO), "已選 韓文，下次啟動生效"},
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index 66cc34f..75c2d57 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -167,8 +167,9 @@ func main() {
+ 		eng.SetMute(true)
+ 	}
+ 	s, err := hrrt.Open(root, hrrt.Options{
+-		Sound:   eng,
+-		SaveDir: saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf,
++		SmoothCursor: true,
++		Sound:        eng,
++		SaveDir:      saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf,
+ 		HDHooks: plan.HDHooks, HDAssets: ts.BaseAssets(),
+ 		LangDir: langDir, LangDigest: langDigest, // 只在語言包啟用時才傳；LangDir 非空時 LangDigest 必非空，SkipLangDigest 不設
+ 		DisplayTableDir: ing.DisplayTableDir, DisplayCode: string(ing.Choice.Code),
+diff --git a/apps/hr/runtime/cursor.go b/apps/hr/runtime/cursor.go
+new file mode 100644
+index 0000000..2353d58
+--- /dev/null
++++ b/apps/hr/runtime/cursor.go
+@@ -0,0 +1,148 @@
++package runtime
++
++import (
++	"encoding/binary"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++)
++
++// Cursor 是規格 010 的不可變顯示資訊，座標界限仍採 DOS 的 VGA 座標。
++type Cursor struct {
++	Pixels                 []uint8
++	HotX, HotY             int
++	MinX, MaxX, MinY, MaxY int
++}
++
++// Presentation 回傳顯示專用底圖；nil 表示有界的重畫等待。
++// 原始快照、診斷與 RGBA 始終保留原始 VRAM。
++func (f *Frame) Presentation() *Frame {
++	return f.presentationAt(time.Now())
++}
++
++func (f *Frame) presentationAt(now time.Time) *Frame {
++	if f.CursorPending {
++		if !f.CursorDeadline.IsZero() && !now.Before(f.CursorDeadline) {
++			// 模擬器停止後也能到期，不修改已發布的原始快照。
++			c := *f
++			c.Cursor, c.CursorBackground = nil, nil
++			c.CursorManaged, c.CursorPending = false, false
++			c.CursorDeadline = time.Time{}
++			return &c
++		}
++		return nil
++	}
++	if !f.CursorManaged {
++		return f
++	}
++	c := *f
++	if f.CursorBackground != nil {
++		c.Px = f.CursorBackground
++	}
++	c.Stamps = make([]*hd.Stamp, 0, len(f.Stamps))
++	for _, st := range f.Stamps {
++		if st.Site != hd.CursorSite {
++			c.Stamps = append(c.Stamps, st)
++		}
++	}
++	return &c
++}
++
++const cursorData = 0x3e500
++
++func cursorSprite(b []byte) (hd.Sprite, bool) {
++	if len(b) < 805 || binary.LittleEndian.Uint16(b) != 40 || binary.LittleEndian.Uint16(b[2:]) != 32 || b[4] != 1 {
++		return hd.Sprite{}, false
++	}
++	s, err := hd.DecodePlanarSprite(b[:805])
++	return s, err == nil
++}
++
++// prepareCursor 只讀原始記憶體及像素。false 是未知格式，pending 是已知格式的中間畫面。
++func prepareCursor(f *Frame, mem []byte, bounds [4]int) (managed, pending bool, reason string) {
++	if f.W != 640 || f.H != 480 || len(f.Px) != 640*480 || len(mem) < cursorData+0x1bd1+805 {
++		return false, false, "畫面尺寸或資料長度不符"
++	}
++	d := mem[cursorData:]
++	u16 := func(o int) int { return int(binary.LittleEndian.Uint16(d[o:])) }
++	shape, ok := cursorSprite(d[0x2a9:])
++	if !ok {
++		return false, false, "游標精靈格式不支援或尚未初始化"
++	}
++	if u16(0x19) == 0 && u16(0x1b) == 0 {
++		return true, false, ""
++	}
++	if u16(0x19) != 1 || u16(0x1b) != 1 {
++		return true, true, ""
++	}
++	paint, ok := cursorSprite(d[0x1bd1:])
++	if !ok {
++		return false, false, "當輪繪圖精靈格式不支援"
++	}
++	x, y := u16(0x1d)*8, u16(0x1f)+40
++	if u16(0x21) != 5 || u16(0x23) != 32 || x < 0 || x >= 640 || y < 40 || y >= 440 {
++		return false, false, "背景位置或尺寸不符"
++	}
++	n := 0
++	for j := 0; j < 32 && y+j < 440; j++ {
++		for i := 0; i < 40 && x+i < 640; i++ {
++			p := paint.Idx[j*40+i]
++			if p == hd.Transparent {
++				continue
++			}
++			n++
++			if f.Px[(y+j)*640+x+i] != p {
++				return true, true, ""
++			}
++		}
++	}
++	if n == 0 {
++		return true, true, ""
++	}
++	clean := append([]uint8(nil), f.Px...)
++	bg := d[0x1d+8 : 0x1d+648]
++	for j := 0; j < 32 && y+j < 440; j++ {
++		for i := 0; i < 40 && x+i < 640; i++ {
++			if paint.Idx[j*40+i] == hd.Transparent {
++				continue
++			}
++			v := uint8(0)
++			for plane := 0; plane < 4; plane++ {
++				v |= ((bg[j*20+plane*5+i/8] >> uint(7-i%8)) & 1) << uint(plane)
++			}
++			clean[(y+j)*640+x+i] = v
++		}
++	}
++	f.CursorBackground = clean
++	f.Cursor = &Cursor{Pixels: shape.Idx, HotX: u16(0x2a5), HotY: u16(0x2a7), MinX: bounds[0], MaxX: bounds[1], MinY: bounds[2], MaxY: bounds[3]}
++	return true, false, ""
++}
++
++func (s *Session) captureCursor(f *Frame, now time.Time) {
++	m := s.d.Mouse
++	managed, pending, reason := prepareCursor(f, s.m.Mem, [4]int{int(m.MinX), int(m.MaxX), int(m.MinY), int(m.MaxY)})
++	if pending {
++		if s.cursorWaitAt.IsZero() {
++			s.cursorWaitAt = now
++		}
++		f.CursorDeadline = s.cursorWaitAt.Add(500 * time.Millisecond)
++		if !now.Before(f.CursorDeadline) {
++			managed, pending = false, false
++			reason = "重畫等待超過 500 毫秒"
++		}
++	} else {
++		s.cursorWaitAt = time.Time{}
++	}
++	f.CursorManaged, f.CursorPending = managed, pending
++	if reason != "" {
++		if s.cursorLogged == nil {
++			s.cursorLogged = make(map[string]bool)
++		}
++		if !s.cursorLogged[reason] {
++			if s.logf != nil {
++				s.logf("游標呈現回退原版：%s", reason)
++			}
++			s.cursorLogged[reason] = true
++		}
++	}
++}
+diff --git a/apps/hr/runtime/cursor_test.go b/apps/hr/runtime/cursor_test.go
+new file mode 100644
+index 0000000..9419739
+--- /dev/null
++++ b/apps/hr/runtime/cursor_test.go
+@@ -0,0 +1,284 @@
++package runtime
++
++import (
++	"bytes"
++	"encoding/binary"
++	"fmt"
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"testing"
++	"time"
++)
++
++func TestCursorPresentationClipsAtGameEdges(t *testing.T) {
++	for _, pos := range [][2]int{{0, 40}, {632, 40}, {0, 439}, {632, 439}} {
++		t.Run(fmt.Sprintf("%d-%d", pos[0], pos[1]), func(t *testing.T) {
++			f, mem := cursorFixture()
++			d := mem[cursorData:]
++			binary.LittleEndian.PutUint16(d[0x1d:], uint16(pos[0]/8))
++			binary.LittleEndian.PutUint16(d[0x1f:], uint16(pos[1]-40))
++			for i := range f.Px {
++				f.Px[i] = 9
++			}
++			// 40×32 的色 1 不透明精靈，保存背景為色 6。
++			for y := 0; y < 32; y++ {
++				for x := 0; x < 5; x++ {
++					for _, off := range []int{0x2a9, 0x1bd1} {
++						d[off+5+y*25+x] = 0xff
++						d[off+5+y*25+20+x] = 0xff
++					}
++					d[0x1d+8+y*20+5+x] = 0xff
++					d[0x1d+8+y*20+10+x] = 0xff
++				}
++				for x := 0; x < 40; x++ {
++					if pos[0]+x < 640 && pos[1]+y < 440 {
++						f.Px[(pos[1]+y)*640+pos[0]+x] = 1
++					}
++				}
++			}
++			raw := append([]byte(nil), f.Px...)
++			before := append([]byte(nil), mem...)
++			ok, pending, _ := prepareCursor(f, mem, [4]int{0, 639, 40, 439})
++			if !ok || pending || f.Cursor == nil {
++				t.Fatal("clipped cursor rejected")
++			}
++			for y := 0; y < 480; y++ {
++				for x := 0; x < 640; x++ {
++					want := byte(9)
++					if x >= pos[0] && x < min(640, pos[0]+40) && y >= pos[1] && y < min(440, pos[1]+32) {
++						want = 6
++					}
++					if f.CursorBackground[y*640+x] != want {
++						t.Fatalf("pixel %d,%d: got %d want %d", x, y, f.CursorBackground[y*640+x], want)
++					}
++				}
++			}
++			if !bytes.Equal(f.Px, raw) || !bytes.Equal(mem, before) {
++				t.Fatal("edge cleanup modified original")
++			}
++		})
++	}
++}
++
++func TestCursorMalformedDataFallsBackWithoutMutation(t *testing.T) {
++	for _, tc := range []struct {
++		name string
++		edit func(*Frame, []byte) []byte
++	}{
++		{"short memory", func(_ *Frame, b []byte) []byte { return b[:cursorData+0x1bd1+804] }},
++		{"wrong frame size", func(f *Frame, b []byte) []byte { f.W = 639; return b }},
++		{"short pixels", func(f *Frame, b []byte) []byte { f.Px = f.Px[:len(f.Px)-1]; return b }},
++		{"shape width", func(_ *Frame, b []byte) []byte { b[cursorData+0x2a9] = 39; return b }},
++		{"shape height", func(_ *Frame, b []byte) []byte { b[cursorData+0x2ab] = 31; return b }},
++		{"shape flags", func(_ *Frame, b []byte) []byte { b[cursorData+0x2ad] = 0; return b }},
++		{"paint flags", func(_ *Frame, b []byte) []byte { b[cursorData+0x1bd5] = 0; return b }},
++		{"background width", func(_ *Frame, b []byte) []byte { b[cursorData+0x21] = 4; return b }},
++		{"background height", func(_ *Frame, b []byte) []byte { b[cursorData+0x23] = 31; return b }},
++		{"background x", func(_ *Frame, b []byte) []byte { b[cursorData+0x1d] = 80; return b }},
++		{"background y", func(_ *Frame, b []byte) []byte { binary.LittleEndian.PutUint16(b[cursorData+0x1f:], 400); return b }},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			f, mem := cursorFixture()
++			mem = tc.edit(f, mem)
++			raw := append([]byte(nil), f.Px...)
++			before := append([]byte(nil), mem...)
++			ok, pending, _ := prepareCursor(f, mem, [4]int{})
++			if ok || pending || f.Cursor != nil || f.CursorBackground != nil {
++				t.Fatal("malformed data must use original frame")
++			}
++			if !bytes.Equal(f.Px, raw) || !bytes.Equal(mem, before) {
++				t.Fatal("malformed data modified original")
++			}
++		})
++	}
++}
++
++func TestCursorIntermediateFlagsAndEmptyMaskWait(t *testing.T) {
++	for _, flags := range [][2]uint16{{0, 1}, {1, 0}, {2, 1}} {
++		f, mem := cursorFixture()
++		binary.LittleEndian.PutUint16(mem[cursorData+0x19:], flags[0])
++		binary.LittleEndian.PutUint16(mem[cursorData+0x1b:], flags[1])
++		ok, pending, _ := prepareCursor(f, mem, [4]int{})
++		if !ok || !pending || f.Cursor != nil || f.CursorBackground != nil {
++			t.Fatalf("intermediate flags %v published cursor", flags)
++		}
++	}
++	f, mem := cursorFixture()
++	mem[cursorData+0x1bd1+5+20] = 0
++	ok, pending, _ := prepareCursor(f, mem, [4]int{})
++	if !ok || !pending {
++		t.Fatal("empty mask must wait for a complete draw")
++	}
++}
++
++func cursorFixture() (*Frame, []byte) {
++	f := &Frame{W: 640, H: 480, Px: make([]byte, 640*480)}
++	mem := make([]byte, machine.MemSize)
++	d := mem[cursorData:]
++	put := func(o, n int) { binary.LittleEndian.PutUint16(d[o:], uint16(n)) }
++	put(0x19, 1)
++	put(0x1b, 1)
++	put(0x1d, 12)
++	put(0x1f, 100)
++	put(0x21, 5)
++	put(0x23, 32)
++	for _, off := range []int{0x2a9, 0x1bd1} {
++		put(off, 40)
++		put(off+2, 32)
++		d[off+4] = 1
++		d[off+5] = 0x80
++		d[off+5+20] = 0x80
++	}
++	// 一個不透明色 1 像素；背景色 6，透明鄰格刻意維持色 9。
++	f.Px[140*640+96] = 1
++	f.Px[140*640+97] = 9
++	d[0x1d+8+5] = 0x80
++	d[0x1d+8+10] = 0x80
++	return f, mem
++}
++
++func TestCursorPresentationRestoresOnlyOpaquePixels(t *testing.T) {
++	f, mem := cursorFixture()
++	before := append([]byte(nil), mem...)
++	raw := append([]byte(nil), f.Px...)
++	ok, pending, _ := prepareCursor(f, mem, [4]int{0, 639, 40, 439})
++	if !ok || pending || f.Cursor == nil {
++		t.Fatal("valid cursor rejected")
++	}
++	if f.CursorBackground[140*640+96] != 6 || f.CursorBackground[140*640+97] != 9 {
++		t.Fatal("background or transparency changed")
++	}
++	if !bytes.Equal(mem, before) || !bytes.Equal(f.Px, raw) {
++		t.Fatal("modified oracle")
++	}
++	f.CursorManaged = true
++	f.Stamps = []*hd.Stamp{{Site: hd.CursorSite}, {Site: 1}}
++	p := f.Presentation()
++	if len(p.Stamps) != 1 || p.Stamps[0].Site != 1 || len(f.Stamps) != 2 {
++		t.Fatal("stale cursor stamp or mutated frame")
++	}
++	if f.Px[140*640+96] != 1 || p.Px[140*640+96] != 6 {
++		t.Fatal("raw and presentation mixed")
++	}
++}
++
++func TestCursorHiddenAndUnsupported(t *testing.T) {
++	f, mem := cursorFixture()
++	binary.LittleEndian.PutUint16(mem[cursorData+0x19:], 0)
++	binary.LittleEndian.PutUint16(mem[cursorData+0x1b:], 0)
++	ok, pending, _ := prepareCursor(f, mem, [4]int{})
++	if !ok || pending || f.Cursor != nil {
++		t.Fatal("hidden")
++	}
++	f.CursorManaged = ok
++	f.Stamps = []*hd.Stamp{{Site: hd.CursorSite}}
++	if len(f.Presentation().Stamps) != 0 {
++		t.Fatal("hidden stale stamp")
++	}
++	mem[cursorData+0x2a9] = 39
++	ok, pending, _ = prepareCursor(f, mem, [4]int{})
++	if ok || pending {
++		t.Fatal("unsupported must fall back")
++	}
++}
++
++func TestCursorPendingFrameExpiresWithoutNewSnapshot(t *testing.T) {
++	f, mem := cursorFixture()
++	f.Px[140*640+96] = 2
++	s := &Session{m: machine.New()}
++	s.m.Mem = mem
++	s.d = dos.New(s.m, "")
++	now := time.Unix(100, 0)
++	s.captureCursor(f, now)
++	f.Stamps = []*hd.Stamp{{Site: hd.CursorSite}}
++	if f.presentationAt(now.Add(499*time.Millisecond)) != nil {
++		t.Fatal("published unfinished draw before deadline")
++	}
++	for _, ms := range []int{500, 600, 2000} {
++		p := f.presentationAt(now.Add(time.Duration(ms) * time.Millisecond))
++		if p == nil || p.CursorManaged || p.CursorPending || p.Cursor != nil || p.CursorBackground != nil {
++			t.Fatalf("last pending frame did not fall back at %d ms", ms)
++		}
++		if !bytes.Equal(p.Px, f.Px) || len(p.Stamps) != 1 || p.Stamps[0].Site != hd.CursorSite {
++			t.Fatal("fallback must retain raw pixels and original stamps")
++		}
++	}
++	if !f.CursorPending || !f.CursorManaged {
++		t.Fatal("presentation mutated immutable snapshot")
++	}
++}
++
++func TestCursorFallbackReasonsAreLoggedOnce(t *testing.T) {
++	f, mem := cursorFixture()
++	s := &Session{m: machine.New()}
++	s.m.Mem = mem
++	s.d = dos.New(s.m, "")
++	var logs []string
++	s.logf = func(format string, args ...any) { logs = append(logs, fmt.Sprintf(format, args...)) }
++	mem[cursorData+0x2a9] = 39
++	for i := 0; i < 3; i++ {
++		s.captureCursor(&Frame{W: f.W, H: f.H, Px: f.Px}, time.Unix(100, 0))
++	}
++	if len(logs) != 1 {
++		t.Fatalf("unsupported format logged %d times", len(logs))
++	}
++	mem[cursorData+0x2a9] = 40
++	f.Px[140*640+96] = 2
++	for _, ms := range []int{0, 500, 600, 900} {
++		s.captureCursor(&Frame{W: f.W, H: f.H, Px: f.Px}, time.Unix(100, 0).Add(time.Duration(ms)*time.Millisecond))
++	}
++	if len(logs) != 2 {
++		t.Fatalf("timeout reason missing or duplicated: %v", logs)
++	}
++}
++
++func TestCursorPendingDeadlineDoesNotReset(t *testing.T) {
++	f, mem := cursorFixture()
++	f.Px[140*640+96] = 2
++	s := &Session{m: machine.New()}
++	s.m.Mem = mem
++	s.d = dos.New(s.m, "")
++	now := time.Unix(100, 0)
++	for _, ms := range []int{0, 100, 400, 500, 600, 900} {
++		frame := &Frame{W: f.W, H: f.H, Px: f.Px}
++		s.captureCursor(frame, now.Add(time.Duration(ms)*time.Millisecond))
++		if frame.CursorPending != (ms < 500) || frame.Cursor != nil {
++			t.Fatalf("deadline reset at %d", ms)
++		}
++		if ms >= 500 && frame.Presentation() != frame {
++			t.Fatal("fallback must use raw and no native cursor")
++		}
++	}
++	f.Px[140*640+96] = 1
++	s.captureCursor(f, now.Add(time.Second))
++	if f.Cursor == nil || !s.cursorWaitAt.IsZero() {
++		t.Fatal("did not recover")
++	}
++}
++
++func TestCursorNormalPathDoesNotChangeMachine(t *testing.T) {
++	root := origRoot(t)
++	var sessions [2]*Session
++	for i := range sessions {
++		s, err := Open(root, Options{SmoothCursor: i == 1, NoPacing: true})
++		if err != nil {
++			t.Fatal(err)
++		}
++		sessions[i] = s
++		if st := s.RunSteps(30000000); st.Kind != StopSteps {
++			t.Fatal(st)
++		}
++		for n := 0; n < 4; n++ {
++			s.RunToPoll(2000000)
++		}
++		s.SnapshotNow()
++	}
++	a, b := sessions[0], sessions[1]
++	if !bytes.Equal(a.m.Mem, b.m.Mem) || !bytes.Equal(a.Frame().Px, b.Frame().Px) || a.m.Steps != b.m.Steps {
++		t.Fatal("presentation changed original state")
++	}
++	if a.Frame().CursorManaged || b.Frame().Cursor == nil || !b.Frame().CursorManaged {
++		t.Fatal("normal cursor not connected")
++	}
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index eb1a1b3..cf4df9d 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -40,6 +40,8 @@ const (
+ 
+ // Options 是 Open 的選項。
+ type Options struct {
++	// SmoothCursor 啟用規格 010 的顯示專用游標；原始 Frame.Px、VRAM 與輸入保持不變。
++	SmoothCursor bool
+ 	// DisplayTableDir/DisplayCode 啟用 MAIN 與 SHOP 的顯示專用 UTF-8 譯文，不改 DOS 資料。
+ 	DisplayTableDir, DisplayCode string
+ 	// SaveDir 是可寫暫存層（dosgolem 的 d.Scratch）；空字串表示唯讀（寫入只記帳）。
+@@ -127,15 +129,19 @@ func (s *Stop) Normal() bool { return s != nil && (s.Kind == StopQuit || s.Kind
+ // Frame 是 Run 在滑鼠輪詢點產生的畫面快照，建立後不再修改（docs/spec/003 第 3 節、004 第 5.1 節）。
+ // 只複製像素值與調色盤；轉成 RGB 由使用者在自己的執行緒做（RGBA），不佔模擬迴圈的時間。
+ type Frame struct {
+-	Display []DisplayStamp
+-	W, H    int
+-	Px      []uint8       // W*H 個像素值，0 至 15（Machine.Planar）
+-	Map     [16]uint8     // 像素值到 DAC 索引（EGA 屬性暫存器，VGA.DACIndex）
+-	DAC     [256][3]uint8 // 8 位元 RGB
+-	Steps   uint64
+-	Ticks   uint64
+-	Seq     uint64
+-	Stamps  []*hd.Stamp // 有效戳記（序號遞增；沒開掛鉤時為 nil）
++	Cursor                       *Cursor
++	CursorBackground             []uint8
++	CursorManaged, CursorPending bool
++	CursorDeadline               time.Time // 同一段連續重畫的期限，前端不需等待下一張快照。
++	Display                      []DisplayStamp
++	W, H                         int
++	Px                           []uint8       // W*H 個像素值，0 至 15（Machine.Planar）
++	Map                          [16]uint8     // 像素值到 DAC 索引（EGA 屬性暫存器，VGA.DACIndex）
++	DAC                          [256][3]uint8 // 8 位元 RGB
++	Steps                        uint64
++	Ticks                        uint64
++	Seq                          uint64
++	Stamps                       []*hd.Stamp // 有效戳記（序號遞增；沒開掛鉤時為 nil）
+ }
+ 
+ // RGBA 把畫面轉成每像素 4 bytes 的 RGBA（alpha 255）寫進 dst（長度至少 W*H*4）。
+@@ -196,15 +202,17 @@ type Session struct {
+ 	stackTop uint16
+ 	minSP    uint16
+ 
+-	mu      sync.Mutex
+-	inbox   []Event
+-	stats   Stats
+-	frame   atomic.Pointer[Frame]
+-	ov      *hd.Overlay
+-	display *displayObserver
+-	snd     *soundHooks // docs/spec/007；nil ＝ 關閉
+-	want    atomic.Bool
+-	frmSeq  uint64
++	mu           sync.Mutex
++	inbox        []Event
++	stats        Stats
++	frame        atomic.Pointer[Frame]
++	ov           *hd.Overlay
++	display      *displayObserver
++	snd          *soundHooks // docs/spec/007；nil ＝ 關閉
++	want         atomic.Bool
++	frmSeq       uint64
++	cursorWaitAt time.Time
++	cursorLogged map[string]bool
+ 
+ 	// 以下欄位只由持有機器的迴圈（Run 或 RunSteps）使用。
+ 	held           [2]bool
+@@ -529,6 +537,9 @@ func (s *Session) snapshot() {
+ 	for i := range f.Map {
+ 		f.Map[i] = s.m.VGA.DACIndex(uint8(i))
+ 	}
++	if s.opt.SmoothCursor {
++		s.captureCursor(f, time.Now())
++	}
+ 	if s.ov != nil {
+ 		f.Stamps = s.ov.Snapshot()
+ 	}
+-- 
+2.43.0
+

@@ -24,6 +24,14 @@
 
 MAIN／SHOP 顯示契約見 `docs/spec/009-display-only-main-shop-localization.md`；全量建包契約見 `docs/spec/008-ingame-text-localization.md` 第 3.2.5 節。
 
+2026-10-07 使用者回報 Linux AppImage 滑鼠閃爍與移動遲緩，Issue #4。目前狀態與證據入口 `docs/re/033-cursor-presentation.md`；呈現修正契約 `docs/spec/010-cursor-presentation.md`。同日使用者追加非人物介面的 HD 與 AI 手繪需求，範圍包括選單、按鈕、邊框與資訊面板，文字與操作位置維持原樣。
+
+介面原語的目前證據是 `docs/re/034-procedural-ui-panels.md`，接線契約是 `docs/spec/011-procedural-ui-themes.md`，五尺寸 PLATE2 切片已 READY。原始探針與唯讀報告入口在 034，未驗原語保留後續範圍。
+
+2026-10-07 既有 EOB 與 psychicwar 專用 image 消失後，現行 Linux 建置／測試／錄影使用 `hr-go-ebiten:1.26.7-2.9.9-r1`。可重現入口 `tools/rebuild_toolchain.sh`，來源 `tools/docker/Dockerfile.hr-build-r1`，收據 `workplace/out/toolchain-recovery-report.md`。macOS 恢復來源 `tools/docker/Dockerfile.hr-macos-r1`，SDK 仍只留本機，不上傳 image。只支援本專案既有 Go／Ebiten 版本，不以未驗版本替代。
+
+AppImage 工具鏈為 `hr-appimage:runtime-recovery-r1`，入口 `tools/rebuild_appimage_toolchain.sh`，來源 `tools/docker/Dockerfile.hr-appimage-r1` 與 `tools/pkg/recover_appimage_runtime.py`。固定 runtime 從既有公開 1.0.1 patch 前綴恢復，不輸出 Squashfs 內容；缺少已驗前綴與原公開包時停止，不改用會漂移的 continuous 下載。
+
 現行素材入口是 `hd-ai/catalog.tsv`、`hd-ai/provenance.tsv`；譯文入口是 `l10n/<代碼>/` 及 `l10n/ACCEPTANCE.json`。逐輪結果記在 `WORKLOG.md`。
 
 ## 1. 專案定位與範圍

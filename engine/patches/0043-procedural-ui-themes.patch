@@ -1,0 +1,2108 @@
+From 686581d34032d6b8a7209f033cf779f23ff73262 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Thu, 8 Oct 2026 02:20:19 +0800
+Subject: [PATCH] =?UTF-8?q?=E6=8E=A5=E5=85=A5=E6=9D=BF=E9=9D=A2=E4=B8=BB?=
+ =?UTF-8?q?=E9=A1=8C=E4=B8=A6=E4=BF=9D=E8=AD=B7=E5=AD=97=E5=BD=A2=E5=8F=8A?=
+ =?UTF-8?q?=E8=83=8C=E6=99=AF=E9=82=84=E5=8E=9F?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/hd/capture.go               |   1 +
+ apps/hr/hd/draw_step_test.go        |  26 ++
+ apps/hr/hd/stamp.go                 |  15 +-
+ apps/hr/play/display.go             |   8 +-
+ apps/hr/play/game.go                |  10 +-
+ apps/hr/play/hdview.go              |  27 +-
+ apps/hr/play/main.go                |   3 +-
+ apps/hr/play/ui.go                  | 333 +++++++++++++++++
+ apps/hr/play/ui_publication_test.go |  50 +++
+ apps/hr/play/ui_test.go             | 259 ++++++++++++++
+ apps/hr/runtime/display.go          |  56 ++-
+ apps/hr/runtime/display_test.go     |  30 ++
+ apps/hr/runtime/session.go          |  23 +-
+ apps/hr/runtime/ui.go               | 531 ++++++++++++++++++++++++++++
+ apps/hr/runtime/ui_test.go          | 396 +++++++++++++++++++++
+ apps/hr/runtime/ui_types.go         |  19 +
+ 16 files changed, 1765 insertions(+), 22 deletions(-)
+ create mode 100644 apps/hr/hd/draw_step_test.go
+ create mode 100644 apps/hr/play/ui.go
+ create mode 100644 apps/hr/play/ui_publication_test.go
+ create mode 100644 apps/hr/play/ui_test.go
+ create mode 100644 apps/hr/runtime/display_test.go
+ create mode 100644 apps/hr/runtime/ui.go
+ create mode 100644 apps/hr/runtime/ui_test.go
+ create mode 100644 apps/hr/runtime/ui_types.go
+
+diff --git a/apps/hr/hd/capture.go b/apps/hr/hd/capture.go
+index 8e47c40..1827b88 100644
+--- a/apps/hr/hd/capture.go
++++ b/apps/hr/hd/capture.go
+@@ -301,6 +301,7 @@ func (o *Overlay) finish(m *machine.Machine, p *pending) {
+ 	if st == nil {
+ 		return
+ 	}
++	st.DrawStep = m.Steps
+ 	o.Stats.Created++
+ 	if ev := o.Q.Add(st); ev != nil {
+ 		o.logf("戳記佇列已滿，丟棄最舊的 %s %dx%d@%d,%d", ev.Hash[:12], ev.W, ev.H, ev.X, ev.Y)
+diff --git a/apps/hr/hd/draw_step_test.go b/apps/hr/hd/draw_step_test.go
+new file mode 100644
+index 0000000..625017e
+--- /dev/null
++++ b/apps/hr/hd/draw_step_test.go
+@@ -0,0 +1,26 @@
++package hd
++
++import (
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++func TestOverlayFinishRecordsMachineDrawStep(t *testing.T) {
++	m := machine.New()
++	m.Steps = 12345
++	o := NewOverlay(nil)
++	st := &Stamp{Kind: KindSprite, X: 8, Y: 40, W: 8, H: 1, E: make([]byte, 8)}
++	o.finish(m, &pending{st: st, kind: KindSprite})
++	got := o.Snapshot()
++	if len(got) != 1 || got[0].DrawStep != m.Steps || got[0].Seq != 1 || got[0].X != 8 || got[0].Y != 40 {
++		t.Fatalf("completion metadata: %+v", got)
++	}
++	m.Steps = 20000
++	replacement := &Stamp{Kind: KindSprite, X: 8, Y: 40, W: 8, H: 1, E: make([]byte, 8)}
++	o.finish(m, &pending{st: replacement, kind: KindSprite})
++	got = o.Snapshot()
++	if len(got) != 1 || got[0].DrawStep != 20000 || got[0].Seq != 2 || st.DrawStep != 12345 {
++		t.Fatalf("replacement changed sequence or immutable old stamp: %+v", got)
++	}
++}
+diff --git a/apps/hr/hd/stamp.go b/apps/hr/hd/stamp.go
+index ff02f97..80e7319 100644
+--- a/apps/hr/hd/stamp.go
++++ b/apps/hr/hd/stamp.go
+@@ -32,13 +32,14 @@ func (k Kind) String() string {
+ // Stamp 記錄「遊戲在 Px 的 (X, Y) 畫過這張圖」。建立後不再修改，快照可以放心共用。
+ // X、Y 是 Machine.Planar 輸出的座標（Y 已含遊戲區的 40 列偏移）。
+ type Stamp struct {
+-	Kind Kind
+-	X, Y int
+-	W, H int
+-	Hash string
+-	Site uint32 // 呼叫點：返回位址 seg<<16 | off
+-	E    []byte // 期望像素，逐列每像素一個位元組，Transparent 為透明；長度 W*H
+-	Seq  uint64
++	Kind     Kind
++	X, Y     int
++	W, H     int
++	Hash     string
++	Site     uint32 // 呼叫點：返回位址 seg<<16 | off
++	E        []byte // 期望像素，逐列每像素一個位元組，Transparent 為透明；長度 W*H
++	Seq      uint64
++	DrawStep uint64 // 原語完成時的 Machine.Steps；規格 011 與 UI 使用相同時間基準。
+ }
+ 
+ type stampKey struct {
+diff --git a/apps/hr/play/display.go b/apps/hr/play/display.go
+index 644dfd9..7aaa4bd 100644
+--- a/apps/hr/play/display.go
++++ b/apps/hr/play/display.go
+@@ -71,10 +71,16 @@ func (g *game) drawDisplayText(screen *ebiten.Image) {
+ 		for y := 0; y < st.H; y++ {
+ 			for x := 0; x < st.W; x++ {
+ 				i := y*st.W + x
+-				if st.Before[i] == st.Expected[i] {
++				written := len(st.Written) == st.W*st.H && st.Written[i] != 0
++				if st.Before[i] == st.Expected[i] && !written {
+ 					continue
+ 				}
+ 				c := f.DAC[f.Map[st.Before[i]&15]]
++				if g.drawnUI != nil {
++					if themed, ok := g.drawnUI.background(f, st.X+x, st.Y+y, st.Before[i]); ok {
++						c = themed
++					}
++				}
+ 				im.SetRGBA(x, y, color.RGBA{c[0], c[1], c[2], 255})
+ 			}
+ 		}
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index 2eaabec..ca0c842 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -129,6 +129,8 @@ type game struct {
+ 	drawnFrame *hrrt.Frame // 目前 GPU 底圖對應的快照，顯示疊層必須用同一份。
+ 	origFrame  *hrrt.Frame // imgOrig 配對的快照，主題切換時即使沒有新快照也沿用它。
+ 	hdFrame    *hrrt.Frame // imgHD 配對的快照。
++	hdUI       *uiSkin     // imgHD 配對的介面素材。
++	drawnUI    *uiSkin     // 目前底圖的介面素材；原版為 nil。
+ 	shotScreen *ebiten.Image
+ 	imgCursor  *ebiten.Image
+ 	cursorRGBA []byte
+@@ -363,10 +365,11 @@ func (g *game) drawGame(screen *ebiten.Image) {
+ 		filter = ebiten.FilterLinear
+ 	}
+ 	if g.sw.Display() == srcHD && g.hv != nil {
+-		if pub, ok := g.hv.uploadDisplay(g.lastPub, func(rgba []byte, f *hrrt.Frame) { g.imgHD.WritePixels(rgba); g.hdFrame = f }); ok {
++		if pub, ok := g.hv.uploadThemed(g.lastPub, func(rgba []byte, f *hrrt.Frame, skin *uiSkin) { g.imgHD.WritePixels(rgba); g.hdFrame, g.hdUI = f, skin }); ok {
+ 			g.lastPub = pub
+ 		}
+ 		g.drawnFrame = g.hdFrame
++		g.drawnUI = g.hdUI
+ 		r := image.Rect(0, topBlank*hdScale, vramW*hdScale, (topBlank+gameH)*hdScale)
+ 		screen.DrawImage(g.imgHD.SubImage(r).(*ebiten.Image), &ebiten.DrawImageOptions{Filter: ebiten.FilterNearest})
+ 		return
+@@ -381,6 +384,7 @@ func (g *game) drawGame(screen *ebiten.Image) {
+ 		}
+ 	}
+ 	g.drawnFrame = g.origFrame
++	g.drawnUI = nil
+ 	op := &ebiten.DrawImageOptions{Filter: filter}
+ 	op.GeoM.Scale(2, 2)
+ 	screen.DrawImage(g.imgOrig.SubImage(image.Rect(0, topBlank, vramW, topBlank+gameH)).(*ebiten.Image), op)
+@@ -445,8 +449,8 @@ func (g *game) panelText(ht hudText, now time.Time) []string {
+ func (g *game) Layout(w, h int) (int, int) { return logicalW, logicalH }
+ 
+ // screenshot 存目前畫面的 PNG。截圖路徑依目前 theme 選（original 存 640x400，HD 存 1280x800），不依 hv 是否存在。
+-// HD theme 下 ready 為空（剛換素材、尚無新畫面）時 writePNG 回 errNoFrame，退回存原版快照並記一行
+-// （docs/spec/006 第 4 節，不寫舊畫面或全黑 PNG）。
++// F12 優先保存最後 Draw 的實際合成畫面。尚未 Draw 時才使用 theme 的後備快照；
++// HD 尚無 ready 時退回原版快照（docs/spec/006 第 4 節）。
+ func (g *game) screenshot() {
+ 	f := g.s.Frame()
+ 	if f == nil {
+diff --git a/apps/hr/play/hdview.go b/apps/hr/play/hdview.go
+index 2ef356e..7ebb8f5 100644
+--- a/apps/hr/play/hdview.go
++++ b/apps/hr/play/hdview.go
+@@ -39,16 +39,22 @@ type hdView struct {
+ 	discards uint64     // 因世代改變而丟棄的合成結果數（測試用）
+ 	seen     uint64     // run 已看到的 epoch 的鏡像（測試用，只由 run 在 mu 下寫）
+ 
+-	bufs   [2][]byte      // 兩個 (640*S) x (480*S) RGBA 緩衝區：一個是 ready（或空），另一個給 run 合成
+-	frames [2]*hrrt.Frame // 與 bufs 同槽，譯文疊層使用實際已發佈底圖的快照。
+-	stop   chan struct{}
+-	once   sync.Once
+-	wg     sync.WaitGroup
++	bufs    [2][]byte      // 兩個 (640*S) x (480*S) RGBA 緩衝區：一個是 ready（或空），另一個給 run 合成
++	frames  [2]*hrrt.Frame // 與 bufs 同槽，譯文疊層使用實際已發佈底圖的快照。
++	styles  [2]*uiSkin     // 與 RGBA/Frame 一起發布，不能以切換中的目標主題推算。
++	uiSkins map[*hd.Assets]*uiSkin
++	stop    chan struct{}
++	once    sync.Once
++	wg      sync.WaitGroup
+ }
+ 
+ // hdViewOption 是 newHDView 的建構選項。
+ type hdViewOption func(*hdView)
+ 
++func withUISkins(skins map[*hd.Assets]*uiSkin) hdViewOption {
++	return func(v *hdView) { v.uiSkins = skins }
++}
++
+ // withSkipEpochCheck 讓 run 不看 epoch：發佈不檢查世代、世代改變也不重設 last（負對照，只給測試用）。
+ func withSkipEpochCheck() hdViewOption { return func(v *hdView) { v.skipEpochCheck = true } }
+ 
+@@ -133,9 +139,14 @@ func (v *hdView) run() {
+ 		last = f.Seq
+ 		v.cmp.SetAssets(assets)
+ 		v.cmp.Compose(v.bufs[w], f.Px, f.W, f.H, f.Map, &f.DAC, f.Stamps)
++		skin := v.uiSkins[assets]
++		if skin != nil {
++			skin.paint(v.bufs[w], f, v.S)
++		}
+ 		v.mu.Lock()
+ 		if v.skipEpochCheck || v.epoch == epoch {
+ 			v.frames[w] = f
++			v.styles[w] = skin
+ 			v.readyIdx, w = w, 1-w
+ 			v.pub++
+ 			v.pubFrom = assets
+@@ -154,12 +165,16 @@ func (v *hdView) upload(lastPub uint64, fn func(rgba []byte)) (uint64, bool) {
+ }
+ 
+ func (v *hdView) uploadDisplay(lastPub uint64, fn func(rgba []byte, f *hrrt.Frame)) (uint64, bool) {
++	return v.uploadThemed(lastPub, func(rgba []byte, f *hrrt.Frame, _ *uiSkin) { fn(rgba, f) })
++}
++
++func (v *hdView) uploadThemed(lastPub uint64, fn func(rgba []byte, f *hrrt.Frame, skin *uiSkin)) (uint64, bool) {
+ 	v.mu.Lock()
+ 	defer v.mu.Unlock()
+ 	if v.readyIdx < 0 || v.pub == lastPub {
+ 		return lastPub, false
+ 	}
+-	fn(v.bufs[v.readyIdx], v.frames[v.readyIdx])
++	fn(v.bufs[v.readyIdx], v.frames[v.readyIdx], v.styles[v.readyIdx])
+ 	return v.pub, true
+ }
+ 
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index 75c2d57..c5a37fa 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -171,6 +171,7 @@ func main() {
+ 		Sound:        eng,
+ 		SaveDir:      saveDir, Interval: *interval, NoStackPatch: *noPatch, HostClock: true, Verify: *verify, Log: logf,
+ 		HDHooks: plan.HDHooks, HDAssets: ts.BaseAssets(),
++		UIHooks: plan.HDHooks,
+ 		LangDir: langDir, LangDigest: langDigest, // 只在語言包啟用時才傳；LangDir 非空時 LangDigest 必非空，SkipLangDigest 不設
+ 		DisplayTableDir: ing.DisplayTableDir, DisplayCode: string(ing.Choice.Code),
+ 		DiagDir: filepath.Join(dd, "crash"), HangSeconds: 30, OnDiag: func(dir, reason string) { onDiag(dd, dir, reason) },
+@@ -187,7 +188,7 @@ func main() {
+ 	var hv *hdView
+ 	var view viewControl = nullView{}
+ 	if plan.HDHooks {
+-		hv = newHDView(s, viewStartAssets(plan, ts), hdScale)
++		hv = newHDView(s, viewStartAssets(plan, ts), hdScale, withUISkins(loadUISkins(ts, logf)))
+ 		view = hv
+ 	}
+ 	sw := newSwitcher(switcherConfig{
+diff --git a/apps/hr/play/ui.go b/apps/hr/play/ui.go
+new file mode 100644
+index 0000000..5eee870
+--- /dev/null
++++ b/apps/hr/play/ui.go
+@@ -0,0 +1,333 @@
++package main
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"fmt"
++	"image"
++	"image/png"
++	"io"
++	"math"
++	"os"
++	"path/filepath"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++const uiAISHA256 = "b2fda4d30990170c0b98807a1605b7ea2a5669a9be825602df805bea8408f6bf"
++
++type uiSize struct{ w, h int }
++
++var uiSizes = [...]uiSize{{128, 56}, {168, 48}, {168, 32}, {144, 168}, {272, 72}}
++
++// uiSkin 在建構時預建色場，之後只讀；paint 與 background 可並行使用。
++// fields 為空時仍做原色遮蔽，避免缺素材讓較早 HD 戳記穿透板面。
++type uiSkin struct {
++	fields map[uiSize][][3]uint8
++}
++
++func loadUISkins(ts *themeSet, logf func(string, ...any)) map[*hd.Assets]*uiSkin {
++	out := make(map[*hd.Assets]*uiSkin)
++	if ts == nil {
++		return out
++	}
++	if a := ts.Assets[themeHD]; a != nil {
++		out[a] = newHDUISkin()
++	}
++	if a := ts.Assets[themeAI]; a != nil {
++		s, err := loadAIUISkin(filepath.Join(a.Dir, "ui-panel-ai-v1.png"))
++		if err != nil {
++			if logf != nil {
++				logf("AI 板面回退原版：%v", err)
++			}
++			s = &uiSkin{}
++		}
++		out[a] = s
++	}
++	return out
++}
++
++func newHDUISkin() *uiSkin {
++	s := &uiSkin{fields: make(map[uiSize][][3]uint8, len(uiSizes))}
++	for _, sz := range uiSizes {
++		field := make([][3]uint8, sz.w*sz.h)
++		for y := 1; y < sz.h-1; y++ {
++			for x := 2; x < sz.w-2; x++ {
++				// 沿已接受 v1 的金屬亮邊、深色底；底色沒有交錯抖色。
++				c := [3]uint8{27, uint8(32 + (5*(y-1)+(sz.h-3)/2)/(sz.h-3)), 22}
++				d := min(x-2, sz.w-3-x, y-1, sz.h-2-y)
++				if d == 0 {
++					c = [3]uint8{228, 184, 81}
++				} else if d == 2 {
++					c = [3]uint8{105, 75, 32}
++				}
++				field[y*sz.w+x] = c
++			}
++		}
++		s.fields[sz] = field
++	}
++	return s
++}
++
++func loadAIUISkin(path string) (*uiSkin, error) {
++	f, err := os.Open(path)
++	if err != nil {
++		return nil, fmt.Errorf("板面圖不存在或無法讀取：%w", err)
++	}
++	defer f.Close()
++	b, err := io.ReadAll(io.LimitReader(f, (16<<20)+1))
++	if err != nil || len(b) > 16<<20 {
++		return nil, fmt.Errorf("板面圖資料長度或讀取不符")
++	}
++	if fmt.Sprintf("%x", sha256.Sum256(b)) != uiAISHA256 {
++		return nil, fmt.Errorf("板面圖 SHA-256 不符")
++	}
++	im, err := png.Decode(bytes.NewReader(b))
++	if err != nil {
++		return nil, fmt.Errorf("板面 PNG 解碼失敗：%w", err)
++	}
++	// 雜湊綁定圖中的主板面。透明邊距有低 alpha 雜點，不能用整圖 bbox。
++	r := uiAIContentRect(im)
++	if r.Empty() {
++		return nil, fmt.Errorf("板面圖沒有完整不透明色場")
++	}
++	s := &uiSkin{fields: make(map[uiSize][][3]uint8, len(uiSizes))}
++	for _, sz := range uiSizes {
++		field := make([][3]uint8, sz.w*sz.h)
++		for y := 1; y < sz.h-1; y++ {
++			for x := 2; x < sz.w-2; x++ {
++				sx := float64(r.Min.X) + float64(x-2)*float64(r.Dx()-1)/float64(sz.w-5)
++				sy := float64(r.Min.Y) + float64(y-1)*float64(r.Dy()-1)/float64(sz.h-3)
++				field[y*sz.w+x] = uiBilinear(im, sx, sy)
++			}
++		}
++		s.fields[sz] = field
++	}
++	return s, nil
++}
++
++func uiAIContentRect(im image.Image) image.Rectangle {
++	b := im.Bounds()
++	top, bottom := b.Max.Y, b.Min.Y
++	for y := b.Min.Y; y < b.Max.Y; y++ {
++		n := 0
++		for x := b.Min.X; x < b.Max.X; x++ {
++			_, _, _, a := im.At(x, y).RGBA()
++			if a >= 128*257 {
++				n++
++			}
++		}
++		if n >= b.Dx()/2 {
++			top, bottom = min(top, y), max(bottom, y+1)
++		}
++	}
++	if top >= bottom {
++		return image.Rectangle{}
++	}
++	left, right := b.Max.X, b.Min.X
++	for x := b.Min.X; x < b.Max.X; x++ {
++		_, _, _, a := im.At(x, (top+bottom)/2).RGBA()
++		if a >= 128*257 {
++			left, right = min(left, x), max(right, x+1)
++		}
++	}
++	return image.Rect(left, top, right, bottom)
++}
++
++func uiBilinear(im image.Image, x, y float64) [3]uint8 {
++	x0, y0 := int(x), int(y)
++	x1, y1 := min(x0+1, im.Bounds().Max.X-1), min(y0+1, im.Bounds().Max.Y-1)
++	tx, ty := x-float64(x0), y-float64(y0)
++	pts := [4]image.Point{{x0, y0}, {x1, y0}, {x0, y1}, {x1, y1}}
++	weights := [4]float64{(1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty}
++	var sums [3]float64
++	for i, p := range pts {
++		r, g, b, a := im.At(p.X, p.Y).RGBA()
++		if a != 0 {
++			for ch, v := range [3]uint32{r, g, b} {
++				sums[ch] += float64(v) * 255 / float64(a) * weights[i]
++			}
++		}
++	}
++	return [3]uint8{uint8(math.Round(sums[0])), uint8(math.Round(sums[1])), uint8(math.Round(sums[2]))}
++}
++
++func uiValidFrame(f *hrrt.Frame) bool {
++	if f == nil || f.UI == nil || f.W != 640 || f.H != 480 || len(f.Px) != 640*480 {
++		return false
++	}
++	n := f.W * f.H
++	return len(f.UI.Panels) <= 64 && len(f.UI.Owner) == n && len(f.UI.Glyph) == n && len(f.UI.Raw) == n && len(f.UI.WriteStep) == n
++}
++
++func uiValidPanel(p *hrrt.UIPanel) bool {
++	if p.ID == 0 || p.X < 0 || p.X%8 != 0 || p.Y < 40 || p.W > 640-p.X || p.H > 440-p.Y {
++		return false
++	}
++	for _, sz := range uiSizes {
++		if p.W == sz.w && p.H == sz.h {
++			return len(p.Expected) == p.W*p.H
++		}
++	}
++	return false
++}
++
++func (s *uiSkin) nativeColor(f *hrrt.Frame, p *hrrt.UIPanel, x, y int) ([3]uint8, bool) {
++	if s == nil || !uiValidPanel(p) || x < p.X+2 || x >= p.X+p.W-2 || y < p.Y+1 || y >= p.Y+p.H-1 {
++		return [3]uint8{}, false
++	}
++	field := s.fields[uiSize{p.W, p.H}]
++	if len(field) != p.W*p.H {
++		return [3]uint8{}, false
++	}
++	c := field[(y-p.Y)*p.W+x-p.X]
++	white := f.DAC[f.Map[15]]
++	for ch := range c {
++		c[ch] = uint8((uint16(c[ch])*uint16(white[ch]) + 127) / 255)
++	}
++	return c, true
++}
++
++func uiRawColor(f *hrrt.Frame, i int) [3]uint8 { return f.DAC[f.Map[f.Px[i]&15]] }
++
++// fallbackCursor 只接受 010 的完整、可見、原色相符游標戳記。
++func uiFallbackCursor(f *hrrt.Frame) *hd.Stamp {
++	if f.CursorManaged {
++		return nil
++	}
++	for _, st := range f.Stamps {
++		if st == nil || st.Site != hd.CursorSite || st.W != 40 || st.H != 32 || len(st.E) != 40*32 {
++			continue
++		}
++		n, matches := 0, true
++		for y := 0; y < st.H && matches; y++ {
++			for x := 0; x < st.W; x++ {
++				px, py := st.X+x, st.Y+y
++				v := st.E[y*st.W+x]
++				if v == hd.Transparent || px < 0 || px >= f.W || py < 40 || py >= 440 {
++					continue
++				}
++				n++
++				if v > 15 || f.Px[py*f.W+px] != v {
++					matches = false
++					break
++				}
++			}
++		}
++		if matches && n > 0 {
++			return st
++		}
++	}
++	return nil
++}
++
++func uiCursorPixel(st *hd.Stamp, x, y int) bool {
++	return st != nil && x >= st.X && y >= st.Y && x < st.X+st.W && y < st.Y+st.H && st.E[(y-st.Y)*st.W+x-st.X] != hd.Transparent
++}
++
++func (s *uiSkin) background(f *hrrt.Frame, x, y int, before uint8) ([3]uint8, bool) {
++	if s == nil || !uiValidFrame(f) || x < 0 || x >= f.W || y < 40 || y >= 440 {
++		return [3]uint8{}, false
++	}
++	cursor := uiFallbackCursor(f)
++	if (!f.CursorManaged && cursor == nil) || uiCursorPixel(cursor, x, y) {
++		return [3]uint8{}, false
++	}
++	i := y*f.W + x
++	if f.UI.Raw[i] || f.UI.Owner[i] == 0 {
++		return [3]uint8{}, false
++	}
++	for j := range f.UI.Panels {
++		p := &f.UI.Panels[j]
++		if p.ID == f.UI.Owner[i] && uiValidPanel(p) && x >= p.X && x < p.X+p.W && y >= p.Y && y < p.Y+p.H && p.Expected[(y-p.Y)*p.W+x-p.X] == before {
++			return s.nativeColor(f, p, x, y)
++		}
++	}
++	return [3]uint8{}, false
++}
++
++// 每次 paint 使用自己的 Verifier；uiSkin 不保存可變驗證緩衝區。
++func uiLaterArt(f *hrrt.Frame) []uint64 {
++	var stamps []*hd.Stamp
++	for _, st := range f.Stamps {
++		if st != nil && st.Site != hd.CursorSite && st.W > 0 && st.W <= 640 && st.H > 0 && st.H <= 480 && len(st.E) == st.W*st.H {
++			stamps = append(stamps, st)
++		}
++	}
++	if len(stamps) == 0 {
++		return nil
++	}
++	var verifier hd.Verifier
++	masks := verifier.Run(stamps, f.Px, f.W, f.H)
++	later := make([]uint64, len(f.Px))
++	for j, st := range stamps {
++		for y := max(0, st.Y); y < min(f.H, st.Y+st.H); y++ {
++			for x := max(0, st.X); x < min(f.W, st.X+st.W); x++ {
++				if masks[j].Get(x-st.X, y-st.Y) {
++					i := y*f.W + x
++					later[i] = max(later[i], st.DrawStep)
++				}
++			}
++		}
++	}
++	return later
++}
++
++func (s *uiSkin) paint(dst []byte, f *hrrt.Frame, scale int) {
++	if s == nil || !uiValidFrame(f) || scale < 1 || scale > 8 || len(dst) != f.W*scale*f.H*scale*4 {
++		return
++	}
++	cursor := uiFallbackCursor(f)
++	forceRaw := !f.CursorManaged && cursor == nil
++	panels := make(map[uint64]*hrrt.UIPanel, len(f.UI.Panels))
++	for j := range f.UI.Panels {
++		p := &f.UI.Panels[j]
++		if uiValidPanel(p) {
++			panels[p.ID] = p
++		}
++	}
++	var later []uint64
++	for _, raw := range f.UI.Raw {
++		if raw {
++			later = uiLaterArt(f)
++			break
++		}
++	}
++	for y := 40; y < 440; y++ {
++		for x := 0; x < f.W; x++ {
++			if uiCursorPixel(cursor, x, y) {
++				continue
++			}
++			i := y*f.W + x
++			var color [3]uint8
++			if f.UI.Raw[i] {
++				if later != nil && later[i] > f.UI.WriteStep[i] {
++					continue
++				}
++				color = uiRawColor(f, i)
++			} else {
++				p := panels[f.UI.Owner[i]]
++				if p == nil || x < p.X+2 || x >= p.X+p.W-2 || y < p.Y+1 || y >= p.Y+p.H-1 {
++					if f.UI.Owner[i] == 0 {
++						continue
++					}
++					// 失效／淘汰識別仍有 ownership 時，也不能讓舊 HD 穿透。
++					color = uiRawColor(f, i)
++				} else if forceRaw || f.UI.Glyph[i] || p.Expected[(y-p.Y)*p.W+x-p.X] != f.Px[i] {
++					color = uiRawColor(f, i)
++				} else if c, ok := s.nativeColor(f, p, x, y); ok {
++					color = c
++				} else {
++					color = uiRawColor(f, i)
++				}
++			}
++			for dy := 0; dy < scale; dy++ {
++				for dx := 0; dx < scale; dx++ {
++					j := ((y*scale+dy)*(f.W*scale) + x*scale + dx) * 4
++					dst[j], dst[j+1], dst[j+2], dst[j+3] = color[0], color[1], color[2], 255
++				}
++			}
++		}
++	}
++}
+diff --git a/apps/hr/play/ui_publication_test.go b/apps/hr/play/ui_publication_test.go
+new file mode 100644
+index 0000000..499f2e7
+--- /dev/null
++++ b/apps/hr/play/ui_publication_test.go
+@@ -0,0 +1,50 @@
++package main
++
++import (
++	"testing"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++func TestUIFrameAndSkinPublishTogether(t *testing.T) {
++	a, b := emptyAssets(t), emptyAssets(t)
++	first, second := newHDUISkin(), newHDUISkin()
++	f := newFakeFrame(640, 480, 1)
++	src := &fakeSource{f: f}
++	v := newHDView(src, a, 2, withUISkins(map[*hd.Assets]*uiSkin{a: first, b: second}))
++	t.Cleanup(v.close)
++	until := time.Now().Add(2 * time.Second)
++	for !v.Ready() && time.Now().Before(until) {
++		time.Sleep(time.Millisecond)
++	}
++	var retainedFrame *hrrt.Frame
++	var retainedSkin *uiSkin
++	pub, ok := v.uploadThemed(0, func(_ []byte, frame *hrrt.Frame, skin *uiSkin) { retainedFrame, retainedSkin = frame, skin })
++	if !ok || retainedFrame != f || retainedSkin != first {
++		t.Fatal("first publication lost frame/style identity")
++	}
++	hook := newBlockHook()
++	hook.install(b)
++	t.Cleanup(hook.open)
++	v.SetAssets(b)
++	if !recvWithin(hook.in, time.Second) {
++		t.Fatal("new composition did not reach hold point")
++	}
++	if _, ok := v.uploadThemed(pub, func(_ []byte, _ *hrrt.Frame, _ *uiSkin) { t.Fatal("published incomplete replacement") }); ok {
++		t.Fatal("old ready survived generation change")
++	}
++	if retainedFrame != f || retainedSkin != first {
++		t.Fatal("retained GPU identity changed before upload")
++	}
++	hook.open()
++	until = time.Now().Add(2 * time.Second)
++	for !v.Ready() && time.Now().Before(until) {
++		time.Sleep(time.Millisecond)
++	}
++	_, ok = v.uploadThemed(pub, func(_ []byte, frame *hrrt.Frame, skin *uiSkin) { retainedFrame, retainedSkin = frame, skin })
++	if !ok || retainedFrame != f || retainedSkin != second {
++		t.Fatal("new RGBA/frame/style did not switch atomically")
++	}
++}
+diff --git a/apps/hr/play/ui_test.go b/apps/hr/play/ui_test.go
+new file mode 100644
+index 0000000..cfc1ac4
+--- /dev/null
++++ b/apps/hr/play/ui_test.go
+@@ -0,0 +1,259 @@
++package main
++
++import (
++	"bytes"
++	"fmt"
++	"image"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	hrrt "github.com/wicanr2/dosgolem/apps/hr/runtime"
++)
++
++func uiTestFrame(sz uiSize) *hrrt.Frame {
++	n := 640 * 480
++	f := &hrrt.Frame{W: 640, H: 480, Px: make([]uint8, n), CursorManaged: true}
++	for i := range f.Map {
++		f.Map[i] = uint8(i)
++		f.DAC[i] = [3]uint8{uint8(10 + i*10), uint8(20 + i*9), uint8(30 + i*8)}
++	}
++	f.DAC[15] = [3]uint8{255, 255, 255}
++	p := hrrt.UIPanel{ID: 1, DrawStep: 90, X: 8, Y: 40, W: sz.w, H: sz.h, Expected: make([]uint8, sz.w*sz.h)}
++	f.UI = &hrrt.UIFrame{Panels: []hrrt.UIPanel{p}, Owner: make([]uint64, n), Glyph: make([]bool, n), Raw: make([]bool, n), WriteStep: make([]uint64, n)}
++	for i := range f.Px {
++		f.Px[i] = 1
++	}
++	for y := 0; y < sz.h; y++ {
++		for x := 0; x < sz.w; x++ {
++			p.Expected[y*sz.w+x] = 1
++			if x >= 2 && x < sz.w-2 && y >= 1 && y < sz.h-1 {
++				i := (p.Y+y)*640 + p.X + x
++				f.UI.Owner[i], f.UI.WriteStep[i] = p.ID, p.DrawStep
++			}
++		}
++	}
++	return f
++}
++
++func uiTestRGBA(f *hrrt.Frame, scale int) []byte {
++	b := make([]byte, f.W*scale*f.H*scale*4)
++	for i := 0; i < len(b); i += 4 {
++		copy(b[i:], []byte{200, 10, 20, 255}) // 模擬已合成的較早 HD 層。
++	}
++	return b
++}
++
++func uiTestPixel(b []byte, x, y, scale int) [3]uint8 {
++	i := ((y*scale)*(640*scale) + x*scale) * 4
++	return [3]uint8{b[i], b[i+1], b[i+2]}
++}
++
++func TestUIRendererFiveSizesAndSameValueGlyph(t *testing.T) {
++	s := newHDUISkin()
++	for _, sz := range uiSizes {
++		t.Run(fmt.Sprintf("%dx%d", sz.w, sz.h), func(t *testing.T) {
++			f := uiTestFrame(sz)
++			x, y := 28, 55
++			f.UI.Glyph[y*640+x] = true // 與板面同色的原字，不可靠差異猜字。
++			raw := append([]byte(nil), f.Px...)
++			expected := append([]byte(nil), f.UI.Panels[0].Expected...)
++			b := uiTestRGBA(f, 2)
++			s.paint(b, f, 2)
++			if got := uiTestPixel(b, x, y, 2); got != f.DAC[1] {
++				t.Fatalf("same-value glyph overwritten: %v", got)
++			}
++			if got := uiTestPixel(b, 8, 40, 2); got != [3]uint8{200, 10, 20} {
++				t.Fatalf("transparent corner changed: %v", got)
++			}
++			x++
++			c, ok := s.background(f, x, y, 1)
++			if !ok || uiTestPixel(b, x, y, 2) != c || c == f.DAC[1] {
++				t.Fatal("theme and translated erase use different native colors")
++			}
++			if _, ok := s.background(f, x-1, y, 1); !ok {
++				t.Fatal("glyph protection blocked controlled translated erase")
++			}
++			if _, ok := s.background(f, x, y, 2); ok {
++				t.Fatal("mismatched Before accepted")
++			}
++			if !bytes.Equal(raw, f.Px) || !bytes.Equal(expected, f.UI.Panels[0].Expected) {
++				t.Fatal("renderer changed immutable original indices")
++			}
++		})
++	}
++}
++
++func TestUIRendererUnknownWriteAndLaterVerifiedArt(t *testing.T) {
++	s := newHDUISkin()
++	for _, tc := range []struct {
++		name        string
++		draw        uint64
++		badNeighbor bool
++		keep        bool
++	}{
++		{"newer verified", 101, false, true},
++		{"same step", 100, false, false},
++		{"older art", 99, false, false},
++		{"newer invalid art", 101, true, false},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			f := uiTestFrame(uiSize{128, 56})
++			x, y := 40, 60
++			for dy := 0; dy < 8; dy++ {
++				for dx := 0; dx < 8; dx++ {
++					i := (y+dy)*640 + x + dx
++					f.UI.Owner[i], f.UI.Glyph[i], f.UI.Raw[i], f.UI.WriteStep[i] = 0, false, true, 100
++				}
++			}
++			e := bytes.Repeat([]byte{1}, 64)
++			f.Stamps = []*hd.Stamp{{Kind: hd.KindSprite, X: x, Y: y, W: 8, H: 8, E: e, Seq: 1, DrawStep: tc.draw}}
++			if tc.badNeighbor {
++				f.Px[(y+3)*640+x+3] = 2 // 004 的鄰域／單色弱證據負對照。
++			}
++			b := uiTestRGBA(f, 1)
++			s.paint(b, f, 1)
++			want := f.DAC[1]
++			if tc.keep {
++				want = [3]uint8{200, 10, 20}
++			}
++			if got := uiTestPixel(b, x+4, y+3, 1); got != want {
++				t.Fatalf("write/DrawStep/004 priority: %v want %v", got, want)
++			}
++			if _, ok := s.background(f, x+4, y+3, 1); ok {
++				t.Fatal("unknown write retained theme ownership")
++			}
++		})
++	}
++}
++
++func TestUIRendererMissingAssetStillOccludesOldHD(t *testing.T) {
++	ai := &hd.Assets{Dir: t.TempDir()}
++	var logs []string
++	skins := loadUISkins(&themeSet{Assets: map[themeID]*hd.Assets{themeAI: ai}}, func(format string, args ...any) { logs = append(logs, fmt.Sprintf(format, args...)) })
++	s := skins[ai]
++	if s == nil || len(logs) != 1 {
++		t.Fatalf("missing AI skin/log: %v %v", s, logs)
++	}
++	f := uiTestFrame(uiSize{128, 56})
++	b := uiTestRGBA(f, 1)
++	s.paint(b, f, 1)
++	if uiTestPixel(b, 28, 55, 1) != f.DAC[1] {
++		t.Fatal("missing style exposed stale HD through original panel")
++	}
++	if _, ok := s.background(f, 28, 55, 1); ok {
++		t.Fatal("missing style supplied guessed translated background")
++	}
++	if err := os.WriteFile(filepath.Join(ai.Dir, "ui-panel-ai-v1.png"), []byte("untrusted PNG"), 0o600); err != nil {
++		t.Fatal(err)
++	}
++	logs = nil
++	skins = loadUISkins(&themeSet{Assets: map[themeID]*hd.Assets{themeAI: ai}}, func(format string, args ...any) { logs = append(logs, fmt.Sprintf(format, args...)) })
++	if skins[ai] == nil || len(logs) != 1 || !strings.Contains(logs[0], "SHA-256") {
++		t.Fatal("untrusted AI bytes did not produce one original fallback")
++	}
++}
++
++func TestUIRendererCursorFallbackAndUnknownShape(t *testing.T) {
++	s := newHDUISkin()
++	f := uiTestFrame(uiSize{128, 56})
++	f.CursorManaged = false
++	e := bytes.Repeat([]byte{hd.Transparent}, 40*32)
++	e[0] = 1
++	f.Stamps = []*hd.Stamp{{Site: hd.CursorSite, X: 24, Y: 50, W: 40, H: 32, E: e}}
++	f.UI.Glyph[50*640+24], f.UI.Raw[50*640+24] = true, true
++	b := uiTestRGBA(f, 1)
++	s.paint(b, f, 1)
++	if uiTestPixel(b, 24, 50, 1) != [3]uint8{200, 10, 20} {
++		t.Fatal("glyph/raw theme step erased composited fallback cursor")
++	}
++	if _, ok := s.background(f, 24, 50, 1); ok {
++		t.Fatal("translated erase accepted fallback cursor pixel")
++	}
++	f.Stamps = nil
++	b = uiTestRGBA(f, 1)
++	s.paint(b, f, 1)
++	if uiTestPixel(b, 28, 55, 1) != f.DAC[1] {
++		t.Fatal("unknown cursor shape must conservatively use original panel")
++	}
++}
++
++func TestUIRendererFadeAndMalformedInput(t *testing.T) {
++	s := newHDUISkin()
++	f := uiTestFrame(uiSize{128, 56})
++	full, _ := s.background(f, 28, 55, 1)
++	f.DAC[15] = [3]uint8{128, 64, 0}
++	faded, ok := s.background(f, 28, 55, 1)
++	if !ok || faded[0] != uint8((uint16(full[0])*128+127)/255) || faded[1] != uint8((uint16(full[1])*64+127)/255) || faded[2] != 0 {
++		t.Fatalf("white-index fade: %v -> %v", full, faded)
++	}
++	for _, edit := range []func(*hrrt.Frame){
++		func(f *hrrt.Frame) { f.UI.Panels[0].W = 127 },
++		func(f *hrrt.Frame) { f.UI.Panels[0].Expected = nil },
++		func(f *hrrt.Frame) { f.UI.Panels[0].X = 9 },
++		func(f *hrrt.Frame) { f.UI.Panels = nil },
++	} {
++		f = uiTestFrame(uiSize{128, 56})
++		edit(f)
++		b := uiTestRGBA(f, 1)
++		s.paint(b, f, 1)
++		if got := uiTestPixel(b, 28, 55, 1); got != f.DAC[1] {
++			t.Fatalf("invalid or evicted panel did not preserve original occlusion: %v", got)
++		}
++		if _, ok := s.background(f, 28, 55, 1); ok {
++			t.Fatal("invalid metadata supplied theme background")
++		}
++	}
++	f = uiTestFrame(uiSize{128, 56})
++	f.UI.Owner = f.UI.Owner[:1]
++	b := uiTestRGBA(f, 1)
++	before := append([]byte(nil), b...)
++	s.paint(b, f, 1)
++	if !bytes.Equal(before, b) {
++		t.Fatal("incomplete canvas used unknown ownership")
++	}
++}
++
++func TestUIRendererConcurrentPaintAndBackground(t *testing.T) {
++	s := newHDUISkin()
++	f := uiTestFrame(uiSize{272, 72})
++	var wg sync.WaitGroup
++	for n := 0; n < 4; n++ {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			b := uiTestRGBA(f, 1)
++			for i := 0; i < 4; i++ {
++				s.paint(b, f, 1)
++				if _, ok := s.background(f, 28, 55, 1); !ok {
++					t.Error("immutable cache unavailable")
++				}
++			}
++		}()
++	}
++	wg.Wait()
++}
++
++func TestUIRendererAcceptedAIImage(t *testing.T) {
++	path := filepath.Join("..", "..", "..", "..", "..", "hd-ai", "ui-panel-ai-v1.png")
++	if _, err := os.Stat(path); os.IsNotExist(err) {
++		t.Skip("accepted AI panel absent")
++	}
++	s, err := loadAIUISkin(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	for _, sz := range uiSizes {
++		f := uiTestFrame(sz)
++		c, ok := s.background(f, 8+sz.w/2, 40+sz.h/2, 1)
++		if !ok || c == [3]uint8{} || len(s.fields[sz]) != sz.w*sz.h {
++			t.Fatalf("accepted AI field %v: %v %v", sz, c, ok)
++		}
++	}
++	if got := uiAIContentRect(image.NewRGBA(image.Rect(0, 0, 8, 8))); !got.Empty() {
++		t.Fatal("transparent input guessed a panel")
++	}
++}
+diff --git a/apps/hr/runtime/display.go b/apps/hr/runtime/display.go
+index b13f1bc..ad213d5 100644
+--- a/apps/hr/runtime/display.go
++++ b/apps/hr/runtime/display.go
+@@ -2,6 +2,7 @@ package runtime
+ 
+ // 顯示專用翻譯。只觀察繪製呼叫與 VGA 像素，不寫入 DOS 記憶體或存檔。
+ import (
++	"bytes"
+ 	"crypto/sha256"
+ 	"fmt"
+ 	"os"
+@@ -23,6 +24,7 @@ type DisplayStamp struct {
+ 	Text             string
+ 	Color            uint8
+ 	Before, Expected []uint8
++	Written          []uint8 // 該次原字物件的已知 glyph 寫入，包含同值寫入；0/1，W*H。
+ }
+ 
+ type displayPattern struct {
+@@ -33,6 +35,7 @@ type displayPending struct {
+ 	stamp          DisplayStamp
+ 	ss, sp, cs, ip uint16
+ 	step           uint64
++	unknownWritten bool
+ }
+ type displayObserver struct {
+ 	exact                map[string]string
+@@ -41,6 +44,7 @@ type displayObserver struct {
+ 	stamps               []DisplayStamp
+ 	fontPath, code       string
+ 	mainCount, shopCount int
++	uiEnabled            bool
+ }
+ 
+ func decodeDisplay(raw []byte) string {
+@@ -322,7 +326,34 @@ func (o *displayObserver) pre(m *machine.Machine) {
+ 		return
+ 	}
+ 	st.Before = displayCrop(px, w, st)
+-	o.pending = append(o.pending, displayPending{st, ss, sp + 4, m.Read16(cpu.Linear(ss, sp+2)), m.Read16(cpu.Linear(ss, sp)), m.Steps})
++	if o.uiEnabled {
++		st.Written = make([]uint8, st.W*st.H)
++	}
++	o.pending = append(o.pending, displayPending{stamp: st, ss: ss, sp: sp + 4, cs: m.Read16(cpu.Linear(ss, sp+2)), ip: m.Read16(cpu.Linear(ss, sp)), step: m.Steps})
++}
++
++// noteGlyph 只累加正在匹配的外層原字物件，不把其他圖像當成字形。
++func (o *displayObserver) noteGlyph(r uiRect, mask []byte) {
++	if len(o.pending) == 0 || len(mask) != 48 || o.pending[0].unknownWritten {
++		return
++	}
++	s := &o.pending[0].stamp
++	if len(s.Written) != s.W*s.H {
++		return
++	}
++	r.each(func(i, j int) {
++		x, y := i%uiW, i/uiW
++		if x >= s.X && x < s.X+s.W && y >= s.Y && y < s.Y+s.H && mask[(j/24)*3+(j%24)/8]&(128>>uint(j%8)) != 0 {
++			s.Written[(y-s.Y)*s.W+x-s.X] = 1
++		}
++	})
++}
++
++func (o *displayObserver) unknownGlyph() {
++	if len(o.pending) > 0 {
++		o.pending[0].unknownWritten = true
++		o.pending[0].stamp.Written = nil
++	}
+ }
+ 
+ func (o *displayObserver) post(m *machine.Machine) {
+@@ -350,8 +381,27 @@ func (o *displayObserver) post(m *machine.Machine) {
+ 		}
+ 		// An identical redraw leaves the existing stamp/background intact.
+ 		if !changed {
+-			o.pending = nil
+-			return
++			written := false
++			for _, bit := range p.stamp.Written {
++				written = written || bit != 0
++			}
++			if !written {
++				o.pending = nil
++				return
++			}
++			for i, old := range o.stamps {
++				if old.X == p.stamp.X && old.Y == p.stamp.Y && old.W == p.stamp.W && old.H == p.stamp.H && old.Text == p.stamp.Text && bytes.Equal(old.Expected, p.stamp.Expected) {
++					// 保留首次繪字前的背景；mask 新增時仍建立副本，不改已發布 Frame。
++					copyMask := append([]uint8(nil), p.stamp.Written...)
++					for j, bit := range old.Written {
++						copyMask[j] |= bit
++					}
++					old.Written = copyMask
++					o.stamps[i] = old
++					o.pending = nil
++					return
++				}
++			}
+ 		}
+ 		// Latest draw owns any overlapping rectangle.
+ 		kept := o.stamps[:0]
+diff --git a/apps/hr/runtime/display_test.go b/apps/hr/runtime/display_test.go
+new file mode 100644
+index 0000000..30705bd
+--- /dev/null
++++ b/apps/hr/runtime/display_test.go
+@@ -0,0 +1,30 @@
++package runtime
++
++import (
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++)
++
++func TestDisplaySameValueGlyphPublishesWrittenMask(t *testing.T) {
++	m, _ := uiFixture()
++	m.CPU.Seg[cpu.CS], m.CPU.IP = 0x1234, 0x5678
++	m.CPU.Seg[cpu.SS], m.CPU.R[cpu.SP] = 0x100, 0x200
++	s := DisplayStamp{X: 264, Y: 188, W: 16, H: 16, Text: "text", Before: make([]byte, 256), Written: make([]byte, 256)}
++	d := &displayObserver{uiEnabled: true, pending: []displayPending{{stamp: s, ss: 0x100, sp: 0x200, cs: 0x1234, ip: 0x5678}}}
++	mask := make([]byte, 48)
++	mask[0] = 0x80
++	d.noteGlyph(uiRect{264, 188, 24, 16}, mask)
++	d.post(m)
++	if len(d.stamps) != 1 || d.stamps[0].Written[0] != 1 || d.stamps[0].Before[0] != d.stamps[0].Expected[0] {
++		t.Fatal("same-color original glyph lost controlled erase metadata")
++	}
++	old := d.stamps[0]
++	s.Written = make([]byte, 256)
++	s.Written[1] = 1
++	d.pending = []displayPending{{stamp: s, ss: 0x100, sp: 0x200, cs: 0x1234, ip: 0x5678}}
++	d.post(m)
++	if old.Written[1] != 0 || d.stamps[0].Written[0] != 1 || d.stamps[0].Written[1] != 1 {
++		t.Fatal("identical redraw mutated old frame or lost original write mask")
++	}
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index cf4df9d..5392522 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -40,6 +40,8 @@ const (
+ 
+ // Options 是 Open 的選項。
+ type Options struct {
++	// UIHooks 啟用規格 011 的呈現歸屬觀測；預設關閉，不改原版狀態。
++	UIHooks bool
+ 	// SmoothCursor 啟用規格 010 的顯示專用游標；原始 Frame.Px、VRAM 與輸入保持不變。
+ 	SmoothCursor bool
+ 	// DisplayTableDir/DisplayCode 啟用 MAIN 與 SHOP 的顯示專用 UTF-8 譯文，不改 DOS 資料。
+@@ -129,6 +131,7 @@ func (s *Stop) Normal() bool { return s != nil && (s.Kind == StopQuit || s.Kind
+ // Frame 是 Run 在滑鼠輪詢點產生的畫面快照，建立後不再修改（docs/spec/003 第 3 節、004 第 5.1 節）。
+ // 只複製像素值與調色盤；轉成 RGB 由使用者在自己的執行緒做（RGBA），不佔模擬迴圈的時間。
+ type Frame struct {
++	UI                           *UIFrame
+ 	Cursor                       *Cursor
+ 	CursorBackground             []uint8
+ 	CursorManaged, CursorPending bool
+@@ -208,6 +211,7 @@ type Session struct {
+ 	frame        atomic.Pointer[Frame]
+ 	ov           *hd.Overlay
+ 	display      *displayObserver
++	ui           *uiObserver
+ 	snd          *soundHooks // docs/spec/007；nil ＝ 關閉
+ 	want         atomic.Bool
+ 	frmSeq       uint64
+@@ -323,6 +327,9 @@ func Open(root string, opt Options) (*Session, error) {
+ 		s.ov = hd.NewOverlay(opt.HDAssets)
+ 		s.ov.Check, s.ov.Record, s.ov.Logf = opt.HDCheck, opt.HDRecord, s.logf
+ 	}
++	if opt.UIHooks {
++		s.ui = newUIObserver(s.m, s.display)
++	}
+ 	if opt.Sound != nil {
+ 		h, err := newSoundHooks(s.m, opt.Sound, s.logf)
+ 		if err != nil {
+@@ -422,7 +429,12 @@ func (s *Session) idleForTrim() bool {
+ }
+ 
+ // stepBatch 執行至多 n 道指令，回傳停機原因（nil ＝ 還沒停）。
+-func (s *Session) stepBatch(n int) *Stop {
++func (s *Session) stepBatch(n int) (st *Stop) {
++	defer func() {
++		if st != nil && s.ui != nil {
++			s.ui.stop()
++		}
++	}()
+ 	m, d, ov, snd := s.m, s.d, s.ov, s.snd
+ 	for i := 0; i < n; i++ {
+ 		c := m.CPU
+@@ -451,6 +463,9 @@ func (s *Session) stepBatch(n int) *Stop {
+ 		if s.display != nil {
+ 			s.display.pre(m)
+ 		}
++		if s.ui != nil {
++			s.ui.pre()
++		}
+ 		if err := m.Step(); err != nil {
+ 			return &Stop{Kind: StopCPUError, Msg: "CPU 錯誤：" + err.Error()}
+ 		}
+@@ -465,6 +480,9 @@ func (s *Session) stepBatch(n int) *Stop {
+ 		if ov != nil && ov.Pending() > 0 {
+ 			ov.Post(m)
+ 		}
++		if s.ui != nil && len(s.ui.pending) > 0 {
++			s.ui.post()
++		}
+ 		if s.display != nil {
+ 			s.display.post(m)
+ 		}
+@@ -546,6 +564,9 @@ func (s *Session) snapshot() {
+ 	if s.display != nil {
+ 		s.display.snapshot(f)
+ 	}
++	if s.ui != nil {
++		s.ui.snapshot(f)
++	}
+ 	s.frmSeq++
+ 	f.Seq = s.frmSeq
+ 	s.lastSnap = time.Now()
+diff --git a/apps/hr/runtime/ui.go b/apps/hr/runtime/ui.go
+new file mode 100644
+index 0000000..ef12303
+--- /dev/null
++++ b/apps/hr/runtime/ui.go
+@@ -0,0 +1,531 @@
++package runtime
++
++// 規格 011：只觀察繪圖原語，metadata 不寫回 DOS 記憶體或 VGA。
++import (
++	"crypto/sha256"
++	"encoding/binary"
++	"fmt"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++const (
++	uiW               = 640
++	uiH               = 480
++	uiMaxPanels       = 64
++	uiMaxBackups      = 64
++	uiMaxBackupPixels = 1048576
++	uiMaxPending      = 16
++	uiPendingSteps    = 2000000
++	uiPlateSHA        = "c512580a5cad8400638e57e137b2f56aa4d7b6328832e95915be3211c8b75b3b"
++)
++
++type uiRect struct{ x, y, w, h int }
++
++func (r uiRect) valid() bool {
++	return r.x >= 0 && r.y >= 40 && r.w > 0 && r.h > 0 && r.x+r.w <= uiW && r.y+r.h <= 440
++}
++func (r uiRect) contains(x, y int) bool { return x >= r.x && x < r.x+r.w && y >= r.y && y < r.y+r.h }
++func (r uiRect) intersects(q uiRect) bool {
++	return r.x < q.x+q.w && r.x+r.w > q.x && r.y < q.y+q.h && r.y+r.h > q.y
++}
++func (r uiRect) each(fn func(int, int)) {
++	for y := max(40, r.y); y < min(440, r.y+r.h); y++ {
++		for x := max(0, r.x); x < min(uiW, r.x+r.w); x++ {
++			fn(y*uiW+x, (y-r.y)*r.w+x-r.x)
++		}
++	}
++}
++
++type uiKind uint8
++
++const (
++	uiPlate uiKind = iota + 1
++	uiGlyph
++	uiSave
++	uiRestore
++	uiCursorPaint
++	uiCursorRestore
++)
++
++type uiPending struct {
++	kind           uiKind
++	r              uiRect
++	ss, sp, cs, ip uint16
++	entry          uint64
++	ptr            uint32
++	mask           []byte
++	touched        map[uint32]uint64
++	failed         bool
++	backup         *uiBackup
++}
++type uiBackup struct {
++	ptr        uint32
++	r          uiRect
++	digest     [32]byte
++	owner      []uint64
++	glyph, raw []bool
++	step       []uint64
++}
++type uiObserver struct {
++	m            *machine.Machine
++	display      *displayObserver
++	canvas       UIFrame
++	nextID       uint64
++	pending      []*uiPending
++	backups      []*uiBackup
++	backupPixels int
++	badLayout    bool
++}
++
++func newUIObserver(m *machine.Machine, d *displayObserver) *uiObserver {
++	o := &uiObserver{m: m, display: d}
++	o.reset(machine.ModeChange{Step: m.Steps})
++	m.ObserveVideoWrites(o.write)
++	m.ObserveModeChanges(o.reset)
++	if d != nil {
++		d.uiEnabled = true
++	}
++	return o
++}
++func (o *uiObserver) reset(_ machine.ModeChange) {
++	o.canvas = UIFrame{Owner: make([]uint64, uiW*uiH), Glyph: make([]bool, uiW*uiH), Raw: make([]bool, uiW*uiH), WriteStep: make([]uint64, uiW*uiH)}
++	o.pending = nil
++	o.backups = nil
++	o.backupPixels = 0
++}
++
++// CRTC offset 可以改列距而不設定模式；固定 80-byte 座標的 metadata
++// 不得跨過這種不連續點，也不能在回到 80 時恢復舊 buffer 身分。
++func (o *uiObserver) supportedLayout() bool {
++	if o.m.VideoMode() == 0x12 && o.m.VGA.Pitch(uiW) == 80 {
++		o.badLayout = false
++		return true
++	}
++	if !o.badLayout {
++		o.reset(machine.ModeChange{})
++		o.badLayout = true
++		if o.display != nil {
++			o.display.unknownGlyph()
++		}
++	}
++	return false
++}
++func (o *uiObserver) invalidate(i int, step uint64) {
++	o.canvas.Owner[i] = 0
++	o.canvas.Glyph[i] = false
++	o.canvas.Raw[i] = true
++	o.canvas.WriteStep[i] = step
++}
++func (o *uiObserver) discard(p *uiPending) {
++	for off, step := range p.touched {
++		x, y := int(off%80)*8, int(off/80)
++		for b := 0; b < 8; b++ {
++			if y >= 40 && y < 440 {
++				o.invalidate(y*uiW+x+b, step)
++			}
++		}
++	}
++	if p.kind == uiGlyph && o.display != nil {
++		o.display.unknownGlyph()
++	}
++}
++func (o *uiObserver) stop() {
++	for _, p := range o.pending {
++		o.discard(p)
++	}
++	o.pending = nil
++}
++
++// writerMatched 依 009／034 的原始函式邊界與 writer 位址辨識。
++// 不能以「有某個呼叫在執行」豁免未知的巢狀寫入。
++func writerMatched(p *uiPending, w machine.VideoWrite) bool {
++	switch p.kind {
++	case uiPlate:
++		return w.CS == 0x1d84 && w.IP >= 0x000a && w.IP < 0x1cf6
++	case uiGlyph:
++		return w.CS == 0x1c35 && (w.IP == 0x1e8 || w.IP == 0x1f0 || w.IP == 0x1f9)
++	case uiRestore, uiCursorRestore:
++		return w.CS == 0x1f69 && (w.IP == 0x1bb || w.IP == 0x1d0 || w.IP == 0x1e5 || w.IP == 0x1fa)
++	case uiCursorPaint:
++		return w.CS == 0x1c57 && (w.IP == 0x2b1 || w.IP == 0x2e5 || w.IP == 0x317 || w.IP == 0x349 || w.IP == 0x37b)
++	}
++	return false
++}
++func (o *uiObserver) write(w machine.VideoWrite) {
++	if !o.supportedLayout() || w.Offset >= 80*480 {
++		return
++	}
++	x, y := int(w.Offset%80)*8, int(w.Offset/80)
++	if y < 40 || y >= 440 {
++		return
++	}
++	q := uiRect{x, y, 8, 1}
++	var match *uiPending
++	for i := len(o.pending) - 1; i >= 0; i-- {
++		p := o.pending[i]
++		if !p.r.intersects(q) {
++			continue
++		}
++		if p.touched == nil {
++			p.touched = map[uint32]uint64{}
++		}
++		p.touched[w.Offset] = w.Step
++		if match == nil && !p.failed && writerMatched(p, w) {
++			match = p
++		}
++	}
++	if match != nil {
++		return
++	}
++	for b := 0; b < 8; b++ {
++		o.invalidate(y*uiW+x+b, w.Step)
++	}
++	for _, p := range o.pending {
++		if p.r.intersects(q) {
++			p.failed = true
++		}
++	}
++}
++
++func uiKnownSize(w, h int) bool {
++	return (w == 128 && h == 56) || (w == 168 && (h == 48 || h == 32)) || (w == 144 && h == 168) || (w == 272 && h == 72)
++}
++func (o *uiObserver) pre() {
++	m := o.m
++	c := m.CPU
++	cs, ip := c.Seg[cpu.CS], c.IP
++	if !(cs == 0x1d84 && ip == 0xa || cs == 0x1c35 && ip == 0x1c5 || cs == 0x1f69 && (ip == 0xe || ip == 0x169) || cs == 0x1c57 && ip == 0x22) {
++		return
++	}
++	if !o.supportedLayout() {
++		return
++	}
++	ss, sp := c.Seg[cpu.SS], c.R[cpu.SP]
++	arg := func(i uint16) uint16 { return m.Read16(cpu.Linear(ss, sp+4+i*2)) }
++	p := &uiPending{ss: ss, sp: sp + 4, cs: m.Read16(cpu.Linear(ss, sp+2)), ip: m.Read16(cpu.Linear(ss, sp)), entry: m.Steps}
++	switch {
++	case cs == 0x1d84:
++		p.kind = uiPlate
++		p.r = uiRect{int(int16(arg(0))), int(int16(arg(1))) + 40, (int(arg(2)) + 2) * 8, (int(arg(3)) + 1) * 8}
++		ptr := cpu.Linear(arg(5), arg(4))
++		if !p.r.valid() || p.r.x%8 != 0 || !uiKnownSize(p.r.w, p.r.h) || ptr+128 > machine.VideoSeg*16 || fmt.Sprintf("%x", sha256.Sum256(m.Mem[ptr:ptr+128])) != uiPlateSHA {
++			return
++		}
++	case cs == 0x1c35:
++		p.kind = uiGlyph
++		p.r = uiRect{int(arg(0)%80) * 8, int(arg(0)/80) + 40, 24, 16}
++		ptr := cpu.Linear(arg(2), arg(1))
++		if arg(4) != 0 || !p.r.valid() || ptr+48 > machine.VideoSeg*16 {
++			if o.display != nil {
++				o.display.unknownGlyph()
++			}
++			return
++		}
++		p.mask = append([]byte(nil), m.Mem[ptr:ptr+48]...)
++	case cs == 0x1f69 && ip == 0xe:
++		p.kind = uiSave
++		p.r = uiRect{int(arg(0)) * 8, int(arg(1)) + 40, int(arg(2)) * 8, int(arg(3))}
++		p.ptr = cpu.Linear(arg(5), arg(4))
++		// 保存不寫 VGA；游標保存不占一般備份池，也不猜圖形。
++		if p.ptr == cursorData+0x1d && p.cs == 0x19fb && p.ip == 0x7c4 && arg(2) == 5 && arg(3) == 32 {
++			return
++		}
++		if !p.r.valid() || p.ptr+8+uint32(p.r.w/8*p.r.h*4) > machine.VideoSeg*16 {
++			return
++		}
++		p.backup = o.captureBackup(p.ptr, p.r)
++	case cs == 0x1f69:
++		p.kind = uiRestore
++		p.ptr = cpu.Linear(arg(1), arg(0))
++		r, _, hash, ok := o.saved(p.ptr)
++		if !ok {
++			return
++		}
++		p.r = r
++		if p.ptr == cursorData+0x1d && p.cs == 0x19fb && (p.ip == 0x7a7 || p.ip == 0xa8) && o.knownCursor() && r.w == 40 && r.h == 32 {
++			p.kind = uiCursorRestore
++		} else {
++			if !r.valid() {
++				return
++			}
++			for i := len(o.backups) - 1; i >= 0; i-- {
++				b := o.backups[i]
++				if b.ptr == p.ptr && b.r == r && b.digest == hash {
++					p.backup = b
++					break
++				}
++			}
++			if p.backup == nil {
++				return
++			}
++		}
++	case cs == 0x1c57:
++		p.kind = uiCursorPaint
++		p.r = uiRect{int(int16(arg(1))), int(int16(arg(2))) + 40, 40, 32}
++		if uint32(p.cs)<<16|uint32(p.ip) != hd.CursorSite || arg(0) != 0 || cpu.Linear(arg(4), arg(3)) != cursorData+0x1bd1 || !o.knownCursor() {
++			return
++		}
++		if p.r.x < 0 || p.r.x >= 640 || p.r.y < 40 || p.r.y >= 440 {
++			return
++		}
++	}
++	if len(o.pending) >= uiMaxPending {
++		o.stop()
++		if p.kind == uiGlyph && o.display != nil {
++			o.display.unknownGlyph()
++		}
++		return
++	}
++	o.pending = append(o.pending, p)
++}
++func (o *uiObserver) knownCursor() bool {
++	if len(o.m.Mem) < cursorData+0x1bd1+805 {
++		return false
++	}
++	_, a := cursorSprite(o.m.Mem[cursorData+0x2a9:])
++	_, b := cursorSprite(o.m.Mem[cursorData+0x1bd1:])
++	return a && b
++}
++
++func (o *uiObserver) saved(ptr uint32) (uiRect, []byte, [32]byte, bool) {
++	var zero [32]byte
++	if ptr+8 > machine.VideoSeg*16 {
++		return uiRect{}, nil, zero, false
++	}
++	b := o.m.Mem[ptr : ptr+8]
++	r := uiRect{int(binary.LittleEndian.Uint16(b)) * 8, int(binary.LittleEndian.Uint16(b[2:])) + 40, int(binary.LittleEndian.Uint16(b[4:])) * 8, int(binary.LittleEndian.Uint16(b[6:]))}
++	if r.x < 0 || r.x >= 640 || r.y < 40 || r.y >= 440 || r.w <= 0 || r.w > 640 || r.h <= 0 || r.h > 400 {
++		return uiRect{}, nil, zero, false
++	}
++	n := 8 + r.w/8*r.h*4
++	if uint64(ptr)+uint64(n) > machine.VideoSeg*16 {
++		return uiRect{}, nil, zero, false
++	}
++	b = o.m.Mem[ptr : ptr+uint32(n)]
++	return r, b, sha256.Sum256(b), true
++}
++func savedPixel(b []byte, r uiRect, x, y int) uint8 {
++	v := uint8(0)
++	w := r.w / 8
++	for plane := 0; plane < 4; plane++ {
++		v |= ((b[8+y*w*4+plane*w+x/8] >> uint(7-x%8)) & 1) << uint(plane)
++	}
++	return v
++}
++func (o *uiObserver) bufferMatches(r uiRect, b []byte) bool {
++	w, h, px := o.m.Planar()
++	if w != uiW || h != uiH {
++		return false
++	}
++	ok := true
++	r.each(func(i, j int) {
++		if px[i] != savedPixel(b, r, j%r.w, j/r.w) {
++			ok = false
++		}
++	})
++	return ok
++}
++func (o *uiObserver) captureBackup(ptr uint32, r uiRect) *uiBackup {
++	b := &uiBackup{ptr: ptr, r: r, owner: make([]uint64, r.w*r.h), glyph: make([]bool, r.w*r.h), raw: make([]bool, r.w*r.h), step: make([]uint64, r.w*r.h)}
++	r.each(func(i, j int) {
++		b.owner[j] = o.canvas.Owner[i]
++		b.glyph[j] = o.canvas.Glyph[i]
++		b.raw[j] = o.canvas.Raw[i]
++		b.step[j] = o.canvas.WriteStep[i]
++	})
++	return b
++}
++func (o *uiObserver) remember(b *uiBackup) {
++	kept := o.backups[:0]
++	for _, old := range o.backups {
++		if old.ptr == b.ptr {
++			o.backupPixels -= len(old.owner)
++		} else {
++			kept = append(kept, old)
++		}
++	}
++	o.backups = append(kept, b)
++	o.backupPixels += len(b.owner)
++	for len(o.backups) > uiMaxBackups || o.backupPixels > uiMaxBackupPixels {
++		o.backupPixels -= len(o.backups[0].owner)
++		o.backups = o.backups[1:]
++	}
++}
++func (o *uiObserver) panelAlive(id uint64) bool {
++	for _, p := range o.canvas.Panels {
++		if p.ID == id {
++			return true
++		}
++	}
++	return false
++}
++func (o *uiObserver) commit(p *uiPending) {
++	if p.failed {
++		o.discard(p)
++		return
++	}
++	m := o.m
++	switch p.kind {
++	case uiPlate:
++		w, h, px := m.Planar()
++		if w != uiW || h != uiH {
++			o.discard(p)
++			return
++		}
++		o.nextID++
++		panel := UIPanel{ID: o.nextID, DrawStep: m.Steps, X: p.r.x, Y: p.r.y, W: p.r.w, H: p.r.h, Expected: make([]byte, p.r.w*p.r.h)}
++		p.r.each(func(i, j int) {
++			panel.Expected[j] = px[i]
++			x, y := j%p.r.w, j/p.r.w
++			if x >= 2 && x < p.r.w-2 && y >= 1 && y < p.r.h-1 {
++				o.canvas.Owner[i] = panel.ID
++				o.canvas.Glyph[i] = false
++				o.canvas.Raw[i] = false
++				o.canvas.WriteStep[i] = m.Steps
++			}
++		})
++		o.canvas.Panels = append(o.canvas.Panels, panel)
++		if len(o.canvas.Panels) > uiMaxPanels {
++			old := o.canvas.Panels[0].ID
++			o.canvas.Panels = o.canvas.Panels[1:]
++			for i, id := range o.canvas.Owner {
++				if id == old {
++					o.invalidate(i, m.Steps)
++				}
++			}
++		}
++	case uiGlyph:
++		p.r.each(func(i, j int) {
++			if p.mask[(j/p.r.w)*3+(j%p.r.w)/8]&(128>>uint(j%8)) != 0 {
++				o.canvas.Glyph[i] = true
++				o.canvas.WriteStep[i] = m.Steps
++			}
++		})
++		if o.display != nil {
++			o.display.noteGlyph(p.r, p.mask)
++		}
++	case uiSave:
++		r, b, hash, ok := o.saved(p.ptr)
++		if ok && r == p.r && o.bufferMatches(r, b) {
++			p.backup.digest = hash
++			o.remember(p.backup)
++		}
++	case uiRestore:
++		r, b, hash, ok := o.saved(p.ptr)
++		if !ok || r != p.r || hash != p.backup.digest || !o.bufferMatches(r, b) {
++			o.discard(p)
++			return
++		}
++		r.each(func(i, j int) {
++			id := p.backup.owner[j]
++			if id != 0 && !o.panelAlive(id) {
++				o.invalidate(i, m.Steps)
++				return
++			}
++			o.canvas.Owner[i] = id
++			o.canvas.Glyph[i] = p.backup.glyph[j]
++			o.canvas.Raw[i] = p.backup.raw[j]
++			o.canvas.WriteStep[i] = p.backup.step[j]
++			if id != 0 {
++				o.canvas.WriteStep[i] = m.Steps
++			}
++		})
++	case uiCursorPaint, uiCursorRestore:
++		// 格式／指標／返回呼叫點已在 entry 核對，保留下方 metadata。
++	}
++}
++func (o *uiObserver) post() {
++	if !o.supportedLayout() {
++		return
++	}
++	c := o.m.CPU
++	kept := o.pending[:0]
++	for _, p := range o.pending {
++		atReturn := c.Seg[cpu.CS] == p.cs && c.IP == p.ip
++		if o.m.Steps-p.entry > uiPendingSteps {
++			o.discard(p)
++			continue
++		}
++		if atReturn {
++			if c.Seg[cpu.SS] == p.ss && c.R[cpu.SP] == p.sp {
++				o.commit(p)
++			} else {
++				o.discard(p)
++			}
++			continue
++		}
++		kept = append(kept, p)
++	}
++	o.pending = kept
++}
++func (o *uiObserver) snapshot(f *Frame) {
++	if !o.supportedLayout() || f.W != uiW || f.H != uiH {
++		return
++	}
++	u := &UIFrame{Owner: append([]uint64(nil), o.canvas.Owner...), Glyph: append([]bool(nil), o.canvas.Glyph...), Raw: append([]bool(nil), o.canvas.Raw...), WriteStep: append([]uint64(nil), o.canvas.WriteStep...)}
++	for _, p := range o.canvas.Panels {
++		p.Expected = append([]byte(nil), p.Expected...)
++		u.Panels = append(u.Panels, p)
++	}
++	for _, p := range o.pending {
++		// 010 已逐像素驗證游標畫完或隱藏時，已知游標原語即使尚未 retf，
++		// 也不取消下方板面；其他未完成或失敗原語仍保守回退。
++		if f.CursorManaged && !f.CursorPending && !p.failed && (p.kind == uiCursorPaint || p.kind == uiCursorRestore) {
++			continue
++		}
++		for off, step := range p.touched {
++			x, y := int(off%80)*8, int(off/80)
++			if y < 40 || y >= 440 {
++				continue
++			}
++			for b := 0; b < 8; b++ {
++				i := y*uiW + x + b
++				u.Owner[i] = 0
++				u.Glyph[i] = false
++				u.Raw[i] = true
++				u.WriteStep[i] = step
++			}
++		}
++	}
++	f.UI = u
++	o.protectRawCursor(f)
++}
++func (o *uiObserver) protectRawCursor(f *Frame) {
++	if f.CursorManaged && !f.CursorPending {
++		return
++	}
++	mem := o.m.Mem
++	if len(mem) < cursorData+0x1bd1+805 {
++		return
++	}
++	d := mem[cursorData:]
++	u16 := func(n int) int { return int(binary.LittleEndian.Uint16(d[n:])) }
++	if u16(0x19) == 0 && u16(0x1b) == 0 {
++		return
++	}
++	r := uiRect{u16(0x1d) * 8, u16(0x1f) + 40, 40, 32}
++	shape, ok := cursorSprite(d[0x1bd1:])
++	if !ok || u16(0x21) != 5 || u16(0x23) != 32 || r.x >= 640 || r.y >= 440 {
++		// 遮罩無法核對時，不猜游標形狀。
++		for i, id := range f.UI.Owner {
++			if id != 0 {
++				f.UI.Owner[i] = 0
++				f.UI.Glyph[i] = false
++				f.UI.Raw[i] = true
++				f.UI.WriteStep[i] = f.Steps
++			}
++		}
++		return
++	}
++	r.each(func(i, j int) {
++		if shape.Idx[j] != hd.Transparent && f.Px[i] == shape.Idx[j] {
++			f.UI.Owner[i] = 0
++			f.UI.Glyph[i] = false
++			f.UI.Raw[i] = true
++			f.UI.WriteStep[i] = f.Steps
++		}
++	})
++}
+diff --git a/apps/hr/runtime/ui_test.go b/apps/hr/runtime/ui_test.go
+new file mode 100644
+index 0000000..14516c8
+--- /dev/null
++++ b/apps/hr/runtime/ui_test.go
+@@ -0,0 +1,396 @@
++package runtime
++
++import (
++	"bytes"
++	"encoding/binary"
++	"os"
++	"path/filepath"
++	"reflect"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++func uiFixture() (*machine.Machine, *uiObserver) {
++	m := machine.New()
++	m.SetVideoMode(0x12)
++	return m, newUIObserver(m, nil)
++}
++
++func TestUIValidatedCursorPendingKeepsBackdrop(t *testing.T) {
++	for _, kind := range []uiKind{uiCursorPaint, uiCursorRestore} {
++		m, o := uiFixture()
++		r := uiRect{256, 184, 128, 56}
++		addTestPanel(m, o, r, 10)
++		i := 185*640 + 258
++		p := &uiPending{kind: kind, r: r, touched: map[uint32]uint64{185*80 + 32: 20}}
++		o.pending = []*uiPending{p}
++		f := &Frame{W: 640, H: 480, Px: make([]byte, 640*480), CursorManaged: true}
++		o.snapshot(f)
++		if f.UI.Owner[i] != 1 || f.UI.Raw[i] {
++			t.Fatalf("visually complete cursor discarded underlying panel: kind=%d", kind)
++		}
++		p.failed = true
++		o.snapshot(f)
++		if f.UI.Owner[i] != 0 || !f.UI.Raw[i] {
++			t.Fatal("failed cursor operation bypassed fallback")
++		}
++		p.failed = false
++		f.CursorPending = true
++		o.snapshot(f)
++		if f.UI.Owner[i] != 0 || !f.UI.Raw[i] {
++			t.Fatal("unfinished cursor bypassed fallback")
++		}
++	}
++}
++func addTestPanel(m *machine.Machine, o *uiObserver, r uiRect, step uint64) {
++	m.Steps = step
++	o.commit(&uiPending{kind: uiPlate, r: r})
++}
++func TestUIOwnershipSameValueWritesAndSnapshotIsolation(t *testing.T) {
++	m, o := uiFixture()
++	r := uiRect{256, 184, 128, 56}
++	addTestPanel(m, o, r, 10)
++	i := 185*640 + 258
++	if o.canvas.Owner[i] != 1 || o.canvas.Owner[184*640+258] != 0 || o.canvas.Owner[185*640+257] != 0 {
++		t.Fatal("opacity boundary")
++	}
++	f := &Frame{W: 640, H: 480, Px: make([]byte, 640*480)}
++	o.snapshot(f)
++	o.canvas.Glyph[i] = true
++	o.write(machine.VideoWrite{CS: 0x9999, Offset: uint32(185*80 + 32), Value: 0, Step: 20})
++	if o.canvas.Owner[i] != 0 || o.canvas.Glyph[i] || !o.canvas.Raw[i] || o.canvas.WriteStep[i] != 20 {
++		t.Fatal("same-value unknown write did not invalidate")
++	}
++	if o.canvas.Owner[185*640+264] != 1 {
++		t.Fatal("invalidated outside byte")
++	}
++	if f.UI.Owner[i] != 1 || f.UI.Glyph[i] || f.UI.Panels[0].Expected[0] != 0 {
++		t.Fatal("published frame changed")
++	}
++	o.canvas.Panels[0].Expected[0] = 9
++	if f.UI.Panels[0].Expected[0] != 0 {
++		t.Fatal("expected aliases observer")
++	}
++	o.write(machine.VideoWrite{CS: 0x9999, Offset: uint32(185*80 + 32), Step: 30})
++	if o.canvas.WriteStep[i] != 30 {
++		t.Fatal("latest fallback step not recorded")
++	}
++}
++
++func TestUIEntryChecksActualPATAndFiveDimensions(t *testing.T) {
++	pat, err := os.ReadFile(filepath.Join(origRoot(t), "PLATE2.PAT"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	m, o := uiFixture()
++	copy(m.Mem[0x50000:], pat)
++	c := m.CPU
++	c.Seg[cpu.CS], c.IP = 0x1d84, 0xa
++	c.Seg[cpu.SS], c.R[cpu.SP] = 0x100, 0x100
++	base := cpu.Linear(0x100, 0x100)
++	set := func(x, y, w, h uint16) {
++		for k, n := range []uint16{0x100, 0x1234, x, y, w, h, 0, 0x5000} {
++			m.Write16(base+uint32(k*2), n)
++		}
++	}
++	for _, sz := range [][2]int{{128, 56}, {168, 48}, {168, 32}, {144, 168}, {272, 72}} {
++		set(0, 80, uint16(sz[0]/8-2), uint16(sz[1]/8-1))
++		o.pre()
++		if len(o.pending) != 1 || o.pending[0].r.w != sz[0] || o.pending[0].r.h != sz[1] {
++			t.Fatalf("supported %v not recognized", sz)
++		}
++		o.pending = nil
++	}
++	for _, args := range [][4]uint16{{0, 80, 13, 6}, {1, 80, 14, 6}, {0, 0xffff, 14, 6}, {600, 80, 14, 6}} {
++		set(args[0], args[1], args[2], args[3])
++		o.pre()
++		if len(o.pending) != 0 {
++			t.Fatalf("unknown/bounds accepted: %v", args)
++		}
++	}
++	set(0, 80, 14, 6)
++	m.Mem[0x50000] ^= 1
++	o.pre()
++	if len(o.pending) != 0 {
++		t.Fatal("changed PAT accepted")
++	}
++}
++func TestUIPendingSnapshotsFailureNestedAndTimeout(t *testing.T) {
++	m, o := uiFixture()
++	r := uiRect{256, 184, 128, 56}
++	addTestPanel(m, o, r, 10)
++	newPending := func() *uiPending {
++		return &uiPending{kind: uiPlate, r: r, entry: 20, cs: 0x1234, ip: 0x5678, ss: 0x100, sp: 0x200}
++	}
++	p := newPending()
++	o.pending = append(o.pending, p)
++	w := machine.VideoWrite{CS: 0x1d84, IP: 0x0827, Offset: uint32(185*80 + 32), Step: 21}
++	o.write(w)
++	i := 185*640 + 258
++	f := &Frame{W: 640, H: 480, Px: make([]byte, 640*480)}
++	o.snapshot(f)
++	if f.UI.Owner[i] != 0 || !f.UI.Raw[i] || o.canvas.Owner[i] != 1 {
++		t.Fatal("unfinished write published or changed persistent owner")
++	}
++	m.CPU.Seg[cpu.CS], m.CPU.IP = 0x1234, 0x5678
++	m.CPU.Seg[cpu.SS], m.CPU.R[cpu.SP] = 0x100, 0x201
++	m.Steps = 22
++	o.post()
++	if len(o.pending) != 0 || o.canvas.Owner[i] != 0 {
++		t.Fatal("return mismatch restored owner")
++	}
++	addTestPanel(m, o, r, 30)
++	p = newPending()
++	p.entry = 30
++	o.pending = append(o.pending, p)
++	w.CS = 0x9999
++	w.Step = 31
++	o.write(w)
++	if !p.failed {
++		t.Fatal("nested unknown writer not rejected")
++	}
++	n := len(o.canvas.Panels)
++	o.commit(p)
++	if len(o.canvas.Panels) != n || o.canvas.Owner[i] != 0 {
++		t.Fatal("failed panel committed")
++	}
++	p = newPending()
++	p.touched = map[uint32]uint64{uint32(185*80 + 32): 40}
++	o.pending = []*uiPending{p}
++	m.Steps = p.entry + uiPendingSteps + 1
++	o.post()
++	if len(o.pending) != 0 {
++		t.Fatal("pending did not expire")
++	}
++}
++func TestUIGlyphProtectsSameColorAndRecordsWrittenMask(t *testing.T) {
++	m, o := uiFixture()
++	addTestPanel(m, o, uiRect{256, 184, 128, 56}, 10)
++	d := &displayObserver{uiEnabled: true, pending: []displayPending{{stamp: DisplayStamp{X: 264, Y: 188, W: 16, H: 16, Written: make([]byte, 256)}}}}
++	o.display = d
++	mask := make([]byte, 48)
++	mask[0] = 0x80
++	mask[2] = 0x80 // 第二個像素在文字物件之外。
++	m.Steps = 20
++	o.commit(&uiPending{kind: uiGlyph, r: uiRect{264, 188, 24, 16}, mask: mask})
++	i := 188*640 + 264
++	if o.canvas.Owner[i] != 1 || !o.canvas.Glyph[i] || o.canvas.Raw[i] || d.pending[0].stamp.Written[0] != 1 {
++		t.Fatal("same-value glyph lost ownership or write mask")
++	}
++	for j, v := range d.pending[0].stamp.Written {
++		if j != 0 && v != 0 {
++			t.Fatal("unrelated art entered text mask")
++		}
++	}
++	d.unknownGlyph()
++	o.commit(&uiPending{kind: uiGlyph, r: uiRect{264, 188, 24, 16}, mask: mask})
++	if d.pending[0].stamp.Written != nil {
++		t.Fatal("unknown text mask was guessed")
++	}
++}
++func writeSavedHeader(m *machine.Machine, ptr uint32, r uiRect) {
++	for i, n := range []int{r.x / 8, r.y - 40, r.w / 8, r.h} {
++		binary.LittleEndian.PutUint16(m.Mem[ptr+uint32(i*2):], uint16(n))
++	}
++}
++func TestUISaveRestoreIdentityAndCapacity(t *testing.T) {
++	m, o := uiFixture()
++	addTestPanel(m, o, uiRect{256, 184, 128, 56}, 10)
++	r := uiRect{256, 184, 128, 64}
++	ptr := uint32(0x50000)
++	writeSavedHeader(m, ptr, r)
++	b := o.captureBackup(ptr, r)
++	m.Steps = 11
++	o.commit(&uiPending{kind: uiSave, r: r, ptr: ptr, backup: b})
++	if len(o.backups) != 1 || len(o.backups[0].owner) != 128*64 {
++		t.Fatal("save used panel bbox instead of header")
++	}
++	i := 185*640 + 258
++	o.write(machine.VideoWrite{CS: 0x9999, Offset: uint32(185*80 + 32), Step: 20})
++	m.Steps = 30
++	o.commit(&uiPending{kind: uiRestore, r: r, ptr: ptr, backup: b})
++	if o.canvas.Owner[i] != 1 || o.canvas.Raw[i] || o.canvas.WriteStep[i] != 30 {
++		t.Fatal("metadata not restored")
++	}
++	m.Mem[ptr+8] ^= 1
++	m.Steps = 40
++	o.commit(&uiPending{kind: uiRestore, r: r, ptr: ptr, backup: b, touched: map[uint32]uint64{uint32(185*80 + 32): 39}})
++	if o.canvas.Owner[i] != 0 || !o.canvas.Raw[i] {
++		t.Fatal("reused buffer restored stale metadata")
++	}
++	for k := 0; k < 70; k++ {
++		o.remember(&uiBackup{ptr: uint32(k), owner: make([]uint64, 1)})
++	}
++	if len(o.backups) != 64 {
++		t.Fatal("backup count unbounded")
++	}
++	o.backups = nil
++	o.backupPixels = 0
++	for k := 0; k < 5; k++ {
++		o.remember(&uiBackup{ptr: uint32(k), owner: make([]uint64, 640*400)})
++	}
++	if o.backupPixels > uiMaxBackupPixels || len(o.backups) != 4 {
++		t.Fatal("backup pixel budget unbounded")
++	}
++	oldID := o.canvas.Panels[0].ID
++	for k := 0; k < 65; k++ {
++		addTestPanel(m, o, uiRect{0, 80, 128, 56}, uint64(100+k))
++	}
++	if len(o.canvas.Panels) != 64 || o.panelAlive(oldID) || o.nextID != 66 {
++		t.Fatal("panel capacity or monotonic identity")
++	}
++}
++func TestUIModeChangeClearsMetadataWithoutMachineChanges(t *testing.T) {
++	m, o := uiFixture()
++	addTestPanel(m, o, uiRect{256, 184, 128, 56}, 10)
++	o.backups = []*uiBackup{{owner: make([]uint64, 1)}}
++	o.backupPixels = 1
++	o.pending = []*uiPending{{kind: uiGlyph}}
++	m.SetVideoMode(0x12)
++	if len(o.canvas.Panels) != 0 || len(o.pending) != 0 || len(o.backups) != 0 || o.backupPixels != 0 {
++		t.Fatal("same mode reset left stale metadata")
++	}
++	for _, id := range o.canvas.Owner {
++		if id != 0 {
++			t.Fatal("mode reset left owners")
++		}
++	}
++	if o.nextID != 1 {
++		t.Fatal("mode reset reused panel ids")
++	}
++}
++
++func TestUINon80StrideFailsClosed(t *testing.T) {
++	for _, entry := range []string{"pre", "write", "post", "snapshot"} {
++		t.Run(entry, func(t *testing.T) {
++			m, o := uiFixture()
++			addTestPanel(m, o, uiRect{256, 184, 128, 56}, 10)
++			o.backups = []*uiBackup{{ptr: 0x50000, owner: make([]uint64, 1)}}
++			o.backupPixels = 1
++			o.pending = []*uiPending{{kind: uiGlyph, entry: 10, cs: 0x1c35, ip: 0x1c5}}
++			m.CPU.Seg[cpu.CS], m.CPU.IP = 0x1c35, 0x1c5
++			modeEvents := len(m.ModeChanges)
++			m.VGA.Out(0x3d4, 0x13)
++			m.VGA.Out(0x3d5, 80)
++			if m.VideoMode() != 0x12 || m.VGA.Pitch(640) != 160 || len(m.ModeChanges) != modeEvents {
++				t.Fatal("negative control did not change stride without mode event")
++			}
++			before := append([]byte(nil), m.Mem...)
++			cpuBefore := *m.CPU
++			_, _, pxBefore := m.Planar()
++			f := &Frame{W: 640, H: 480, Px: append([]byte(nil), pxBefore...)}
++			switch entry {
++			case "pre":
++				o.pre()
++			case "write":
++				o.write(machine.VideoWrite{CS: 0x9999, Offset: uint32(185*80 + 32), Step: 11})
++			case "post":
++				o.post()
++			case "snapshot":
++				o.snapshot(f)
++			}
++			o.snapshot(f)
++			if f.UI != nil || len(o.canvas.Panels) != 0 || len(o.pending) != 0 || len(o.backups) != 0 || o.backupPixels != 0 {
++				t.Fatal("unsupported stride published or retained UI metadata")
++			}
++			_, _, pxAfter := m.Planar()
++			cpuAfter := *m.CPU
++			cpuBefore.Bus, cpuAfter.Bus, cpuBefore.IntHook, cpuAfter.IntHook = nil, nil, nil, nil
++			if !bytes.Equal(before, m.Mem) || !bytes.Equal(pxBefore, pxAfter) || !reflect.DeepEqual(cpuBefore, cpuAfter) || m.VGA.Pitch(640) != 160 || len(m.ModeChanges) != modeEvents {
++				t.Fatal("stride fallback changed original machine")
++			}
++			m.VGA.Out(0x3d4, 0x13)
++			m.VGA.Out(0x3d5, 40)
++			recovered := &Frame{W: 640, H: 480, Px: make([]byte, 640*480)}
++			o.snapshot(recovered)
++			if recovered.UI == nil || len(recovered.UI.Panels) != 0 || o.nextID != 1 {
++				t.Fatal("80-byte recovery revived stale metadata or reused identity")
++			}
++			for _, id := range recovered.UI.Owner {
++				if id != 0 {
++					t.Fatal("stale owner revived")
++				}
++			}
++		})
++	}
++}
++func TestUICursorExactIdentityAndRawProtection(t *testing.T) {
++	m, o := uiFixture()
++	f, mem := cursorFixture()
++	copy(m.Mem[cursorData:], mem[cursorData:])
++	addTestPanel(m, o, uiRect{0, 120, 128, 56}, 10)
++	c := m.CPU
++	c.Seg[cpu.CS], c.IP = 0x1c57, 0x22
++	c.Seg[cpu.SS], c.R[cpu.SP] = 0x100, 0x100
++	base := cpu.Linear(0x100, 0x100)
++	for k, n := range []uint16{0x8a2, 0x19fb, 0, 96, 100, 0x1bd1, 0x3e50} {
++		m.Write16(base+uint32(k*2), n)
++	}
++	o.pre()
++	if len(o.pending) != 1 || o.pending[0].kind != uiCursorPaint {
++		t.Fatal("exact cursor call not recognized")
++	}
++	i := 140*640 + 96
++	o.write(machine.VideoWrite{CS: 0x1c57, IP: 0x2b1, Offset: uint32(140*80 + 12), Step: 11})
++	if o.canvas.Owner[i] == 0 {
++		t.Fatal("cursor destroyed underlying owner")
++	}
++	o.pending = nil
++	m.Write16(base+10, 0x1bd2)
++	o.pre()
++	if len(o.pending) != 0 {
++		t.Fatal("nearby pointer incorrectly exempted")
++	}
++	f.Steps = 20
++	o.snapshot(f)
++	if !f.UI.Raw[i] || f.UI.Owner[i] != 0 || f.UI.WriteStep[i] != 20 {
++		t.Fatal("raw cursor not protected")
++	}
++	f.CursorManaged = true
++	o.snapshot(f)
++	if f.UI.Owner[i] == 0 {
++		t.Fatal("managed cursor removed underlying panel")
++	}
++}
++
++func TestUINormalPathDoesNotChangeOriginal(t *testing.T) {
++	root := origRoot(t)
++	var all [2]*Session
++	for j := range all {
++		s, err := Open(root, Options{UIHooks: j == 1, SmoothCursor: true, NoPacing: true})
++		if err != nil {
++			t.Fatal(err)
++		}
++		all[j] = s
++		if st := s.RunSteps(30000000); st.Kind != StopSteps {
++			t.Fatal(st)
++		}
++		s.Input(MouseMoveEvent(312, 171))
++		s.Input(MouseButtonEvent(312, 171, 0, true))
++		s.Input(MouseButtonEvent(312, 171, 0, false))
++		if st := s.RunSteps(90000000); st.Kind != StopSteps {
++			t.Fatal(st)
++		}
++		for k := 0; k < 2; k++ {
++			s.Input(MouseMoveEvent(300, 140))
++			s.Input(MouseButtonEvent(300, 140, 0, true))
++			s.Input(MouseButtonEvent(300, 140, 0, false))
++			if st := s.RunSteps(s.m.Steps + 8000000); st.Kind != StopSteps {
++				t.Fatal(st)
++			}
++		}
++		s.SnapshotNow()
++	}
++	a, b := all[0], all[1]
++	ca, cb := *a.m.CPU, *b.m.CPU
++	ca.Bus, cb.Bus, ca.IntHook, cb.IntHook = nil, nil, nil, nil
++	if !bytes.Equal(a.m.Mem, b.m.Mem) || !bytes.Equal(a.Frame().Px, b.Frame().Px) || a.m.Steps != b.m.Steps || a.m.Ticks != b.m.Ticks || !reflect.DeepEqual(ca, cb) || !reflect.DeepEqual(a.d.Stats(), b.d.Stats()) || a.Frame().DAC != b.Frame().DAC || a.Frame().Map != b.Frame().Map {
++		t.Fatal("UI observer changed original machine")
++	}
++	if a.Frame().UI != nil || b.Frame().UI == nil || len(b.Frame().UI.Panels) < 4 || len(b.ui.backups) == 0 {
++		t.Fatalf("normal plate/save path not reached: panels=%d backups=%d", len(b.Frame().UI.Panels), len(b.ui.backups))
++	}
++	t.Logf("normal path steps=%d panels=%d backups=%d", b.m.Steps, len(b.Frame().UI.Panels), len(b.ui.backups))
++}
+diff --git a/apps/hr/runtime/ui_types.go b/apps/hr/runtime/ui_types.go
+new file mode 100644
+index 0000000..a2b5eb7
+--- /dev/null
++++ b/apps/hr/runtime/ui_types.go
+@@ -0,0 +1,19 @@
++package runtime
++
++// UIPanel 是規格 011 的不可變板面；Expected 在原語返回後擷取。
++type UIPanel struct {
++	ID, DrawStep uint64
++	X, Y, W, H   int
++	Expected     []uint8
++}
++
++// UIFrame 是同一 VGA 快照的呈現歸屬；各畫布長度皆為 W*H。
++// Owner 的 0 表示沒有可主題化板面。Glyph 保留下方 Owner 供譯文擦除。
++// Raw 標示保守原色回退，WriteStep 為該像素最近繪製或還原的 Machine.Steps。
++type UIFrame struct {
++	Panels    []UIPanel
++	Owner     []uint64
++	Glyph     []bool
++	Raw       []bool
++	WriteStep []uint64
++}
+-- 
+2.43.0
+

@@ -49,9 +49,9 @@ else
   if [ "$WITH_HD" = 1 ]; then DIST="dist-all/with-hd"; fi
   STAGE="workplace/pkg-stage"
 fi
-GO_IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"
-MAC_IMAGE="${HR_MAC_IMAGE:-psychicwar-osxcross:latest}"
-APPIMAGE_IMAGE="${HR_APPIMAGE_IMAGE:-psychicwar-appimage:latest}"
+GO_IMAGE="${HR_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
+MAC_IMAGE="${HR_MAC_IMAGE:-hr-osxcross:1.26.7-15.5-r1}"
+APPIMAGE_IMAGE="${HR_APPIMAGE_IMAGE:-hr-appimage:runtime-recovery-r1}"
 INV="docs/re/source-inventory.tsv"
 mkdir -p "$DIST" "$STAGE" workplace/gocache workplace/out
 if [ "$RELEASE_PATCH" = 1 ]; then

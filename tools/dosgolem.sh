@@ -18,7 +18,7 @@ DG="$ROOT/workplace/dosgolem"
 test -x "$DG/tools/go.sh" || { echo "缺 workplace/dosgolem" >&2; exit 1; }
 test -d "$ROOT/workplace/orig" || { echo "缺 workplace/orig" >&2; exit 1; }
 mkdir -p "$ROOT/workplace/out"
-export DOSGOLEM_GO_IMAGE="${DOSGOLEM_GO_IMAGE:-golang:1.24-bookworm}"
+export DOSGOLEM_GO_IMAGE="${DOSGOLEM_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 export DOSGOLEM_ORIG="$ROOT/workplace"
 export DOSGOLEM_EXTRA_MOUNT="$ROOT/workplace/out:/out"
 export DOSGOLEM_TIMEOUT="${DOSGOLEM_TIMEOUT:-10m}" DOSGOLEM_CPUS="${DOSGOLEM_CPUS:-2}" DOSGOLEM_MEM="${DOSGOLEM_MEM:-2g}"

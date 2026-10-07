@@ -495,3 +495,29 @@
 - 一般推送前確認 PUBLIC、原版禁止路徑零命中；內容掃描 2840 個追蹤檔，16 筆逐項等於既有 12 筆基準及四筆已授權人物姓名。Go 原始檔空白檢查通過；根 repo 的 format-patch 保留原始 diff 上下文前綴，排除補丁備份後文件與腳本空白檢查通過。
 - 正式 tag 綁定上述建包來源，Release 已發布：<https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.1-20261006>。三平台公開補丁、SHA256SUMS.json 與 LICENSE 共五資產，遠端 SHA-256 全部與本機一致；收據 `smoke/remote-release.json`。含遊戲完整版及原版配樂影片只在本機。Issue #3 已結案，舊版 tag、Release 與交付物均保留。
 - Docker 收尾無本專案容器殘留；工作根 98,680 項擁有權檢查沒有 root-owned 檔案或 *.md 目錄。README 已提供新版 F1 截圖與現行 Release 入口，本段另作收尾文件提交，不移動正式 tag。
+
+### 接手游標修正與介面主題工作（2026-10-07）
+
+- 使用者要求接手上一個 session。路由命中復古 remake 接手與文件職責，載入 `reverse-engineer-retro-game-remake`、其接手驗證 reference 及 `local/project-document-responsibilities.md`；沿用 AGENTS 與 033 的目前狀態表，不另建 CONTEXT 或 WORKLIST。
+- 根儲存庫 HEAD `3f34c26951f649ad7b6e676608a83508bebfee7f`，fork HEAD `28c1c2daab2fc7a048f83c0dbca4bafe9d31b84d`。保留上輪所有未提交修改。遠端 PUBLIC，Issue #4、#5 均開啟；此次只讀取，沒有留言或改狀態。
+- 010 已 READY，上輪游標實作與正常 GUI 錄影已存在，033 卻仍寫尚未實作。依目前程式與收據修正現況，列出尚待補核的邊界／異常格式測試、唯讀實作審查及實包驗證。沒有把窄測試通過改寫成已發行或使用者實機通過。
+- 既有 Docker image 重跑 runtime 游標及前端游標、HD 合成、截圖窄測試，含競態檢查，全部通過，原版測試未 skip。收據 `workplace/out/cursor-handoff-runtime-tests.txt`、`cursor-handoff-play-tests.txt`，由 033 提供入口。首次登入 shell 重設 PATH，Go 未啟動；核對 image 設定後改非登入 shell，以同 image、同測試乾淨重跑。這是環境問題，沒有改產品或另建 image。
+- 核對修正後執行檔與上輪錄影收據的 SHA-256 相同。游標模板分析的指定區域共 548 幀，皆為單游標；不據此宣稱輸入延遲或桌面實機驗收。接手時一度將游標裁切圖誤當完整主題畫面，查看完整 HD／AI 截圖後撤回切換失效的判斷；未據此修改程式。
+- 介面 v1 美術方向接受記在 `hd-ai/ui-panel-ai-v1.json`，追加要求為移除抖色、使用連續漸層、保留字形與邏輯座標。v2 樣張已在 `workplace/out/`，還沒有正式規格與接線；v1 的方向接受不擴張為全部介面已驗收。接續先完成 010 的剩餘收尾，再處理既有介面原語與 v2 樣張的正式接線契約。
+- 本輪只修正交接文件並產生窄測試紀錄，沒有 commit、push、打包或發行。主 repo 與 fork 無原版同名檔誤追蹤，原有 diff 空白檢查通過；工作根無 root-owned 檔案或 `.md` 目錄，輸出及文件為 1000:1000。所有接手容器採 `--rm`，Xvfb 有 trap，收尾無 `hr-*` 容器殘留。
+
+### 游標收尾與五尺寸介面接線（2026-10-07 至 2026-10-08）
+
+- 使用者要求開工，沿既有游標與非人物介面範圍續做。載入 spec-gated-workflow、文件職責、版號／dist-all、逆向結論回填契約及 humanizer；沒有重開已取消的 M8／M10 全路徑驗收。033 保存唯一目前狀態表。
+- 游標兩份獨立審查發現最後 Pending 幀停機後無到期、HD→原版底圖配對錯置、未知格式缺日誌。修正 Frame.CursorDeadline、origFrame／hdFrame 配對及按原因只記一次的回退；新增四角、異常格式、停止到期、界限及切換回歸。完整前端與游標競態測試通過，兩位複核沒有阻擋。fork 提交 `b687256`，備份 0042。
+- 程序板面使用原版 `1D84:000A`，原字形使用來源寫入遮罩。11 次正常 PLATE2 呼叫、五尺寸受控形狀分支、1504 次有效 glyph、165 次還原共 320816 像素閉合。034 保存定位、工具、來源雜湊與停止線；009 補核 PAT 檔各 128 bytes，舊 1024 bytes 是配置容量。原 probe、圖與 byte 只留 workplace。兩份獨立審查及複核後 011 升 READY。
+- 接入有限容量的板面歸屬、glyph／Written、保存區指標／標頭／摘要、同 Machine.Steps 的 DrawStep、同幀 UI 背景與 F2 素材身分。未知 byte／字形／尺寸保守原版回退。實際 AI 材質固定已接受的 SHA，HD 採同方向連續漸層，沒有新生成或外送美術。
+- 原版 A/B 正常標題、新遊戲及兩次對話輸入，兩側各 106000000 步，CPU、記憶體、VRAM、ticks、palette／map、DOS Stats 相同。完整前端與窄測含 race 通過；原版保存格式與遊戲規則沒有變。作者與獨立審查入口都掛入 033／034。
+- 完成前獨立審查以 Mode12、Pitch160 負對照揭露列距守門缺口；pre／write／post／snapshot 現在同時核 Pitch80，失配清 metadata，回復80不復活舊資料。另補 UI／游標交界：010 已驗完整或隱藏的同幀游標時，已知且未失敗的 cursor pending 不取消底板；修正前負對照失敗、修正後及獨立複核通過。F2 RGBA／Frame／style 三元組直接回歸也通過。
+- 正常 GUI 入口 `ui-final-gui/`、`ui-english-gui/`，沒有 state 或記憶體注入。F2 等實際完成後擷取，F1、F12、左右鍵及英文背景抽驗成立。最後 918 幀皆單游標，F12模板272／272；先前941幀是前一候選，不混稱同一執行檔。斜塊曾誤判為原色殘留，完整游標模板核對後確認是原版游標前景，沒有改畫游標。新實際畫面進 docs/images，由README引用；美術方向已接受，實際新介面仍待使用者過目。
+- Linux／Windows 待驗執行檔已建，macOS兩架構合成 universal；候選版號因跨日採 `v.1.0.2-20261008`，沒有移動舊 tag 或 Release。fork 提交 `686581d`，備份 0043。全量UI未知原語仍回退，不宣稱全部介面或原版 exact。
+- 共享 Docker 的既有 EOB／psychicwar image 同時消失，從原來源建立明確替代的 hr-go-ebiten、hr-osxcross、hr-appimage。Go1.26.7／Ebiten2.9.9／FFmpeg5.1.9固定；SDK15.5只留本機。runtime 從已公開1.0.1 patch精確恢復944632-byte ELF前綴，SHA為`1cc49bcf1e2ccd593c379adb17c9f85a36d619088296504de95b1d06215aebbf`，沒有輸出Squashfs。建置來源與重建入口掛入AGENTS/README；runtime恢復程式從研究輸出另存tools/pkg，避免入口依賴未版控研究檔。
+- 工具鏈非遊戲 pack／extract／AppRun 正反對照通過；首次版本子命令退出1與macOS已存在UID1000／模組快取路徑均分類為環境或驗證腳本問題，修正後以同image重跑。數次自動權限審查逾時按工具允許重試一次成功，不當安全拒絕或產品缺陷。新增GPU讀像素unit不適用未啟動Ebitengine，移除後由正常GUI/F12取代。
+- 包裝入口已改到恢復工具鏈，AI面板PNG／JSON 納入既有素材清冊並核固定SHA。此輪未要求新推廣片，full manifest只在影片存在時登錄，不把舊版影片改名成新素材。準備從乾淨root/fork建立六個正式版號候選包，實包結果另追加；目前尚未公開發行或更新Issue狀態。
+
+- 建包前主機 gh 認證成立，遠端 PUBLIC。內容掃描 2871 個追蹤檔案、3728 個文字單位，16 筆逐項等於既有12筆與四筆已授權人物姓名；沒有新命中，不修改掃描器或 allowlist。首次掃描多加不存在的 `--tracked` 選項，在用法檢查停止；改回既定無參數入口重跑。語法、擁有權與 root/fork 原版檔名核對通過。

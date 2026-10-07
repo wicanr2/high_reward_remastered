@@ -1,0 +1,45 @@
+# HR Linux build/test/record 工具鏈 r1。
+# 來源：唯讀參考 /home/anr2/cht/eob_123_remake/Dockerfile。
+# 替代已消失的 EOB Go 1.26.7 / Ebiten 2.9.9 與 video-ime1 image。
+# context 只含此檔、由 HR main/play 鎖檔產生的 go.mod 與 go.sum。
+FROM golang:1.26.7-bookworm@sha256:e8c859f5632dcfde7b32d2012b4351728f6437930887c2f6a91ea242459e5514
+
+LABEL org.opencontainers.image.title="HR Go/Ebiten Linux toolchain" \
+      org.opencontainers.image.version="1.26.7-2.9.9-r1" \
+      org.opencontainers.image.description="Linux build/test/record replacement for retired eob-remake-go 1.26.7 Ebiten 2.9.9 and video-ime1; no original game data"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc libc6-dev pkg-config \
+        libgl1-mesa-dev libasound2-dev \
+        libx11-dev libxcursor-dev libxi-dev libxinerama-dev \
+        libxrandr-dev libxxf86vm-dev \
+        xvfb xdotool x11-utils imagemagick \
+        ffmpeg=7:5.1.9-0+deb12u1 \
+        python3 python3-pil python3-numpy \
+        zip unzip rsync file \
+    && mkdir -p /usr/local/share/hr-toolchain \
+    && dpkg-query -W -f='${Package}\t${Version}\n' > /usr/local/share/hr-toolchain/packages.tsv \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 1000 hr \
+    && useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash hr \
+    && install -d -o 1000 -g 1000 /src /opt/hr-toolchain /go/pkg/mod
+
+COPY --chown=1000:1000 go.mod go.sum /opt/hr-toolchain/
+USER 1000:1000
+WORKDIR /opt/hr-toolchain
+ENV GOTOOLCHAIN=local \
+    GOPROXY=off \
+    GOSUMDB=off \
+    GOCACHE=/tmp/hr-go-cache \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+# 下載時按原 go.sum 與公開 checksum database 核對；正式執行預設離線。
+RUN GOPROXY=https://proxy.golang.org,direct GOSUMDB=sum.golang.org go mod download \
+    && go mod verify \
+    && test "$(go env GOVERSION)" = "go1.26.7" \
+    && test "$(go list -m -f '{{.Version}}' github.com/hajimehoshi/ebiten/v2)" = "v2.9.9"
+
+WORKDIR /src
+CMD ["bash"]

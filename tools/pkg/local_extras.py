@@ -10,6 +10,7 @@ root, dest = Path(root_name), Path(destination)
 codes = ['zh-TW', 'zh-CN', 'en', 'ja', 'ko']
 names = ['COUNTRY.MES', 'ESPMES.MRG', 'POWERMES.MES', 'SHOPTAB.TBL', 'SP.MES', 'SYSTEM.MES', 'UWASA.MES']
 header = 'id\tsrc_sha256\ttext\tstatus\tacc_sha\tby\tbatch\tdate\tnote'
+ui_panel_sha256 = 'b2fda4d30990170c0b98807a1605b7ea2a5669a9be825602df805bea8408f6bf'
 
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -84,11 +85,21 @@ def check_assets(folder):
         language_files(folder / 'l10n' / code, code)
     if len(list((folder / 'hd-ai/x2').rglob('*.png'))) != 595:
         raise ValueError('AI 主題應有 595 張圖')
+    if receipt.get('ui_panel_sha256') is not None:
+        panel = folder / 'hd-ai/ui-panel-ai-v1.png'
+        regular(panel)
+        if receipt['ui_panel_sha256'] != ui_panel_sha256 or digest(panel) != ui_panel_sha256:
+            raise ValueError('介面板面材質 SHA-256 不符')
+        metadata = json.loads((folder / 'hd-ai/ui-panel-ai-v1.json').read_text())
+        if metadata['sha256'] != ui_panel_sha256 or metadata['status'] != 'accepted style direction':
+            raise ValueError('介面板面來源或接受方向不符')
     return receipt
 
 if mode == 'stage':
     ai = root / 'hd-ai'
     for name in ['catalog.tsv', 'palettes.tsv', 'provenance.tsv']:
+        copy_file(ai / name, dest / 'hd-ai' / name)
+    for name in ['ui-panel-ai-v1.png', 'ui-panel-ai-v1.json']:
         copy_file(ai / name, dest / 'hd-ai' / name)
     for optional in ['NOTICE.txt', 'README.md']:
         if (ai / optional).is_file():
@@ -110,6 +121,7 @@ if mode == 'stage':
         target.write('\n新版美術與多語系\n----------------\n含 595 項 AI 主題，F2 可切換原版、HD、AI。\nF4 切換繁中、簡中、韓文、英文、日文介面；重新啟動後套用遊戲內語言。\n四個新語言各含七檔 2559 項譯文。繁中保留原版文字及已接受的 17 項修訂。\n首次啟動會在使用者資料目錄建置語言包，不改動原版檔案。\n美術與譯文依維護者決定公開；原版與第三方權利不在 LICENSE 授權範圍內。\n')
     files = {str(path.relative_to(dest)): digest(path) for directory in ['hd-ai', 'l10n'] for path in (dest / directory).rglob('*') if path.is_file()}
     receipt = dict(visibility='public', ai_images=595, adopted_seven_file_rows=counts,
+                   ui_panel_sha256=ui_panel_sha256,
                    main_table_rows=main_counts, full_text_activated=True,
                    compiled_language_packs_included=False, files_sha256=files)
     (dest / 'PRIVATE_CONTENTS.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')

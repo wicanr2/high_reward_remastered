@@ -1,0 +1,29 @@
+{
+  "status": "accepted style direction",
+  "asset": "ui-panel-ai-v1.png",
+  "method": "OpenAI built-in imagegen; newly generated bronze/olive rectangular panel; no original art uploaded",
+  "prototype_only_regions": [
+    [
+      356,
+      216,
+      894,
+      354
+    ],
+    [
+      932,
+      628,
+      1258,
+      720
+    ],
+    [
+      932,
+      730,
+      1258,
+      790
+    ]
+  ],
+  "invariants": "same text, coordinates, original art outside interface panels",
+  "accepted": "2026-10-07",
+  "sha256": "b2fda4d30990170c0b98807a1605b7ea2a5669a9be825602df805bea8408f6bf",
+  "additional_requirement": "HD and AI interface must remove ordered dithering and render continuous gradients; preserve glyphs and logical coordinates"
+}

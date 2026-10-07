@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在容器內執行 tools/pkg 的 Python 腳本（PIL）。映像預設 yuan-analysis:1，用 HR_PKG_IMAGE 覆蓋。
+# 在容器內執行 tools/pkg 的 Python 腳本（PIL）。固定工具鏈見 tools/rebuild_toolchain.sh。
 #   tools/pkg/py.sh appicon.py /w/pkg-stage/icon 
 # 掛載：workplace 讀寫為 /w，tools/pkg 唯讀為 /s。預設 --network none。
 set -euo pipefail
@@ -16,4 +16,4 @@ exec timeout "${HR_PKG_TIMEOUT:-10m}" docker run --rm --network none \
   --log-opt max-size=10m --log-opt max-file=3 \
   -u "$(id -u):$(id -g)" -e PYTHONPATH=/s \
   -v "$ROOT/workplace:/w" "${orig_mount[@]}" -v "$ROOT/tools/pkg:/s:ro" -w /w \
-  "${HR_PKG_IMAGE:-yuan-analysis:1}" python3 "/s/$SCRIPT" "$@"
+  "${HR_PKG_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}" python3 "/s/$SCRIPT" "$@"

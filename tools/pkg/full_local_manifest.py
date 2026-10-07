@@ -16,8 +16,10 @@ names = [
     f"full-local/HighReward-{version}-x86_64.AppImage",
     f"full-local/HighReward-{version}-win64.zip",
     f"full-local/HighReward-{version}-macos.zip",
-    f"promo/HighReward-{version}-promo.mp4",
 ]
+promo = f"promo/HighReward-{version}-promo.mp4"
+if (root / promo).is_file():
+    names.append(promo)
 names += [f'patch/HighReward-{version}-{suffix}' for suffix in ['x86_64.AppImage', 'win64.zip', 'macos.zip']
           if (root / f'patch/HighReward-{version}-{suffix}').is_file()]
 license_source = pathlib.Path("/license")
@@ -57,7 +59,7 @@ if static.is_file():
                 'main_table_rows', 'full_text_activated', 'macos']:
         if key in receipt:
             manifest[key] = receipt[key]
-    manifest['verification_scope'] = 'User requested language integration and switching only; no additional gameplay sampling or native macOS test.'
+    manifest['verification_scope'] = 'Cursor and five PLATE2 presentation paths, language integration and switching; no full-game completion or native macOS test.'
     manifest["verification_receipts_sha256"] = {
         str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in [static, root / "smoke/linux/receipt.json", root / "smoke/windows/RESULTS.txt", root / "promo/ffprobe.json", root / "promo/rights.json"] if p.is_file()

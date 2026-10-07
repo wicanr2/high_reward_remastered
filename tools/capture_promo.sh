@@ -9,7 +9,7 @@ BIN="${HR_CAPTURE_BINARY_DIR:-$ROOT/workplace/out/bin}"
 test -d "$ROOT/workplace/out" && test -d "$BIN" && test -f "$BIN/hr-play"
 test -d "$ROOT/workplace/orig" && test -d "$ROOT/hd" && test -d "$ROOT/hd-ai" && test -d "$ROOT/l10n"
 test -f "$ROOT/tools/capture_promo.py"
-IMAGE=eob-remake-go:1.26.7-ebiten2.9.9-video-ime1
+IMAGE="${HR_CAPTURE_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 docker image inspect "$IMAGE" >/dev/null
 # 由容器建立輸出目錄，以最終 UID 寫入。
 exec timeout 20m docker run --rm --name "hr-promo-live-$NAME" \

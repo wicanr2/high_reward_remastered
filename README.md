@@ -22,6 +22,16 @@
 
 ![原版與 AI 圖層對照，左原版、右 AI](docs/images/compare-ai-full-newgame.png)
 
+## 介面板面
+
+HD 與 AI 主題也替換已支援的選單、對話框、肖像邊框與資訊面板。文字與操作座標保持原樣，未知原語保留原版。接線與已驗範圍見[介面契約](docs/spec/011-procedural-ui-themes.md)。
+
+| HD | AI 手繪 |
+|---|---|
+| ![HD 介面](docs/images/ui-hd.png) | ![AI 介面](docs/images/ui-ai.png) |
+
+![AI 介面與英文文字](docs/images/ui-ai-en.png)
+
 ## 五語遊戲文字
 
 ![簡中、日文、韓文、英文的正常新遊戲畫面](docs/images/l10n-full-overview.png)
@@ -100,6 +110,8 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 入口 | 用途 |
 |---|---|
 | `tools/play.sh build` | 建置 Linux 前端 |
+| `tools/rebuild_toolchain.sh` | 重建固定版本的 Linux 建置、測試與錄影工具鏈 |
+| `tools/rebuild_appimage_toolchain.sh` | 恢復固定 runtime 的 AppImage 打包工具鏈 |
 | `HR_VERSION=v.1.0.1-20261006 tools/package_full_local.sh` | 重建含遊戲的三平台本機完整版 |
 | `HR_VERSION=v.1.0.1-20261006 tools/package_release_patch.sh` | 重建不含原版遊戲檔的三平台 Release 包 |
 | `HR_VERSION=v.1.0.1-20261006 tools/promo.sh` | 以實際 F2 切換、地圖與部隊操作、F1 幫助錄影製作 1080p 推廣片 |
@@ -117,6 +129,8 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | [WORKLOG.md](WORKLOG.md) | 工作歷程與勘誤 |
 | [登場人物與肖像](docs/characters.md) | 開場六位夥伴介紹，原版、HD 與 AI 肖像對照 |
 | [docs/spec/](docs/spec/) | 執行層、圖層、聲音與多語系契約 |
+| [游標呈現修正](docs/re/033-cursor-presentation.md) | 修正現況、測試與已驗範圍 |
+| [介面主題接線](docs/spec/011-procedural-ui-themes.md) | 程序板面的美術與呈現契約 |
 | [docs/re/](docs/re/) | 原版位元組、位址、雜湊與執行證據 |
 | [hd/](hd/) | 演算法 HD 素材 |
 | [hd-ai/](hd-ai/) | OpenAI 重繪主題及來源清冊 |

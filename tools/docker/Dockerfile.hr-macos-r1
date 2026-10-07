@@ -1,0 +1,20 @@
+# 恢復 HR 的 macOS 交叉編譯工具鏈，取代已消失的 psychicwar-osxcross。
+# 參考：/home/anr2/cht/psychic-war/tools/docker/osxcross.Dockerfile。
+# SDK 15.5 只在本機使用，image 與 SDK 不提交、不上傳。
+FROM hr-go-ebiten:1.26.7-2.9.9-r1 AS gobase
+FROM crazymax/osxcross:15.5-debian AS sdk
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    clang lld llvm libxml2 zlib1g liblzma5 libssl3 \
+    file ca-certificates icnsutils zip \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=sdk /osxcross /osxcross
+RUN echo /osxcross/lib > /etc/ld.so.conf.d/osxcross.conf && ldconfig
+COPY --from=gobase /usr/local/go /usr/local/go
+COPY --from=gobase /go/pkg/mod /go/pkg/mod
+RUN if ! getent group 1000 >/dev/null; then groupadd --gid 1000 hr; fi \
+    && if ! getent passwd 1000 >/dev/null; then useradd --uid 1000 --gid 1000 --create-home hr; fi
+ENV PATH="/osxcross/bin:/usr/local/go/bin:${PATH}" \
+    GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOCACHE=/tmp/hr-go-cache GOMODCACHE=/go/pkg/mod
+USER 1000:1000
+WORKDIR /src
