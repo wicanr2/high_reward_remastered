@@ -6,7 +6,7 @@
 set -euo pipefail
 APP="${1:?bundle 目錄}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-IMAGE="${HR_MAC_IMAGE:-psychicwar-osxcross:latest}"
+IMAGE="${HR_MAC_IMAGE:-hr-osxcross:1.26.7-15.5-r1}"
 fail() { echo "[verify-macos] 失敗：$*" >&2; exit 1; }
 test -f "$APP/Contents/Info.plist" || fail "缺 Info.plist"
 test -x "$APP/Contents/MacOS/hr-play" || fail "缺執行檔或沒有執行位元"
@@ -15,7 +15,7 @@ for k in CFBundleExecutable CFBundleIdentifier CFBundleIconFile CFBundlePackageT
   grep -q "<key>$k</key>" "$APP/Contents/Info.plist" || fail "Info.plist 缺 $k"
 done
 # 容器內檢查 Mach-O 與 plist 格式（--network none、唯讀掛載）
-docker run --rm --network none --memory 512m --cpus 1 --pids-limit 64 \
+timeout 60s docker run --rm --network none --memory 512m --cpus 1 --pids-limit 64 \
   --log-opt max-size=10m --log-opt max-file=3 -u "$(id -u):$(id -g)" \
   -v "$(cd "$APP" && pwd):/app:ro" "$IMAGE" bash -c '
     set -euo pipefail

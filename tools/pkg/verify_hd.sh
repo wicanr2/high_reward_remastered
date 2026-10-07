@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BIN="$(cd "$(dirname "${1:?hr-play 執行檔}")" && pwd)/$(basename "$1")"
 HDD="$(cd "${2:?HD 目錄}" && pwd)"
 PREFIX="${3:?輸出前綴}"
-IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"
+IMAGE="${HR_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 test -f "$BIN" || { echo "缺 $BIN" >&2; exit 1; }
 test -f "$HDD/catalog.tsv" || { echo "缺 $HDD/catalog.tsv" >&2; exit 1; }
 test -f "$ROOT/workplace/orig/MAIN.EXE" || { echo "缺 workplace/orig" >&2; exit 1; }

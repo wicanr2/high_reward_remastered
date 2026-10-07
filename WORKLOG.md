@@ -521,3 +521,5 @@
 - 包裝入口已改到恢復工具鏈，AI面板PNG／JSON 納入既有素材清冊並核固定SHA。此輪未要求新推廣片，full manifest只在影片存在時登錄，不把舊版影片改名成新素材。準備從乾淨root/fork建立六個正式版號候選包，實包結果另追加；目前尚未公開發行或更新Issue狀態。
 
 - 建包前主機 gh 認證成立，遠端 PUBLIC。內容掃描 2871 個追蹤檔案、3728 個文字單位，16 筆逐項等於既有12筆與四筆已授權人物姓名；沒有新命中，不修改掃描器或 allowlist。首次掃描多加不存在的 `--tracked` 選項，在用法檢查停止；改回既定無參數入口重跑。語法、擁有權與 root/fork 原版檔名核對通過。
+
+- 首輪 full／patch 的 Linux、Windows 建成，macOS universal 編譯亦成立，但驗證 helper 仍預設已消失的 psychicwar image。回查 dist-all 契約並核所有 pkg helper 後，統一 macOS／HD／AppImage 驗證的固定 image 路由。這是工具入口遺漏；候選產物未發布。保存同一版號，從下一個乾淨工具來源提交重建六包，保留原介面與游標程式提交不變。

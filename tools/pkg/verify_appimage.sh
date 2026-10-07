@@ -6,7 +6,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 AI="$(cd "$(dirname "${1:?AppImage 路徑}")" && pwd)/$(basename "$1")"
-IMAGE="${HR_GO_IMAGE:-eob-remake-go:1.26.7-ebiten2.9.9}"
+IMAGE="${HR_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 test -f "$AI" || { echo "缺 $AI" >&2; exit 1; }
 test -f "$ROOT/workplace/orig/MAIN.EXE" || { echo "缺 workplace/orig" >&2; exit 1; }
 test -d "$ROOT/workplace/out" || { echo "缺 workplace/out" >&2; exit 1; }
