@@ -114,13 +114,14 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | `tools/rebuild_appimage_toolchain.sh` | 恢復固定 runtime 的 AppImage 打包工具鏈 |
 | `HR_VERSION=<正式版號> tools/package_full_local.sh` | 從乾淨來源重建含遊戲的三平台本機完整版 |
 | `HR_VERSION=<正式版號> tools/package_release_patch.sh` | 重建不含原版遊戲檔的三平台 Release 包；已發布包不覆寫 |
-| `tools/promo.sh` | 指定 `HR_VERSION`、`HR_PROMO_LIVE`、`HR_PROMO_ENGLISH`，以本版實錄製作 60 秒 1080p 影片；配樂未定時只產出無配樂預覽 |
+| `tools/promo.sh` | 指定本版錄影與 `HR_PROMO_AUDIO_MODE=original-recording`、`HR_PROMO_AUDIO_FILE`、`HR_PROMO_AUDIO_RECEIPT`，製作 60 秒 1080p 原版配樂影片 |
+| `tools/capture_original_music.sh <名稱>` | 原版 MAIN 與原廠 Creative 驅動的 DOSBox-X 錄音；資料、驅動及來源收據留本機 |
 | `tools/capture_promo.sh <名稱>` | 正常滑鼠與按鍵錄影；`HR_CAPTURE_BUNDLE_DIR` 可指定解出的 AppImage，`HR_CAPTURE_CONTROL_FILE` 可指定控制模板，收據位於 `workplace/out/<名稱>/` |
 | [繁中控制模板](tools/promo_control_zh-TW.json)、[英文控制模板](tools/promo_control_en.json) | F2／F1／F4、游標及正常新遊戲錄影輸入，名稱僅供定位 |
 | `tools/l10n/capture_full.py` | Docker 內擷取五語新遊戲畫面及 F4 下次啟動切換 |
 | `tools/l10n/bakeglyphs.sh` | 從固定 Noto 來源重烘字模補丁 |
 
-目前交付目錄為 `dist-all/v.1.0.2-20261008/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 保存影片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。含原版遊戲的完整版與原版配樂影片只留本機。
+目前交付目錄為 `dist-all/v.1.0.2-20261008/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是完成的 60 秒推廣片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。影片配樂取自原版程式與原廠 SB16 驅動的 DOSBox-X 播放錄音。含原版遊戲的完整版與原版配樂影片只留本機。
 
 ## 文件與素材
 

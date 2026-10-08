@@ -15,7 +15,7 @@
 | 最近測試 | 2026-10-08 完整前端與 UI／游標競態測試、獨立完成前審查、六包靜態驗證及實際 AppImage 抽測通過；原版 A/B 兩側各 106000000 步，機器狀態相同 |
 | GUI 證據 | 候選實包 `dist-all/v.1.0.2-20261008/smoke/linux/` 正常新遊戲含 F2 三主題、F1、F12、左右鍵；598 幀全為單游標，F12 模板 272／272。先前 standalone 的 918 幀另留 `workplace/out/ui-final-gui/` |
 | 正式交付 | `dist-all/v.1.0.2-20261008/`，full-local／patch 各三包；五個 GitHub Release 資產的大小與 SHA-256 全符本機，收據 `smoke/remote-release-validation.json` |
-| 下一閘門 | 60 秒無配樂預覽已通過視覺驗收，只等配樂選擇後完成成片；正式發布及三平台封包已完成。Windows／macOS 未實機驗收，Issue 狀態未改 |
+| 交付完成 | 正式發布、三平台完整版與 60 秒原版配樂推廣片均完成；影片 `promo/HighReward-v.1.0.2-20261008-promo.mp4`，驗收 `promo/verification.json`。Windows／macOS 未實機驗收，Issue 狀態未改 |
 | 介面主題工作 | [034](034-procedural-ui-panels.md) 與 [011](../spec/011-procedural-ui-themes.md)：使用者已接受實際介面，五尺寸 PLATE2 已 CONFORMED，未知原語回退原版 |
 
 ## 證據
@@ -56,7 +56,7 @@
 - `workplace/out/ui-final-gui/cursor-validation.json`：最終執行檔 `cd4d69a3b9530577de99a3202d1119196091b22f256e8cc9db8a2327b9c71589`，918 幀無漏畫／雙游標，F12 完整匹配；方法 `workplace/out/check-cursor-final.py`。
 - `workplace/out/package-static-v102-report.md`、`verify-ui-packages-v102.py`：六包獨立內容／格式驗證與重跑程式；機器收據 `dist-all/v.1.0.2-20261008/smoke/full-static.json`。
 - `dist-all/v.1.0.2-20261008/smoke/linux/receipt.json`、`cursor-validation.json`：實際 AppRun 僅使用包內資源啟動；正式版號已注入，執行器 SHA-256 `117eb4e4cc31521a0856ea17b2ca8e95cef738d9eabe5ee028b5855d52557140`。598 幀皆單游標，F12 272／272。正常輸入程式 `workplace/out/capture_v102_bundle.py` 沿 `tools/capture_promo.py`，沒有注入狀態。
-- `dist-all/v.1.0.2-20261008/smoke/remote-release-validation.json`：新正式 Release 五資產與本機大小／SHA-256 相符；`promo/verification.json`：最新 60 秒無配樂預覽的視覺通過與音源待決狀態，審查見 `workplace/out/promo-release-v102-review.md`。
+- `dist-all/v.1.0.2-20261008/smoke/remote-release-validation.json`：新正式 Release 五資產與本機大小／SHA-256 相符；`promo/verification.json`：60 秒原版執行錄音推廣片已 `final-pass`，審查見 `workplace/out/promo-release-v102-review.md`、`original-music-source-review.md`。
 
 主題圖上的橄欖色斜塊曾被當成背景殘留；完整游標模板比對顯示它是原版游標的前景色。保留這個圖形，沒有改畫游標。另由窄測獨立找出的 pending 取消下方板面缺口已修正；不把兩者混稱同一原因。
 

@@ -38,6 +38,8 @@ AppImage 工具鏈為 `hr-appimage:runtime-recovery-r1`，入口 `tools/rebuild_
 
 建包後僅更新驗收文件或追加影片時，重生清冊仍使用真正的建包來源。入口 `tools/finalize_full_local.sh`、`tools/finalize_release_patch.sh`；設定 `HR_BUILD_SOURCE_COMMIT=2c9d2ebc84fc5225933410b9fd4ace16f9e05d58`、`HR_BUILD_FORK_COMMIT=686581d34032d6b8a7209f033cf779f23ff73262` 與 `HR_VERSION=v.1.0.2-20261008`。來源與 `smoke/full-static.json` 不符時拒絕，不把後來的文件提交當成封包來源。
 
+2026-10-08 使用者指定「配樂要用原版的」，不採前版工程 FM 近似。推廣片音源改從未修改的原版程式、原廠驅動及成熟模擬器的實際播放取得；來源、工具、設定與雜湊記錄於本機收據。原廠驅動與原版錄音只留 `workplace/`／本機 `dist-all/`，不加入 Git 或 Release；本決定只涉及推廣片，不修改已發布遊戲的音訊實作或封包。
+
 ## 1. 專案定位與範圍
 
 本專案處理 DOS 遊戲《高報酬戰將》。需求來源是 `IDEA.md`，拆成四項工作：

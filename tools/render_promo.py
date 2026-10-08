@@ -12,7 +12,7 @@ font = '/fonts/NotoSansCJK-Bold.ttc'
 primary = json.loads(Path('/live/receipt.json').read_text())
 english = json.loads(Path('/english/receipt.json').read_text())
 audio_mode = os.environ.get('HR_PROMO_AUDIO_MODE', 'pending')
-assert audio_mode in ('pending', 'project-fm', 'none')
+assert audio_mode in ('pending', 'original-recording', 'none')
 for receipt in (primary, english):
     assert receipt['version'] == version
     assert receipt['bundled_resources_only'] and receipt['no_state_injection']
@@ -30,6 +30,18 @@ def sha(path):
         for chunk in iter(lambda: stream.read(1048576), b''):
             h.update(chunk)
     return h.hexdigest()
+
+
+audio_provenance = None
+if audio_mode == 'original-recording':
+    audio_provenance = json.loads(Path('/audio-provenance.json').read_text())
+    assert audio_provenance['kind'] == 'original-program-emulator-output'
+    assert audio_provenance['wave_sha256'] == sha('/music.wav')
+    assert audio_provenance['original_main_sha256'] == '08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e'
+    assert audio_provenance['unmodified_game_and_driver']
+    assert audio_provenance['driver_enabled_nonzero_and_absent_driver_silent']
+    audio_probe = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_format', '-of', 'json', '/music.wav']))
+    assert float(audio_probe['format']['duration']) >= 60
 
 
 def text(value, y, size=48, color='0xF7E6B9'):
@@ -122,9 +134,9 @@ for i, seg in enumerate(segments):
 video = out / f'HighReward-{version}-promo{ "-preview-silent" if audio_mode == "pending" else ""}.mp4'
 input_args = ['-f', 'concat', '-safe', '0', '-i', str(out / 'concat.txt')]
 audio_args = ['-an']
-if audio_mode == 'project-fm':
-    input_args += ['-stream_loop', '-1', '-i', '/music.wav']
-    audio_args = ['-map', '1:a:0', '-af', 'volume=4dB,afade=t=in:st=0:d=1,afade=t=out:st=57:d=3', '-c:a', 'aac', '-b:a', '192k']
+if audio_mode == 'original-recording':
+    input_args += ['-i', '/music.wav']
+    audio_args = ['-map', '1:a:0', '-af', 'volume=9dB,afade=t=in:st=0:d=1,afade=t=out:st=57:d=3', '-c:a', 'aac', '-b:a', '192k']
 run(base + input_args + ['-map', '0:v:0', '-vf', 'fps=30', '-c:v', 'libx264',
             '-preset', 'veryfast', '-crf', '16', '-threads', '2'] + audio_args +
             ['-t', '60', '-movflags', '+faststart', str(video)], 'render.log')
@@ -133,7 +145,7 @@ v = next(s for s in probe['streams'] if s['codec_type'] == 'video')
 a = next((s for s in probe['streams'] if s['codec_type'] == 'audio'), None)
 assert (v['codec_name'], v['width'], v['height'], v['avg_frame_rate']) == ('h264', 1920, 1080, '30/1')
 assert abs(float(probe['format']['duration'])-60) < .2
-assert (a is not None and a['codec_name'] == 'aac') if audio_mode == 'project-fm' else a is None
+assert (a is not None and a['codec_name'] == 'aac') if audio_mode == 'original-recording' else a is None
 (out / 'ffprobe.json').write_text(json.dumps(probe, indent=2)+'\n')
 run(['ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-i', str(video), '-vf', 'blackdetect=d=0.5:pix_th=0.10', '-an', '-f', 'null', '-'], 'blackdetect.txt')
 run(['ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-i', str(video), '-vf', 'freezedetect=n=-60dB:d=0.5', '-an', '-f', 'null', '-'], 'freezedetect.txt')
@@ -148,10 +160,11 @@ receipt = dict(version=version, visibility='local-only', format='actual front-en
                player_path='Normal new game, dialogue, soldier organization screen; no world-map destination claim.',
                sources_sha256={s['source']: sha(s['source']) for s in segments},
                capture_receipts_sha256={n: sha(n) for n in ['/live/receipt.json', '/english/receipt.json']},
-               audio=dict(mode=audio_mode, source='workplace/out/music/wav/MAP2.wav' if audio_mode == 'project-fm' else None,
-                          sha256=sha('/music.wav') if audio_mode == 'project-fm' else None,
-                          method='project FM approximation of original MAP2.MID; user-authorized exception' if audio_mode == 'project-fm' else 'No soundtrack'),
-               distribution='Contains original game recording' + (' and original composition derivative' if audio_mode == 'project-fm' else '') + '; local delivery only.', video_sha256=sha(video))
+               audio=dict(mode=audio_mode, source=audio_provenance['wave_path'] if audio_provenance else None,
+                          sha256=sha('/music.wav') if audio_provenance else None,
+                          provenance=audio_provenance, gain_db=9 if audio_provenance else None,
+                          method='Unmodified original MAIN.EXE and native Creative SB16 driver, recorded from DOSBox-X OPL3 mixer' if audio_provenance else 'No soundtrack'),
+               distribution='Contains original game recording' + (' and original music recording' if audio_provenance else '') + '; local delivery only.', video_sha256=sha(video))
 (out / 'rights.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2)+'\n')
 for p in out.glob('part-*'):
     p.unlink()
