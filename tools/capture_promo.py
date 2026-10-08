@@ -10,6 +10,16 @@ import time
 out = Path('/outputs') / os.environ['HR_CAPTURE_NAME']
 out.mkdir(exist_ok=True)
 control = out / 'control.json'
+if os.environ.get('HR_CAPTURE_CONTROL_FILE'):
+    control.write_bytes(Path(os.environ['HR_CAPTURE_CONTROL_FILE']).read_bytes())
+bundle = os.environ.get('HR_CAPTURE_BUNDLE_DIR')
+launcher = Path(bundle) / 'AppRun' if bundle else Path('/binary/hr-play')
+binary = Path(bundle) / 'usr/bin/hr-play' if bundle else launcher
+resources = Path(bundle) / 'usr/bin' if bundle else None
+inputs = ({'original': str(resources / 'original'), 'HD': str(resources / 'hd'),
+           'AI': str(resources / 'hd-ai'), 'languages': str(resources / 'l10n')}
+          if bundle else {'original': '/orig', 'HD': '/hd', 'AI': '/hd-ai',
+                          'languages': '/l10n'})
 env = dict(os.environ, DISPLAY=':99', XDG_CONFIG_HOME=str(out / 'config'),
            LIBGL_ALWAYS_SOFTWARE='1', LP_NUM_THREADS='2')
 processes = []
@@ -19,6 +29,8 @@ clips = []
 started = time.monotonic()
 index = 0
 ready = 0
+version = None
+version_output = None
 
 
 def stop(p, sig=signal.SIGTERM):
@@ -47,9 +59,17 @@ try:
                                 stderr=subprocess.STDOUT, start_new_session=True)
         processes.append(xvfb)
     time.sleep(2)
-    args = ['/binary/hr-play', '-orig', '/orig', '-saves', str(out / 'saves'),
-            '-scale', '2', '-hd', '/hd', '-hd-ai', '/hd-ai', '-theme', 'original',
-            '-lang', os.environ.get('HR_CAPTURE_LANG', 'zh-TW'), '-l10n', '/l10n', '-mute']
+    raw_version = command(str(launcher), '-version')
+    (out / 'version.txt').write_bytes(raw_version)
+    version_output = raw_version.decode('utf-8').strip()
+    if not version_output.startswith('hr-play ') or len(version_output.split()) != 2:
+        raise ValueError('前端版本輸出格式不符：' + version_output)
+    version = version_output.split()[1]
+    args = [str(launcher), '-saves', str(out / 'saves'), '-scale', '2',
+            '-theme', os.environ.get('HR_CAPTURE_THEME', 'original'),
+            '-lang', os.environ.get('HR_CAPTURE_LANG', 'zh-TW'), '-mute']
+    if not bundle:
+        args += ['-orig', '/orig', '-hd', '/hd', '-hd-ai', '/hd-ai', '-l10n', '/l10n']
     with (out / 'play.log').open('wb') as log:
         client = subprocess.Popen(args, env=env, stdout=log,
                                   stderr=subprocess.STDOUT, start_new_session=True)
@@ -131,9 +151,15 @@ finally:
         stop(p)
     receipt = {
         'method': 'real Xvfb front-end x11grab recording; normal mouse and function keys',
-        'binary_sha256': hashlib.sha256(Path('/binary/hr-play').read_bytes()).hexdigest(),
+        'binary_sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
         'events': events, 'clips': clips,
-        'inputs': {'HD': '/hd', 'AI': '/hd-ai', 'languages': '/l10n'},
+        'inputs': inputs,
+        'version': version, 'version_output': version_output,
+        'bundled_resources_only': bool(bundle),
+        'artifact': os.environ.get('HR_CAPTURE_ARTIFACT', str(launcher)),
+        'control_sha256': hashlib.sha256(control.read_bytes()).hexdigest() if control.exists() else None,
+        'language': os.environ.get('HR_CAPTURE_LANG', 'zh-TW'),
+        'theme': os.environ.get('HR_CAPTURE_THEME', 'original'),
         'no_state_injection': True,
     }
     (out / 'receipt.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')

@@ -1,0 +1,619 @@
+[
+  {
+    "kind": "click",
+    "x": 624,
+    "y": 342,
+    "hold": 14
+  },
+  {
+    "kind": "shot",
+    "name": "original-dialogue"
+  },
+  {
+    "kind": "record",
+    "name": "cursor-motion",
+    "hold": 1
+  },
+  {
+    "kind": "move",
+    "x": 350,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 355,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 360,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 365,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 370,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 375,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 380,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 385,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 390,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 395,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 400,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 405,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 410,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 415,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 420,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 425,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 430,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 435,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 440,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 445,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 450,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 455,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 460,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 465,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 470,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 475,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 480,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 485,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 490,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 495,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 500,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 505,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 510,
+    "y": 204,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 515,
+    "y": 200,
+    "hold": 0.12
+  },
+  {
+    "kind": "move",
+    "x": 520,
+    "y": 202,
+    "hold": 0.12
+  },
+  {
+    "kind": "wait",
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "cursor-motion-end"
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "theme-switch",
+    "hold": 2
+  },
+  {
+    "kind": "key",
+    "key": "F2",
+    "hold": 1
+  },
+  {
+    "kind": "wait_theme",
+    "theme": "hd",
+    "timeout": 40,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "hd-dialogue",
+    "hold": 6
+  },
+  {
+    "kind": "key",
+    "key": "F2",
+    "hold": 1
+  },
+  {
+    "kind": "wait_theme",
+    "theme": "ai",
+    "timeout": 40,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "ai-dialogue",
+    "hold": 6
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "help-languages"
+  },
+  {
+    "kind": "key",
+    "key": "F1",
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "help-zh-TW"
+  },
+  {
+    "kind": "key",
+    "key": "F4",
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "help-zh-CN"
+  },
+  {
+    "kind": "key",
+    "key": "F4",
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "help-ko"
+  },
+  {
+    "kind": "key",
+    "key": "F4",
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "help-en"
+  },
+  {
+    "kind": "key",
+    "key": "F4",
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "help-ja"
+  },
+  {
+    "kind": "key",
+    "key": "F4",
+    "hold": 2
+  },
+  {
+    "kind": "key",
+    "key": "F1",
+    "hold": 1
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "play-opening"
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "opening-08"
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 5
+  },
+  {
+    "kind": "shot",
+    "name": "after-opening"
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "play-map"
+  },
+  {
+    "kind": "click",
+    "x": 690,
+    "y": 606,
+    "hold": 4
+  },
+  {
+    "kind": "shot",
+    "name": "map-selected"
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "map-event-next"
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 520,
+    "hold": 3
+  },
+  {
+    "kind": "click",
+    "x": 1135,
+    "y": 45,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "map-unit-menu"
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 450,
+    "hold": 1.5
+  },
+  {
+    "kind": "shot",
+    "name": "map-ready"
+  },
+  {
+    "kind": "click",
+    "x": 1135,
+    "y": 45,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "unit-controls",
+    "hold": 5
+  },
+  {
+    "kind": "click",
+    "x": 1133,
+    "y": 134,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "unit-action"
+  },
+  {
+    "kind": "click",
+    "x": 1020,
+    "y": 450,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "unit-action-next"
+  },
+  {
+    "kind": "click",
+    "x": 700,
+    "y": 600,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "unit-destination",
+    "hold": 5
+  },
+  {
+    "kind": "wait",
+    "hold": 8
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "finish"
+  }
+]

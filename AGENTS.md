@@ -12,7 +12,7 @@
 
 ## 現行交付決定（2026-10-06）
 
-本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式發行。現行修訂版為 `v.1.0.1-20261006`，舊版維持原狀：
+本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式發行。現行修訂版為 `v.1.0.2-20261008`，舊版維持原狀：
 
 - M10 完成條件改為全量文字接入、五語可切換，以及 README 執行截圖。停止追加玩家路徑、存讀檔、平台實機及 parity 抽驗；後續問題由 GitHub Issue 回報。這項決定不把未驗範圍升為原版 exact。
 - M8 停止追加畫面抽樣。595 項完整 AI 主題以現有定稿交付，包含一項服務拒絕後沿用 HD 的替代圖。
@@ -34,7 +34,9 @@ AppImage 工具鏈為 `hr-appimage:runtime-recovery-r1`，入口 `tools/rebuild_
 
 現行素材入口是 `hd-ai/catalog.tsv`、`hd-ai/provenance.tsv`；譯文入口是 `l10n/<代碼>/` 及 `l10n/ACCEPTANCE.json`。逐輪結果記在 `WORKLOG.md`。
 
-2026-10-08 游標規格 010 已 CONFORMED；五尺寸介面 011 已實作並通過技術驗收，實際美術待使用者過目。候選 `v.1.0.2-20261008` 的 full-local／patch 各三包由根 `2c9d2eb`、fork `686581d` 建立，入口 `docs/re/033-cursor-presentation.md`。六包靜態與 Linux 實包抽測通過，未做 Windows／macOS 實機驗收。候選尚未發行，正式版仍為 `v.1.0.1-20261006`。
+2026-10-08 使用者看過 HD／AI 實際介面後回覆「ok 發布吧 並且打包完整版(三平台) 與推廣影片」。010、011 已 CONFORMED，範圍限於原版游標與五尺寸 PLATE2。`v.1.0.2-20261008` 的 full-local／patch 各三包由根 `2c9d2eb`、fork `686581d` 建立，入口 `docs/re/033-cursor-presentation.md`。六包複核與 Linux 實包抽測通過，未做 Windows／macOS 實機驗收。新正式 tag／Release 已發布，舊版保持原狀；完整版及影片維持本機交付。
+
+建包後僅更新驗收文件或追加影片時，重生清冊仍使用真正的建包來源。入口 `tools/finalize_full_local.sh`、`tools/finalize_release_patch.sh`；設定 `HR_BUILD_SOURCE_COMMIT=2c9d2ebc84fc5225933410b9fd4ace16f9e05d58`、`HR_BUILD_FORK_COMMIT=686581d34032d6b8a7209f033cf779f23ff73262` 與 `HR_VERSION=v.1.0.2-20261008`。來源與 `smoke/full-static.json` 不符時拒絕，不把後來的文件提交當成封包來源。
 
 ## 1. 專案定位與範圍
 

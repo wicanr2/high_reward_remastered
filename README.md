@@ -12,7 +12,7 @@
 
 用 [dosgolem](https://github.com/wicanr2/dosgolem) 在 Linux、Windows、macOS 執行 DOS 版《高報酬戰將》，加入堆疊溢位修補、HD 與 OpenAI 重繪圖層，以及繁中、簡中、日文、韓文、英文。
 
-**[1.0.1 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.1-20261006)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
+**[1.0.2 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.2-20261008)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
 
 ## 新版 AI 手繪風格
 
@@ -24,7 +24,7 @@
 
 ## 介面板面
 
-HD 與 AI 主題也替換已支援的選單、對話框、肖像邊框與資訊面板。文字與操作座標保持原樣，未知原語保留原版。這項更新已通過本機技術驗證，待實際畫面定稿後發行。接線與已驗範圍見[介面契約](docs/spec/011-procedural-ui-themes.md)。
+HD 與 AI 主題也替換已支援的選單、對話框、肖像邊框與資訊面板。文字與操作座標保持原樣，未知原語保留原版。1.0.2 已加入游標呈現修正與五尺寸板面主題。接線與已驗範圍見[介面契約](docs/spec/011-procedural-ui-themes.md)。
 
 | HD | AI 手繪 |
 |---|---|
@@ -78,13 +78,13 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 畫面 | 原版、595 項 HD、595 項 AI 三種圖層 |
 | 語言 | 五語介面與遊戲文字，譯文及純 Noto 字模隨發行包提供 |
 | 聲音 | 原版 MIDI 的 FM 近似播放與 PCM 音效；沒有音訊裝置時靜音 |
-| 發行 | `v.1.0.1-20261006` 三平台正式 Release；本機完整版及 60 秒推廣片集中於 `dist-all/` |
+| 發行 | `v.1.0.2-20261008` 三平台正式 Release；本機完整版與推廣影片集中於 `dist-all/` |
 
 使用者已取消追加遊玩與美術抽樣，後續問題請回報 [GitHub Issues](https://github.com/wicanr2/high_reward_remastered/issues)。本版不宣稱完整通關或全遊戲原版 parity。macOS 未簽章，未做 Windows／macOS 實機驗收。唯一現況入口為 [AGENTS.md](AGENTS.md)，歷程見 [WORKLOG.md](WORKLOG.md)。
 
 ## 執行
 
-1. 下載 [正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.1-20261006) 對應平台的包。
+1. 下載 [正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.2-20261008) 對應平台的包。
 2. 將合法原版 `MAIN.EXE` 所在資料夾內容放入 `original/`。AppImage 使用同層 `original/`；Windows 使用程式旁的目錄；macOS 使用 `HighReward.app/Contents/Resources/original/`。也可用 `-orig <目錄>` 指定。本機完整版已附原版。
 3. 啟動遊戲，用滑鼠操作。macOS 首次開啟可右鍵選「打開」；筆電功能鍵可能需要 Fn。
 
@@ -112,14 +112,15 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | `tools/play.sh build` | 建置 Linux 前端 |
 | `tools/rebuild_toolchain.sh` | 重建固定版本的 Linux 建置、測試與錄影工具鏈 |
 | `tools/rebuild_appimage_toolchain.sh` | 恢復固定 runtime 的 AppImage 打包工具鏈 |
-| `HR_VERSION=v.1.0.1-20261006 tools/package_full_local.sh` | 重建含遊戲的三平台本機完整版 |
-| `HR_VERSION=v.1.0.1-20261006 tools/package_release_patch.sh` | 重建不含原版遊戲檔的三平台 Release 包 |
-| `HR_VERSION=v.1.0.1-20261006 tools/promo.sh` | 以實際 F2 切換、地圖與部隊操作、F1 幫助錄影製作 1080p 推廣片 |
-| `tools/capture_promo.sh <名稱>` | 實際前端錄影，正常滑鼠與按鍵操作，收據位於 `workplace/out/<名稱>/` |
+| `HR_VERSION=<正式版號> tools/package_full_local.sh` | 從乾淨來源重建含遊戲的三平台本機完整版 |
+| `HR_VERSION=<正式版號> tools/package_release_patch.sh` | 重建不含原版遊戲檔的三平台 Release 包；已發布包不覆寫 |
+| `tools/promo.sh` | 指定 `HR_VERSION`、`HR_PROMO_LIVE`、`HR_PROMO_ENGLISH`，以本版實錄製作 60 秒 1080p 影片；配樂未定時只產出無配樂預覽 |
+| `tools/capture_promo.sh <名稱>` | 正常滑鼠與按鍵錄影；`HR_CAPTURE_BUNDLE_DIR` 可指定解出的 AppImage，`HR_CAPTURE_CONTROL_FILE` 可指定控制模板，收據位於 `workplace/out/<名稱>/` |
+| [繁中控制模板](tools/promo_control_zh-TW.json)、[英文控制模板](tools/promo_control_en.json) | F2／F1／F4、游標及正常新遊戲錄影輸入，名稱僅供定位 |
 | `tools/l10n/capture_full.py` | Docker 內擷取五語新遊戲畫面及 F4 下次啟動切換 |
 | `tools/l10n/bakeglyphs.sh` | 從固定 Noto 來源重烘字模補丁 |
 
-目前交付目錄為 `dist-all/v.1.0.1-20261006/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是推廣片，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。含原版遊戲的完整版與原版配樂影片只留本機。
+目前交付目錄為 `dist-all/v.1.0.2-20261008/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 保存影片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。含原版遊戲的完整版與原版配樂影片只留本機。
 
 ## 文件與素材
 

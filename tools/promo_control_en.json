@@ -1,0 +1,36 @@
+[
+  {
+    "kind": "record",
+    "name": "debt-start",
+    "hold": 2
+  },
+  {
+    "kind": "click",
+    "x": 624,
+    "y": 342,
+    "hold": 14
+  },
+  {
+    "kind": "shot",
+    "name": "debt-en"
+  },
+  {
+    "kind": "wait",
+    "hold": 9
+  },
+  {
+    "kind": "key",
+    "key": "F1",
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "help-en"
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "finish"
+  }
+]

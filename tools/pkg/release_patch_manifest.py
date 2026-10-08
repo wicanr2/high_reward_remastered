@@ -14,6 +14,11 @@ if not re.fullmatch(r"v\.\d+\.\d+\.\d+-\d{8}", version):
     raise ValueError("invalid release version")
 if not all(re.fullmatch(r"[0-9a-f]{40}", value) for value in (source_commit, dosgolem_commit)):
     raise ValueError("invalid source commit")
+static = directory / 'smoke/full-static.json'
+if static.is_file():
+    checked = json.loads(static.read_text())
+    if checked.get('version') != version or checked.get('build_source') != source_commit or checked.get('fork_source') != dosgolem_commit:
+        raise ValueError('release source differs from package verification; set HR_BUILD_SOURCE_COMMIT/HR_BUILD_FORK_COMMIT')
 
 names = (
     f"patch/HighReward-{version}-x86_64.AppImage",

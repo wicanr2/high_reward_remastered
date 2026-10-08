@@ -55,6 +55,9 @@ if static.is_file():
     receipt = json.loads(static.read_text())
     if receipt["version"] != version:
         raise ValueError("驗收收據版本不符")
+    for source, expected in [('source_commit', 'build_source'), ('dosgolem_commit', 'fork_source')]:
+        if expected in receipt and manifest.get(source) != receipt[expected]:
+            raise ValueError(f"{source} 與實際建包收據不符；請設定 HR_BUILD_SOURCE_COMMIT／HR_BUILD_FORK_COMMIT")
     for key in ['build_source', 'fork_source', 'original_files_per_platform', 'adopted_seven_file_rows',
                 'main_table_rows', 'full_text_activated', 'macos']:
         if key in receipt:
@@ -62,7 +65,7 @@ if static.is_file():
     manifest['verification_scope'] = 'Cursor and five PLATE2 presentation paths, language integration and switching; no full-game completion or native macOS test.'
     manifest["verification_receipts_sha256"] = {
         str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in [static, root / "smoke/linux/receipt.json", root / "smoke/windows/RESULTS.txt", root / "promo/ffprobe.json", root / "promo/rights.json"] if p.is_file()
+        for p in [static, root / "smoke/linux/receipt.json", root / "smoke/release-package-review.json", root / "smoke/windows/RESULTS.txt", root / "promo/ffprobe.json", root / "promo/rights.json", root / "promo/verification.json"] if p.is_file()
     }
 dest = root / "SHA256SUMS.json"
 temp = root / "SHA256SUMS.json.tmp"

@@ -4,8 +4,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${HR_VERSION:?請設定 HR_VERSION=v.<主>.<次>.<修訂>-YYYYMMDD}"
 DELIVERY="$ROOT/dist-all/$VERSION"
-SOURCE_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
-DOSGOLEM_COMMIT="$(git -C "$ROOT/workplace/dosgolem" rev-parse HEAD)"
+# 驗收文件可在建包後另作提交；重生清冊時明示真正的建包來源。
+SOURCE_COMMIT="${HR_BUILD_SOURCE_COMMIT:-$(git -C "$ROOT" rev-parse HEAD)}"
+DOSGOLEM_COMMIT="${HR_BUILD_FORK_COMMIT:-$(git -C "$ROOT/workplace/dosgolem" rev-parse HEAD)}"
 test -d "$DELIVERY" && test -f "$ROOT/tools/pkg/full_local_manifest.py" && test -f "$ROOT/LICENSE"
 IMAGE="${HR_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 docker image inspect "$IMAGE" >/dev/null

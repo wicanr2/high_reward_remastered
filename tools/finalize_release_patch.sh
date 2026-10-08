@@ -5,8 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${HR_VERSION:?請設定 HR_VERSION=v.<主>.<次>.<修訂>-YYYYMMDD}"
 DELIVERY="$ROOT/dist-all/$VERSION"
 test -d "$DELIVERY/patch" && test -f "$DELIVERY/LICENSE" && test -f "$ROOT/tools/pkg/release_patch_manifest.py"
-SOURCE_COMMIT="$(git -C "$ROOT" rev-parse HEAD)"
-DOSGOLEM_COMMIT="$(git -C "$ROOT/workplace/dosgolem" rev-parse HEAD)"
+SOURCE_COMMIT="${HR_BUILD_SOURCE_COMMIT:-$(git -C "$ROOT" rev-parse HEAD)}"
+DOSGOLEM_COMMIT="${HR_BUILD_FORK_COMMIT:-$(git -C "$ROOT/workplace/dosgolem" rev-parse HEAD)}"
 IMAGE="${HR_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}"
 docker image inspect "$IMAGE" >/dev/null
 exec timeout 3m docker run --rm --name hr-release-patch-manifest \
