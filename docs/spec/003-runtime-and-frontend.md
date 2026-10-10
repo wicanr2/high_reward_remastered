@@ -69,6 +69,27 @@
 - 顏色用 `Machine.PlanarRGB`（已含 EGA 屬性暫存器到 DAC 的對應，遊戲呼叫 `AX=1000` 共 9 處）。不直接用 `Indexed` 加 `Palette`。
 - 前端以整數倍放大優先，視窗尺寸不是整數倍時等比縮放並置中，其餘填黑。`Composer` 的基底層恆為最近鄰；`-linear` 只影響 `original` theme 的 2 倍放大步驟（`docs/spec/006` 第 4 節）。
 
+### 6.1 可調整視窗
+
+狀態：READY（2026-10-10）。使用者要求遊戲視窗可自由放大縮小，完成後重建三平台本機完整版。唯讀審查 `workplace/out/window-resize-spec-review.md` 已確認修訂後無阻擋。
+
+| 項目 | 契約與依據 |
+|---|---|
+| 原因 | confirmed：fork `686581d` 的 `apps/hr/play/main.go` 只呼叫 `SetWindowSize`，沒有啟用拖曳縮放；固定依賴 Ebitengine 2.9.9 的 `window.go` 明定預設為 `WindowResizingModeDisabled` |
+| 視窗 | 在 `RunGame` 前呼叫 `ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)`；使用桌面原生邊框縮放與最大化，不另加尺寸限制 |
+| 初始尺寸 | 保留 `-scale` 決定初始尺寸，預設 1280×800；啟動後可連續調整，無須重啟 |
+| 顯示 | 保留規格 006 第 4 節的 1280×800 邏輯畫布。任意視窗尺寸等比例縮放、置中及填黑，不拉伸或裁切 |
+| 滑鼠 | 保留 `ebiten.CursorPosition` 到 `cursorToGame` 的既有換算；Ebitengine `internal/ui/context.go` 的 `screenScaleAndOffsets` 使用兩軸較小倍率，輸入以相同倍率與偏移反算。黑邊上的位置依既有規則夾至遊戲區邊界，不另改按鍵語意 |
+| 原版輸入 | `MAIN.EXE` SHA-256 沿第 2 節。沒有新增二進位掛勾或原版位址；遊戲規則、DOS 輸入、原版資料與存檔格式皆不變 |
+| 主題與全螢幕 | 原版、HD、AI 使用同一邏輯畫布；F11／Alt+Enter 反轉 `ebiten.IsFullscreen` 的即時狀態，避免 macOS 原生按鈕與前端旗標失步。離開全螢幕回到先前視窗尺寸 |
+| 失敗模式 | 缺少可調整的原生視窗提示、比例錯誤、黑邊點擊偏移、縮放後主題切換或全螢幕還原失敗，均阻擋本次交付 |
+| 驗證 | 重跑既有前端測試，補原生全螢幕狀態變動後的快捷鍵回歸；Linux 實包檢查原生尺寸提示、縮小、非等比例尺寸、放大、黑邊、正常標題點新遊戲、F2、F11 與 Alt+Enter。重跑入口為 `bash tools/pkg/verify_resize.sh <AppImage> <已存在的輸出目錄>`；收據保存於本版 `smoke/linux/`。現行 Xvfb 沒有視窗管理員，不宣稱已實測邊框拖曳或最大化按鈕 |
+| 三平台 | Linux 驗實包 GUI；Windows 驗 PE／ZIP 與資料清冊；macOS 驗 universal Mach-O／plist／ZIP 與資料清冊。後兩者未實機執行，不稱為原生縮放驗收 |
+| 停止線 | 僅完成桌面視窗縮放。原版 oracle 不適用於桌面邊框；不重開全遊戲 parity、長跑、音樂或額外玩家路徑驗收 |
+| 權利 | 完整版只留本機 `dist-all/<版本>/full-local/`，不提交或上傳原版素材；舊版與已發布 Release 保持原狀 |
+
+本節審查與驗證結果追加於 `WORKLOG.md`。
+
 ## 7. 輸入
 
 | 來源 | 轉換 |

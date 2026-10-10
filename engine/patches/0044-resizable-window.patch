@@ -1,0 +1,204 @@
+From ae27856f5c190c850f833e5412e27a598299cb29 Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 10 Oct 2026 11:08:40 +0800
+Subject: [PATCH] =?UTF-8?q?=E9=96=8B=E6=94=BE=E8=A6=96=E7=AA=97=E8=87=AA?=
+ =?UTF-8?q?=E7=94=B1=E7=B8=AE=E6=94=BE=E4=B8=A6=E5=90=8C=E6=AD=A5=E5=8E=9F?=
+ =?UTF-8?q?=E7=94=9F=E5=85=A8=E8=9E=A2=E5=B9=95=E7=8B=80=E6=85=8B?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/play/game.go      | 49 +++++++++++++++++++--------------------
+ apps/hr/play/game_test.go | 44 ++++++++++++++++++++++++++++-------
+ apps/hr/play/main.go      |  3 ++-
+ 3 files changed, 61 insertions(+), 35 deletions(-)
+
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index ca0c842..7efedec 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -45,6 +45,7 @@ type gameEnv struct {
+ 	mouseJustUp   func(ebiten.MouseButton) bool
+ 	chars         func() []rune
+ 	setTitle      func(string)
++	isFullscreen  func() bool
+ 	setFullscreen func(bool)
+ }
+ 
+@@ -57,6 +58,7 @@ func defaultEnv() gameEnv {
+ 		mouseJustUp:   inpututil.IsMouseButtonJustReleased,
+ 		chars:         func() []rune { return ebiten.AppendInputChars(nil) },
+ 		setTitle:      ebiten.SetWindowTitle,
++		isFullscreen:  ebiten.IsFullscreen,
+ 		setFullscreen: ebiten.SetFullscreen,
+ 	}
+ }
+@@ -74,24 +76,23 @@ type ingameRuntime struct {
+ 
+ // gameConfig 是 newGame 的參數。
+ type gameConfig struct {
+-	Session    gameSession
+-	Stop       <-chan *hrrt.Stop // Session.Run 的結果；nil ＝ 不會停機（測試）
+-	Snd        *sound.Engine     // docs/spec/007；可為 nil
+-	SW         *switcher         // 必填：theme 切換狀態機（沒有 HD 時 Themes 為空）
+-	HV         *hdView           // HD 合成；nil ＝ 沒有 HD 掛鉤
+-	Fonts      *fontSet
+-	Lang       lang
+-	Ingame     *ingameRuntime   // 遊戲內語言狀態；nil ＝ 零值
+-	Commit     func(prefsPatch) // 提交偏好設定補丁（F3、F4）；nil ＝ 不提交
+-	DataDir    string
+-	SaveDir    string
+-	Linear     bool // original 的 2 倍放大用線性濾鏡（預設最近鄰）
+-	Freeze     bool // HR_TEST_FREEZE_UI＝1：端對端測試用（docs/spec/006 第 10 節），不進文件
+-	Logf       func(string, ...any)
+-	Env        *gameEnv
+-	Started    time.Time
+-	PNGHD      func(path string) error // 測試注入；nil ＝ 用 HV.writePNG
+-	Fullscreen bool                    // 全螢幕啟動（-fullscreen）
++	Session gameSession
++	Stop    <-chan *hrrt.Stop // Session.Run 的結果；nil ＝ 不會停機（測試）
++	Snd     *sound.Engine     // docs/spec/007；可為 nil
++	SW      *switcher         // 必填：theme 切換狀態機（沒有 HD 時 Themes 為空）
++	HV      *hdView           // HD 合成；nil ＝ 沒有 HD 掛鉤
++	Fonts   *fontSet
++	Lang    lang
++	Ingame  *ingameRuntime   // 遊戲內語言狀態；nil ＝ 零值
++	Commit  func(prefsPatch) // 提交偏好設定補丁（F3、F4）；nil ＝ 不提交
++	DataDir string
++	SaveDir string
++	Linear  bool // original 的 2 倍放大用線性濾鏡（預設最近鄰）
++	Freeze  bool // HR_TEST_FREEZE_UI＝1：端對端測試用（docs/spec/006 第 10 節），不進文件
++	Logf    func(string, ...any)
++	Env     *gameEnv
++	Started time.Time
++	PNGHD   func(path string) error // 測試注入；nil ＝ 用 HV.writePNG
+ }
+ 
+ type game struct {
+@@ -135,10 +136,9 @@ type game struct {
+ 	imgCursor  *ebiten.Image
+ 	cursorRGBA []byte
+ 
+-	mx, my  int
+-	btn     [2]bool
+-	help    bool
+-	fullscr bool
++	mx, my int
++	btn    [2]bool
++	help   bool
+ 
+ 	stop     *hrrt.Stop
+ 	crashDir string // 異常停機時存下的現場目錄（docs/spec/003 第 3.1 節）
+@@ -152,7 +152,7 @@ func newGame(cfg gameConfig) *game {
+ 	g := &game{
+ 		s: cfg.Session, snd: cfg.Snd, sw: cfg.SW, hv: cfg.HV, fonts: cfg.Fonts, hud: newHudRenderer(),
+ 		logf: cfg.Logf, commit: cfg.Commit, dataDir: cfg.DataDir, saveDir: cfg.SaveDir, linear: cfg.Linear, freeze: cfg.Freeze,
+-		lang: cfg.Lang, stopCh: cfg.Stop, started: cfg.Started, mx: -1, fullscr: cfg.Fullscreen,
++		lang: cfg.Lang, stopCh: cfg.Stop, started: cfg.Started, mx: -1,
+ 		ingAvail: map[ingameCode]availResult{},
+ 	}
+ 	if cfg.Ingame != nil {
+@@ -249,8 +249,7 @@ func (g *game) Update() error {
+ 	}
+ 	g.sw.Tick()
+ 	if justPressed(ebiten.KeyF11) || (alt && justPressed(ebiten.KeyEnter)) {
+-		g.fullscr = !g.fullscr
+-		g.env.setFullscreen(g.fullscr)
++		g.env.setFullscreen(!g.env.isFullscreen())
+ 	}
+ 	if justPressed(ebiten.KeyF12) {
+ 		g.screenshot()
+diff --git a/apps/hr/play/game_test.go b/apps/hr/play/game_test.go
+index 32969e7..bf3a731 100644
+--- a/apps/hr/play/game_test.go
++++ b/apps/hr/play/game_test.go
+@@ -68,14 +68,15 @@ func (s *fakeSession) take() []hrrt.Event {
+ 
+ // fakeEnv 是 gameEnv 與 seams.go 的 justPressed、pressDuration 的假實作。
+ type fakeEnv struct {
+-	clk       *fakeClock
+-	cx, cy    int
+-	ctrl, alt bool
+-	runes     []rune
+-	titles    []string
+-	fs        []bool
+-	just      map[ebiten.Key]bool // 這一幀剛按下
+-	press     map[ebiten.Key]int  // 按住的幀數（特殊鍵的 pressDuration）
++	clk        *fakeClock
++	cx, cy     int
++	ctrl, alt  bool
++	runes      []rune
++	titles     []string
++	fs         []bool
++	fullscreen bool
++	just       map[ebiten.Key]bool // 這一幀剛按下
++	press      map[ebiten.Key]int  // 按住的幀數（特殊鍵的 pressDuration）
+ }
+ 
+ func (e *fakeEnv) env() gameEnv {
+@@ -89,7 +90,11 @@ func (e *fakeEnv) env() gameEnv {
+ 		mouseJustUp:   func(ebiten.MouseButton) bool { return false },
+ 		chars:         func() []rune { return e.runes },
+ 		setTitle:      func(s string) { e.titles = append(e.titles, s) },
+-		setFullscreen: func(b bool) { e.fs = append(e.fs, b) },
++		isFullscreen:  func() bool { return e.fullscreen },
++		setFullscreen: func(b bool) {
++			e.fs = append(e.fs, b)
++			e.fullscreen = b
++		},
+ 	}
+ }
+ 
+@@ -641,6 +646,27 @@ func TestFullscreenKeys(t *testing.T) {
+ 	}
+ }
+ 
++// 原生視窗控制可能先切換全螢幕；快捷鍵必須讀取當下視窗狀態。
++func TestFullscreenKeysUseNativeState(t *testing.T) {
++	for _, key := range []ebiten.Key{ebiten.KeyF11, ebiten.KeyEnter} {
++		t.Run(key.String(), func(t *testing.T) {
++			gr := newGameRig(t, themeOriginal, nil)
++			gr.fe.alt = key == ebiten.KeyEnter
++			gr.fe.fullscreen = true // 模擬原生按鈕或 -fullscreen 啟動
++			gr.mustFrame(key)
++			if gr.fe.fullscreen {
++				t.Error("原生全螢幕狀態為 true，快捷鍵應切回視窗")
++			}
++			gr.mustFrame()
++			gr.fe.fullscreen = false // 模擬之後由原生按鈕離開全螢幕
++			gr.mustFrame(key)
++			if !gr.fe.fullscreen {
++				t.Error("原生全螢幕狀態為 false，快捷鍵應進入全螢幕")
++			}
++		})
++	}
++}
++
+ // F1 面板文字經 panelCache：180 個 60 Hz 的幀只問 Session.Stats 3 次（每秒一次），統計行在滿 1 秒時更新；
+ // 靜態欄位（theme、聲音、語言）變了立刻重組。
+ func TestPanelTextCache(t *testing.T) {
+diff --git a/apps/hr/play/main.go b/apps/hr/play/main.go
+index c5a37fa..979582b 100644
+--- a/apps/hr/play/main.go
++++ b/apps/hr/play/main.go
+@@ -199,6 +199,7 @@ func main() {
+ 		*scale = 1
+ 	}
+ 	ebiten.SetWindowSize(gameW**scale, gameH**scale)
++	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+ 	ebiten.SetWindowTitle(tr(plan.Lang, "app.title", version))
+ 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
+ 	ebiten.SetFullscreen(*full)
+@@ -209,7 +210,7 @@ func main() {
+ 	g := newGame(gameConfig{
+ 		Session: s, Stop: stopCh, Snd: eng, SW: sw, HV: hv, Fonts: newFontSet(logf), Lang: plan.Lang, Commit: pw.Submit,
+ 		Ingame:  &ingameRuntime{E: ingE, StartFail: ingFail, Override: plan.Override, Fixed: plan.Ingame.Code, Avail: availabilityFunc(search)},
+-		DataDir: dd, SaveDir: saveDir, Linear: *linear, Freeze: os.Getenv("HR_TEST_FREEZE_UI") == "1", Logf: logf, Fullscreen: *full,
++		DataDir: dd, SaveDir: saveDir, Linear: *linear, Freeze: os.Getenv("HR_TEST_FREEZE_UI") == "1", Logf: logf,
+ 	})
+ 	td := &teardown{sw: sw, pw: pw, hv: hv, after: []func(){func() { g.logTelemetry("exit") }, ao.close}}
+ 	if err := ebiten.RunGame(g); err != nil && err != ebiten.Termination {
+-- 
+2.43.0
+
