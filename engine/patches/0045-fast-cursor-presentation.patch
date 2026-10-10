@@ -1,0 +1,510 @@
+From 7989c7b7109bae9cc12cc67d8e1603cfba47ba2f Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Sat, 10 Oct 2026 19:24:49 +0800
+Subject: [PATCH] =?UTF-8?q?=E4=BF=AE=E6=AD=A3=E9=AB=98=E9=80=9F=E8=A8=AD?=
+ =?UTF-8?q?=E5=AE=9A=E7=9A=84=E6=B8=B8=E6=A8=99=E8=A3=9C=E5=8F=96=E4=B8=A6?=
+ =?UTF-8?q?=E4=BF=9D=E7=95=99=E5=AE=8C=E6=95=B4=E5=91=88=E7=8F=BE=E5=B9=80?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/play/cursor_test.go          |  76 +++++++++
+ apps/hr/play/game.go                 |   2 +-
+ apps/hr/play/hdview.go               |   2 +-
+ apps/hr/runtime/cursor.go            |  36 ++++-
+ apps/hr/runtime/cursor_retry_test.go | 231 +++++++++++++++++++++++++++
+ apps/hr/runtime/session.go           |  33 ++--
+ 6 files changed, 364 insertions(+), 16 deletions(-)
+ create mode 100644 apps/hr/runtime/cursor_retry_test.go
+
+diff --git a/apps/hr/play/cursor_test.go b/apps/hr/play/cursor_test.go
+index 3513f1e..4812952 100644
+--- a/apps/hr/play/cursor_test.go
++++ b/apps/hr/play/cursor_test.go
+@@ -92,3 +92,79 @@ func TestCursorUnrestrictedBoundsAndFarEdges(t *testing.T) {
+ 		t.Fatal("inverted bounds differ from DOS sequential clamp")
+ 	}
+ }
++
++func TestCursorConsumersRecoverSkippedCompleteFrame(t *testing.T) {
++	complete := newFakeFrame(vramW, vramH, 2)
++	complete.CursorManaged = true
++	complete.Cursor = &hrrt.Cursor{Pixels: []uint8{1}}
++	complete.UI = &hrrt.UIFrame{}
++	complete.Map[1], complete.DAC[7] = 7, [3]uint8{90, 100, 110}
++	complete = complete.Presentation()
++	pending := newFakeFrame(vramW, vramH, 3)
++	pending.CursorManaged, pending.CursorPending = true, true
++	pending.CursorDeadline = time.Now().Add(time.Hour)
++	pending.CursorPrevious = complete
++
++	// 合成器完全沒讀到 Seq 2，來源直接跳到 pending Seq 3。
++	src := &fakeSource{f: newFakeFrame(vramW, vramH, 1)}
++	v := newHDView(src, emptyAssets(t), 1)
++	defer v.close()
++	waitFrame := func(seq uint64) *hrrt.Frame {
++		t.Helper()
++		end := time.Now().Add(2 * time.Second)
++		for time.Now().Before(end) {
++			var f *hrrt.Frame
++			v.uploadDisplay(0, func(rgba []byte, got *hrrt.Frame) {
++				if got.Seq == seq {
++					f = got
++					if seq == 2 && (rgba[0] != 90 || rgba[1] != 100 || rgba[2] != 110) {
++						t.Error("composed pixels used pending palette instead of complete frame")
++					}
++				}
++			})
++			if f != nil {
++				return f
++			}
++			time.Sleep(time.Millisecond)
++		}
++		t.Fatalf("frame %d never published", seq)
++		return nil
++	}
++	waitFrame(1)
++	src.set(pending)
++	if got := waitFrame(2); got != complete || got.Cursor != complete.Cursor || got.UI != complete.UI {
++		t.Fatal("HD publication lost paired complete cursor or UI")
++	}
++	pub := v.Pub()
++	time.Sleep(25 * time.Millisecond)
++	if v.Pub() != pub {
++		t.Fatal("same presentation repeatedly composed")
++	}
++	// 固定同一個已到期 pending，不能因前幀的 Seq 去重而擋住 raw。
++	expired := *pending
++	expired.CursorDeadline = time.Now().Add(-time.Second)
++	src.set(&expired)
++	if got := waitFrame(3); got.CursorManaged || got.CursorPrevious != nil {
++		t.Fatal("HD retained complete cursor beyond deadline")
++	}
++
++	gr := newGameRig(t, themeOriginal, []themeID{themeHD})
++	g := gr.g
++	g.ensureImages()
++	screen := ebiten.NewImage(logicalW, logicalH)
++	g.drawGame(screen)
++	gr.ss.frame = pending
++	g.drawGame(screen)
++	if g.drawnFrame != complete || g.lastSq != 2 {
++		t.Fatal("original frontend did not recover skipped complete frame")
++	}
++	g.drawGame(screen)
++	if g.drawnFrame != complete {
++		t.Fatal("original frontend replaced unchanged presentation")
++	}
++	gr.ss.frame = &expired
++	g.drawGame(screen)
++	if g.lastSq != 3 || g.drawnFrame.CursorManaged || g.drawnFrame.CursorPrevious != nil {
++		t.Fatal("original frontend did not expire fixed pending snapshot")
++	}
++}
+diff --git a/apps/hr/play/game.go b/apps/hr/play/game.go
+index 7efedec..d9d9330 100644
+--- a/apps/hr/play/game.go
++++ b/apps/hr/play/game.go
+@@ -375,7 +375,7 @@ func (g *game) drawGame(screen *ebiten.Image) {
+ 	}
+ 	if f := g.s.Frame(); f != nil && f.Seq != g.lastSq && f.W == vramW && f.H == vramH {
+ 		f = f.Presentation()
+-		if f != nil {
++		if f != nil && f.Seq != g.lastSq {
+ 			g.lastSq = f.Seq
+ 			g.origFrame = f
+ 			f.RGBA(g.rgba)
+diff --git a/apps/hr/play/hdview.go b/apps/hr/play/hdview.go
+index 7ebb8f5..fb553ae 100644
+--- a/apps/hr/play/hdview.go
++++ b/apps/hr/play/hdview.go
+@@ -133,7 +133,7 @@ func (v *hdView) run() {
+ 			continue
+ 		}
+ 		f = f.Presentation()
+-		if f == nil {
++		if f == nil || f.Seq == last {
+ 			continue
+ 		}
+ 		last = f.Seq
+diff --git a/apps/hr/runtime/cursor.go b/apps/hr/runtime/cursor.go
+index 2353d58..2c1412e 100644
+--- a/apps/hr/runtime/cursor.go
++++ b/apps/hr/runtime/cursor.go
+@@ -5,6 +5,7 @@ import (
+ 	"time"
+ 
+ 	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	"github.com/wicanr2/dosgolem/internal/cpu"
+ )
+ 
+ // Cursor 是規格 010 的不可變顯示資訊，座標界限仍採 DOS 的 VGA 座標。
+@@ -25,12 +26,12 @@ func (f *Frame) presentationAt(now time.Time) *Frame {
+ 		if !f.CursorDeadline.IsZero() && !now.Before(f.CursorDeadline) {
+ 			// 模擬器停止後也能到期，不修改已發布的原始快照。
+ 			c := *f
+-			c.Cursor, c.CursorBackground = nil, nil
++			c.Cursor, c.CursorBackground, c.CursorPrevious = nil, nil, nil
+ 			c.CursorManaged, c.CursorPending = false, false
+ 			c.CursorDeadline = time.Time{}
+ 			return &c
+ 		}
+-		return nil
++		return f.CursorPrevious
+ 	}
+ 	if !f.CursorManaged {
+ 		return f
+@@ -48,8 +49,39 @@ func (f *Frame) presentationAt(now time.Time) *Frame {
+ 	return &c
+ }
+ 
++// 保存已清除原版游標的完整呈現幀。pending 只引用它，不形成快照歷史鏈。
++// 隱藏幀同樣取代前幀；未知格式及回退不能恢復舊的可見游標。
++func (s *Session) retainCursorPresentation(f *Frame) {
++	f.CursorPrevious = nil
++	if f.CursorPending {
++		f.CursorPrevious = s.cursorComplete
++	} else if f.CursorManaged {
++		s.cursorComplete = f.Presentation()
++	} else {
++		s.cursorComplete = nil
++	}
++}
++
+ const cursorData = 0x3e500
+ 
++// 010 高速增補：原版繪圖返回點，IDA 28EB:08A2，執行期 19FB:08A2。
++// 只補取已要求但取到重畫中的畫面，仍由 prepareCursor 驗證完整像素。
++func (s *Session) retryCursorAtDraw() {
++	if !s.opt.SmoothCursor || !s.cursorRetry {
++		return
++	}
++	c := s.m.CPU
++	if uint32(c.Seg[cpu.CS])<<16|uint32(c.IP) != hd.CursorSite {
++		return
++	}
++	a := cpu.Linear(c.Seg[cpu.CS], c.IP)
++	if s.m.Mem[a] != 0x83 || s.m.Mem[a+1] != 0xc4 || s.m.Mem[a+2] != 0x0a {
++		return
++	}
++	s.snapshot()
++	s.cursorRetry = false // 即使補取仍 pending，也等下一個前端要求再試。
++}
++
+ func cursorSprite(b []byte) (hd.Sprite, bool) {
+ 	if len(b) < 805 || binary.LittleEndian.Uint16(b) != 40 || binary.LittleEndian.Uint16(b[2:]) != 32 || b[4] != 1 {
+ 		return hd.Sprite{}, false
+diff --git a/apps/hr/runtime/cursor_retry_test.go b/apps/hr/runtime/cursor_retry_test.go
+new file mode 100644
+index 0000000..6c3cd80
+--- /dev/null
++++ b/apps/hr/runtime/cursor_retry_test.go
+@@ -0,0 +1,231 @@
++package runtime
++
++import (
++	"bytes"
++	"encoding/binary"
++	"reflect"
++	"testing"
++	"time"
++
++	"github.com/wicanr2/dosgolem/apps/hr/hd"
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/dos"
++	"github.com/wicanr2/dosgolem/internal/machine"
++)
++
++func TestCursorPendingRetainsCompletePresentation(t *testing.T) {
++	s := &Session{}
++	f, mem := cursorFixture()
++	f.Seq, f.Steps, f.Ticks = 2, 100, 4
++	f.Map[1], f.DAC[7] = 7, [3]uint8{100, 110, 120}
++	f.UI = &UIFrame{}
++	f.Stamps = []*hd.Stamp{{Site: hd.CursorSite}, {Site: 1}}
++	f.CursorManaged, f.CursorPending, _ = prepareCursor(f, mem, [4]int{0, 639, 40, 439})
++	s.retainCursorPresentation(f)
++	previous := s.cursorComplete
++	if previous == nil || previous == f || previous.Px[140*640+96] != 6 || len(previous.Stamps) != 1 {
++		t.Fatal("retained original cursor pixels or stamp instead of cleaned presentation")
++	}
++	if f.Px[140*640+96] != 1 || len(f.Stamps) != 2 || f.CursorPrevious != nil {
++		t.Fatal("retention changed original complete snapshot")
++	}
++	now := time.Now()
++	for seq := uint64(3); seq < 20; seq++ {
++		p := &Frame{Seq: seq, Px: []byte{9}, CursorManaged: true, CursorPending: true, CursorDeadline: now.Add(time.Second)}
++		s.retainCursorPresentation(p)
++		got := p.presentationAt(now)
++		if got != previous || got.CursorPrevious != nil || got.Seq != 2 || got.Cursor != f.Cursor || got.UI != f.UI || got.Map != f.Map || got.DAC != f.DAC || got.Steps != f.Steps || got.Ticks != f.Ticks {
++			t.Fatal("pending frame lost complete metadata or formed history chain")
++		}
++		fallback := p.presentationAt(now.Add(time.Second))
++		if fallback.Seq != seq || fallback.Px[0] != 9 || fallback.CursorManaged || fallback.Cursor != nil || fallback.CursorPrevious != nil {
++			t.Fatal("same pending snapshot did not expire to raw presentation")
++		}
++		if p.CursorPrevious != previous || !p.CursorPending || p.Px[0] != 9 {
++			t.Fatal("presentation mutated published pending snapshot")
++		}
++	}
++	// 完整隱藏幀必須取代舊的可見前幀。
++	hidden := &Frame{Seq: 20, CursorManaged: true}
++	s.retainCursorPresentation(hidden)
++	p := &Frame{Seq: 21, CursorManaged: true, CursorPending: true, CursorDeadline: now.Add(time.Second)}
++	s.retainCursorPresentation(p)
++	if got := p.presentationAt(now); got == nil || got.Seq != 20 || got.Cursor != nil {
++		t.Fatal("hidden complete frame resurrected old visible cursor")
++	}
++	// 未知格式、停用及已到期回退均為 unmanaged，不能留下可恢復的前幀。
++	s.retainCursorPresentation(&Frame{Seq: 22})
++	s.retainCursorPresentation(p)
++	if s.cursorComplete != nil || p.CursorPrevious != nil || p.presentationAt(now) != nil {
++		t.Fatal("unmanaged fallback retained old complete frame")
++	}
++}
++
++func cursorRetryFixture() *Session {
++	_, mem := cursorFixture()
++	m := machine.New()
++	m.Mem = mem
++	m.SetVideoMode(0x12) // 黑色底圖與色 1 游標不符，模擬重畫中。
++	m.CPU.Seg[cpu.CS], m.CPU.IP = 0x19fb, 0x8a2
++	copy(m.Mem[cpu.Linear(0x19fb, 0x8a2):], []byte{0x83, 0xc4, 0x0a})
++	return &Session{m: m, d: dos.New(m, ""), opt: Options{SmoothCursor: true}}
++}
++
++func TestCursorRetryOnceAndPreservesDeadline(t *testing.T) {
++	s := cursorRetryFixture()
++	s.RequestFrame()
++	s.SnapshotNow()
++	f := s.Frame()
++	if !f.CursorPending || !s.cursorRetry {
++		t.Fatal("requested pending frame did not arm retry")
++	}
++	before := s.m.Snapshot()
++	s.retryCursorAtDraw()
++	if s.Frame().Seq != f.Seq+1 || !s.Frame().CursorPending || s.cursorRetry {
++		t.Fatal("failed retry must consume exactly one opportunity")
++	}
++	if s.Frame().CursorDeadline != f.CursorDeadline || !reflect.DeepEqual(before, s.m.Snapshot()) {
++		t.Fatal("retry reset deadline or changed machine")
++	}
++	seq := s.Frame().Seq
++	s.retryCursorAtDraw()
++	if s.Frame().Seq != seq {
++		t.Fatal("retried without a new front-end request")
++	}
++	s.SnapshotNow() // 100ms 自動回退也走相同的非 requested 快照。
++	if s.cursorRetry || s.Frame().CursorDeadline != f.CursorDeadline {
++		t.Fatal("unrequested snapshot rearmed retry or reset deadline")
++	}
++	s.RequestFrame()
++	s.SnapshotNow()
++	if !s.cursorRetry || s.Frame().CursorDeadline != f.CursorDeadline {
++		t.Fatal("new request must arm once without extending deadline")
++	}
++}
++
++func TestCursorRetryCancellationAndReturnSignature(t *testing.T) {
++	for _, name := range []string{"valid", "hidden", "unsupported", "expired", "unrequested"} {
++		t.Run(name, func(t *testing.T) {
++			s := cursorRetryFixture()
++			s.RequestFrame()
++			s.SnapshotNow()
++			if !s.cursorRetry {
++				t.Fatal("fixture did not arm")
++			}
++			s.RequestFrame()
++			switch name {
++			case "valid":
++				for _, off := range []int{0x2a9, 0x1bd1} {
++					s.m.Mem[cursorData+off+5] = 0 // 色 0 的不透明游標與黑色 VRAM 一致。
++				}
++			case "hidden":
++				binary.LittleEndian.PutUint16(s.m.Mem[cursorData+0x19:], 0)
++				binary.LittleEndian.PutUint16(s.m.Mem[cursorData+0x1b:], 0)
++			case "unsupported":
++				s.m.Mem[cursorData+0x2a9] = 39
++			case "expired":
++				s.cursorWaitAt = time.Now().Add(-time.Second)
++			case "unrequested":
++				s.want.Store(false)
++			}
++			s.SnapshotNow()
++			if s.cursorRetry {
++				t.Fatal("later snapshot did not cancel stale retry")
++			}
++			if name == "valid" && s.Frame().Cursor == nil {
++				t.Fatal("fixture did not validate")
++			}
++		})
++	}
++	for _, name := range []string{"segment", "offset", "bytes", "disabled"} {
++		t.Run(name, func(t *testing.T) {
++			s := cursorRetryFixture()
++			s.RequestFrame()
++			s.SnapshotNow()
++			seq := s.Frame().Seq
++			switch name {
++			case "segment":
++				s.m.CPU.Seg[cpu.CS]++
++			case "offset":
++				s.m.CPU.IP++
++			case "bytes":
++				s.m.Mem[cpu.Linear(0x19fb, 0x8a2)] = 0x90
++			case "disabled":
++				s.opt.SmoothCursor = false
++			}
++			s.retryCursorAtDraw()
++			if s.Frame().Seq != seq {
++				t.Fatal("unverified return point caused a snapshot")
++			}
++		})
++	}
++}
++
++// 正常原版新遊戲與設定輸入，不依賴研究 state，不寫原版記憶體。
++func TestCursorHighSpeedNormalPathRetryAndMachineParity(t *testing.T) {
++	root := origRoot(t)
++	var sessions [2]*Session
++	for i := range sessions {
++		s, err := Open(root, Options{SmoothCursor: i == 1, NoPacing: true})
++		if err != nil {
++			t.Fatal(err)
++		}
++		sessions[i] = s
++		run := func(n uint64) {
++			if st := s.RunSteps(s.m.Steps + n); st.Kind != StopSteps {
++				t.Fatal(st)
++			}
++		}
++		click := func(x, y, button int) {
++			s.Input(MouseButtonEvent(x, y, button, true))
++			for n := 0; n < 5; n++ {
++				// 轉場載入可暫時沒有輪詢；沿正常執行前進，不把批次上限當停機。
++				if st, _ := s.RunToPoll(2000000); st != nil {
++					t.Fatalf("click stopped: %v", st)
++				}
++			}
++			s.Input(MouseButtonEvent(x, y, button, false))
++			run(5000000)
++		}
++		run(30000000)
++		click(312, 171, 0)
++		for n := 0; n < 16; n++ {
++			click(310, 160, 0)
++		}
++		for _, p := range [][3]int{{615, 24, 0}, {560, 124, 0}, {350, 275, 0}, {330, 275, 0}, {350, 340, 0}, {330, 275, 0}, {450, 200, 1}} {
++			click(p[0], p[1], p[2])
++		}
++	}
++	a, b := sessions[0], sessions[1]
++	for n := 0; n < 1000; n++ {
++		for _, s := range sessions {
++			s.RequestFrame()
++			if st, ok := s.RunToPoll(2000000); st != nil || !ok {
++				t.Fatalf("sampling did not reach poll: %v %v", st, ok)
++			}
++		}
++		f := b.Frame()
++		if !f.CursorPending {
++			continue
++		}
++		raw := append([]byte(nil), f.Px...)
++		start := b.m.Steps
++		for _, s := range sessions {
++			if st := s.RunSteps(start + 100000); st.Kind != StopSteps {
++				t.Fatal(st)
++			}
++		}
++		if b.Frame().Seq <= f.Seq || b.Frame().Cursor == nil || b.Frame().CursorPending || b.cursorRetry {
++			t.Fatal("pending cursor did not recover without a new request")
++		}
++		if !bytes.Equal(raw, f.Px) || !f.CursorPending {
++			t.Fatal("retry mutated published frame")
++		}
++		if !reflect.DeepEqual(a.m.Snapshot(), b.m.Snapshot()) || !reflect.DeepEqual(a.d.Stats(), b.d.Stats()) {
++			t.Fatal("cursor retry changed original machine or DOS state")
++		}
++		t.Logf("normal high-speed path recovered from pending at step %d; A/B identical at %d", start, b.m.Steps)
++		return
++	}
++	t.Fatal("normal high-speed path never exercised pending cursor")
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 5392522..50e46ed 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -136,6 +136,7 @@ type Frame struct {
+ 	CursorBackground             []uint8
+ 	CursorManaged, CursorPending bool
+ 	CursorDeadline               time.Time // 同一段連續重畫的期限，前端不需等待下一張快照。
++	CursorPrevious               *Frame    // pending 的完整呈現前幀；不再包含前幀指標。
+ 	Display                      []DisplayStamp
+ 	W, H                         int
+ 	Px                           []uint8       // W*H 個像素值，0 至 15（Machine.Planar）
+@@ -205,18 +206,20 @@ type Session struct {
+ 	stackTop uint16
+ 	minSP    uint16
+ 
+-	mu           sync.Mutex
+-	inbox        []Event
+-	stats        Stats
+-	frame        atomic.Pointer[Frame]
+-	ov           *hd.Overlay
+-	display      *displayObserver
+-	ui           *uiObserver
+-	snd          *soundHooks // docs/spec/007；nil ＝ 關閉
+-	want         atomic.Bool
+-	frmSeq       uint64
+-	cursorWaitAt time.Time
+-	cursorLogged map[string]bool
++	mu             sync.Mutex
++	inbox          []Event
++	stats          Stats
++	frame          atomic.Pointer[Frame]
++	ov             *hd.Overlay
++	display        *displayObserver
++	ui             *uiObserver
++	snd            *soundHooks // docs/spec/007；nil ＝ 關閉
++	want           atomic.Bool
++	frmSeq         uint64
++	cursorWaitAt   time.Time
++	cursorLogged   map[string]bool
++	cursorRetry    bool   // 010 高速增補：每個前端要求最多在游標繪圖返回點補取一次。
++	cursorComplete *Frame // 僅機器執行緒更新，供較慢的呈現消費者取得完整前幀。
+ 
+ 	// 以下欄位只由持有機器的迴圈（Run 或 RunSteps）使用。
+ 	held           [2]bool
+@@ -486,6 +489,9 @@ func (s *Session) stepBatch(n int) (st *Stop) {
+ 		if s.display != nil {
+ 			s.display.post(m)
+ 		}
++		if s.cursorRetry {
++			s.retryCursorAtDraw()
++		}
+ 		if d.Exited {
+ 			switch d.ExitCode {
+ 			case 1:
+@@ -551,6 +557,7 @@ func (s *Session) snapshot() {
+ 	if px == nil {
+ 		return
+ 	}
++	requested := s.want.Load()
+ 	f := &Frame{W: w, H: h, Px: px, DAC: s.m.Palette(), Steps: s.m.Steps, Ticks: s.m.Ticks}
+ 	for i := range f.Map {
+ 		f.Map[i] = s.m.VGA.DACIndex(uint8(i))
+@@ -569,7 +576,9 @@ func (s *Session) snapshot() {
+ 	}
+ 	s.frmSeq++
+ 	f.Seq = s.frmSeq
++	s.retainCursorPresentation(f)
+ 	s.lastSnap = time.Now()
++	s.cursorRetry = requested && f.CursorPending
+ 	s.want.Store(false)
+ 	s.frame.Store(f)
+ }
+-- 
+2.43.0
+

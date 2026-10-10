@@ -11,6 +11,7 @@
 | 已證實原因 | 原版繪圖 X 對齊 8 像素；前端等待 DOS 快照，HD 另等待合成 |
 | 中間畫面風險 | 輪詢點以外快照可能取到擦除或重畫階段，見規格 004 第 5.1 節 |
 | 原版規則 | 保留滑鼠範圍、按鍵事件、輪詢及遊戲時鐘 |
+| 高速設定回報 | 2026-10-10 修正已驗證，fork `7989c7b`、補丁 0045，010 高速增補 CONFORMED。原版 A/B 與競態通過；三主題正常 GUI 未再出現持續數秒消失，換圖短暫未命中限制見本頁「高速設定」。既有包未重建 |
 | 修正 | 本機 fork `b687256` 游標修正、`686581d` 五尺寸板面主題；補丁 0042、0043，已正式發行 |
 | 最近測試 | 2026-10-08 完整前端與 UI／游標競態測試、獨立完成前審查、六包靜態驗證及實際 AppImage 抽測通過；原版 A/B 兩側各 106000000 步，機器狀態相同 |
 | GUI 證據 | 候選實包 `dist-all/v.1.0.2-20261008/smoke/linux/` 正常新遊戲含 F2 三主題、F1、F12、左右鍵；598 幀全為單游標，F12 模板 272／272。先前 standalone 的 918 幀另留 `workplace/out/ui-final-gui/` |
@@ -63,3 +64,42 @@
 ## 停止線
 
 這是前端呈現修正，不更動 DOS 游標例程、INT 33h、原版檔案或存檔。原版座標取樣、按鍵讀取延遲與遊戲速度不在本次加速範圍。Linux 虛擬顯示器驗證不等於使用者桌面的實機驗收。
+
+## 2026-10-10 高速設定
+
+輸入 `MAIN.EXE` SHA-256 `08ed144e8f8d6e97d19f0759bce2420665998143f2f0f056ab7adc718e550e3e`。根 HEAD `a4fb7ba`、fork `ae27856`，Docker `hr-go-ebiten:1.26.7-2.9.9-r1`、Go 1.26.7、Ebiten 2.9.9。原版資料唯讀。下列數值分別標示執行期與 IDA 位址，不混用。
+
+- confirmed：正常新遊戲後推進 16 次對話，點右上筆圖示與系統設定，將時間進行及顯示的速度改為高速，關閉設定後移動滑鼠。實際前端錄影 `workplace/out/cursor-fast-before-gui/fast-cursor.mkv`、`settings-high.png`、`fast-theme-0.png` 與 `play.log` 重現指針消失及 500 毫秒重畫逾時。正常輸入腳本為 `workplace/out/cursor-fast-control.json`，執行入口 `tools/capture_promo.py`，未注入狀態或修改原版記憶體。
+- confirmed：舊程式只在滑鼠輪詢或 100 毫秒無輪詢回退時取樣，`snapshot()` 即使取得 `CursorPending` 仍消耗本次要求。高速下同一取樣相位可連續落在重畫中，逾時後發布不含游標的原始畫面。`workplace/out/cursor-fast-probe.go`、`cursor-fast-sample.log` 保存補充探針；探針中的 state 是從正常路徑取得，僅供縮小問題。
+- confirmed：既有 IDA Pro 9.4 匯出 `workplace/ida-draw/out/f04.txt` 的原始函式 `sub_295FD`，IDA `28EB:074D`，在 IDA `28EB:089D` 呼叫精靈繪圖，返回點 IDA `28EB:08A2`，bytes `83 c4 0a`。對應執行期 `19FB:089D`／`19FB:08A2`。IDA `28EB:07C4` 的 `c7 06 19 00 01 00` 已將保存背景旗標設為 1；此後才複製裁切精靈並繪圖。返回點也是既有 `hd.CursorSite`，不另推測完成位址。
+- confirmed：`workplace/out/cursor-fast-return-probe.log` 的 pending 快照在第 184667146 步，執行期 `54C0:7F6B`，旗標 0／1；正常繼續 10840 步到執行期 `19FB:08A2`，新快照通過完整游標驗證，旗標 1／1。一次指令前進探針 `cursor-fast-return-probe_test.go` 只觀察，不寫記憶體。
+- 修正設計：已知重畫中的快照保留一次補取機會，在上述繪圖返回點補取，再走 010 的完整格式與像素驗證。每次要求最多增加一張補取快照，避免重畫失敗時無界取樣。正式隱藏、未知格式、500 毫秒回退與原始 `Frame.Px` 契約保留。
+
+當時待補項目為高速正常 GUI 三主題、補取回歸、執行層開關的機器狀態 A/B、游標與前端競態測試；後續結果見下文「計數勘誤與最終驗證」。規格增補入口為 [010](../spec/010-cursor-presentation.md#高速設定的補取畫面)。
+
+首次補取修正的回歸與 A/B 已通過，兩側第 167067321 步的機器快照及 DOS 統計完全相同，收據 `workplace/out/cursor-fast-tests.log`。但 GUI `cursor-fast-after-gui/cursor-validation.json` 仍有原版 2／363、HD 88／368、AI 110／401 個未偵測幀，不能宣稱完成。修正前收據 `cursor-fast-before-gui/cursor-validation.json` 為原版 245／363、HD 147／365、AI 183／372。
+
+程式已證實非同步合成器只讀最近一張 Frame，pending 的 `Presentation()` 回 nil。完整補取幀若在合成器讀取前被後續 pending 覆蓋，合成器會保留更早的底圖與隱藏狀態。這是可受控驗證的漏讀分支；實際 GUI 的精確相位仍為強推論。增補規格回 DRAFT，保存最近完整呈現幀，讓 pending 帶著整張配對底圖供合成器使用，不改原版隱藏語意。
+
+### 計數勘誤與最終驗證
+
+後續逐幀核對推翻「首次修正後的大量未命中代表 HD／AI 仍持續漏畫」的判讀。模板只接受完整正常色盤，黑畫面及轉場也會未命中。獨立以資訊欄固定白字核對，首次修正 HD 的 88 幀有 85 幀的 HUD 白字強度為 0，AI 的 110 幀有 92 幀的 HUD 白字強度為 0。其餘一般色盤下連續未命中最長 8 幀，不能由原始計數證實非同步漏讀的 GUI 相位。保留前述原始收據與設計歷史；完整幀傳遞的必要邊界由可達程式分支與受控漏讀回歸獨立驗證。
+
+最終修正增加一次繪圖返回補取，並保存整張已還原背景、過濾游標戳記的完整呈現幀。pending 引用此幀，讓原版前端及非同步合成器取得同一份底圖、游標、色盤及 HD／UI 資訊。完整隱藏幀取代舊可見幀；未知格式清除保存，不改原版隱藏規則或 500 毫秒期限。
+
+- `workplace/out/cursor-fast-final-runtime-race.log`：游標、補取上限、一層保存鏈、原始快照不可變、隱藏／未知格式、停止後到期，競態測試通過，1.528 秒。
+- `workplace/out/cursor-fast-final-original-ab.log`：正常新遊戲、16 次對話及兩項高速設定；第 166967321 步取得 pending，沒有新要求仍補取成功。開關兩側第 167067321 步的完整機器快照與 DOS 統計相同，25.520 秒。
+- `workplace/out/cursor-fast-final-frontend-race.log`：受控跳過完整幀後的兩種消費者、呈現 Seq 去重、同一 Seq 到期、HD 世代、UI 與截圖，競態測試通過，13.143 秒。`go vet` 及 Windows amd64 編譯通過；未做 Windows／macOS 實機操作。
+- `workplace/out/cursor-fast-final-gui/`：由正常新遊戲設定兩項高速，原版、HD、AI 各 60 次移動；設定畫面、三主題截圖、錄影與收據均保留。執行器 SHA-256 `71fe9a36ca9ef81d7d2dd1fd43ab237ff21dc96c8ad80c75008d2781c5e8fef4`，沒有 state 注入，沒有再記錄 500 毫秒游標逾時。
+
+| 最終錄影 | 取樣幀 | 單游標 | HUD 白字為 0 時未命中 | 一般色盤未命中 | 重複游標 |
+|---|---:|---:|---:|---:|---:|
+| 原版 | 367 | 312 | 49 | 6 | 0 |
+| HD | 367 | 349 | 15 | 3 | 0 |
+| AI | 364 | 250 | 106 | 8 | 0 |
+
+原始嚴格模板收據 `cursor-validation.json` 沒有修改判準，仍記錄 187 個未命中。`workplace/out/classify-fast-cursor.py` 另以游標區域外的資訊欄白字強度區分轉場，輸出各輪 `visibility-classification.json`。170 幀只代表該區各像素 RGB 最小分量的最大值為 0；獨立審查逐幀檢查全 RGB，140 幀確為全黑，30 幀仍有非零像素，不能將 170 幀全部稱為整體黑畫面。修正前一般色盤的最長連續未命中為原版 82、HD 32、AI 66 幀；最終最長為 5 幀，約 0.17 秒。最終 17 個一般色盤未命中的抽樣 `active-missing-220.png`、`400`、`719`、`984`、`1166` 均在人物換圖期間，可見換圖及局部未畫完的肖像。沒有逐幀記錄原版隱藏旗標，這些幀不能稱為全部已證實的正式隱藏，也不能宣稱全錄影零未命中。持續數秒消失的回報未再出現；不為清除短暫未命中而強制顯示原版主動隱藏的游標。
+
+首次把原版長流程與全部游標測試一起開競態模式，達 240 秒外層上限後停止，部分紀錄為 `cursor-fast-final-runtime-race-interrupted.log`。同一工具鏈改為快速游標競態、正常模式原版 A/B、前端競態後乾淨重跑通過，屬驗證範圍配置問題。
+
+審查入口 `workplace/out/review-fast-cursor-spec.md`、`review-fast-cursor-implementation.md`。完成前審查允許此狹義切片升 CONFORMED，保留上述換圖限制。fork 提交 `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`，備份 [0045](../../engine/patches/0045-fast-cursor-presentation.patch)。本輪只修程式與保存補丁，不重建或覆寫既有 `v.1.0.3-20261010` 完整包，也未發布新 Release。收尾稽核入口為 `workplace/out/cursor-fast-final-audit.py` 與 `cursor-fast-final-audit.json`。

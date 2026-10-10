@@ -574,3 +574,14 @@
 - `tools/promo.sh`／`render_promo.py` 移除工程FM配樂選項，原版錄音依SHA及來源收據核對；正式重現命令保存在本段：`HR_VERSION=v.1.0.2-20261008`、`HR_PROMO_LIVE=$PWD/workplace/out/hr-promo-v102-live`、`HR_PROMO_ENGLISH=$PWD/workplace/out/hr-promo-v102-en`、`HR_PROMO_AUDIO_MODE=original-recording`、`HR_PROMO_AUDIO_FILE=$PWD/workplace/out/original-audio/record-original-verified/capture/main_000.wav`、`HR_PROMO_AUDIO_RECEIPT=$PWD/workplace/out/original-audio/record-original-verified/provenance.json`，執行 `bash tools/promo.sh`。三平台封包與公開Release保持不變；本機清冊納入影片及完成收據，建包來源仍為2c9d2eb／686581d。
 - 原版錄音原型保存為 `tools/capture_original_music.sh`、`capture_original_music.py`，README同次提供入口。只接受本專案清冊148檔及已核原廠driver；無反對照只錄音，提供同設定缺driver目錄、確認所有取樣為零及正錄超過60秒有聲後才產來源收據。原版、driver、控制及清冊皆唯讀，driver只在容器/tmp複製改檔名；檔案內容不變。語法、既有真實正反資料及配置等價核對通過，不再重錄完整片段。重現原版音源：設定 `HR_AUDIO_DRIVER_FILE='workplace/out/original-audio/driver/Win95 Dos Applications/CTMIDI-S.DRV'`、`HR_AUDIO_CONTROL_DIR=workplace/out/original-audio/control-no-driver-verified`、`HR_AUDIO_RECORD_SECONDS=65`，執行 `bash tools/capture_original_music.sh <新工作名稱>`；缺driver對照不設CONTROL，指定`HR_AUDIO_DISABLE_DRIVER=1`及6秒。輸出只放`workplace/out/<名稱>/`，已有同名輸出拒絕覆寫。
 - 最終收尾：2875追蹤檔的文字掃描仍為已授權16筆基準，沒有新命中；主repo／fork沒有原版同名檔及非空完整SHA命中，原廠driver、錄音與影片皆未追蹤。105153項擁有權檢查無root-owned檔案或*.md目錄，README索引與manifest收據SHA全相符，所有hr-*容器清理完畢。主機gh認證／PUBLIC成立；六包與遠端五資產SHA不變，正式tag仍綁2c9d2eb。只一般推送原版錄音工具與完成文件，不上傳原版音源或影片，不修改Issue。
+
+### 高速設定游標修正（2026-10-10）
+
+- 使用者回報時間與訊息皆高速後指針消失。路由載入逆向重製技能、規格閘門、驗證及文件職責，沿用 033 的唯一目前狀態表與 010，不重開遊玩或音樂範圍。Docker 沿用 `hr-go-ebiten:1.26.7-2.9.9-r1`，原版唯讀。
+- 正常新遊戲、16 次對話及兩項高速設定重現問題。原始輪詢快照可能連續落在重畫中，卻已消耗前端要求，最終 500 毫秒回退為無游標畫面。既有 IDA 匯出及原版探針證實執行期 `19FB:08A2`、bytes `83 c4 0a` 可補取完成畫面；仍做逐像素驗證。010 增補經唯讀審查 READY 後實作，每次前端要求至多補取一次，不重設期限、不寫 DOS 狀態。
+- 另補齊非同步消費者可能跳過完整幀的分支。pending 引用最近完整呈現幀，保存背景還原、游標戳記過濾及游標／色盤／HD／UI 配對，鏈限一層。兩消費者依呈現後 Seq 去重，同一 pending 到期仍可回 raw。完整隱藏幀會取代可見幀，未知格式清除保存。規格重新審查 READY 後實作，受控漏讀與兩層競態通過。
+- 原版正常路徑 A/B 第 167067321 步的機器快照及 DOS 統計一致，沒有新要求亦補取成功。快速執行層競態 1.528 秒、原版 A/B 25.520 秒、前端競態 13.143 秒，`go vet` 及 Windows amd64 編譯通過。首次原版長流程全開競態達 240 秒上限，保留中斷紀錄後，以同工具鏈分開範圍乾淨重跑；不記為產品缺陷。入口均為 `workplace/out/cursor-fast-final-*.log`。
+- 正常 GUI 錄影三主題共 1098 幀：911 單游標、187 嚴格模板未命中、0 重複。獨立 HUD 白字核對及審查確認大量未命中來自黑底轉場與前端疊層，餘 17 個一般色盤未命中最長 5 幀，抽樣在人物換圖期間。沒有逐幀原版隱藏旗標，不宣稱全錄影零未命中或全部正式隱藏。修正前一般色盤最長連續缺少游標達 82／32／66 幀，最終未再出現持續數秒消失。收據、原始計數與分類方法見 033；完成前唯讀審查允許此狹義切片 CONFORMED。
+- 勘誤：首次修正 HD 88、AI 110 個未命中主要是黑底轉場，不能直接證明 GUI 非同步漏讀相位。保留原始收據與追加勘誤；完整幀傳遞由可達程式分支及受控測試獨立成立，不以放寬模板門檻硬通過。
+- fork 提交 `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`，備份 `engine/patches/0045-fast-cursor-presentation.patch`。本機 Linux 測試執行器 SHA-256 `71fe9a36ca9ef81d7d2dd1fd43ab237ff21dc96c8ad80c75008d2781c5e8fef4`；既有三平台完整版、版號、公開 Release 與 tag 不變。本輪不 push 或上傳原版，上一輪音樂文件保持原狀。
+- 收尾稽核 `workplace/out/cursor-fast-final-audit.py`、`cursor-fast-final-audit.json` 通過：主 repo／fork 共 2926 追蹤檔沒有原版同名檔或非空完整 SHA 命中，dist-all 未追蹤，沒有 root-owned 檔案或 *.md 目錄。本輪游標與審查容器均已退出刪除，fork 工作樹乾淨。只提交本輪文件與補丁，其他未提交內容保留。
