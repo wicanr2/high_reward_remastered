@@ -62,7 +62,7 @@ if static.is_file():
                 'main_table_rows', 'full_text_activated', 'macos']:
         if key in receipt:
             manifest[key] = receipt[key]
-    manifest['verification_scope'] = 'Cursor and five PLATE2 presentation paths, language integration and switching; no full-game completion or native macOS test.'
+    manifest['verification_scope'] = receipt.get('verification_scope', 'Cursor and five PLATE2 presentation paths, language integration and switching; no full-game completion or native macOS test.')
     manifest["verification_receipts_sha256"] = {
         str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in [static, root / "smoke/linux/receipt.json", root / "smoke/release-package-review.json", root / "smoke/windows/RESULTS.txt", root / "promo/ffprobe.json", root / "promo/rights.json", root / "promo/verification.json"] if p.is_file()

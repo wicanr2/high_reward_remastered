@@ -137,7 +137,8 @@ try:
         # GUI 擷取之外，保留未縮放遊戲截圖供目視確認點擊已離開標題。
         (out / 'newgame-logical.png').write_bytes(screenshots[-1].read_bytes())
         receipt['normal_input'] = {'title_new_game_client': [390, 264], 'method': 'xdotool mouse, no state injection'}
-        receipt['status'] = 'pass'
+        receipt['normal_input']['status'] = 'awaiting-visual-review'
+        receipt['status'] = 'geometry-pass-input-review-pending'
 except Exception as exc:
     receipt['error'] = str(exc)
     raise

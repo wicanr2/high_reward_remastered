@@ -71,7 +71,7 @@
 
 ### 6.1 可調整視窗
 
-狀態：READY（2026-10-10）。使用者要求遊戲視窗可自由放大縮小，完成後重建三平台本機完整版。唯讀審查 `workplace/out/window-resize-spec-review.md` 已確認修訂後無阻擋。
+狀態：CONFORMED（2026-10-10），限本節視窗切片。使用者要求遊戲視窗可自由放大縮小，完成後重建三平台本機完整版。唯讀審查 `workplace/out/window-resize-spec-review.md` 與 `window-resize-implementation-review.md` 無阻擋；前端測試、舊版負對照、新版 Linux 實包 GUI 與三包靜態驗證通過。Windows／macOS 未實機操作。
 
 | 項目 | 契約與依據 |
 |---|---|
@@ -89,6 +89,8 @@
 | 權利 | 完整版只留本機 `dist-all/<版本>/full-local/`，不提交或上傳原版素材；舊版與已發布 Release 保持原狀 |
 
 本節審查與驗證結果追加於 `WORKLOG.md`。
+
+實作為 fork `ae27856`，備份 `engine/patches/0044-resizable-window.patch`。交付 `dist-all/v.1.0.3-20261010/full-local/`；`smoke/full-static.json` 保存三包內容與來源，`smoke/linux/receipt.json` 保存十張幾何擷取、兩種全螢幕快捷鍵與新遊戲目視判讀。靜態驗證入口為 `workplace/out/verify-window-packages-v103.py`，沿用同目錄 `verify-ui-packages-v102.py` 的素材與格式檢查，兩份工具雜湊均記在收據。這些本機收據不含公開發行聲明。
 
 ## 7. 輸入
 

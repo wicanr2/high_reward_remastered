@@ -42,6 +42,8 @@ AppImage 工具鏈為 `hr-appimage:runtime-recovery-r1`，入口 `tools/rebuild_
 
 ## 1. 專案定位與範圍
 
+2026-10-10 使用者要求遊戲視窗可自由放大縮小，完成後重建三平台完整版。視窗契約見 `docs/spec/003-runtime-and-frontend.md` 第 6.1 節，僅開放原生縮放並同步全螢幕狀態，不改遊戲規則、存檔或顯示比例。本機新版 `v.1.0.3-20261010` 的三平台完整版已建立於 `dist-all/v.1.0.3-20261010/full-local/`，建包根 `8eb279ada6a5329514dccaa325483b14e27398bd`、fork `ae27856f5c190c850f833e5412e27a598299cb29`。清冊重生須明示這兩個來源。Linux 實包 GUI 及三包靜態驗證通過，Windows／macOS 未實機操作；公開 Release 維持 `v.1.0.2-20261008`。
+
 本專案處理 DOS 遊戲《高報酬戰將》。需求來源是 `IDEA.md`，拆成四項工作：
 
 | 項 | 工作 | 現況（2026-10-03） |
