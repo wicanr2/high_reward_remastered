@@ -585,3 +585,12 @@
 - 勘誤：首次修正 HD 88、AI 110 個未命中主要是黑底轉場，不能直接證明 GUI 非同步漏讀相位。保留原始收據與追加勘誤；完整幀傳遞由可達程式分支及受控測試獨立成立，不以放寬模板門檻硬通過。
 - fork 提交 `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`，備份 `engine/patches/0045-fast-cursor-presentation.patch`。本機 Linux 測試執行器 SHA-256 `71fe9a36ca9ef81d7d2dd1fd43ab237ff21dc96c8ad80c75008d2781c5e8fef4`；既有三平台完整版、版號、公開 Release 與 tag 不變。本輪不 push 或上傳原版，上一輪音樂文件保持原狀。
 - 收尾稽核 `workplace/out/cursor-fast-final-audit.py`、`cursor-fast-final-audit.json` 通過：主 repo／fork 共 2926 追蹤檔沒有原版同名檔或非空完整 SHA 命中，dist-all 未追蹤，沒有 root-owned 檔案或 *.md 目錄。本輪游標與審查容器均已退出刪除，fork 工作樹乾淨。只提交本輪文件與補丁，其他未提交內容保留。
+
+### 高速游標修正版提交、推送與三平台完整版（2026-10-10）
+
+- 使用者要求 commit、push 與三平台完整版。重新載入版號、dist-all 與驗證契約；主機 gh 認證及 PUBLIC 核對通過，內容掃描仍為既有授權 16 筆，沒有原版完整檔誤追蹤。修正根 `7249b2e` 已一般推送至 origin/main，fork `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f` 的補丁 0045 已隨根提交保存。
+- `v.1.0.4-20261010` 三平台完整版由乾淨來源 `7249b2e20f17761b94340b51be9fc2f3ab184ca1` 重建，原版唯讀；未納入先前未提交音樂研究。沿用固定 hr-go-ebiten／hr-osxcross／hr-appimage，三包重新解出核對素材、版號、格式與雜湊均通過。第一次驗證缺 smoke 輸出目錄，建立後同命令重跑通過。暫存工作樹與兩個連結已移除。
+- Linux 實包正常高／高及三主題已操作，原始模板仍有 AI 連續 60 幀未命中。首次全畫面核對錯用 decoder n，後以相同 rawvideo 輸出 idx 重核，撤回錯誤通過判讀。外部截圖與 Ctrl+D 證實另輪缺游標當下原版 `0/0`、PC `20C2:27E0`。暫存觀測版追到 AI 1.674 秒隱藏段的各次快照 `0/0`、實際顯示與恢復 Seq 1815；不把它回填為首輪全部未命中的原因。首輪原因保留 unknown，不宣稱零消失或全遊戲 parity。詳見 033 的本版交付段及唯讀審查 `workplace/out/review-v104-package-cursor.md`。
+- 三包與 SHA-256 入口 `dist-all/v.1.0.4-20261010/`，Linux 證據在 `smoke/linux/`。清冊永遠使用真實建包根 `7249b2e20f17761b94340b51be9fc2f3ab184ca1` 與 fork `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`；只一般推送交付文件，不發布新 Release、移動 tag 或上傳原版。Windows／macOS 未實機操作。
+- 實包 GUI 收據標為 partial，三包靜態收據維持 pass。另輪原版隱藏與恢復的唯讀審查已達最小充分，首次 60 幀仍保留未知；原始錯誤幀序結果明標 invalid，不作通過證據。
+- 收尾稽核 `workplace/out/v104-final-audit.json` 通過：三包與驗證收據雜湊相符，執行層乾淨、補丁反向套用核對通過，2926 個追蹤檔未夾帶原版完整檔，dist-all 未追蹤，沒有 root-owned 檔案或 *.md 目錄。本輪 Docker 容器均已退出並刪除，既有音樂研究未納入提交。

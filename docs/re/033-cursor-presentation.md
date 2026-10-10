@@ -7,14 +7,15 @@
 | 項目 | 現況 |
 |---|---|
 | 正式發行 | `v.1.0.2-20261008`，建包根 `2c9d2eb`，執行層 `686581d`；新 tag 指向實際建包來源，舊版不變 |
+| 本機目前交付 | `v.1.0.4-20261010`，建包根 `7249b2e`、執行層 `7989c7b`。三平台 `full-local/`、清冊及驗收均在本版 `dist-all/`；舊版與公開 Release 保留 |
 | 原版游標 | DOS 軟體游標，40×32 像素，272 個不透明像素 |
 | 已證實原因 | 原版繪圖 X 對齊 8 像素；前端等待 DOS 快照，HD 另等待合成 |
 | 中間畫面風險 | 輪詢點以外快照可能取到擦除或重畫階段，見規格 004 第 5.1 節 |
 | 原版規則 | 保留滑鼠範圍、按鍵事件、輪詢及遊戲時鐘 |
-| 高速設定回報 | 2026-10-10 修正已驗證，fork `7989c7b`、補丁 0045，010 高速增補 CONFORMED。原版 A/B 與競態通過；三主題正常 GUI 未再出現持續數秒消失，換圖短暫未命中限制見本頁「高速設定」。既有包未重建 |
+| 高速設定回報 | fork `7989c7b`、補丁 0045，010 高速增補 CONFORMED；本機 `v.1.0.4-20261010` 已納入。原版 A/B 與競態通過，仍保留原版主動隱藏。實包錄影限制見本頁「高速修正版三平台交付」 |
 | 修正 | 本機 fork `b687256` 游標修正、`686581d` 五尺寸板面主題；補丁 0042、0043，已正式發行 |
-| 最近測試 | 2026-10-08 完整前端與 UI／游標競態測試、獨立完成前審查、六包靜態驗證及實際 AppImage 抽測通過；原版 A/B 兩側各 106000000 步，機器狀態相同 |
-| GUI 證據 | 候選實包 `dist-all/v.1.0.2-20261008/smoke/linux/` 正常新遊戲含 F2 三主題、F1、F12、左右鍵；598 幀全為單游標，F12 模板 272／272。先前 standalone 的 918 幀另留 `workplace/out/ui-final-gui/` |
+| 最近測試 | 2026-10-10 高速執行層／前端競態、原版 A/B 第 167067321 步、三平台成品格式與素材驗證通過；Linux 正常新遊戲、兩項高速及三主題已操作，AI 原版隱藏補驗與未解範圍見交付段 |
+| GUI 證據 | `dist-all/v.1.0.4-20261010/smoke/linux/` 保存實包正常路徑及嚴格模板結果；1144 取樣幀中 1068 單游標、76 未命中、0 重複。首輪 AI 最長 60 幀，不能宣稱零消失；補驗及原版隱藏證據見交付段 |
 | 正式交付 | `dist-all/v.1.0.2-20261008/`，full-local／patch 各三包；五個 GitHub Release 資產的大小與 SHA-256 全符本機，收據 `smoke/remote-release-validation.json` |
 | 交付完成 | 正式發布、三平台完整版與 60 秒原版配樂推廣片均完成；影片 `promo/HighReward-v.1.0.2-20261008-promo.mp4`，驗收 `promo/verification.json`。Windows／macOS 未實機驗收，Issue 狀態未改 |
 | 介面主題工作 | [034](034-procedural-ui-panels.md) 與 [011](../spec/011-procedural-ui-themes.md)：使用者已接受實際介面，五尺寸 PLATE2 已 CONFORMED，未知原語回退原版 |
@@ -103,3 +104,23 @@
 首次把原版長流程與全部游標測試一起開競態模式，達 240 秒外層上限後停止，部分紀錄為 `cursor-fast-final-runtime-race-interrupted.log`。同一工具鏈改為快速游標競態、正常模式原版 A/B、前端競態後乾淨重跑通過，屬驗證範圍配置問題。
 
 審查入口 `workplace/out/review-fast-cursor-spec.md`、`review-fast-cursor-implementation.md`。完成前審查允許此狹義切片升 CONFORMED，保留上述換圖限制。fork 提交 `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`，備份 [0045](../../engine/patches/0045-fast-cursor-presentation.patch)。本輪只修程式與保存補丁，不重建或覆寫既有 `v.1.0.3-20261010` 完整包，也未發布新 Release。收尾稽核入口為 `workplace/out/cursor-fast-final-audit.py` 與 `cursor-fast-final-audit.json`。
+
+## 2026-10-10 高速修正版三平台交付
+
+使用者要求 commit、push 與三平台完整版。修正根 `7249b2e20f17761b94340b51be9fc2f3ab184ca1` 已推送，fork `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f` 由補丁 0045 保存，不推送 fork 上游。三包從乾淨暫存工作樹與既有固定 Docker 工具鏈重建；其他未提交音樂研究未納入。唯一交付為 `dist-all/v.1.0.4-20261010/full-local/`，公開 Release／tag 仍為 1.0.2。
+
+- `workplace/out/v104-full-build.log`、`verify-fast-cursor-packages-v104.py` 及 `smoke/full-static.json`：重新解包核對原版 148 檔大小與 SHA-256、HD 595、AI 595、五語譯表與 Noto 字模、正式版號及平台架構。Linux 固定 AppImage runtime／ELF、Windows PE／ZIP CRC／UTF-8／README BOM／CRLF、macOS universal arm64＋x86_64／plist／ICNS／執行位元均通過。Windows／macOS 未實機執行。首次驗證僅缺少 smoke 輸出目錄，建立後以同容器與命令重跑，未修改封包。
+- `smoke/linux/receipt.json`：實際 AppRun 僅使用包內資料，正常新遊戲、16 次對話、兩項高速及 F2 三主題各 60 次移動；沒有狀態注入。執行器 SHA-256 `8d68febf4586b8ca46ece887e63635c6029cf8139865ccd751027a74b33881a1`，與三包靜態收據對應。設定畫面已目視確認兩項高速；沒有 500 毫秒重畫逾時紀錄。
+- 原始模板取樣為原版 364／375、HD 390／390、AI 314／379 單游標，76 未命中、0 重複。AI 最長連續未命中 60 幀約兩秒。首次全畫面搜尋錯用 decoder n，原檢查使用經時間戳補幀的 rawvideo 輸出 idx；來源 1851 幀、輸出 1939 幀，兩種編號不可混用。原錯誤交叉核對保留並標 invalid，修正後相同串流的全畫面核對仍為 76 未命中，入口 `workplace/out/v104-fullscreen-cursor-check.py`、`rawvideo-aligned-fullscreen-crosscheck.json`。沒有放寬模板門檻。
+- `workplace/out/v104-fast-cursor-observed/`：同一實包外部逐次截圖補驗，180 次中 170 次完整命中。AI 連續未命中時請求既有 Ctrl+D，唯讀解碼得執行期 `20C2:27E0`、第 418011136 步、游標雙旗標 `0/0`；state SHA-256 `b5b3d44f542f3e4dff2b7131245cf228dcb2cf04b03cbe896a8fe16190fbe05c`。只證明診斷當下原版已隱藏，不回填首輪 60 幀的逐幀語意。
+- `workplace/out/v104-trace-bin/source.json`、`v104-fast-cursor-trace/`、`v104-fast-ai-trace/`：只在容器暫存副本加入原版快照、實際 Draw 與繪圖返回紀錄，正式 fork 與封包不改。AI 正常移動的 1.674 秒隱藏段顯示 Seq 1800..1814，這 15 張原始快照皆為 `0/0`、非 pending；前端隨新隱藏幀前進。第一張隱藏 Draw 起算約 1581 毫秒才有繪圖返回，1661 毫秒取得可見 Seq 1815，1777 毫秒顯示該幀。末端包含約 117 毫秒的呈現傳遞時間，不能稱整段都沒有返回；前端沒有持續停留舊隱藏幀。入口 `analyze-v104-presentation-trace.py` 與該輪 `presentation-trace-summary.json`，原始行號保留。同步日誌會影響時間，不稱為未修改實包逐幀對拍。
+
+已證實補驗中的原版主動隱藏及恢復，不能把所有未命中都算成呈現錯誤。首輪 AI 60 幀沒有同步原版旗標，原因仍保留 unknown；不宣稱全錄影零消失、全部未命中已分類或完整原版 parity。此次交付包含已驗證的 pending 補取修正，沒有強制蓋過原版 hide，也沒有因此追加新規則。
+
+| 本機交付路徑，位於 `dist-all/v.1.0.4-20261010/` | 位元組 | SHA-256 |
+|---|---:|---|
+| `full-local/HighReward-v.1.0.4-20261010-x86_64.AppImage` | 158251512 | `73ae377e2fb0ba29fb1bdee5adefa99ed9d2d45fa68336f08631d58b94ea38a4` |
+| `full-local/HighReward-v.1.0.4-20261010-win64.zip` | 160098510 | `413f16e430e1efdea38d648679344e07aa71192762ea57de96aa24fd7ec7b2fb` |
+| `full-local/HighReward-v.1.0.4-20261010-macos.zip` | 164337330 | `706e1cd3b5455480d8872536b39cc347cafe5b2b89ad900dc19de0f64406c8e7` |
+
+清冊重生入口 `bash tools/finalize_full_local.sh`，固定 `HR_VERSION=v.1.0.4-20261010`、`HR_BUILD_SOURCE_COMMIT=7249b2e20f17761b94340b51be9fc2f3ab184ca1`、`HR_BUILD_FORK_COMMIT=7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`。建包後的文件提交不改寫來源。收尾稽核入口 `workplace/out/v104-final-audit.py` 與 `v104-final-audit.json`；原版、診斷與完整版只留本機。

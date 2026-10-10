@@ -78,7 +78,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 畫面 | 原版、595 項 HD、595 項 AI 三種圖層 |
 | 語言 | 五語介面與遊戲文字，譯文及純 Noto 字模隨發行包提供 |
 | 聲音 | 原版 MIDI 的 FM 近似播放與 PCM 音效；沒有音訊裝置時靜音 |
-| 發行 | `v.1.0.2-20261008` 三平台正式 Release；本機完整版與推廣影片集中於 `dist-all/` |
+| 發行 | 公開 Release 為 `v.1.0.2-20261008`；本機三平台完整版為 `v.1.0.4-20261010`，含視窗縮放與高速游標修正 |
 
 使用者已取消追加遊玩與美術抽樣，後續問題請回報 [GitHub Issues](https://github.com/wicanr2/high_reward_remastered/issues)。本版不宣稱完整通關或全遊戲原版 parity。macOS 未簽章，未做 Windows／macOS 實機驗收。唯一現況入口為 [AGENTS.md](AGENTS.md)，歷程見 [WORKLOG.md](WORKLOG.md)。
 
@@ -101,6 +101,8 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 存檔、截圖、診斷與語言包位於使用者資料目錄的 `high_reward/`：Linux `~/.config`、Windows `%AppData%`、macOS `~/Library/Application Support`。原版資料夾保持不變。診斷含原版記憶體，請透過私人管道提供給維護者。
 
+本機 [v.1.0.4-20261010 完整版](dist-all/v.1.0.4-20261010/full-local/) 納入高速設定的游標修正。可拖曳視窗邊框或角落放大縮小，畫面維持原比例；F11／Alt+Enter 離開全螢幕後回到先前視窗尺寸。原版重畫時仍會主動隱藏游標，驗證範圍見[游標呈現調查](docs/re/033-cursor-presentation.md)。
+
 ![F1 五語幫助指令](docs/images/f1-help.png)
 
 ## 建置與交付
@@ -121,7 +123,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | `tools/l10n/capture_full.py` | Docker 內擷取五語新遊戲畫面及 F4 下次啟動切換 |
 | `tools/l10n/bakeglyphs.sh` | 從固定 Noto 來源重烘字模補丁 |
 
-目前交付目錄為 `dist-all/v.1.0.2-20261008/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是完成的 60 秒推廣片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。影片配樂取自原版程式與原廠 SB16 驅動的 DOSBox-X 播放錄音。含原版遊戲的完整版與原版配樂影片只留本機。
+已發布版本的交付目錄為 `dist-all/v.1.0.2-20261008/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是完成的 60 秒推廣片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。影片配樂取自原版程式與原廠 SB16 驅動的 DOSBox-X 播放錄音。含原版遊戲的完整版與原版配樂影片只留本機。
 
 ## 文件與素材
 
