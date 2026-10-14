@@ -10,6 +10,7 @@
 | 一般士兵名稱 | 已抽測商人、砲兵、舞孃，正確 |
 | 修正 | 已實作並通過九項同狀態比較，契約見 [013](../spec/013-formation-commander-names.md) |
 | 正式交付 | `v.1.0.5-20261014`，三平台公開補丁包與本機完整版完成，舊版保持原狀 |
+| 本版推廣影片 | 60 秒、1080p30，實包正常操作三位隊長，姓名欄放大與 F2 切換；原版配樂，只留本機 `promo/` |
 
 ## 輸入與工具
 
@@ -85,3 +86,17 @@ Linux Xvfb 實際前端也從新遊戲走相同流程，`workplace/out/formation
 使用者要求重包後，以根 `5f41ed8f60bd5f485b480ba42def1ad601770350`、fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab` 的乾淨來源建立 `v.1.0.5-20261014`。公開補丁與本機完整版各三包。六包重新解出驗證版號、平台格式、素材及雜湊；Linux 實包正常城市編成的三位姓名正確，HD／AI 切換成功。公開包另以合法原版目錄啟動，兩類 Linux 包的執行器相同。驗收在 `dist-all/v.1.0.5-20261014/smoke/full-static.json`、`smoke/linux/receipt.json`，獨立發行審查 `workplace/out/review-release-v105.md` 無阻擋。
 
 [正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014) 只上傳三個 patch 包、公開清冊與 LICENSE，共五個資產，遠端大小與 SHA-256 全符本機。完整版留在 `dist-all/v.1.0.5-20261014/full-local/`。Windows／macOS 未原生實機操作，macOS 未簽章。原版 Creative 音樂研究未納入本版；舊 tag／Release 與封包不變。
+
+## 本版推廣影片
+
+使用者追加要求強調姓名修正。影片從本版 Linux 完整實包正常啟動，走新遊戲、開場、薩蘭特城及部隊間編成。三位隊長各展示 3 秒全景點選與 5 秒姓名欄放大，後段實際按 F2 切換 HD、AI。全片 60 秒，52 秒來自操作錄影；主題預載等待剪輯有字幕說明。未載入快照或注入部隊資料。
+
+交付檔為 `dist-all/v.1.0.5-20261014/promo/HighReward-v.1.0.5-20261014-promo.mp4`，H.264 1920×1080、30fps、1800 幀，AAC 48kHz 雙聲道。SHA-256 `12ee05b83d65a90d0dde495e64a450bf48ccf9c774f9eae4e748e3a7c2932128`。影片與原版音樂錄音只留本機，不上傳 Release。
+
+錄影入口 [tools/capture_promo.sh](../../tools/capture_promo.sh)，正常輸入模板 [tools/promo-commander-names.json](../../tools/promo-commander-names.json)。以 `HR_CAPTURE_BUNDLE_DIR` 指定從本版 AppImage 解出的目錄，`HR_CAPTURE_CONTROL_FILE` 指定此模板，再執行 `bash tools/capture_promo.sh <新工作名>`。錄影收據在 `workplace/out/<新工作名>/receipt.json`，拒絕覆寫既有工作。
+
+合成入口 [tools/promo.sh](../../tools/promo.sh)。設定 `HR_VERSION=v.1.0.5-20261014`、`HR_PROMO_FOCUS=commander-names`、`HR_PROMO_LIVE` 為上述錄影目錄，音訊模式 `HR_PROMO_AUDIO_MODE=original-recording`。`HR_PROMO_AUDIO_FILE` 使用 `workplace/out/original-audio/record-original-verified/capture/main_000.wav`，`HR_PROMO_AUDIO_RECEIPT` 使用同工作根的 `provenance.json`。音源 SHA-256 `338014322925a94393b9ac03c01e143063594b15c1599e76227ef5b2e3f3e8f5`，沿用已驗證的未修改原版與原廠驅動播放錄音。
+
+本次錄影在 `workplace/out/v105-promo-names/`，執行器雜湊與正式包相同。核對腳本 `workplace/out/verify-promo-v105.py` 比較來源雜湊、音源、1800 幀及三張姓名放大畫面；壓縮後 RGB 平均誤差約 1.6／255。`promo/verification.json`、`ffprobe.json`、`rights.json` 保存結果，黑幀與長靜音檢查無命中。靜止片頭、片尾及姓名閱讀停留經目視核對；不把這些預定停留列為擷取卡住。獨立審查 `workplace/out/review-promo-v105.md`。
+
+清冊重生仍使用本節的真正建包根 `5f41ed8f60bd5f485b480ba42def1ad601770350` 與 fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`，不改成後續影片腳本提交。六個遊戲封包與公開補丁清冊保持原雜湊。

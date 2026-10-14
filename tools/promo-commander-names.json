@@ -1,0 +1,387 @@
+[
+  {
+    "kind": "record",
+    "name": "play-opening",
+    "hold": 1
+  },
+  {
+    "kind": "move",
+    "x": 624,
+    "y": 342,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 624,
+    "y": 342,
+    "hold": 5
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "move",
+    "x": 800,
+    "y": 440,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "shot",
+    "name": "map",
+    "hold": 4
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "city-entry",
+    "hold": 1
+  },
+  {
+    "kind": "move",
+    "x": 700,
+    "y": 590,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 700,
+    "y": 590,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "city-menu",
+    "hold": 1
+  },
+  {
+    "kind": "move",
+    "x": 520,
+    "y": 504,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 520,
+    "y": 504,
+    "hold": 4
+  },
+  {
+    "kind": "shot",
+    "name": "formation",
+    "hold": 3
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "commander-names",
+    "hold": 2
+  },
+  {
+    "kind": "move",
+    "x": 554,
+    "y": 172,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 554,
+    "y": 172,
+    "hold": 1.5
+  },
+  {
+    "kind": "shot",
+    "name": "merchant",
+    "hold": 9
+  },
+  {
+    "kind": "move",
+    "x": 730,
+    "y": 172,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 730,
+    "y": 172,
+    "hold": 1.5
+  },
+  {
+    "kind": "shot",
+    "name": "gunner",
+    "hold": 9
+  },
+  {
+    "kind": "move",
+    "x": 906,
+    "y": 172,
+    "hold": 0.4
+  },
+  {
+    "kind": "click",
+    "x": 906,
+    "y": 172,
+    "hold": 1.5
+  },
+  {
+    "kind": "shot",
+    "name": "dancer",
+    "hold": 9
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "theme-switch",
+    "hold": 2
+  },
+  {
+    "kind": "key",
+    "key": "F2",
+    "hold": 0.5
+  },
+  {
+    "kind": "wait_theme",
+    "theme": "hd",
+    "timeout": 60,
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "hd-formation",
+    "hold": 7
+  },
+  {
+    "kind": "key",
+    "key": "F2",
+    "hold": 0.5
+  },
+  {
+    "kind": "wait_theme",
+    "theme": "ai",
+    "timeout": 60,
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "ai-formation",
+    "hold": 7
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "finish"
+  }
+]

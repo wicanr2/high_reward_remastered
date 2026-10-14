@@ -10,7 +10,9 @@ out = Path('/delivery/promo')
 out.mkdir(exist_ok=True)
 font = '/fonts/NotoSansCJK-Bold.ttc'
 primary = json.loads(Path('/live/receipt.json').read_text())
-english = json.loads(Path('/english/receipt.json').read_text())
+focus = os.environ.get('HR_PROMO_FOCUS', 'general')
+assert focus in ('general', 'commander-names')
+english = json.loads(Path('/english/receipt.json').read_text()) if focus == 'general' else primary
 audio_mode = os.environ.get('HR_PROMO_AUDIO_MODE', 'pending')
 assert audio_mode in ('pending', 'original-recording', 'none')
 for receipt in (primary, english):
@@ -60,11 +62,38 @@ def event(receipt, name):
 theme = clip(primary, 'theme-switch')
 switches = [e['at'] for e in primary['events'] if e.get('key') == 'F2']
 assert len(switches) == 2
-cursor = clip(primary, 'cursor-motion')
-maps = clip(primary, 'play-map')
-debt = clip(english, 'debt-start')
-debt_at = event(english, 'debt-en') - debt['start']
-segments = [
+if focus == 'commander-names':
+    names = clip(primary, 'commander-names')
+    segments = [
+        dict(source='/live/initial.png', duration=4, card='intro'),
+        dict(source='/live/play-opening.mkv', start=10, duration=8,
+             caption='從新遊戲出發，實際操作錄影'),
+        dict(source='/live/city-entry.mkv', start=1, duration=8,
+             caption='進入城市，選擇部隊間編成'),
+    ]
+    for name, role in [('merchant', '商人'), ('gunner', '砲手'), ('dancer', '舞孃')]:
+        selected = event(primary, name) - names['start']
+        caption = role + '隊長，城市編成姓名已修正'
+        segments += [
+            dict(source='/live/commander-names.mkv', start=max(0, selected-2.3),
+                 duration=3, caption=caption),
+            dict(source='/live/commander-names.mkv', start=selected+1,
+                 duration=5, caption=caption, name_crop=True),
+        ]
+    for i, (name, caption) in enumerate([
+            ('hd-formation', 'F2 切換 HD，保留正確姓名'),
+            ('ai-formation', 'F2 切換 AI 手繪，保留正確姓名')]):
+        start = max(0, switches[i]-theme['start']-.5)
+        segments.append(dict(source='/live/theme-switch.mkv', start=start,
+                             source_duration=event(primary, name)-theme['start']+3-start,
+                             duration=6, caption=caption))
+    segments.append(dict(source='/live/initial.png', duration=4, card='outro'))
+else:
+    clip(primary, 'cursor-motion')
+    clip(primary, 'play-map')
+    debt = clip(english, 'debt-start')
+    debt_at = event(english, 'debt-en') - debt['start']
+    segments = [
     dict(source='/live/initial.png', duration=4, card='intro'),
     dict(source='/live/cursor-motion.mkv', start=1, duration=6,
          caption='新版游標，保留原版圖形'),
@@ -85,7 +114,7 @@ segments = [
     dict(source='/live/help-languages.mkv', start=2, duration=6,
          caption='F1 幫助指令 · F4 五語介面'),
     dict(source='/live/initial.png', duration=4, card='outro'),
-]
+    ]
 assert sum(s['duration'] for s in segments) == 60
 base = ['ffmpeg', '-nostdin', '-y', '-hide_banner', '-loglevel', 'error', '-threads', '2']
 for i, seg in enumerate(segments):
@@ -97,7 +126,8 @@ for i, seg in enumerate(segments):
         vf = 'pad=1920:1080:320:140:color=0x101825,drawbox=x=0:y=0:w=iw:h=ih:color=black@0.75:t=fill,'
         if seg['card'] == 'intro':
             vf += ','.join([text('高報酬戰將', 270, 100), text('REMASTERED', 405, 54, 'white'),
-                            text('原版 × HD × OpenAI 手繪', 555, 52), text('實際操作錄影', 660, 42, 'white')])
+                            text('城市編成，隊長姓名已修正' if focus == 'commander-names' else '原版 × HD × OpenAI 手繪', 555, 52),
+                            text('商人 · 砲手 · 舞孃' if focus == 'commander-names' else '實際操作錄影', 660, 42, 'white')])
         else:
             vf += ','.join([text('高報酬戰將 Remastered', 270, 78),
                             text('Linux AppImage · Windows ZIP · macOS ZIP', 435, 46, 'white'),
@@ -112,7 +142,9 @@ for i, seg in enumerate(segments):
         # the actual capture instead of padding its end with a frozen frame.
         seg['start'] = min(seg['start'], source_duration-take-.2)
         input_args = ['-ss', str(seg['start']), '-i', str(src)]
-        if seg.get('crop'):
+        if seg.get('name_crop'):
+            vf = 'crop=620:150:20:620,scale=1860:450:flags=neighbor,pad=1920:1080:30:300:color=0x101825,'
+        elif seg.get('crop'):
             vf = 'crop=360:180:920:620,scale=1440:720:flags=neighbor,pad=1920:1080:240:170:color=0x101825,'
         else:
             vf = 'pad=1920:1080:320:140:color=0x101825,'
@@ -126,6 +158,8 @@ for i, seg in enumerate(segments):
             # Caption values were read from the debt-en capture. This is a
             # readable annotation; the captured game counters remain visible.
             vf += ',' + text('Total debt 10,000,000 · Repayment 5,000 · Money held 8,000', 965, 44, 'white')
+        if seg.get('name_crop'):
+            vf += ',' + text('遊戲姓名欄放大三倍', 865, 40, 'white')
     vf += ',fps=30,setsar=1,format=yuv420p'
     run(base + input_args + ['-t', str(duration), '-vf', vf, '-an', '-c:v', 'libx264',
                             '-preset', 'veryfast', '-crf', '16', '-threads', '2', str(out / f'part-{i}.mp4')], f'part-{i}.log')
@@ -152,17 +186,23 @@ run(['ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-i', str(video), '-vf', 
 if a is not None:
     run(['ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-i', str(video), '-af', 'silencedetect=noise=-50dB:d=0.5,volumedetect', '-vn', '-f', 'null', '-'], 'audio-check.txt')
 run(base + ['-i', str(video), '-vf', 'fps=1/7.5,scale=480:270,tile=4x2', '-frames:v', '1', str(out / 'contact.png')], 'contact.log')
-for second, name in [(13, 'debt'), (25, 'ai-switch'), (37, 'gameplay'), (53, 'help')]:
+checks = ([(16, 'city'), (25, 'merchant'), (33, 'gunner'), (41, 'dancer'),
+           (49, 'hd'), (55, 'ai'), (58, 'outro')] if focus == 'commander-names'
+          else [(13, 'debt'), (25, 'ai-switch'), (37, 'gameplay'), (53, 'help')])
+for second, name in checks:
     run(base + ['-ss', str(second), '-i', str(video), '-frames:v', '1', str(out / f'check-{name}.png')], f'check-{name}.log')
-receipt = dict(version=version, visibility='local-only', format='actual front-end recording, 1080p, 30fps; native gameplay pixels; debt crop at integer 4x',
+receipt = dict(version=version, focus=focus, visibility='local-only',
+               format='actual front-end recording, 1080p, 30fps; native gameplay pixels; name crop at integer 3x' if focus == 'commander-names' else 'actual front-end recording, 1080p, 30fps; native gameplay pixels; debt crop at integer 4x',
                segments=segments, live_seconds=52, no_state_injection=True,
                capture_binary_sha256=primary['binary_sha256'], bundled_resources_only=True,
-               player_path='Normal new game, dialogue, soldier organization screen; no world-map destination claim.',
+               player_path='Normal new game, dialogue, map, city, inter-troop formation; merchant, gunner and dancer commanders; F2 HD and AI.' if focus == 'commander-names' else 'Normal new game, dialogue, soldier organization screen; no world-map destination claim.',
                sources_sha256={s['source']: sha(s['source']) for s in segments},
-               capture_receipts_sha256={n: sha(n) for n in ['/live/receipt.json', '/english/receipt.json']},
+               capture_receipts_sha256={n: sha(n) for n in (['/live/receipt.json'] if focus == 'commander-names' else ['/live/receipt.json', '/english/receipt.json'])},
                audio=dict(mode=audio_mode, source=audio_provenance['wave_path'] if audio_provenance else None,
                           sha256=sha('/music.wav') if audio_provenance else None,
-                          provenance=audio_provenance, gain_db=9 if audio_provenance else None,
+                          provenance=audio_provenance,
+                          provenance_sha256=sha('/audio-provenance.json') if audio_provenance else None,
+                          gain_db=9 if audio_provenance else None,
                           method='Unmodified original MAIN.EXE and native Creative SB16 driver, recorded from DOSBox-X OPL3 mixer' if audio_provenance else 'No soundtrack'),
                distribution='Contains original game recording' + (' and original music recording' if audio_provenance else '') + '; local delivery only.', video_sha256=sha(video))
 (out / 'rights.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2)+'\n')

@@ -12,7 +12,7 @@
 
 用 [dosgolem](https://github.com/wicanr2/dosgolem) 在 Linux、Windows、macOS 執行 DOS 版《高報酬戰將》，加入堆疊溢位修補、HD 與 OpenAI 重繪圖層，以及繁中、簡中、日文、韓文、英文。
 
-**[1.0.2 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
+**[1.0.5 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
 
 ## 新版 AI 手繪風格
 
@@ -120,10 +120,11 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | `tools/capture_original_music.sh <名稱>` | 原版 MAIN 與原廠 Creative 驅動的 DOSBox-X 錄音；資料、驅動及來源收據留本機 |
 | `tools/capture_promo.sh <名稱>` | 正常滑鼠與按鍵錄影；`HR_CAPTURE_BUNDLE_DIR` 可指定解出的 AppImage，`HR_CAPTURE_CONTROL_FILE` 可指定控制模板，收據位於 `workplace/out/<名稱>/` |
 | [繁中控制模板](tools/promo_control_zh-TW.json)、[英文控制模板](tools/promo_control_en.json) | F2／F1／F4、游標及正常新遊戲錄影輸入，名稱僅供定位 |
+| [姓名修正錄影模板](tools/promo-commander-names.json) | 正常新遊戲進城市編成，點選三位隊長與 F2 切換；以 `HR_PROMO_FOCUS=commander-names` 合成姓名修正影片，重跑方式見 [036](docs/re/036-formation-commander-names.md#本版推廣影片) |
 | `tools/l10n/capture_full.py` | Docker 內擷取五語新遊戲畫面及 F4 下次啟動切換 |
 | `tools/l10n/bakeglyphs.sh` | 從固定 Noto 來源重烘字模補丁 |
 
-已發布版本的交付目錄為 `dist-all/v.1.0.2-20261008/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是完成的 60 秒推廣片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。影片配樂取自原版程式與原廠 SB16 驅動的 DOSBox-X 播放錄音。含原版遊戲的完整版與原版配樂影片只留本機。
+目前交付目錄為 `dist-all/v.1.0.5-20261014/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是完成的 60 秒推廣片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。[本機推廣影片](dist-all/v.1.0.5-20261014/promo/HighReward-v.1.0.5-20261014-promo.mp4) 強調城市編成的三位隊長姓名修正，包含實際點選、姓名欄放大及 F2 主題切換。配樂取自原版程式與原廠 SB16 驅動的 DOSBox-X 播放錄音。含原版遊戲的完整版與原版配樂影片只留本機。
 
 ## 文件與素材
 

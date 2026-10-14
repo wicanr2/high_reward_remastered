@@ -625,3 +625,12 @@
 | `patch/HighReward-v.1.0.5-20261014-macos.zip` | 161768416 | `f9cc899c92967a2d991f6dc2cecf48478ff42a4e4c218a893da4d7e3691e1fd0` |
 
 - 收尾稽核 `workplace/out/v105-final-audit.json` 通過：遠端五資產、六包、收據、來源與舊 tag 正確；主 repo／fork 沒有原版完整檔誤追蹤。沒有 root-owned 檔案或 `.md` 目錄，fork 乾淨，暫存 worktree 與兩個連結已移除，本輪 Docker 容器清理完畢。文件另行提交不改建包來源。
+
+### 姓名修正推廣影片（2026-10-14）
+
+- 使用者要求更新影片並強調姓名修正。命中推廣影片與原版素材路由，沿用本機交付、原版配樂及 `promo/` 契約；沒有重新打包遊戲或移動 tag。新增正常操作模板 `tools/promo-commander-names.json`，README 與 036 同次提供入口；合成腳本新增 `HR_PROMO_FOCUS=commander-names`，既有一般分鏡仍可使用。
+- 從本版 Linux 完整實包正常新遊戲進城市編成，依序點三位隊長，再實際 F2 切 HD／AI。錄影 `workplace/out/v105-promo-names/` 的版本及 binary SHA 與正式包相同，沒有快照或資料注入。各隊長展示 3 秒全景及 5 秒姓名欄放大，主題預載等待剪輯有字幕標示。
+- 成品 `dist-all/v.1.0.5-20261014/promo/HighReward-v.1.0.5-20261014-promo.mp4`，6431546 bytes，SHA-256 `12ee05b83d65a90d0dde495e64a450bf48ccf9c774f9eae4e748e3a7c2932128`。60 秒 H.264 1080p30、1800 幀、AAC 48kHz 雙聲道，52 秒實錄。沿用已驗證原版錄音，WAV SHA `338014322925a94393b9ac03c01e143063594b15c1599e76227ef5b2e3f3e8f5`；影片、音源及操作錄影只留本機。
+- `workplace/out/verify-promo-v105.py` 核對全部錄影與音源雜湊、幀數、三張姓名放大區及既有六包。三張壓縮後 RGB 平均誤差約 1.6／255。首次驗證漏掛字型，補上與合成相同的唯讀掛載後，同容器重跑通過。音訊平均 −18.9 dB、峰值 −4.2 dB，無黑幀或長靜音命中；預定姓名閱讀停留與片頭片尾經目視核對，不列為擷取失敗。
+- 獨立唯讀審查 `workplace/out/review-promo-v105.md` 無阻擋，三位姓名、字幕、F2 及最後一幀片尾完整，`promo/verification.json` 升 `final-pass`。根清冊重生保留建包來源 `5f41ed8f60bd5f485b480ba42def1ad601770350` 與 fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`。六包與公開補丁清冊雜湊保持原狀，根清冊新增影片及三份影片收據。
+- 收尾 `workplace/out/v105-final-audit.json` 通過：八項本機交付與驗收收據全符，五個既有公開資產及舊 tag 不變，沒有原版完整檔誤追蹤、root-owned 檔案或 `.md` 目錄。錄影、合成、驗證與審查容器均已退出刪除；先前音樂研究保留，不納入本次提交。
