@@ -46,6 +46,8 @@ AppImage 工具鏈為 `hr-appimage:runtime-recovery-r1`，入口 `tools/rebuild_
 
 2026-10-14 使用者要求修正城市部隊編成的隊長姓名錯位，並重新打包 Release 與完整版。013 已 CONFORMED，證據入口 `docs/re/036-formation-commander-names.md`。現行正式版與本機三平台完整版為 `v.1.0.5-20261014`，位於 `dist-all/v.1.0.5-20261014/patch/`、`full-local/`。真正建包根 `5f41ed8f60bd5f485b480ba42def1ad601770350`、fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`，清冊重生須明示兩個來源。六包靜態核對、Linux 實包姓名與三主題、公開包合法原版匯入啟動通過；Windows／macOS 未原生實機操作。公開 Release 只含三個 patch 包、公開清冊及 LICENSE；完整版維持本機，舊 tag／Release 不變。未提交的原版 Creative 音樂研究未納入本版。
 
+同日更新姓名修正推廣影片，入口為 `docs/re/036-formation-commander-names.md` 的「本版推廣影片」。60 秒 1080p30，實包正常點選三位隊長、姓名欄放大與 F2 切換，沿用已驗證原版配樂。成品及驗收位於 `dist-all/v.1.0.5-20261014/promo/`，根清冊已收錄；影片只留本機。後續文件與 Release 說明更新維持本版版號、建包來源及五個公開資產。
+
 本專案處理 DOS 遊戲《高報酬戰將》。需求來源是 `IDEA.md`，拆成四項工作：
 
 | 項 | 工作 | 現況（2026-10-03） |

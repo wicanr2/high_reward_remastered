@@ -634,3 +634,9 @@
 - `workplace/out/verify-promo-v105.py` 核對全部錄影與音源雜湊、幀數、三張姓名放大區及既有六包。三張壓縮後 RGB 平均誤差約 1.6／255。首次驗證漏掛字型，補上與合成相同的唯讀掛載後，同容器重跑通過。音訊平均 −18.9 dB、峰值 −4.2 dB，無黑幀或長靜音命中；預定姓名閱讀停留與片頭片尾經目視核對，不列為擷取失敗。
 - 獨立唯讀審查 `workplace/out/review-promo-v105.md` 無阻擋，三位姓名、字幕、F2 及最後一幀片尾完整，`promo/verification.json` 升 `final-pass`。根清冊重生保留建包來源 `5f41ed8f60bd5f485b480ba42def1ad601770350` 與 fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`。六包與公開補丁清冊雜湊保持原狀，根清冊新增影片及三份影片收據。
 - 收尾 `workplace/out/v105-final-audit.json` 通過：八項本機交付與驗收收據全符，五個既有公開資產及舊 tag 不變，沒有原版完整檔誤追蹤、root-owned 檔案或 `.md` 目錄。錄影、合成、驗證與審查容器均已退出刪除；先前音樂研究保留，不納入本次提交。
+
+### 提交推送與 Release 現況同步（2026-10-14）
+
+- 使用者要求 commit、push 與更新 Release。重新載入版號路由，主機 gh 認證有效；遠端最新正式版已為 `v.1.0.5-20261014`，姓名修正及影片腳本提交已在 origin/main。這次同步本版說明與現況，不建立沒有程式差異的新封包。
+- 正式 Release 說明補入三位隊長姓名修正影片、姓名欄放大及 F2 實錄，明示影片與完整版維持本機交付。回讀結果、原說明及更新後說明在 `workplace/out/release-v105-before-update.json`、`release-v105-after-update.json`、`release-v105-updated-notes.txt`；核對收據 `release-v105-notes-update-validation.json` 通過。五個公開資產的 ID、大小與 SHA-256 完全相同，tag 仍指向真正建包根 `5f41ed8f60bd5f485b480ba42def1ad601770350`。
+- AGENTS 與 033 同步本版推廣片已完成的狀態，既有 README／036 入口及根清冊不變。先前音樂研究與未提交的歷史文件變更繼續保留，不混入本次提交。

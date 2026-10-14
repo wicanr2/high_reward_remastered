@@ -17,7 +17,7 @@
 | 最近測試 | 2026-10-14 姓名九項原版 A/B、六包格式與素材核對通過；Linux 實包正常城市編成及三主題、公開包合法原版匯入啟動通過。Windows／macOS 未原生操作 |
 | GUI 證據 | `dist-all/v.1.0.5-20261014/smoke/linux/`：三位隊長姓名、原版／HD／AI、公開包啟動；本版不重新宣稱游標逐幀零消失 |
 | 正式交付 | `dist-all/v.1.0.5-20261014/`，full-local／patch 各三包；五個 GitHub Release 資產的大小與 SHA-256 全符本機，收據 `smoke/remote-release-validation.json` |
-| 交付完成 | 正式 Release 與三平台本機完整版完成。姓名修正見 [036](036-formation-commander-names.md)；舊版封包、tag、Release 與既有影片不變 |
+| 交付完成 | 正式 Release、三平台本機完整版與本版姓名修正推廣片完成。影片驗收與重跑入口見 [036](036-formation-commander-names.md#本版推廣影片)；舊版封包、tag、Release 與影片不變 |
 | 介面主題工作 | [034](034-procedural-ui-panels.md) 與 [011](../spec/011-procedural-ui-themes.md)：使用者已接受實際介面，五尺寸 PLATE2 已 CONFORMED，未知原語回退原版 |
 
 ## 證據
