@@ -594,3 +594,13 @@
 - 三包與 SHA-256 入口 `dist-all/v.1.0.4-20261010/`，Linux 證據在 `smoke/linux/`。清冊永遠使用真實建包根 `7249b2e20f17761b94340b51be9fc2f3ab184ca1` 與 fork `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`；只一般推送交付文件，不發布新 Release、移動 tag 或上傳原版。Windows／macOS 未實機操作。
 - 實包 GUI 收據標為 partial，三包靜態收據維持 pass。另輪原版隱藏與恢復的唯讀審查已達最小充分，首次 60 幀仍保留未知；原始錯誤幀序結果明標 invalid，不作通過證據。
 - 收尾稽核 `workplace/out/v104-final-audit.json` 通過：三包與驗證收據雜湊相符，執行層乾淨、補丁反向套用核對通過，2926 個追蹤檔未夾帶原版完整檔，dist-all 未追蹤，沒有 root-owned 檔案或 *.md 目錄。本輪 Docker 容器均已退出並刪除，既有音樂研究未納入提交。
+
+### 城市編成隊長姓名錯位修正（2026-10-14）
+
+- 使用者提供原始 DOS 畫面，回報商人、砲手、舞孃的名字在城市編成錯位，要求修正。載入逆向重製、IDA 9.4、規格閘門、正常試玩及文件職責入口；新增唯一現況與證據 [036](docs/re/036-formation-commander-names.md)，README 同次索引，契約 [013](docs/spec/013-formation-commander-names.md)。既有音訊研究與其他未提交文件修改保留。
+- 已證實錯的是隊長，普通商人、砲兵、舞孃名稱正確。正常新遊戲進薩蘭特城的部隊間編成，隊長編號 2／3／4 顯示成多明妮／迪詩蕾德／雷姆。IDA `80F0:1917` 直接將隊長編號乘 `0x2E` 查人物姓名表，但兩份編號順序不同；個別部隊報告與部隊記錄保存正確姓名。
+- 規格經唯讀審查無阻擋升 READY 後實作。正式 Session 只在該姓名格式化指令前，把 AX 的名稱索引 `2→4、3→2、4→3`。動態 overlay 雙向身分、23-byte 指令簽章、隊長槽、編號及全域／局部部隊指標均須符合。原版 EXE、指令、資料表、人物類型、能力、裝備及存檔不改；其後能力計算仍重新讀原始類型。
+- 原版九項 A/B 全通過：三位姓名區分別改變 974／1283／1374 像素，其餘隊長與普通三兵種 0 差異。姓名區外 0 差異；九項各觀測到能力與裝備三行，兩側完全相同，完整六隊記錄一致。收據 `workplace/out/commander-ab.json`、`troop-names-final-tests.log`。固定指令停止點曾落在不同游標繪製相位，改在原版輪詢點取得既有像素驗證通過的完整呈現背景後重跑，不擴大允許矩形，也不把測試腳本問題寫成產品缺陷。
+- 拒絕條件反對照、兩種 overlay 載入位置、原版冷啟動 A 收據、版本拒絕、`go vet`、Linux 前端及 Windows amd64 編譯通過。正式 Session 從冷啟動再走城市編成，Linux Xvfb 真實前端也正常點選三位隊長並目視確認，畫面與輸入在 `workplace/out/formation-names-gui/`。規格及實作審查收據為 `review-troop-names-spec.md`、`review-troop-names-implementation.md`，無阻擋，013 升 CONFORMED。未追加其他玩家驗收或 Windows／macOS 實機操作。
+- fork 本機提交 `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`，補丁 `engine/patches/0046-formation-commander-names.patch`。測試前端 `workplace/out/hr-play-formation-fixed`；正式三平台包、版號、tag 與 Release 未變，本輪未 push 或上傳原版。主 repo 變更留供檢視。
+- 收尾稽核 `workplace/out/troop-names-final-audit.json` 通過：補丁反向檢查成立、fork 乾淨、主 repo／fork 沒有原版完整檔誤追蹤、dist-all 未追蹤，沒有 root-owned 檔案或 `.md` 目錄。本輪 `hr-name-*` 容器全數清理。

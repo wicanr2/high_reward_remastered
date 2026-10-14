@@ -134,6 +134,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | [登場人物與肖像](docs/characters.md) | 開場六位夥伴介紹，原版、HD 與 AI 肖像對照 |
 | [docs/spec/](docs/spec/) | 執行層、圖層、聲音與多語系契約 |
 | [游標呈現修正](docs/re/033-cursor-presentation.md) | 修正現況、測試與已驗範圍 |
+| [城市編成隊長姓名](docs/re/036-formation-commander-names.md) | 原版錯位原因、修正契約與驗證 |
 | [介面主題接線](docs/spec/011-procedural-ui-themes.md) | 程序板面的美術與呈現契約 |
 | [docs/re/](docs/re/) | 原版位元組、位址、雜湊與執行證據 |
 | [hd/](hd/) | 演算法 HD 素材 |

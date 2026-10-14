@@ -1,0 +1,349 @@
+From 40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Wed, 14 Oct 2026 17:50:43 +0800
+Subject: [PATCH] =?UTF-8?q?=E4=BF=AE=E6=AD=A3=E5=9F=8E=E5=B8=82=E7=B7=A8?=
+ =?UTF-8?q?=E6=88=90=E7=95=AB=E9=9D=A2=E7=9A=84=E9=9A=8A=E9=95=B7=E5=A7=93?=
+ =?UTF-8?q?=E5=90=8D=E6=9F=A5=E8=A1=A8?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/runtime/commander_names.go      |  69 ++++++++
+ apps/hr/runtime/commander_names_test.go | 226 ++++++++++++++++++++++++
+ apps/hr/runtime/session.go              |   3 +
+ 3 files changed, 298 insertions(+)
+ create mode 100644 apps/hr/runtime/commander_names.go
+ create mode 100644 apps/hr/runtime/commander_names_test.go
+
+diff --git a/apps/hr/runtime/commander_names.go b/apps/hr/runtime/commander_names.go
+new file mode 100644
+index 0000000..72e43c0
+--- /dev/null
++++ b/apps/hr/runtime/commander_names.go
+@@ -0,0 +1,69 @@
++package runtime
++
++import (
++	"bytes"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++)
++
++// 013-formation-commander-names；證據在 hr/docs/re/036。
++// 保留原版資料，只修正 sub_826CC（IDA 80F0:17CC）的姓名查表輸入。
++// 隊長編號 2/3/4 與姓名表順序不同。1933 起的能力計算重新讀原類型。
++var commanderNameSignature = [...]byte{
++	0x26, 0x8b, 0x47, 0x55, 0x6b, 0xc0, 0x2e, 0x05, 0x08, 0x00,
++	0x68, 0x49, 0x39, 0x50, 0x1e, 0x68, 0x01, 0x01, 0x16, 0x8d, 0x86, 0xd0, 0xfe,
++}
++
++func (s *Session) fixFormationCommanderName() {
++	c := s.m.CPU
++	if c.IP != 0x1917 || s.opt.NoCommanderNameFix {
++		return
++	}
++	index := c.R[cpu.AX]
++	var nameIndex uint16
++	switch index {
++	case 2:
++		nameIndex = 4
++	case 3:
++		nameIndex = 2
++	case 4:
++		nameIndex = 3
++	default:
++		return
++	}
++	cs := c.Seg[cpu.CS]
++	if s.ovrIdxOfCS(cs) != 384 || s.m.Peek16(cpu.Linear(0x53e3, 0x10)) != cs {
++		return
++	}
++	a := cpu.Linear(cs, 0x1913)
++	if a+uint32(len(commanderNameSignature)) > uint32(len(s.m.Mem)) ||
++		!bytes.Equal(s.m.Mem[a:a+uint32(len(commanderNameSignature))], commanderNameSignature[:]) {
++		return
++	}
++	bp, ss := c.R[cpu.BP], c.Seg[cpu.SS]
++	if ss != s.stackSeg || bp < 4 || bp > 0xffe0 {
++		return
++	}
++	frame := cpu.Linear(ss, bp)
++	if frame < 4 || frame+10 > uint32(len(s.m.Mem)) {
++		return
++	}
++	group := s.m.Mem[frame+6]                // arg_0 是 char，不能把相鄰引數高 byte 當編號。
++	if group >= 6 || s.m.Mem[frame+8] != 0 { // arg_2：只有隊長槽 0。
++		return
++	}
++	baseOff, baseSeg := s.m.Peek16(0x27beb), s.m.Peek16(0x27bed)
++	off := uint32(baseOff) + uint32(group)*0x17e
++	if off+0x56 > 0xffff {
++		return
++	}
++	localOff, localSeg := s.m.Peek16(frame-4), s.m.Peek16(frame-2)
++	if localSeg != baseSeg || uint32(localOff) != off {
++		return
++	}
++	base := (uint32(baseSeg) << 4) + off
++	if base < 0x1100 || base+0x57 > 0xa0000 || s.m.Peek16(base+0x55) != index {
++		return
++	}
++	c.R[cpu.AX] = nameIndex
++}
+diff --git a/apps/hr/runtime/commander_names_test.go b/apps/hr/runtime/commander_names_test.go
+new file mode 100644
+index 0000000..b40b805
+--- /dev/null
++++ b/apps/hr/runtime/commander_names_test.go
+@@ -0,0 +1,226 @@
++package runtime
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/wicanr2/dosgolem/internal/cpu"
++	"github.com/wicanr2/dosgolem/internal/machine"
++	"github.com/wicanr2/dosgolem/internal/state"
++)
++
++// 合成狀態只驗證掛鉤的拒絕條件，不作原版畫面或資料替代品。
++func commanderGuardState(cs, index uint16) *Session {
++	m := machine.New()
++	s := &Session{m: m, stackSeg: 0x540f}
++	c := m.CPU
++	c.Seg[cpu.CS], c.Seg[cpu.SS] = cs, s.stackSeg
++	c.IP, c.R[cpu.BP], c.R[cpu.AX] = 0x1917, 0x7000, index
++	m.Write16(cpu.Linear(cs-1, 0x0e), 0x53e3)
++	m.Write16(cpu.Linear(0x53e3, 0x10), cs)
++	copy(m.Mem[cpu.Linear(cs, 0x1913):], commanderNameSignature[:])
++	m.Write16(0x27beb, 0x440f)
++	m.Write16(0x27bed, 0x3000)
++	f := cpu.Linear(c.Seg[cpu.SS], c.R[cpu.BP])
++	m.Write8(f+6, 2)
++	m.Write8(f+8, 0)
++	m.Write16(f-4, 0x440f+2*0x17e)
++	m.Write16(f-2, 0x3000)
++	m.Write16(0x3440f+2*0x17e+0x55, index)
++	return s
++}
++
++func TestFormationCommanderNameGuard(t *testing.T) {
++	for _, cs := range []uint16{0x600a, 0x7000} {
++		for _, pair := range [][2]uint16{{0, 0}, {1, 1}, {2, 4}, {3, 2}, {4, 3}, {5, 5}, {23, 23}, {0xffff, 0xffff}} {
++			t.Run(fmt.Sprintf("%04x/%d", cs, pair[0]), func(t *testing.T) {
++				s := commanderGuardState(cs, pair[0])
++				mem, regs, segs, flags := sha256.Sum256(s.m.Mem), s.m.CPU.R, s.m.CPU.Seg, s.m.CPU.Flags
++				s.fixFormationCommanderName()
++				regs[cpu.AX] = pair[1]
++				if s.m.CPU.R != regs || s.m.CPU.Seg != segs || s.m.CPU.Flags != flags || sha256.Sum256(s.m.Mem) != mem {
++					t.Fatal("只能改姓名查表 AX，不能改其他暫存器、旗標或 DOS 記憶體")
++				}
++			})
++		}
++	}
++	bad := map[string]func(*Session){
++		"disabled":           func(s *Session) { s.opt.NoCommanderNameFix = true },
++		"wrong ip":           func(s *Session) { s.m.CPU.IP++ },
++		"wrong overlay":      func(s *Session) { s.m.Write16(cpu.Linear(0x6009, 0x0e), 0x53ea) },
++		"unloaded overlay":   func(s *Session) { s.m.Write16(cpu.Linear(0x53e3, 0x10), 0) },
++		"reused overlay":     func(s *Session) { s.m.Write16(cpu.Linear(0x53e3, 0x10), 0x7000) },
++		"nonleader":          func(s *Session) { s.m.Write8(cpu.Linear(0x540f, 0x7008), 1) },
++		"group out of range": func(s *Session) { s.m.Write8(cpu.Linear(0x540f, 0x7006), 6) },
++		"signed group":       func(s *Session) { s.m.Write8(cpu.Linear(0x540f, 0x7006), 255) },
++		"local offset":       func(s *Session) { s.m.Write16(cpu.Linear(0x540f, 0x6ffc), 0) },
++		"local segment":      func(s *Session) { s.m.Write16(cpu.Linear(0x540f, 0x6ffe), 0) },
++		"type mismatch":      func(s *Session) { s.m.Write16(0x3440f+2*0x17e+0x55, 3) },
++		"overflow base":      func(s *Session) { s.m.Write16(0x27beb, 0xfffe) },
++		"video base":         func(s *Session) { s.m.Write16(0x27bed, 0xa000); s.m.Write16(cpu.Linear(0x540f, 0x6ffe), 0xa000) },
++		"wrong stack":        func(s *Session) { s.m.CPU.Seg[cpu.SS] = 0xffff },
++		"bp underflow":       func(s *Session) { s.m.CPU.R[cpu.BP] = 2 },
++		"bp overflow":        func(s *Session) { s.m.CPU.R[cpu.BP] = 0xffff },
++	}
++	for i := range commanderNameSignature {
++		i := i
++		bad[fmt.Sprintf("signature byte %d", i)] = func(s *Session) { s.m.Mem[cpu.Linear(0x600a, 0x1913)+uint32(i)] ^= 1 }
++	}
++	for name, mutate := range bad {
++		t.Run(name, func(t *testing.T) {
++			s := commanderGuardState(0x600a, 2)
++			mutate(s)
++			regs, segs, flags, mem := s.m.CPU.R, s.m.CPU.Seg, s.m.CPU.Flags, sha256.Sum256(s.m.Mem)
++			s.fixFormationCommanderName()
++			if regs != s.m.CPU.R || segs != s.m.CPU.Seg || flags != s.m.CPU.Flags || mem != sha256.Sum256(s.m.Mem) {
++				t.Fatal("拒絕條件不能改暫存器或 DOS 記憶體")
++			}
++		})
++	}
++}
++
++type commanderReceipt struct {
++	Group         int `json:"group"`
++	Before, After string
++	OtherText     []string  `json:"ability_equipment_text"`
++	PixelsChanged int       `json:"pixels_changed"`
++	Steps         [2]uint64 `json:"stable_steps"`
++}
++
++// 原版正常路徑建立的快照只留本機；缺席就 skip，不合成替代快照。
++func TestFormationCommanderNamesOriginalAB(t *testing.T) {
++	p := os.Getenv("HR_FORMATION_STATE")
++	if p == "" {
++		t.Skip("未指定原版正常城市編成快照")
++	}
++	root := origRoot(t)
++	var receipts []commanderReceipt
++	for group := 0; group < 9; group++ {
++		var names [2]string
++		var texts [2][]string
++		var pixels [2][]byte
++		var records [2][]byte
++		var steps [2]uint64
++		for side := 0; side < 2; side++ {
++			s, e := Open(root, Options{NoDiag: true, NoPacing: true, SmoothCursor: true, NoCommanderNameFix: side == 0})
++			if e != nil {
++				t.Fatal(e)
++			}
++			if e = state.Load(p, s.m, s.d); e != nil {
++				t.Fatal(e)
++			}
++			base := cpu.Linear(s.m.Peek16(0x27bed), s.m.Peek16(0x27beb))
++			before := append([]byte(nil), s.m.Mem[base:base+6*0x17e]...)
++			x, y := 101+group*88, 86
++			if group >= 6 {
++				x = 257 + (group-6)*88
++				y = 166
++			} // 一般商人、砲兵、舞孃。
++			s.Input(MouseMoveEvent(x, y))
++			if st := s.RunSteps(s.m.Steps + 500_000); st.Kind != StopSteps {
++				t.Fatal(st)
++			}
++			s.Input(MouseButtonEvent(x, y, 0, true))
++			s.Input(MouseButtonEvent(x, y, 0, false))
++			s.drainInput()
++			// 一步一觀察，仍使用正式 Session 迴圈與輸入，不跳過原版函式。
++			end := s.m.Steps + 5_000_000
++			for s.m.Steps < end {
++				c := s.m.CPU
++				if c.Seg[cpu.CS] == 0x16ec && (c.IP == 0x15e7 || c.IP == 0x1676) {
++					arg := func(n uint16) uint16 { return s.m.Peek16(cpu.Linear(c.Seg[cpu.SS], c.R[cpu.SP]+4+2*n)) }
++					pi := uint16(5)
++					if c.IP == 0x1676 {
++						pi = 6
++					}
++					text := decodeDisplay(displayCString(s.m, cpu.Linear(arg(pi+1), arg(pi)), false))
++					if arg(0) == 100 && arg(1) == 318 {
++						names[side] = text
++					}
++					if arg(0) == 344 && arg(1) >= 316 && arg(1) <= 348 {
++						texts[side] = append(texts[side], text)
++					}
++				}
++				if st := s.stepBatch(1); st != nil {
++					t.Fatal(st)
++				}
++				if s.m.Steps%batchSteps == 0 {
++					s.drainInput()
++					s.afterBatch(false)
++				}
++			}
++			// 不同字形的指令量不同。停在原版完整輪詢畫面，再用已驗證的
++			// 游標背景比較，不能把固定步數碰到的半個游標算成 UI 差異。
++			for tries := 0; tries < 64; tries++ {
++				if st, _ := s.RunToPoll(2_000_000); st != nil {
++					t.Fatal(st)
++				}
++				s.SnapshotNow()
++				f := s.Frame()
++				if f.CursorManaged && !f.CursorPending {
++					pixels[side] = append([]byte(nil), f.Presentation().Px...)
++					steps[side] = s.m.Steps
++					break
++				}
++			}
++			if pixels[side] == nil {
++				t.Fatal("未取得經像素驗證的完整游標畫面")
++			}
++			if len(texts[side]) != 3 {
++				t.Fatalf("能力及裝備應觀測到三行，得到 %q", texts[side])
++			}
++			records[side] = append([]byte(nil), s.m.Mem[base:base+6*0x17e]...)
++			if group < 6 && !bytes.Equal(before, records[side]) {
++				t.Fatal("只點隊長／選兵不得修改部隊記錄")
++			}
++			if out := os.Getenv("HR_FORMATION_OUT"); out != "" {
++				b, e := s.ScreenPNG()
++				if e != nil {
++					t.Fatal(e)
++				}
++				if e = os.WriteFile(filepath.Join(out, fmt.Sprintf("commander-ab-%d-%d.png", group, side)), b, 0644); e != nil {
++					t.Fatal(e)
++				}
++			}
++		}
++		if !bytes.Equal(records[0], records[1]) || fmt.Sprint(texts[0]) != fmt.Sprint(texts[1]) {
++			t.Fatal("能力、裝備或部隊記錄改變")
++		}
++		mapping := []int{0, 1, 4, 2, 3, 5, 23, 12, 17}
++		// 名稱 oracle 直接取固定原版表，不在測試中捏造名字。
++		oracle, e := Open(root, Options{NoDiag: true})
++		if e != nil {
++			t.Fatal(e)
++		}
++		want := decodeDisplay(displayCString(oracle.m, cpu.Linear(0x3949, uint16(8+mapping[group]*0x2e)), false))
++		if names[1] != want || names[0] == "" {
++			t.Fatalf("group=%d before=%q after=%q want=%q", group, names[0], names[1], want)
++		}
++		changed := 0
++		for i, v := range pixels[0] {
++			if v != pixels[1][i] {
++				changed++
++				x, y := i%640, i/640
++				if x < 100 || x >= 260 || y < 358 || y >= 374 {
++					t.Fatalf("姓名區外像素改變：%d,%d", x, y)
++				}
++			}
++		}
++		if (group >= 2 && group <= 4) != (changed > 0) {
++			t.Fatalf("非預期差異數 group=%d changed=%d", group, changed)
++		}
++		t.Logf("group=%d original=%q fixed=%q changed=%d ability/equipment=%q records=%05X..%05X unchanged", group, names[0], names[1], changed, texts[1], 0x3440f, 0x3440f+6*0x17e)
++		receipts = append(receipts, commanderReceipt{group, names[0], names[1], texts[1], changed, steps})
++	}
++	if out := os.Getenv("HR_FORMATION_OUT"); out != "" {
++		b, _ := json.MarshalIndent(receipts, "", "  ")
++		if e := os.WriteFile(filepath.Join(out, "commander-ab.json"), b, 0644); e != nil {
++			t.Fatal(e)
++		}
++	}
++}
+diff --git a/apps/hr/runtime/session.go b/apps/hr/runtime/session.go
+index 50e46ed..23523ec 100644
+--- a/apps/hr/runtime/session.go
++++ b/apps/hr/runtime/session.go
+@@ -40,6 +40,8 @@ const (
+ 
+ // Options 是 Open 的選項。
+ type Options struct {
++	// NoCommanderNameFix 關閉規格 013 的隊長姓名修正，只供原版 A/B 診斷。
++	NoCommanderNameFix bool
+ 	// UIHooks 啟用規格 011 的呈現歸屬觀測；預設關閉，不改原版狀態。
+ 	UIHooks bool
+ 	// SmoothCursor 啟用規格 010 的顯示專用游標；原始 Frame.Px、VRAM 與輸入保持不變。
+@@ -460,6 +462,7 @@ func (s *Session) stepBatch(n int) (st *Stop) {
+ 		// docs/spec/005 第 4.2 節：執行前順手讀起點位元組（a 本來就算好了，遮成 20 位元只為免去邊界檢查）。
+ 		// 只有候選指令（呼叫與前綴；取樣期間全部）才在執行後用 CPU.Op() 取得本道指令並分類。
+ 		b0 := m.Mem[a&(machine.MemSize-1)]
++		s.fixFormationCommanderName()
+ 		if ov != nil {
+ 			ov.Pre(m)
+ 		}
+-- 
+2.43.0
+
