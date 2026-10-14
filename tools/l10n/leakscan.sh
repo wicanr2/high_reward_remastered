@@ -14,6 +14,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
+test -d "$ROOT/workplace" || { echo "缺 workplace 目錄" >&2; exit 2; }
 DG="workplace/dosgolem"
 ALLOW="tools/l10n/leakscan-allow.tsv"
 IMAGE="${HR_L10N_IMAGE:-${DOSGOLEM_GO_IMAGE:-hr-go-ebiten:1.26.7-2.9.9-r1}}"
@@ -49,7 +50,9 @@ build() {
 # 執行 hrl10n leakscan。repo 唯讀掛在 /repo（原版在 /repo/workplace/orig），工作目錄 /repo，路徑一律 repo 相對。
 # 標準輸入要傳進容器，所以加 -i。
 scan() {
-  drun -i -v "$ROOT:/repo:ro" -w /repo -- "/repo/$BIN" leakscan -orig "/repo/$ORIG" "$@"
+  # 乾淨建包 worktree 可把 workplace 連到既有研究目錄。
+  # Docker 先解析 host 掛載來源，避免容器內追隨不可達的 host 絕對連結。
+  drun -i -v "$ROOT:/repo:ro" -v "$ROOT/workplace:/repo/workplace:ro" -w /repo -- "/repo/$BIN" leakscan -orig "/repo/$ORIG" "$@"
 }
 
 # 工作樹清單：NUL 分隔，repo 相對路徑。fork 的路徑加 workplace/dosgolem/ 前綴，與 allowlist 的路徑空間一致。
