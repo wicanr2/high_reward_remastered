@@ -12,7 +12,7 @@
 
 用 [dosgolem](https://github.com/wicanr2/dosgolem) 在 Linux、Windows、macOS 執行 DOS 版《高報酬戰將》，加入堆疊溢位修補、HD 與 OpenAI 重繪圖層，以及繁中、簡中、日文、韓文、英文。
 
-**[1.0.2 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.2-20261008)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
+**[1.0.2 正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014)** 提供 Linux AppImage、Windows ZIP、macOS universal ZIP。GitHub 包含新版素材及譯文，需要自備合法原版；本機完整版另含遊戲。
 
 ## 新版 AI 手繪風格
 
@@ -84,7 +84,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 ## 執行
 
-1. 下載 [正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.2-20261008) 對應平台的包。
+1. 下載 [正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014) 對應平台的包。
 2. 將合法原版 `MAIN.EXE` 所在資料夾內容放入 `original/`。AppImage 使用同層 `original/`；Windows 使用程式旁的目錄；macOS 使用 `HighReward.app/Contents/Resources/original/`。也可用 `-orig <目錄>` 指定。本機完整版已附原版。
 3. 啟動遊戲，用滑鼠操作。macOS 首次開啟可右鍵選「打開」；筆電功能鍵可能需要 Fn。
 
@@ -101,7 +101,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 存檔、截圖、診斷與語言包位於使用者資料目錄的 `high_reward/`：Linux `~/.config`、Windows `%AppData%`、macOS `~/Library/Application Support`。原版資料夾保持不變。診斷含原版記憶體，請透過私人管道提供給維護者。
 
-本機 [v.1.0.4-20261010 完整版](dist-all/v.1.0.4-20261010/full-local/) 納入高速設定的游標修正。可拖曳視窗邊框或角落放大縮小，畫面維持原比例；F11／Alt+Enter 離開全螢幕後回到先前視窗尺寸。原版重畫時仍會主動隱藏游標，驗證範圍見[游標呈現調查](docs/re/033-cursor-presentation.md)。
+本機 [v.1.0.5-20261014 完整版](dist-all/v.1.0.5-20261014/full-local/) 已納入城市編成的隊長姓名修正，並包含視窗自由縮放與高速設定游標修正。可拖曳視窗邊框或角落放大縮小，畫面維持原比例；F11／Alt+Enter 離開全螢幕後回到先前尺寸。原版重畫仍會主動隱藏游標。驗證範圍見[姓名修正](docs/re/036-formation-commander-names.md)與[游標呈現調查](docs/re/033-cursor-presentation.md)。
 
 ![F1 五語幫助指令](docs/images/f1-help.png)
 

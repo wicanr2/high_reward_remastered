@@ -12,7 +12,7 @@
 
 ## 現行交付決定（2026-10-06）
 
-本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式發行。現行修訂版為 `v.1.0.2-20261008`，舊版維持原狀：
+本節優先於下文較早的 M8／M10 版控、發行及抽樣限制。使用者明確允許修改規則，並要求正式發行。現行修訂版為 `v.1.0.5-20261014`，舊版維持原狀：
 
 - M10 完成條件改為全量文字接入、五語可切換，以及 README 執行截圖。停止追加玩家路徑、存讀檔、平台實機及 parity 抽驗；後續問題由 GitHub Issue 回報。這項決定不把未驗範圍升為原版 exact。
 - M8 停止追加畫面抽樣。595 項完整 AI 主題以現有定稿交付，包含一項服務拒絕後沿用 HD 的替代圖。
@@ -42,7 +42,9 @@ AppImage 工具鏈為 `hr-appimage:runtime-recovery-r1`，入口 `tools/rebuild_
 
 ## 1. 專案定位與範圍
 
-2026-10-10 使用者要求遊戲視窗可自由放大縮小，並回報時間與訊息高速時游標消失。視窗契約見 `docs/spec/003-runtime-and-frontend.md` 第 6.1 節；高速游標契約見 `docs/spec/010-cursor-presentation.md`，不改遊戲規則或存檔。目前本機三平台完整版為 `v.1.0.4-20261010`，位於 `dist-all/v.1.0.4-20261010/full-local/`，建包根 `7249b2e20f17761b94340b51be9fc2f3ab184ca1`、fork `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`。清冊重生須明示這兩個來源。三包靜態驗證通過，Linux 已正常操作高速設定與三主題；原版主動隱藏及首輪錄影限制見 `docs/re/033-cursor-presentation.md` 的本版交付段，不宣稱全程零消失。Windows／macOS 未實機操作；公開 Release 維持 `v.1.0.2-20261008`。
+2026-10-10 使用者要求遊戲視窗可自由放大縮小，並回報時間與訊息高速時游標消失。視窗契約見 `docs/spec/003-runtime-and-frontend.md` 第 6.1 節；高速游標契約見 `docs/spec/010-cursor-presentation.md`，不改遊戲規則或存檔。該次本機三平台完整版為 `v.1.0.4-20261010`，位於 `dist-all/v.1.0.4-20261010/full-local/`，建包根 `7249b2e20f17761b94340b51be9fc2f3ab184ca1`、fork `7989c7b7109bae9cc12cc67d8e1603cfba47ba2f`。清冊重生須明示這兩個來源。三包靜態驗證通過，Linux 已正常操作高速設定與三主題；原版主動隱藏及首輪錄影限制見 `docs/re/033-cursor-presentation.md` 的本版交付段，不宣稱全程零消失。Windows／macOS 未實機操作；當時公開 Release 維持 `v.1.0.2-20261008`。
+
+2026-10-14 使用者要求修正城市部隊編成的隊長姓名錯位，並重新打包 Release 與完整版。013 已 CONFORMED，證據入口 `docs/re/036-formation-commander-names.md`。現行正式版與本機三平台完整版為 `v.1.0.5-20261014`，位於 `dist-all/v.1.0.5-20261014/patch/`、`full-local/`。真正建包根 `5f41ed8f60bd5f485b480ba42def1ad601770350`、fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`，清冊重生須明示兩個來源。六包靜態核對、Linux 實包姓名與三主題、公開包合法原版匯入啟動通過；Windows／macOS 未原生實機操作。公開 Release 只含三個 patch 包、公開清冊及 LICENSE；完整版維持本機，舊 tag／Release 不變。未提交的原版 Creative 音樂研究未納入本版。
 
 本專案處理 DOS 遊戲《高報酬戰將》。需求來源是 `IDEA.md`，拆成四項工作：
 

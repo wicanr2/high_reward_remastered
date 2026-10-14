@@ -9,7 +9,7 @@
 | 原版問題 | 已重現，限城市「部隊間編成」中三位隊長的姓名 |
 | 一般士兵名稱 | 已抽測商人、砲兵、舞孃，正確 |
 | 修正 | 已實作並通過九項同狀態比較，契約見 [013](../spec/013-formation-commander-names.md) |
-| 正式交付 | 既有包與 Release 未變 |
+| 正式交付 | `v.1.0.5-20261014`，三平台公開補丁包與本機完整版完成，舊版保持原狀 |
 
 ## 輸入與工具
 
@@ -76,6 +76,12 @@ confirmed：個別部隊報告的雷姆姓名正確。其部隊記錄 `+0x15` �
 
 正常冷啟動再經正式 Session 走新遊戲、開場對話、城市選單及三位隊長，截圖 `troop-names-fixed-normal-02.png` 至 `04.png` 的姓名正確，沒有載入快照或注入部隊資料。原版輸入與探針雜湊保存於 `troop-names-input-hashes.json`。唯讀審查入口 `review-troop-names-spec.md`、`review-troop-names-implementation.md`。
 
-Linux Xvfb 實際前端也從新遊戲走相同流程，`workplace/out/formation-names-gui/merchant.png`、`gunner.png`、`dancer.png` 已目視確認三位姓名正確。操作與程式日誌保存在同目錄；前端執行檔為 `workplace/out/hr-play-formation-fixed`。原版主題、繁體中文，無快照或部隊資料注入。Windows 只有編譯，未實機操作；本輪未重建正式三平台封包。
+Linux Xvfb 實際前端也從新遊戲走相同流程，`workplace/out/formation-names-gui/merchant.png`、`gunner.png`、`dancer.png` 已目視確認三位姓名正確。操作與程式日誌保存在同目錄；前端執行檔為 `workplace/out/hr-play-formation-fixed`。原版主題、繁體中文，無快照或部隊資料注入。Windows 只有編譯，未實機操作；修正驗證階段尚未重建正式封包，後續交付見下節。
 
 執行層提交 `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`。可重建補丁：[engine/patches/0046-formation-commander-names.patch](../../engine/patches/0046-formation-commander-names.patch)。收尾稽核 `workplace/out/troop-names-final-audit.json` 通過：補丁反向套用檢查成立，主 repo／fork 未追蹤原版完整檔，沒有 root-owned 檔案或 `.md` 目錄，fork 乾淨，本次 `hr-name-*` 容器無殘留。
+
+## 本版交付
+
+使用者要求重包後，以根 `5f41ed8f60bd5f485b480ba42def1ad601770350`、fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab` 的乾淨來源建立 `v.1.0.5-20261014`。公開補丁與本機完整版各三包。六包重新解出驗證版號、平台格式、素材及雜湊；Linux 實包正常城市編成的三位姓名正確，HD／AI 切換成功。公開包另以合法原版目錄啟動，兩類 Linux 包的執行器相同。驗收在 `dist-all/v.1.0.5-20261014/smoke/full-static.json`、`smoke/linux/receipt.json`，獨立發行審查 `workplace/out/review-release-v105.md` 無阻擋。
+
+[正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014) 只上傳三個 patch 包、公開清冊與 LICENSE，共五個資產，遠端大小與 SHA-256 全符本機。完整版留在 `dist-all/v.1.0.5-20261014/full-local/`。Windows／macOS 未原生實機操作，macOS 未簽章。原版 Creative 音樂研究未納入本版；舊 tag／Release 與封包不變。

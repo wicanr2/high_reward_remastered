@@ -604,3 +604,24 @@
 - 拒絕條件反對照、兩種 overlay 載入位置、原版冷啟動 A 收據、版本拒絕、`go vet`、Linux 前端及 Windows amd64 編譯通過。正式 Session 從冷啟動再走城市編成，Linux Xvfb 真實前端也正常點選三位隊長並目視確認，畫面與輸入在 `workplace/out/formation-names-gui/`。規格及實作審查收據為 `review-troop-names-spec.md`、`review-troop-names-implementation.md`，無阻擋，013 升 CONFORMED。未追加其他玩家驗收或 Windows／macOS 實機操作。
 - fork 本機提交 `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`，補丁 `engine/patches/0046-formation-commander-names.patch`。測試前端 `workplace/out/hr-play-formation-fixed`；正式三平台包、版號、tag 與 Release 未變，本輪未 push 或上傳原版。主 repo 變更留供檢視。
 - 收尾稽核 `workplace/out/troop-names-final-audit.json` 通過：補丁反向檢查成立、fork 乾淨、主 repo／fork 沒有原版完整檔誤追蹤、dist-all 未追蹤，沒有 root-owned 檔案或 `.md` 目錄。本輪 `hr-name-*` 容器全數清理。
+
+### 姓名修正版 Release 與三平台完整版（2026-10-14）
+
+- 使用者要求重新打包 Release 與完整版。依版號及 dist-all 路由採 `v.1.0.5-20261014`，納入姓名修正與前版未公開的視窗自由縮放、高速游標修正。原版完整檔與完整包只留本機；未提交音訊研究及先前文件修改保留。發布說明依 `humanizer` 整理。
+- 真正建包根 `5f41ed8f60bd5f485b480ba42def1ad601770350`，fork `40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`。只提交姓名證據、規格、補丁、IDA 匯出器與掃描掛載修正。乾淨暫存 worktree 建包，沿用固定 hr-go-ebiten、hr-osxcross、hr-appimage，原版輸入唯讀。工作樹掃描初有五筆新名稱命中，公開研究改用角色身分，原字串留本機收據；最終仍是既有授權 16 筆。
+- 暫存 worktree 的 workplace 絕對連結使內容掃描容器找不到 hrl10n，補上明確唯讀 workplace 掛載後，以同工具鏈重跑六包。沒有更換 image、放寬判準或略過掃描。三個公開包的原版檔案與文字掃描均為 0。
+- 六包重新解出核對原版 148 檔、HD／AI 各 595 張、五語資料、MAIN、字模、授權、版號與平台格式，全部通過。入口 `workplace/out/verify-packages-v105.py`，收據本版 `smoke/full-static.json`。Linux／Windows VCS revision 為 fork 40f6f8a 且乾淨；macOS 無內嵌 revision，來源由建包清冊記錄。Windows／macOS 未原生實機操作，macOS 未簽章。
+- Linux 完整版只用自身資料，從新遊戲正常進城市編成，三位姓名與 HD／AI 切換目視正確，原版 148 檔未變。公開 patch 另帶合法原版路徑啟動至標題，兩類包執行器 SHA 相同。首次 GUI 參數誤帶連字號即停止，未作通過證據；版本查詢需 Xvfb，補正環境後重跑。有效證據 `workplace/out/v105-package-gui-checked/` 與本版 `smoke/linux/receipt.json`。
+- 獨立發行審查 `workplace/out/review-release-v105.md` 無阻擋。根與公開清冊、六包及兩份 smoke 收據 SHA 全符。新 annotated tag 指向真正建包根；[正式 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014) 五個公開資產的大小與 GitHub SHA-256 全符本機。公開補丁清冊只列三包，沒有上傳 full-local、原版音樂、編譯語言包或診斷。
+- 清冊重生固定 `HR_VERSION=v.1.0.5-20261014`、`HR_BUILD_SOURCE_COMMIT=5f41ed8f60bd5f485b480ba42def1ad601770350`、`HR_BUILD_FORK_COMMIT=40f6f8a8dceb863ff8f46aa86ff0f29ff268ebab`，入口 `tools/finalize_full_local.sh`、`tools/finalize_release_patch.sh`。本輪未製作新推廣片，舊版維持原狀。
+
+| 本機交付，位於 `dist-all/v.1.0.5-20261014/` | 位元組 | SHA-256 |
+|---|---:|---|
+| `full-local/HighReward-v.1.0.5-20261014-x86_64.AppImage` | 158255608 | `443825b9009621665c3829502fbf45ea55a264346ebf76e7996361d3490edf33` |
+| `full-local/HighReward-v.1.0.5-20261014-win64.zip` | 160099570 | `938b82392f145f4cefa31071c4c725c1cfc704e8a1bd292a33c84a14521ce4e4` |
+| `full-local/HighReward-v.1.0.5-20261014-macos.zip` | 164339512 | `8cd059c861630b22af3680ad66fb45c98c15132adb299c20b0e6fbee746155c9` |
+| `patch/HighReward-v.1.0.5-20261014-x86_64.AppImage` | 155826680 | `ba0ec9d6884ffe0f45083653ec06e093494881c742f94677476c78575d4d1357` |
+| `patch/HighReward-v.1.0.5-20261014-win64.zip` | 157528477 | `668a3420268d439211a49125a3ec4ddbcdae88eeb91eee3166851a2395ada373` |
+| `patch/HighReward-v.1.0.5-20261014-macos.zip` | 161768416 | `f9cc899c92967a2d991f6dc2cecf48478ff42a4e4c218a893da4d7e3691e1fd0` |
+
+- 收尾稽核 `workplace/out/v105-final-audit.json` 通過：遠端五資產、六包、收據、來源與舊 tag 正確；主 repo／fork 沒有原版完整檔誤追蹤。沒有 root-owned 檔案或 `.md` 目錄，fork 乾淨，暫存 worktree 與兩個連結已移除，本輪 Docker 容器清理完畢。文件另行提交不改建包來源。
