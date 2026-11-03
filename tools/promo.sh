@@ -6,10 +6,12 @@ VERSION="${HR_VERSION:?請設定正式版號}"
 [[ "$VERSION" =~ ^v\.[0-9]+\.[0-9]+\.[0-9]+-[0-9]{8}$ ]]
 LIVE="${HR_PROMO_LIVE:?請指定本版實際完整版的繁中錄影目錄}"
 FOCUS="${HR_PROMO_FOCUS:-general}"
-[[ "$FOCUS" = general || "$FOCUS" = commander-names ]]
+[[ "$FOCUS" = general || "$FOCUS" = commander-names || "$FOCUS" = difficulty ]]
 # 姓名修正分鏡使用 tools/promo-commander-names.json 的正常玩家操作。
 if [ "$FOCUS" = commander-names ]; then
   ENGLISH="$LIVE"
+elif [ "$FOCUS" = difficulty ]; then
+  ENGLISH="${HR_PROMO_ORIGINAL:?請指定同版原版模式的實際錄影目錄}"
 else
   ENGLISH="${HR_PROMO_ENGLISH:?請指定本版實際完整版的英文錄影目錄}"
 fi

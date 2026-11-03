@@ -82,7 +82,7 @@ case "$CMD" in
       XPID=$!
       sleep 2
       export DISPLAY=:99
-      /out/bin/hr-play -orig /orig/orig -saves /out/gui-saves -scale 2 >/tmp/play.log 2>&1 &
+      /out/bin/hr-play -difficulty original -orig /orig/orig -saves /out/gui-saves -scale 2 >/tmp/play.log 2>&1 &
       PID=$!
       sleep 15
       import -window root /out/gui-title.png
@@ -107,7 +107,7 @@ case "$CMD" in
       XPID=$!
       sleep 2
       export DISPLAY=:99
-      /out/bin/hr-play -orig /orig/orig -saves /out/gui-saves -scale 2 >/tmp/play.log 2>&1 &
+      /out/bin/hr-play -difficulty original -orig /orig/orig -saves /out/gui-saves -scale 2 >/tmp/play.log 2>&1 &
       PID=$!
       sleep 15
       xdotool mousemove 640 342
@@ -136,7 +136,7 @@ case "$CMD" in
       XPID=$!
       sleep 2
       export DISPLAY=:99
-      /out/bin/hr-play -orig /nonexistent >/tmp/play.log 2>&1 &
+      /out/bin/hr-play -difficulty original -orig /nonexistent >/tmp/play.log 2>&1 &
       PID=$!
       sleep 6
       import -window root /out/gui-error.png
@@ -169,7 +169,7 @@ quitgame() {
 }
 FAIL=0
 P=1248x672+16+16
-/out/bin/hr-play -orig /orig/orig -saves /out/gui-saves -scale 2 -lang zh-TW >/tmp/play.log 2>&1 &
+/out/bin/hr-play -difficulty original -orig /orig/orig -saves /out/gui-saves -scale 2 -lang zh-TW >/tmp/play.log 2>&1 &
 PID=$!
 sleep 15
 shot /out/gui-lang-title-a.png
@@ -200,7 +200,7 @@ echo "== stderr（hr-play）"; grep -vE "^ALSA lib" /tmp/play.log | tail -15
 echo "######## 階段 2：不設 HR_TEST_FREEZE_UI，F4 的 toast（左下最後一行，1248x32+16+752）：出現後 2 秒消失"
 unset HR_TEST_FREEZE_UI
 T=1248x32+16+752
-XDG_CONFIG_HOME=/tmp/cfg2 /out/bin/hr-play -orig /orig/orig -saves /out/gui-saves -scale 2 -lang zh-TW >/tmp/play2.log 2>&1 &
+XDG_CONFIG_HOME=/tmp/cfg2 /out/bin/hr-play -difficulty original -orig /orig/orig -saves /out/gui-saves -scale 2 -lang zh-TW >/tmp/play2.log 2>&1 &
 PID=$!
 sleep 15
 shot /out/gui-lang-toast-0.png
@@ -263,7 +263,7 @@ TOTAL=$((1280*800))
 
 echo "######## 階段 B：-theme original 啟動，F2 切 HD，再 F2 回 original"
 T0=$(date +%s)
-XDG_CONFIG_HOME=/tmp/cfgB /out/bin/hr-play -orig /orig/orig -saves /out/gui-saves-theme -scale 2 -hd /hd -theme original >/tmp/playB.log 2>&1 &
+XDG_CONFIG_HOME=/tmp/cfgB /out/bin/hr-play -difficulty original -orig /orig/orig -saves /out/gui-saves-theme -scale 2 -hd /hd -theme original >/tmp/playB.log 2>&1 &
 PID=$!
 sleep 15
 shot /out/gui-theme-orig-a.png
@@ -309,7 +309,7 @@ echo "== 降頻日誌（階段 B）：$(grep -c '跑不到' /tmp/playB.log || tr
 grep '跑不到' /tmp/playB.log || true
 
 echo "######## 階段 A（對照）：-theme hd 啟動、不按 F2，同樣長度 $DUR 秒"
-XDG_CONFIG_HOME=/tmp/cfgA /out/bin/hr-play -orig /orig/orig -saves /out/gui-saves-theme -scale 2 -hd /hd -theme hd >/tmp/playA.log 2>&1 &
+XDG_CONFIG_HOME=/tmp/cfgA /out/bin/hr-play -difficulty original -orig /orig/orig -saves /out/gui-saves-theme -scale 2 -hd /hd -theme hd >/tmp/playA.log 2>&1 &
 PID=$!
 sleep $DUR
 shot /out/gui-theme-control-hd.png
@@ -384,7 +384,7 @@ newhome() { rm -rf "$O/home/$1"; mkdir -p "$O/home/$1/.config"; }
 # start <階段名稱> <日誌檔> [hr-play 旗標…]：背景啟動，PID 放在 $PID
 start() {
   sname=$1; slog=$2; shift 2
-  XDG_CONFIG_HOME="$O/home/$sname/.config" /out/bin/hr-play -orig /orig/orig -saves "$O/saves" -scale 2 -lang zh-TW "$@" >"$slog" 2>&1 &
+  XDG_CONFIG_HOME="$O/home/$sname/.config" /out/bin/hr-play -difficulty original -orig /orig/orig -saves "$O/saves" -scale 2 -lang zh-TW "$@" >"$slog" 2>&1 &
   PID=$!
 }
 FAIL=0

@@ -31,6 +31,24 @@ index = 0
 ready = 0
 version = None
 version_output = None
+capture_size = '1280x844' if os.environ.get('HR_CAPTURE_TOOLBAR', '0') == '1' else '1280x800'
+
+
+def original_mode_args(binary, env):
+    # 舊分鏡預設直接走原版；難度分鏡可保留選擇頁或直入高難度。
+    requested = env.get('HR_CAPTURE_DIFFICULTY', 'original')
+    if requested not in ('original', 'hard', 'choose'):
+        raise ValueError('錄影難度需為 original、hard 或 choose')
+    help_text = subprocess.run([str(binary), "-h"], env=env, check=False,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               timeout=15).stdout
+    supported = b"-difficulty " in help_text
+    if requested != 'original' and not supported:
+        raise ValueError('此執行檔沒有難度選擇功能')
+    args = ["-difficulty", requested] if supported and requested != 'choose' else []
+    if b"-no-toolbar " in help_text and env.get('HR_CAPTURE_TOOLBAR', '0') != '1':
+        args.append('-no-toolbar')
+    return args
 
 
 def stop(p, sig=signal.SIGTERM):
@@ -54,7 +72,7 @@ def shot(name):
 
 try:
     with (out / 'xvfb.log').open('wb') as log:
-        xvfb = subprocess.Popen(['Xvfb', ':99', '-screen', '0', '1280x800x24',
+        xvfb = subprocess.Popen(['Xvfb', ':99', '-screen', '0', capture_size + 'x24',
                                  '-nolisten', 'tcp', '-ac'], stdout=log,
                                 stderr=subprocess.STDOUT, start_new_session=True)
         processes.append(xvfb)
@@ -68,6 +86,7 @@ try:
     args = [str(launcher), '-saves', str(out / 'saves'), '-scale', '2',
             '-theme', os.environ.get('HR_CAPTURE_THEME', 'original'),
             '-lang', os.environ.get('HR_CAPTURE_LANG', 'zh-TW'), '-mute']
+    args += original_mode_args(binary, env)
     if not bundle:
         args += ['-orig', '/orig', '-hd', '/hd', '-hd-ai', '/hd-ai', '-l10n', '/l10n']
     with (out / 'play.log').open('wb') as log:
@@ -124,7 +143,7 @@ try:
             with (out / (name + '-ffmpeg.log')).open('wb') as log:
                 recording = subprocess.Popen([
                     'ffmpeg', '-nostdin', '-hide_banner', '-loglevel', 'warning',
-                    '-f', 'x11grab', '-framerate', '30', '-video_size', '1280x800',
+                    '-f', 'x11grab', '-framerate', '30', '-video_size', capture_size,
                     '-i', ':99.0', '-an', '-c:v', 'libx264', '-preset', 'ultrafast',
                     '-crf', '0', '-pix_fmt', 'yuv444p', '-threads', '2',
                     str(out / (name + '.mkv'))], stdout=log,
@@ -160,6 +179,7 @@ finally:
         'control_sha256': hashlib.sha256(control.read_bytes()).hexdigest() if control.exists() else None,
         'language': os.environ.get('HR_CAPTURE_LANG', 'zh-TW'),
         'theme': os.environ.get('HR_CAPTURE_THEME', 'original'),
+        'difficulty_requested': os.environ.get('HR_CAPTURE_DIFFICULTY', 'original'),
         'no_state_injection': True,
     }
     (out / 'receipt.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + '\n')

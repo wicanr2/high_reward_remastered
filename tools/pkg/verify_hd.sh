@@ -26,7 +26,14 @@ timeout 10m docker run --rm --network none --memory 3g --cpus 2 --pids-limit 512
     XPID=$!
     sleep 2
     export DISPLAY=:99
-    /work/hr-play -orig /work/ws/orig -hd "/work/ws/$HDREL" -saves /tmp/saves >/tmp/play.log 2>&1 &
+    set --
+    if /work/hr-play -h 2>&1 | grep -q -- "-difficulty "; then
+      set -- -difficulty original
+    fi
+    if /work/hr-play -h 2>&1 | grep -q -- "-no-toolbar "; then
+      set -- "$@" -no-toolbar
+    fi
+    /work/hr-play "$@" -orig /work/ws/orig -hd "/work/ws/$HDREL" -saves /tmp/saves >/tmp/play.log 2>&1 &
     PID=$!
     sleep 20
     import -window root "/out/${NAME}-title.png"

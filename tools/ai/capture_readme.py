@@ -9,6 +9,17 @@ import sys
 import time
 
 
+def original_mode_args(binary, env):
+    # 舊正式版沒有難度參數；新版的既有錄影仍直接走原版。
+    help_text = subprocess.run([str(binary), "-h"], env=env, check=False,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               timeout=15).stdout
+    args = ["-difficulty", "original"] if b"-difficulty " in help_text else []
+    if b"-no-toolbar " in help_text:
+        args.append("-no-toolbar")
+    return args
+
+
 def stop(process):
     if process and process.poll() is None:
         os.killpg(process.pid, signal.SIGTERM)
@@ -67,7 +78,7 @@ try:
                                  '-nolisten', 'tcp', '-ac'], stdout=xlog,
                                 stderr=subprocess.STDOUT, start_new_session=True)
         time.sleep(2)
-        client = subprocess.Popen(['/binary/hr-play', '-orig', '/orig', '-saves', str(root / 'saves'),
+        client = subprocess.Popen(original_mode_args("/binary/hr-play", env) + ['/binary/hr-play', '-orig', '/orig', '-saves', str(root / 'saves'),
                                    '-scale', '2', '-hd-ai', '/theme', '-theme', 'ai',
                                    '-ingame-lang', 'none', '-lang', 'zh-TW', '-mute'],
                                   env=env, stdout=log, stderr=subprocess.STDOUT,

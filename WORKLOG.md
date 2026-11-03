@@ -640,3 +640,10 @@
 - 使用者要求 commit、push 與更新 Release。重新載入版號路由，主機 gh 認證有效；遠端最新正式版已為 `v.1.0.5-20261014`，姓名修正及影片腳本提交已在 origin/main。這次同步本版說明與現況，不建立沒有程式差異的新封包。
 - 正式 Release 說明補入三位隊長姓名修正影片、姓名欄放大及 F2 實錄，明示影片與完整版維持本機交付。回讀結果、原說明及更新後說明在 `workplace/out/release-v105-before-update.json`、`release-v105-after-update.json`、`release-v105-updated-notes.txt`；核對收據 `release-v105-notes-update-validation.json` 通過。五個公開資產的 ID、大小與 SHA-256 完全相同，tag 仍指向真正建包根 `5f41ed8f60bd5f485b480ba42def1ad601770350`。
 - AGENTS 與 033 同步本版推廣片已完成的狀態，既有 README／036 入口及根清冊不變。先前音樂研究與未提交的歷史文件變更繼續保留，不混入本次提交。
+
+
+### 三平台難度完整版建包來源（2026-11-03）
+
+- 使用者要求三平台本機完整版。版本 v.1.0.7-20261103，沿用已驗證 fork 68638002ed4c2f86bd15a055bbf9a1a463f6543b。
+- 在獨立工作樹保存本次難度功能與包內說明；主工作樹未提交的音樂研究維持原樣。玩法與工具列證據入口為 docs/re/037-difficulty-modes.md。
+- 三平台驗收、封包雜湊及容器清理結果於建包後追加主工作樹的 WORKLOG.md 與 037，不把建包前狀態當成驗收通過。

@@ -21,6 +21,17 @@ receipt = {'status': 'failed', 'platform': 'Linux Xvfb',
            'limitations': ['No window manager border drag or native Windows/macOS execution.']}
 
 
+def original_mode_args(binary, env):
+    # 舊正式版沒有難度參數；新版的既有錄影仍直接走原版。
+    help_text = subprocess.run([str(binary), "-h"], env=env, check=False,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               timeout=15).stdout
+    args = ["-difficulty", "original"] if b"-difficulty " in help_text else []
+    if b"-no-toolbar " in help_text:
+        args.append("-no-toolbar")
+    return args
+
+
 def command(*args, cwd=None):
     return subprocess.run(args, env=env, cwd=cwd, check=True, timeout=60,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.decode().strip()
@@ -87,7 +98,7 @@ try:
         time.sleep(2)
         receipt['version'] = command(str(launcher), '-version').removeprefix('hr-play ')
         with (out / 'play.log').open('wb') as log:
-            client = subprocess.Popen([str(launcher), '-theme', 'original', '-lang', 'zh-TW',
+            client = subprocess.Popen(original_mode_args(binary, env) + [str(launcher), '-theme', 'original', '-lang', 'zh-TW',
                                        '-mute', '-saves', '/tmp/saves'], env=env, stdout=log,
                                       stderr=subprocess.STDOUT, start_new_session=True)
             processes.append(client)

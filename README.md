@@ -78,7 +78,8 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 畫面 | 原版、595 項 HD、595 項 AI 三種圖層 |
 | 語言 | 五語介面與遊戲文字，譯文及純 Noto 字模隨發行包提供 |
 | 聲音 | 原版 MIDI 的 FM 近似播放與 PCM 音效；沒有音訊裝置時靜音 |
-| 發行 | 公開 Release 為 `v.1.0.2-20261008`；本機三平台完整版為 `v.1.0.4-20261010`，含視窗縮放與高速游標修正 |
+| 發行 | 已交付 `v.1.0.5-20261014`；開發版難度模式已通過驗證，現有安裝包尚未重建 |
+| 開發版難度 | 啟動前選原版／高難度，進度獨立；高難度債務 ×5、劇情獎金減半、劇情敵軍生命與基本攻防 ×1.5、北方三間飛機商店停用 |
 
 使用者已取消追加遊玩與美術抽樣，後續問題請回報 [GitHub Issues](https://github.com/wicanr2/high_reward_remastered/issues)。本版不宣稱完整通關或全遊戲原版 parity。macOS 未簽章，未做 Windows／macOS 實機驗收。唯一現況入口為 [AGENTS.md](AGENTS.md)，歷程見 [WORKLOG.md](WORKLOG.md)。
 
@@ -100,6 +101,12 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | Ctrl+D | 保存診斷 |
 
 存檔、截圖、診斷與語言包位於使用者資料目錄的 `high_reward/`：Linux `~/.config`、Windows `%AppData%`、macOS `~/Library/Application Support`。原版資料夾保持不變。診斷含原版記憶體，請透過私人管道提供給維護者。
+
+開發版每次啟動先選難度，可用滑鼠或方向鍵／Tab 選擇，Enter 開始，Esc 離開。原版沿用 `saves/`；高難度使用 `saves-hard/`，首次建立全新進度。也可用 `-difficulty original` 或 `-difficulty hard` 直接啟動指定模式。自訂 `-saves <基底>` 時，高難度使用該基底加上 `-hard`。難度規則、進度隔離及正常護送戰鬥抽樣已通過；功能尚未納入正式安裝包。驗證範圍見[難度模式調查](docs/re/037-difficulty-modes.md)。
+
+遊戲上方的「難度」工具列可隨時切換模式。先儲存目前進度，再確認切換；所選模式會從標題開始，可讀取自己的存檔。取消會回到原遊戲。預設視窗為 1280×844，遊戲畫布仍為 1280×800；舊錄影工具可加 `-no-toolbar` 保留原尺寸與座標。[工具列契約](docs/spec/015-toolbar-difficulty-switch.md)列出驗證範圍。
+
+[難度模式展示影片](dist-all/v.1.0.6-20261103/promo/HighReward-v.1.0.6-20261103-promo.mp4)為 60 秒 1080p30 本機開發版實錄，包含難度選擇、債務比較、城市編成及 F2 主題切換，配樂沿用原版錄音。
 
 本機 [v.1.0.5-20261014 完整版](dist-all/v.1.0.5-20261014/full-local/) 已納入城市編成的隊長姓名修正，並包含視窗自由縮放與高速設定游標修正。可拖曳視窗邊框或角落放大縮小，畫面維持原比例；F11／Alt+Enter 離開全螢幕後回到先前尺寸。原版重畫仍會主動隱藏游標。驗證範圍見[姓名修正](docs/re/036-formation-commander-names.md)與[游標呈現調查](docs/re/033-cursor-presentation.md)。
 
@@ -136,6 +143,7 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | [docs/spec/](docs/spec/) | 執行層、圖層、聲音與多語系契約 |
 | [游標呈現修正](docs/re/033-cursor-presentation.md) | 修正現況、測試與已驗範圍 |
 | [城市編成隊長姓名](docs/re/036-formation-commander-names.md) | 原版錯位原因、修正契約與驗證 |
+| [難度模式調查](docs/re/037-difficulty-modes.md) | 原版／高難度啟動、進度隔離與玩法調整；[規則規格](docs/spec/014-difficulty-modes.md)、[工具列規格](docs/spec/015-toolbar-difficulty-switch.md) |
 | [介面主題接線](docs/spec/011-procedural-ui-themes.md) | 程序板面的美術與呈現契約 |
 | [docs/re/](docs/re/) | 原版位元組、位址、雜湊與執行證據 |
 | [hd/](hd/) | 演算法 HD 素材 |

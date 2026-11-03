@@ -44,5 +44,7 @@ exec timeout 20m docker run --rm --name "hr-promo-live-$NAME" \
   --log-opt max-size=10m --log-opt max-file=3 \
   "${MOUNTS[@]}" "${OPTIONS[@]}" \
   -e "HR_CAPTURE_NAME=$NAME" -e "HR_CAPTURE_LANG=${HR_CAPTURE_LANG:-zh-TW}" \
-  -e "HR_CAPTURE_THEME=$THEME" -e "HR_CAPTURE_ARTIFACT=$ARTIFACT" --entrypoint sh "$IMAGE" -c \
+  -e "HR_CAPTURE_THEME=$THEME" -e "HR_CAPTURE_ARTIFACT=$ARTIFACT" \
+  -e "HR_CAPTURE_DIFFICULTY=${HR_CAPTURE_DIFFICULTY:-original}" \
+  -e "HR_CAPTURE_TOOLBAR=${HR_CAPTURE_TOOLBAR:-0}" --entrypoint sh "$IMAGE" -c \
   'test ! -e "/outputs/$HR_CAPTURE_NAME"; mkdir "/outputs/$HR_CAPTURE_NAME"; exec python3 /scripts/capture_promo.py'

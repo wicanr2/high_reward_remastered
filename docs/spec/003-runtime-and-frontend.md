@@ -77,8 +77,8 @@
 |---|---|
 | 原因 | confirmed：fork `686581d` 的 `apps/hr/play/main.go` 只呼叫 `SetWindowSize`，沒有啟用拖曳縮放；固定依賴 Ebitengine 2.9.9 的 `window.go` 明定預設為 `WindowResizingModeDisabled` |
 | 視窗 | 在 `RunGame` 前呼叫 `ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)`；使用桌面原生邊框縮放與最大化，不另加尺寸限制 |
-| 初始尺寸 | 保留 `-scale` 決定初始尺寸，預設 1280×800；啟動後可連續調整，無須重啟 |
-| 顯示 | 保留規格 006 第 4 節的 1280×800 邏輯畫布。任意視窗尺寸等比例縮放、置中及填黑，不拉伸或裁切 |
+| 初始尺寸 | `-scale` 決定遊戲區初始尺寸，預設 1280×800。開發版 [015](015-toolbar-difficulty-switch.md) 另加 44 像素工具列，預設視窗為 1280×844；`-no-toolbar` 保留原尺寸。啟動後可連續調整，無須重啟 |
+| 顯示 | 保留規格 006 第 4 節的 1280×800 遊戲畫布；015 的外層另包含工具列。任意視窗尺寸等比例縮放、置中及填黑，不拉伸或裁切 |
 | 滑鼠 | 保留 `ebiten.CursorPosition` 到 `cursorToGame` 的既有換算；Ebitengine `internal/ui/context.go` 的 `screenScaleAndOffsets` 使用兩軸較小倍率，輸入以相同倍率與偏移反算。黑邊上的位置依既有規則夾至遊戲區邊界，不另改按鍵語意 |
 | 原版輸入 | `MAIN.EXE` SHA-256 沿第 2 節。沒有新增二進位掛勾或原版位址；遊戲規則、DOS 輸入、原版資料與存檔格式皆不變 |
 | 主題與全螢幕 | 原版、HD、AI 使用同一邏輯畫布；F11／Alt+Enter 反轉 `ebiten.IsFullscreen` 的即時狀態，避免 macOS 原生按鈕與前端旗標失步。離開全螢幕回到先前視窗尺寸 |

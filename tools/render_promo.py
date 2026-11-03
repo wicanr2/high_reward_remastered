@@ -11,14 +11,19 @@ out.mkdir(exist_ok=True)
 font = '/fonts/NotoSansCJK-Bold.ttc'
 primary = json.loads(Path('/live/receipt.json').read_text())
 focus = os.environ.get('HR_PROMO_FOCUS', 'general')
-assert focus in ('general', 'commander-names')
-english = json.loads(Path('/english/receipt.json').read_text()) if focus == 'general' else primary
+assert focus in ('general', 'commander-names', 'difficulty')
+english = json.loads(Path('/english/receipt.json').read_text()) if focus in ('general', 'difficulty') else primary
 audio_mode = os.environ.get('HR_PROMO_AUDIO_MODE', 'pending')
 assert audio_mode in ('pending', 'original-recording', 'none')
 for receipt in (primary, english):
     assert receipt['version'] == version
-    assert receipt['bundled_resources_only'] and receipt['no_state_injection']
+    assert receipt['no_state_injection']
+    if focus != 'difficulty':
+        assert receipt['bundled_resources_only']
 assert primary['binary_sha256'] == english['binary_sha256']
+if focus == 'difficulty':
+    assert primary['difficulty_requested'] == 'choose'
+    assert english['difficulty_requested'] == 'original'
 
 
 def run(args, log):
@@ -62,7 +67,38 @@ def event(receipt, name):
 theme = clip(primary, 'theme-switch')
 switches = [e['at'] for e in primary['events'] if e.get('key') == 'F2']
 assert len(switches) == 2
-if focus == 'commander-names':
+if focus == 'difficulty':
+    selected = clip(primary, 'difficulty-select')
+    original_debt = clip(english, 'debt-original')
+    hard_debt = clip(primary, 'debt-hard')
+    city = clip(primary, 'city-entry')
+    segments = [
+        dict(source='/live/initial.png', duration=4, card='intro'),
+        dict(source='/live/difficulty-select.mkv', start=0, duration=7,
+             caption='啟動前選擇難度，兩種進度各自保存'),
+    ]
+    for folder, name, receipt, debt_clip, caption in [
+            ('/english', 'original', english, original_debt, '原版，初始債務 1,000 萬'),
+            ('/live', 'hard', primary, hard_debt, '高難度，初始債務 5,000 萬')]:
+        at = event(receipt, 'debt-' + name) - debt_clip['start']
+        segments += [
+            dict(source=f'{folder}/debt-{name}.mkv', start=max(0, at-.5),
+                 duration=7 if name == 'original' else 6, caption=caption),
+            dict(source=f'{folder}/debt-{name}.mkv', start=at+5.5,
+                 duration=4, caption=caption, crop=True),
+        ]
+    segments.append(dict(source='/live/city-entry.mkv',
+                         start=max(0, event(primary, 'formation')-city['start']-4),
+                         duration=10, caption='高難度實際遊玩，城市部隊編成'))
+    for i, (name, caption) in enumerate([
+            ('hd-formation', 'F2 切換 HD，難度模式保持不變'),
+            ('ai-formation', 'F2 切換 AI 手繪，難度模式保持不變')]):
+        start = max(0, switches[i]-theme['start']-.5)
+        segments.append(dict(source='/live/theme-switch.mkv', start=start,
+                             source_duration=event(primary, name)-theme['start']+3-start,
+                             duration=7, caption=caption))
+    segments.append(dict(source='/live/initial.png', duration=4, card='outro'))
+elif focus == 'commander-names':
     names = clip(primary, 'commander-names')
     segments = [
         dict(source='/live/initial.png', duration=4, card='intro'),
@@ -125,12 +161,14 @@ for i, seg in enumerate(segments):
         input_args = ['-loop', '1', '-framerate', '30', '-i', str(src)]
         vf = 'pad=1920:1080:320:140:color=0x101825,drawbox=x=0:y=0:w=iw:h=ih:color=black@0.75:t=fill,'
         if seg['card'] == 'intro':
+            detail = ('原版與高難度，進度各自保存' if focus == 'difficulty' else
+                      '城市編成，隊長姓名已修正' if focus == 'commander-names' else '原版 × HD × OpenAI 手繪')
             vf += ','.join([text('高報酬戰將', 270, 100), text('REMASTERED', 405, 54, 'white'),
-                            text('城市編成，隊長姓名已修正' if focus == 'commander-names' else '原版 × HD × OpenAI 手繪', 555, 52),
+                            text(detail, 555, 52),
                             text('商人 · 砲手 · 舞孃' if focus == 'commander-names' else '實際操作錄影', 660, 42, 'white')])
         else:
             vf += ','.join([text('高報酬戰將 Remastered', 270, 78),
-                            text('Linux AppImage · Windows ZIP · macOS ZIP', 435, 46, 'white'),
+                            text('難度模式開發版實錄' if focus == 'difficulty' else 'Linux AppImage · Windows ZIP · macOS ZIP', 435, 46, 'white'),
                             text(version, 550, 48),
                             text('github.com/wicanr2/high_reward_remastered', 670, 40, 'white')])
     else:
@@ -154,7 +192,7 @@ for i, seg in enumerate(segments):
             # the preload wait to the six-second cut and disclose the timing.
             vf += f",trim=duration={take},setpts={duration/take:.9f}*(PTS-STARTPTS)"
             vf += ',' + text('實錄剪輯，預載等待已調整時長', 985, 30, 'white')
-        if seg.get('crop'):
+        if seg.get('crop') and focus != 'difficulty':
             # Caption values were read from the debt-en capture. This is a
             # readable annotation; the captured game counters remain visible.
             vf += ',' + text('Total debt 10,000,000 · Repayment 5,000 · Money held 8,000', 965, 44, 'white')
@@ -186,7 +224,9 @@ run(['ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-i', str(video), '-vf', 
 if a is not None:
     run(['ffmpeg', '-nostdin', '-hide_banner', '-nostats', '-i', str(video), '-af', 'silencedetect=noise=-50dB:d=0.5,volumedetect', '-vn', '-f', 'null', '-'], 'audio-check.txt')
 run(base + ['-i', str(video), '-vf', 'fps=1/7.5,scale=480:270,tile=4x2', '-frames:v', '1', str(out / 'contact.png')], 'contact.log')
-checks = ([(16, 'city'), (25, 'merchant'), (33, 'gunner'), (41, 'dancer'),
+checks = ([(8, 'selector'), (19, 'original-debt'), (29, 'hard-debt'),
+           (37, 'city'), (48, 'hd'), (55, 'ai'), (58, 'outro')] if focus == 'difficulty' else
+          [(16, 'city'), (25, 'merchant'), (33, 'gunner'), (41, 'dancer'),
            (49, 'hd'), (55, 'ai'), (58, 'outro')] if focus == 'commander-names'
           else [(13, 'debt'), (25, 'ai-switch'), (37, 'gameplay'), (53, 'help')])
 for second, name in checks:
@@ -194,8 +234,9 @@ for second, name in checks:
 receipt = dict(version=version, focus=focus, visibility='local-only',
                format='actual front-end recording, 1080p, 30fps; native gameplay pixels; name crop at integer 3x' if focus == 'commander-names' else 'actual front-end recording, 1080p, 30fps; native gameplay pixels; debt crop at integer 4x',
                segments=segments, live_seconds=52, no_state_injection=True,
-               capture_binary_sha256=primary['binary_sha256'], bundled_resources_only=True,
-               player_path='Normal new game, dialogue, map, city, inter-troop formation; merchant, gunner and dancer commanders; F2 HD and AI.' if focus == 'commander-names' else 'Normal new game, dialogue, soldier organization screen; no world-map destination claim.',
+               capture_binary_sha256=primary['binary_sha256'], bundled_resources_only=primary['bundled_resources_only'] and english['bundled_resources_only'],
+               build_kind='development-recording-build' if focus == 'difficulty' else 'release-bundle',
+               player_path='Difficulty chooser, normal new games in original/hard modes, debt counters, city formation, F2 HD/AI; no state injection.' if focus == 'difficulty' else 'Normal new game, dialogue, map, city, inter-troop formation; merchant, gunner and dancer commanders; F2 HD and AI.' if focus == 'commander-names' else 'Normal new game, dialogue, soldier organization screen; no world-map destination claim.',
                sources_sha256={s['source']: sha(s['source']) for s in segments},
                capture_receipts_sha256={n: sha(n) for n in (['/live/receipt.json'] if focus == 'commander-names' else ['/live/receipt.json', '/english/receipt.json'])},
                audio=dict(mode=audio_mode, source=audio_provenance['wave_path'] if audio_provenance else None,

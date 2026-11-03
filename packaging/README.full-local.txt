@@ -10,8 +10,26 @@ Linux：執行 HighReward-<版本>-x86_64.AppImage。
 Windows：解開 zip 後執行 hr-play.exe。
 macOS：解開 zip 後開啟 HighReward.app。此版未簽章，也未在 macOS 實機驗證。
 
-原版檔案已放在程式的 original 資料夾，不需另行複製。存檔寫到使用者資料目錄的
-high_reward/saves，原版資料夾不會被修改。
+原版檔案已放在程式的 original 資料夾，不需另行複製。原版資料夾不會被修改。
+
+難度與進度
+----------
+啟動後先選原版或高難度，可用滑鼠或方向鍵選擇，Enter 開始。
+遊戲上方的「難度」工具列也可切換。請先儲存目前進度，再確認切換；
+所選模式會從標題開始，可讀取該模式的存檔。取消會回到原遊戲。
+未儲存的進度在確認切換後不會保留，不會自動儲存。
+
+原版存檔使用 high_reward/saves，高難度使用 high_reward/saves-hard，兩者互相獨立。
+使用者資料目錄：Linux 為 ~/.config，Windows 為 %AppData%，
+macOS 為 ~/Library/Application Support。
+
+高難度初始債務為 5000 萬，是原版的五倍；指定劇情獎金減半，
+劇情敵軍生命與基本攻防提高至 1.5 倍，初始區域北方三間飛機商店停用。
+既有高難度存檔載入時不會再次放大債務。
+
+命令列可用 -difficulty original 或 -difficulty hard 直接啟動指定模式。
+自訂 -saves <基底> 時，高難度使用該基底加上 -hard。
+預設視窗為 1280×844；-no-toolbar 隱藏工具列，保留舊 1280×800 尺寸與輸入座標。
 
 F1 開啟功能說明，F2 切換原版、HD 與 AI 畫面，F3 切換聲音。
 F4 切換五語介面，重新啟動後套用遊戲內語言。譯文表與字模補丁隨包提供，

@@ -1,0 +1,151 @@
+[
+  {
+    "kind": "record",
+    "name": "play-opening",
+    "hold": 1
+  },
+  {
+    "kind": "click",
+    "x": 624,
+    "y": 342,
+    "hold": 5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 440,
+    "hold": 1.4
+  },
+  {
+    "kind": "shot",
+    "name": "map",
+    "hold": 1
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "debt-original",
+    "hold": 1
+  },
+  {
+    "kind": "move",
+    "x": 1080,
+    "y": 650,
+    "hold": 1
+  },
+  {
+    "kind": "shot",
+    "name": "debt-original",
+    "hold": 12
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "finish"
+  }
+]

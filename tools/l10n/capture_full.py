@@ -14,6 +14,17 @@ env = dict(os.environ, DISPLAY=':99', XDG_CONFIG_HOME=str(out / 'config'),
 client = xvfb = None
 receipts = []
 
+def original_mode_args(binary, env):
+    # 舊正式版沒有難度參數；新版的既有錄影仍直接走原版。
+    help_text = subprocess.run([str(binary), "-h"], env=env, check=False,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               timeout=15).stdout
+    args = ["-difficulty", "original"] if b"-difficulty " in help_text else []
+    if b"-no-toolbar " in help_text:
+        args.append("-no-toolbar")
+    return args
+
+
 def stop(p):
     if p and p.poll() is None:
         os.killpg(p.pid, signal.SIGTERM)
@@ -52,6 +63,7 @@ try:
                 # 後四次只讀前一輪 F4 保存的偏好，沒有命令列指定語言。
                 if index == 0:
                     args += ['-lang', 'zh-TW']
+                args += original_mode_args("/binary/hr-play", env)
                 client = subprocess.Popen(args, env=env, stdout=app_log,
                                           stderr=subprocess.STDOUT, start_new_session=True)
                 time.sleep(27)

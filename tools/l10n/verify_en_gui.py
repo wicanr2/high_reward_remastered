@@ -15,6 +15,17 @@ import sys
 import time
 
 
+def original_mode_args(binary, env):
+    # 舊正式版沒有難度參數；新版的既有錄影仍直接走原版。
+    help_text = subprocess.run([str(binary), "-h"], env=env, check=False,
+                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                               timeout=15).stdout
+    args = ["-difficulty", "original"] if b"-difficulty " in help_text else []
+    if b"-no-toolbar " in help_text:
+        args.append("-no-toolbar")
+    return args
+
+
 def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -103,6 +114,7 @@ def run(label, code='en'):
                 '-scale', '2', '-l10n', str(table_root), '-no-hd', '-mute']
         if language is not None:
             args += ['-lang', language]
+        args += original_mode_args("/tmp/hr-play", env)
         client = subprocess.Popen(args,
                                   env=stage_env, stdout=log_handle, stderr=subprocess.STDOUT,
                                   start_new_session=True)
