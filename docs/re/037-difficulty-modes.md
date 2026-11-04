@@ -8,16 +8,59 @@
 
 | 項目 | 目前結果 |
 |---|---|
-| 程式來源 | 根基準 `d322103`，原有未提交文件修改保留；現行 fork `68638002ed4c2f86bd15a055bbf9a1a463f6543b`，工作樹乾淨。難度規則備份 [0047](../../engine/patches/0047-difficulty-modes.patch)，工具列備份 [0048](../../engine/patches/0048-toolbar-difficulty-switch.patch)。 |
-| 正式交付 | 本機現行 `v.1.0.5-20261014`，本次尚未重建或修改正式包。 |
+| 程式來源 | 根基準 `d322103`，原有未提交文件修改保留；現行 fork `028f6c96caa151e300e9de02858b8207a3e64e02`，工作樹乾淨。舊規則及工具列備份為 0047／0048；新設定與接線為 [0049](../../engine/patches/0049-custom-difficulty-profiles.patch)、[0050](../../engine/patches/0050-custom-difficulty-rules.patch)。 |
+| 正式交付 | 本機三平台完整版為 `v.1.0.7-20261103`，含工具列切換；本機舊安裝包已清理。公開 Release 為 `v.1.0.5-20261014`，遠端未變更。 |
 | 使用者需求 | 遊戲開始前選原版／高難度，進度分開。高難度減半劇情獎金、加強劇情敵人、移除初始區域北方的飛機商店。 |
 | 已授權 | 必要時修改高難度專用資料副本，兩種模式分別啟動。 |
 | 已確認倍率 | 使用者選擇債務 ×5，劇情獎金除以 2。 |
 | 已確認敵軍倍率 | 劇情敵軍基本戰鬥能力 ×1.5，兵種、數量與裝備不變。建立端及消費端已核對。 |
 | 技術查證 | 債務、13 組劇情給錢、9 個劇情戰鬥 caller、敵方生命與攻防、北方 3 間飛機商店已定位；014 狀態 CONFORMED。 |
 | 新功能驗證 | 規則、進度隔離、前端、Linux 選單／存讀檔、正常舞孃預付款及護送戰鬥通過；中斷重入已修正。完成範圍與限制見[正常護送戰鬥驗證完成](#正常護送戰鬥驗證完成)。 |
-| 本機影片 | `v.1.0.6-20261103` 難度模式展示片，60 秒 1080p30，真實選擇／新遊戲／城市編成／F2 與原版配樂。此版號識別本機錄影版，正式遊戲包仍為上述 1.0.5。 |
+| 本機影片 | 最新為 `v.1.0.7-20261103`，60 秒 1080p30，同版實包的難度選擇、新遊戲、債務比較、北方三間飛機商店停用標示與 F2，沿用原版配樂。來源及範圍見[北方飛機商店推廣影片](#北方飛機商店推廣影片)。舊 1.0.6 影片保留。 |
 | 工具列延伸 | 使用者選擇立即切換。契約 [015](../spec/015-toolbar-difficulty-switch.md) CONFORMED；取消、錯誤復原、雙向切換、各自讀檔與正常新遊戲通過。本機啟動入口 `workplace/out/run-difficulty-preview.sh` 已指向新版。 |
+| 新回饋選項 | [016](../spec/016-difficulty-rule-options.md) CONFORMED，限第一輪功能抽樣。八項預設全開，飛機／戰車各有兩種互斥策略，預設保留作戰價值。正常視窗、新遊戲、五語、取消／同組／失敗恢復、切回讀檔、飛機購買保存及護送戰鬥抽樣通過。整體平衡仍待試玩。 |
+| 自訂進度 | [017](../spec/017-custom-difficulty-profiles.md) CONFORMED。576 組身分、共用 76 檔投影、污染拒絕、競態及三平台 API 編譯通過，已接入 Session 與前端。每組完整設定各自保存，可切回續玩；原版與舊 hard 進度不搬移。 |
+| 新規則證據 | [038](038-custom-difficulty-rules.md) 對齊載具、城市、20 格商店、反擊及寶藏。十一格停用、九格保留、36 座重要城市及四段劇情通過精確差異測試。西路強化原有城防與反擊，不新增駐軍戰；直接入口診斷與正常玩家抽樣分開記錄。 |
+
+## 自訂難度第一輪實作
+
+2026-11-04。契約為 [016](../spec/016-difficulty-rule-options.md) 與 [017](../spec/017-custom-difficulty-profiles.md)，原版接線證據為 [038](038-custom-difficulty-rules.md)。第一輪數值已由使用者確認；未把數值確認或測試通過稱為整體平衡完成。
+
+### 來源與試玩入口
+
+- 進度 API 提交為 `5c6cd647f38e1e999f45e767bcac6244b575293f`，八項規則與前端提交為 `028f6c96caa151e300e9de02858b8207a3e64e02`。補丁為上表 0049／0050，沒有 push 或 Release。
+- Linux 本機預覽為 `workplace/out/hr-play-custom-preview-r2`。桌面試玩入口為 `workplace/out/run-difficulty-preview.sh`，會帶入本機合法原版、HD、AI 及譯文路徑。未帶難度旗標時先選原版／新高難度；工具列或 F5 開啟設定。代理的建置及執行驗證均在 Docker。
+- `-difficulty original`、`-difficulty hard` 保留舊語意。新模式是 `-difficulty custom`；`-challenge-rules` 必須搭配明示 custom，接受完整嚴格 JSON，明示空值也回錯。每組設定使用 `<存檔基底>-custom/<完整摘要>/`；原版及舊 hard 的進度不搬移。
+- 預覽以 `-buildvcs=false` 建立。來源由乾淨提交、受版控檔案雜湊及實際執行檔 SHA-256 固定，收尾清冊為 `workplace/out/options-final-audit.json`，不把關閉 Go 版本註記當作來源證明。
+
+### 審查與規則驗證
+
+016 經兩份獨立唯讀規格審查進 READY：`workplace/out/options-rules-spec-review.md`、`options-ui-spec-review.md`。玩法與前端實作審查為 `options-rules-implementation-review.md`、`options-ui-implementation-review.md`，均無剩餘阻擋。
+
+| 範圍 | 結果與收據 |
+|---|---|
+| 進度身分與投影 | 017 的 576 組、完整 77 檔輸入／76 檔共用投影、嚴格 JSON、符號連結、污染、禁止覆寫發布與競態均通過。見 017 既有收據。 |
+| 初值精確差異 | 全關與原版記憶體相同；單項及全開只改指定債務、八型載具、西路城防及 36 座重要城市欄位。均衡／運輸飛機、戰車策略、0 值、999 封頂及後段驗證失敗不部分寫入均有回歸。 |
+| 動態掛點 | 十三組獎金的通知／入帳各減半一次；十一商店停用、九格保留，town 40 的兩格原子驗證。九個戰鬥 caller 的分段、催繳反例、不重複累乘及 32767 邊界通過。舊 hard 與 custom 的通知／入帳／商店各強制 IRQ 重入，均只套一次。 |
+| 最終規則測試 | `workplace/out/options-runtime-tests-final.log`，19.607 秒，無 skip。較早獨立審查另重跑 custom／017／hard 聚焦測試 52.843 秒，無 skip。 |
+| 前端與字型 | 最終 `options-ui-tests-r4.log`，10.749 秒。五語鍵集合、字形、寬高、草稿／有效值、取消／同組／失敗交易、CLI 空值、F5 按住後不傳 DOS、標題快取回歸均通過。字元表另以產生模式跑過；最終測試的產生模式及既有 AI 圖片 fixture 缺席明確 skip，不算通過。 |
+| 編譯 | Linux 與 Windows amd64，macOS arm64／amd64 都成功。Linux／Windows 用既有 HR Go 1.26.7／Ebiten 2.9.9 image；macOS 使用已核對同版本及 SDK 15.5 的既有 `san1-macos:1.26.7-sdk15.5-r1`，沒有另建重複 image。編譯不等於 Windows／macOS 原生操作。 |
+
+### 正常視窗、進度與護送抽樣
+
+- `workplace/out/options-gui.py` 只透過真實視窗送鍵盤及滑鼠，不載入 CPU 快照或改記憶體。`options-gui-receipt.json` 保存首輪八項預設、策略、恢復預設、新遊戲、原版債務對照、五語及 A／B 設定切換。預設組 A 新遊戲 5000 萬；關閉債務開關的 B 為 1000 萬，現金同為 8000。
+- A 摘要為 `e21835330c7c64a89449bdc66ee295ed44cee733b0fcc343034f668044a13424`，第 0 槽由正常系統選單保存，31,839 bytes；B 摘要為 `26b807a2c7fa8c472c5fcf0d291ae8534291506ff3822b0a738379f209b2b8de`，五槽仍空。切回 A 後可讀回日期 0632/04/21、債務 5000 萬及現金 8000，沒有再次乘債。
+- `options-gui-r2-receipt.json` 綁定最終預覽。正常重開讀回 A、五語設定頁、F1 真實存檔路徑、同組套用、900×700 縮放、原版／舊 hard／custom 互切與再次讀檔通過。第二輪修正了 game 寫基本標題時未使難度標題快取失效的問題；五語標題均保留難度。
+- 切換失敗正對照只暫時破壞本輪測試 B 的索引，並保留原 bytes。實際視窗顯示錯誤，取消後仍是 A 的同一遊戲；錯誤索引沒有被自動覆寫。其後按雜湊恢復測試索引。來源及方法為 `options-failure-fixture.json`、`options-failure-index-before.bin`，不涉及正式進度。
+- 護送抽樣使用上方正常玩家路徑取得的 `difficulty-story-6EE9-034D.state`，SHA-256 `7e410140eddba464c00d8eccf7eb40253136af7077a9d743f97f13e4f05359dd`。兩側恢復相同 CPU、DOS 時鐘及快照亂數狀態，各執行一步，此步不呼叫 RND、不重擲。新 custom 只開分段劇情：前五名各為 `22/22/11/9`，末名為 `67/67/33/27`，符合初段生命 150%、攻擊 125%、防禦 100%；其他記憶體相同。收據 `options-battle-ab.json`，來源 `options-battle-ab.go`、`options-battle-overlay.json`，畫面為 `options-battle-{original,custom}.png`。其餘階段由接線測試覆蓋，不宣稱全劇情通關。
+- 新遊戲第 0 槽另核對保存區，36 座重要城市的載具均符合配置，其中 10 座實際補強、其餘保留原有較高型號。town 65 的城防／火力／防護為 `312/312/287`；town 81 為 `999/945/750`，符合倍率及封頂。收據 `options-saved-cities.json`，不是只驗 MZ 啟動前的記憶體。
+- 載具抽測另用 `options-purchase-saves` 專用目錄。未修改的原版 GAMEFILE.004 只複製到第 4 槽，來源 SHA-256 `6d648236b931e15bdc7cf89918f54e88bb293b88e0df40054d158f45007d73e8`。正常兵器畫面確認米克型戰車攻擊由 730 變為 365、最大耐久 110 不變。`options-purchase-fixture.json`、`options-prepare-purchase.go` 及 `options-purchase-gui-vehicle-formation.png` 記錄來源與結果。
+- 飛機購買改用原版 GAMEFILE.000，SHA-256 `591ddda3cfaa840228a208cd80ece2420189c792d1dc113a9d85122702a74cff`，同樣只複製到專用測試 profile。正常標題讀檔、城市部隊、商店選貨及購買後，型號索引 6 的飛機顯示攻擊 332、最大耐久 81。再經原版系統選單保存到第 1 槽，31,839 bytes，實際型號 6、現耐久 81；檔案 SHA-256 `59c93f0ff4913101893e410f3ffed5e6e33fd6863141cdaaf488a19736c9bc0a`。來源副本第 0 槽保持原樣。
+- 購買與保存使用 dosgolem 的普通滑鼠流程，沒有注入座標、能力或金錢，也沒有直接呼叫購買／保存函式。前端商店畫面為 `options-plane-f12-plane-shop.png`，普通輸入重播的購買後畫面為 `options-native-paid-00.png`。來源與保存觀察為 `options-plane-fixture.json`、`options-native-validation.json`；原始重播收據及快照為 `options-native-*.json`、`options-native-*-current.state`。工具是 fork 內 `apps/hr/cmd/hrdifficultyprobe/main.go`，執行檔 `workplace/out/hr-options-native-replay`。該既有工具的舊 `fork_version` 字串及空 `profile` 欄不作來源證明，依本輪真實提交、命令、檔案與執行檔雜湊核對。
+- 全新 Session 再由標題讀第 1 槽，現金 `2,096,504` 與保存檔一致，沒有讀到來源第 0 槽的 `2,122,304`。收據 `options-native-reopen.json`，本輪固定 DOS 時鐘為 1993/01/01，間隔 300000；正常輸入快照沿同一狀態接續，不重擲亂數。購買驗證不比較整段戰果。
+- 外部視窗擷取曾逾時，前端截圖改用遊戲 F12；部分過早送出的商店操作未到達目標畫面，不算有效驗收。最終以可辨識的原版選單及普通輸入完成，完整日誌保留。原版樣本只證明載具表及購買保存路徑，不作為全新挑戰的債務或城市配置證據。
+
+前／中／後期及兩條路線的完整攻城成本、傷亡與收入比較仍屬後續試玩。現行 1.0.7 三平台封包、影片、原版及正式進度未修改；本輪沒有新包、影片、tag 或公開 Release。
 
 ## 輸入與位址基準
 
@@ -184,3 +227,62 @@
 - 既有錄影與 GUI 工具先查旗標，對新版加入 `-no-toolbar`，對舊包保留原參數。`HR_CAPTURE_TOOLBAR=1` 可錄完整 1280×844 工具列視窗，分鏡座標需包含上方 44 像素；預設仍用原分鏡。既有影片精確來源快照沿用前節索引。本次不重錄或覆寫已交付影片。
 
 015 升為 CONFORMED，僅涵蓋本項工具列與生命週期。014 的玩法、存檔格式與既有正常劇情證據不變。Windows／macOS 原生操作未驗，正式 1.0.5 封包與本機 1.0.6 影片保持原樣，沒有推送或 Release。收尾稽核入口 `workplace/out/toolbar-final-audit.json`。
+
+### 三平台本機完整版交付
+
+使用者要求三平台完整版。本版為 `v.1.0.7-20261103`，與 1.0.6 錄影版分開。成品位於 [full-local](../../dist-all/v.1.0.7-20261103/full-local/)，清冊為 [SHA256SUMS.json](../../dist-all/v.1.0.7-20261103/SHA256SUMS.json)。原版資料與影片只留本機，沒有建立公開 Release 或新 patch 包。
+
+| 項目 | 來源與結果 |
+|---|---|
+| 建包根 | 獨立且乾淨的 `aa6ac90872a88e460e0d1e3343605863269a1003`，本機分支 `local/full-v107`。主工作樹的音樂研究未混入建包來源。 |
+| 執行器 | 乾淨 fork `68638002ed4c2f86bd15a055bbf9a1a463f6543b`，沒有改玩法程式；以連結旗標設定本版版號。 |
+| Linux／Windows | `hr-go-ebiten:1.26.7-2.9.9-r1`，Go 1.26.7／Ebiten 2.9.9。 |
+| macOS | 沿用既有 `san1-macos:1.26.7-sdk15.5-r1`，已核對 Go 1.26.7、SDK 15.5、clang 18.1.3 及 darwin24.5 雙架構工具；套用本專案鎖版模組。仍以 `tools/docker/Dockerfile.hr-macos-r1` 定義的版本組合為準，透過 `HR_MAC_IMAGE` 選本機可用 image。SDK 沒有進包。 |
+| AppImage | 依 `tools/rebuild_appimage_toolchain.sh` 恢復 `hr-appimage:runtime-recovery-r1`，沿用已核對的 944,632-byte runtime。沒有改用漂移下載來源。 |
+| 封包說明 | 三包均包含工具列操作、未存進度提醒、預設及自訂難度存檔位置、命令列啟動與高難度規則。Windows README 為 UTF-8 BOM／CRLF。 |
+| 靜態驗證 | 三包大小／SHA-256、程式版號／來源與本輪編譯輸出相符；每包原版 148 檔、HD 595 張、AI 595 張、五語表與字模均逐檔核對。沒有編譯語言包。Windows PE32+ x86_64、macOS arm64＋x86_64、plist／ICNS／ZIP 執行位元通過。 |
+| Linux 實包 | 真正解開本版 AppImage 後由 AppRun 啟動，正常新遊戲的債務為 1000 萬／5000 萬；HD／AI、工具列雙向切換、各自槽 0、取消、F12 與 900×700 工具列操作通過，退出為 0。 |
+| 限制 | Windows／macOS 未原生實機操作；本輪不重新驗完整劇情或原版 parity。Linux 讀檔樣本是先前正常產生的存檔副本，只放隔離設定目錄。 |
+
+重跑入口是本版根來源的 `tools/package_full_local.sh all`，指定 `HR_VERSION=v.1.0.7-20261103`、`HR_MAC_IMAGE=san1-macos:1.26.7-sdk15.5-r1`，並使用上述固定 fork。實際隔離編排日誌為 `workplace/out/v107-full-build.log`；工具鏈精確身分在 `v107-toolchain-images.txt`。首次隔離啟動因乾淨工作樹沒有空掛載點而停止，補齊後以同一來源重跑通過，沒有改程式或原版資料。
+
+靜態驗證為 `workplace/out/verify-full-packages-v107.py`，沿用既有三包 helper，收據 [smoke/full-static.json](../../dist-all/v.1.0.7-20261103/smoke/full-static.json)。實包腳本 `workplace/out/v107-package-gui.py` 與 [Linux 收據](../../dist-all/v.1.0.7-20261103/smoke/linux/receipt.json) 綁定封包／程式及畫面雜湊。GUI 腳本先修正收據父目錄及標準輸出混入 Xvfb 診斷的判讀，再以相同 image、實包及正常輸入重跑通過，這些是驗證環境問題。
+
+重生清冊須使用 `HR_BUILD_SOURCE_COMMIT=aa6ac90872a88e460e0d1e3343605863269a1003`、`HR_BUILD_FORK_COMMIT=68638002ed4c2f86bd15a055bbf9a1a463f6543b`，不能改用之後的文件提交。本輪新建的 Go 建置及模組快取共 801,579,008 bytes 已移除，收據 `workplace/out/v107-cache-cleanup.json`。舊正式包、影片與正式進度維持原樣。
+
+唯讀交付複核 `workplace/out/v107-package-review.md` 無阻擋。最終清冊 SHA-256 為 `56d8ce526858760c407550949e8794a22584789db3d5e6e7eedca69a41920a4b`，Linux、Windows、macOS 三包分別為 158,366,200／160,221,020／164,568,239 bytes。Linux 收據的 rows 保留事件歷史，同名截圖只保留最後一張；`retained_screenshots` 明列 15 張保留圖的雜湊，均已核對。
+
+最終稽核 `workplace/out/v107-final-audit.json` 通過：2,958 個候選追蹤路徑沒有原版完整檔命中，無 root-owned 檔案或 `.md` 目錄；1.0.5 既有八項交付與 1.0.6 影片均未改動。建包工作樹已移除，固定來源仍保存在本機 `local/full-v107` 分支。工作區約 4.16 GB，建包、GUI、驗證及複核容器均已清理。本輪沒有推送或發布。
+
+### 結案後工作目錄清理
+
+2026-11-04 依使用者清理要求及先前只留最新版的決定，移除本機 1.0.5 的六個安裝包與 29 個過期原生測試程式。最新 1.0.7 三包、目前預覽、錄影專用程式、正式建包程式副本與正常戰鬥對拍工具保留。原版輸入、存檔、研究快照、原始錄音／錄影、各版影片、清冊及驗收紀錄全部保留。
+
+清理表 `workplace/out/cleanup-20261104.json` 記錄 35 個刪除檔的原路徑、SHA-256、容量與可取得的 Go 建置資訊；27,102 個保留檔案逐檔核對未變。移除檔案占用 1,146,134,528 bytes，計入清理校驗紀錄後，專案約由 4.16 GB 降至 3.02 GB。歷史驗收仍描述當時結果，不改寫原清冊；重跑涉及已移除程式或舊封包的歷史流程時，須先依原來源重建。現行 1.0.7 的封包與獨立靜態驗證所需程式副本仍在。
+
+### 北方飛機商店推廣影片
+
+2026-11-04 依使用者要求，新增 [1.0.7 推廣影片](../../dist-all/v.1.0.7-20261103/promo/HighReward-v.1.0.7-20261103-promo.mp4)。成品 5,712,082 bytes，SHA-256 `548a1058fcf6fdf340b665dfe81b39ef825903ac3dfe6e24c8929a7c36a6a2c7`。60 秒、1920×1080、30fps、1800 幀，AAC 48kHz 雙聲道；52 秒為實錄，前後各 4 秒字卡。
+
+| 片段 | 實際呈現與證據 |
+|---|---|
+| 難度與債務 | 正常選擇及新遊戲；原版 1000 萬、高難度 5000 萬，數字直接由錄影裁切放大。工具列保留在畫面內。 |
+| 25 至 32 秒 | 原版北方地圖，字幕說明保留飛機商店。來源為完整繪製後的錄影尾段，未使用較早的空白截圖。 |
+| 32 至 41 秒 | 高難度北方地圖，框出塞拉菲、庫諾斯得巴特、加諾巴特，字幕明示「高難度限定，北方三間飛機商店停用」。 |
+| 41 至 56 秒 | 真實 F2 切換 HD／AI，包含載入完成畫面，字幕明示預載等待調整時長。 |
+| 配樂與片尾 | 沿用前節已驗原版錄音及其來源收據；片尾標明三平台完整版與本版版號。 |
+
+商店規則的已證實範圍仍是 014 的 region 7、town 57／slot 4、60／slot 6、63／slot 6。影片呈現正常地圖導航及規則字幕，沒有錄製購買嘗試。重新執行 `TestHardShopThreeBytesOnly` 及 `TestHardHooksSurviveIRQBeforeInstruction` 均通過，1.807 秒，沒有 skip；日誌為 `workplace/out/north-shop-rule-check.log`。本輪沒有改玩法或原版資料。
+
+| 入口 | 重跑方式與來源 |
+|---|---|
+| 錄影 | 使用同版 AppImage，設定 `HR_CAPTURE_TOOLBAR=1`、`HR_CAPTURE_BUNDLE_DIR` 及 `HR_CAPTURE_CONTROL_FILE`，由 `tools/capture_promo.sh` 執行。[原版模板](../../tools/promo-north-original.json) 使用 `HR_CAPTURE_DIFFICULTY=original`；[高難度模板](../../tools/promo-north-hard.json) 使用 `choose`。正常鍵鼠操作，不載入快照或注入狀態。 |
+| 原始收據 | `workplace/out/promo-v107-original/`、`promo-v107-hard-r2/`。程式 SHA-256 均為 `3bd58bc78d01d1806bfaec653ad562efb1d845fd58b4972b486db70c9b668c73`，與本版 AppImage 及保留的 `pkg-hr-play-linux` 相符。 |
+| 合成 | `tools/promo.sh` 使用 `HR_VERSION=v.1.0.7-20261103`、`HR_PROMO_FOCUS=difficulty`、`HR_PROMO_NORTH=1`；`HR_PROMO_LIVE`、`HR_PROMO_ORIGINAL` 分別指定上述高難度及原版目錄，音源設定沿用前節。 |
+| 技術驗證 | 既有 Go／Ebiten 工具 image 內執行 `tools/verify_difficulty_promo.py --north --version v.1.0.7-20261103`，另以 `--hard-capture`、`--original-capture`、`--binary` 指定上述輸入。字型沿用前節唯讀掛載。 |
+| 精確工具來源 | `workplace/out/promo-v107-source.json` 及 `promo-v107-source-*` 保存七份來源；索引副本位於影片目錄的 `source-index.json`。影片根清冊另綁定工具工作樹雜湊，不改寫遊戲真正建包來源。 |
+| 最終紀錄 | 影片目錄保存 `verification.json`、`rights.json`、`review.md`、兩份 capture JSON、版本輸出、build info、規則測試及抽圖。收尾與重生入口為 `workplace/out/promo-v107-final-audit.json`、`finalize-promo-v107.py`。 |
+
+技術檢查與唯讀審查通過，`verification.json` 為 `final-pass`。無黑幀或長靜音命中，音訊平均 −18.9 dB、峰值 −4.2 dB。債務裁切平均 RGB 誤差為原版 1.1046／255、高難度 1.1084／255。北方地圖以同來源影片時點及成品的 YUV 4:2:0 取樣比較，包含預期標示的平均誤差為 2.8737／255。先前不同時點及取樣方式的比較不作驗收；修正驗證工具後沿相同成品重跑通過，未修改影片以配合檢查。唯讀審查 `workplace/out/review-promo-v107-north.md` 無阻擋，包含 55.5 秒 AI 已完成畫面。
+
+三平台封包與舊 1.0.6 影片、清冊保持原樣。新影片納入 1.0.7 根清冊，建包來源仍為上述 `aa6ac908` 與 `68638002`。原版配樂及錄影只留本機，未新增 Release。

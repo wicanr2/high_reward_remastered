@@ -36,7 +36,7 @@ docker image inspect "$IMAGE" >/dev/null
 exec timeout "${HR_PROMO_TIMEOUT:-25m}" docker run --rm --name hr-promo-render \
   --network none --memory 4g --cpus 2 --pids-limit 256 \
   --log-opt max-size=10m --log-opt max-file=3 --user "$(id -u):$(id -g)" \
-  -e "HR_VERSION=$VERSION" -e "HR_PROMO_AUDIO_MODE=$AUDIO_MODE" -e "HR_PROMO_FOCUS=$FOCUS" -v "$DELIVERY:/delivery" -v "$LIVE:/live:ro" -v "$ENGLISH:/english:ro" \
+  -e "HR_VERSION=$VERSION" -e "HR_PROMO_AUDIO_MODE=$AUDIO_MODE" -e "HR_PROMO_FOCUS=$FOCUS" -e "HR_PROMO_NORTH=${HR_PROMO_NORTH:-0}" -v "$DELIVERY:/delivery" -v "$LIVE:/live:ro" -v "$ENGLISH:/english:ro" \
   -v "$FONTDIR:/fonts:ro" -v "$ROOT/tools/render_promo.py:/render.py:ro" \
   "${AUDIO_MOUNTS[@]}" \
   "$IMAGE" python3 /render.py

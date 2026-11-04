@@ -8,6 +8,18 @@
 
 使用者追加工具列難度設定，並選擇立即切換：先提示儲存，再回到所選模式標題，進度繼續分開。前端契約見 [015](docs/spec/015-toolbar-difficulty-switch.md)，不在目前進度內換算規則或自動存檔。
 
+使用者隨後要求三平台本機完整版。現行完整版為 `v.1.0.7-20261103`，位於 `dist-all/v.1.0.7-20261103/full-local/`。建包根為獨立來源提交 `aa6ac90872a88e460e0d1e3343605863269a1003`，fork 為 `68638002ed4c2f86bd15a055bbf9a1a463f6543b`；重生清冊須明示兩個來源。三包靜態核對與 Linux 實包的難度選擇、正常新遊戲、工具列雙向切換、獨立讀檔及 HD／AI 通過。Windows／macOS 未原生實機操作，完整版只留本機，公開 Release 維持 1.0.5。工具鏈及收據入口在 [037](docs/re/037-difficulty-modes.md) 的本版交付段。
+
+2026-11-04 使用者要求清理工作目錄，沿用先前「只留最新版、刪除舊版安裝包」授權。已移除本機 1.0.5 的六個舊安裝包及 29 個可重建測試程式，保留 1.0.7 三平台完整版、各版影片、歷史清冊與驗收、原版輸入及存檔。這項本機清理決定優先於較早保留舊封包的敘述，不更動 Git tag 或遠端 Release。刪除前雜湊與保留檔核對見 `workplace/out/cleanup-20261104.json`，目前狀態與歷程見 037、WORKLOG。
+
+同日使用者要求推廣影片加入北方飛機商店停用說明。新版 60 秒影片位於 `dist-all/v.1.0.7-20261103/promo/`，由同版實包正常新遊戲及地圖導航錄製，標示高難度的三間停用商店。畫面呈現地圖與規則字幕，未錄製購買嘗試。影片驗收及來源入口見 [037](docs/re/037-difficulty-modes.md#北方飛機商店推廣影片)。三平台封包、原版輸入、舊影片與公開 Release 未變更。
+
+同日使用者提供玩家平衡回饋，確認採用 [016](docs/spec/016-difficulty-rule-options.md) 的八項難度選項，全部預設開啟。飛機及戰車各有「保留後期作戰價值」與「運輸為主」，預設採前者，兩種策略不疊加。每組完整設定依 [017](docs/spec/017-custom-difficulty-profiles.md) 獨立保存進度。飛機只在阿雷姆、魯雷恩販售，共保留九格、停用十一格。載具倍率、四段劇情、西路三段城防及 36 座重要城市配置已由使用者確認為第一輪試玩值，不宣稱整體平衡完成。
+
+自訂難度正式接線位於 fork `028f6c96caa151e300e9de02858b8207a3e64e02`，備份為 `engine/patches/0049-custom-difficulty-profiles.patch`、`0050-custom-difficulty-rules.patch`。開場高難度卡改啟動 `custom`；工具列或 F5 可編輯八項設定。舊 `-difficulty hard` 與 `saves-hard` 保留原規則。新設定以完整摘要隔離，套用後回該組標題，同組不重建，準備失敗保留原 Session。唯讀審查、規則測試與目前驗收見 [037](docs/re/037-difficulty-modes.md)、[038](docs/re/038-custom-difficulty-rules.md)。本輪只交付本機預覽，不重建 1.0.7 封包、影片或公開 Release。
+
+016 已 CONFORMED，限第一輪功能、正常前端與存讀檔、飛機購買保存及護送初段抽樣。新遊戲保存區核對 36 座城市，其中 10 座補強載具；完整攻城成本與整體平衡仍待試玩。試玩入口為 `workplace/out/run-difficulty-preview.sh`，指向 `hr-play-custom-preview-r2`；真正來源、執行檔雜湊與本輪收尾由 037 的「自訂難度第一輪實作」段落索引。
+
 ## 現行公開決定（2026-10-06）
 
 使用者明確要求將 `wicanr2/high_reward_remastered` 轉成 public，並新增原版與 HD 肖像的人物介紹。本節優先於下文 PRIVATE、衍生素材只限私人版控及私人發行的限制。

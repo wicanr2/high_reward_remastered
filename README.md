@@ -78,8 +78,8 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | 畫面 | 原版、595 項 HD、595 項 AI 三種圖層 |
 | 語言 | 五語介面與遊戲文字，譯文及純 Noto 字模隨發行包提供 |
 | 聲音 | 原版 MIDI 的 FM 近似播放與 PCM 音效；沒有音訊裝置時靜音 |
-| 發行 | 已交付 `v.1.0.5-20261014`；開發版難度模式已通過驗證，現有安裝包尚未重建 |
-| 開發版難度 | 啟動前選原版／高難度，進度獨立；高難度債務 ×5、劇情獎金減半、劇情敵軍生命與基本攻防 ×1.5、北方三間飛機商店停用 |
+| 發行 | 公開 Release 為 `v.1.0.5-20261014`；本機三平台完整版為 `v.1.0.7-20261103`，包含難度選擇與工具列切換 |
+| 難度 | 啟動前選原版／高難度，進度獨立；高難度債務 ×5、劇情獎金減半、劇情敵軍生命與基本攻防 ×1.5、北方三間飛機商店停用 |
 
 使用者已取消追加遊玩與美術抽樣，後續問題請回報 [GitHub Issues](https://github.com/wicanr2/high_reward_remastered/issues)。本版不宣稱完整通關或全遊戲原版 parity。macOS 未簽章，未做 Windows／macOS 實機驗收。唯一現況入口為 [AGENTS.md](AGENTS.md)，歷程見 [WORKLOG.md](WORKLOG.md)。
 
@@ -102,13 +102,15 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 
 存檔、截圖、診斷與語言包位於使用者資料目錄的 `high_reward/`：Linux `~/.config`、Windows `%AppData%`、macOS `~/Library/Application Support`。原版資料夾保持不變。診斷含原版記憶體，請透過私人管道提供給維護者。
 
-開發版每次啟動先選難度，可用滑鼠或方向鍵／Tab 選擇，Enter 開始，Esc 離開。原版沿用 `saves/`；高難度使用 `saves-hard/`，首次建立全新進度。也可用 `-difficulty original` 或 `-difficulty hard` 直接啟動指定模式。自訂 `-saves <基底>` 時，高難度使用該基底加上 `-hard`。難度規則、進度隔離及正常護送戰鬥抽樣已通過；功能尚未納入正式安裝包。驗證範圍見[難度模式調查](docs/re/037-difficulty-modes.md)。
+1.0.7 本機完整版每次啟動先選難度，可用滑鼠或方向鍵／Tab 選擇，Enter 開始，Esc 離開。原版沿用 `saves/`；高難度使用 `saves-hard/`，首次建立全新進度。也可用 `-difficulty original` 或 `-difficulty hard` 直接啟動指定模式。自訂 `-saves <基底>` 時，高難度使用該基底加上 `-hard`。難度規則、進度隔離及正常護送戰鬥抽樣已通過。驗證範圍見[難度模式調查](docs/re/037-difficulty-modes.md)。
 
 遊戲上方的「難度」工具列可隨時切換模式。先儲存目前進度，再確認切換；所選模式會從標題開始，可讀取自己的存檔。取消會回到原遊戲。預設視窗為 1280×844，遊戲畫布仍為 1280×800；舊錄影工具可加 `-no-toolbar` 保留原尺寸與座標。[工具列契約](docs/spec/015-toolbar-difficulty-switch.md)列出驗證範圍。
 
-[難度模式展示影片](dist-all/v.1.0.6-20261103/promo/HighReward-v.1.0.6-20261103-promo.mp4)為 60 秒 1080p30 本機開發版實錄，包含難度選擇、債務比較、城市編成及 F2 主題切換，配樂沿用原版錄音。
+目前原始碼另有八項自訂難度規則，預設全開。可由開場設定按鈕、工具列或 F5 調整；飛機與戰車各有兩種削弱策略，每組設定各自保存進度。原版及舊高難度仍可切回續玩。這是本機開發預覽，尚未納入上方 1.0.7 封包；第一輪數值與試玩限制見[自訂規則](docs/spec/016-difficulty-rule-options.md)，啟動與驗證入口見[目前狀態](docs/re/037-difficulty-modes.md#自訂難度第一輪實作)。
 
-本機 [v.1.0.5-20261014 完整版](dist-all/v.1.0.5-20261014/full-local/) 已納入城市編成的隊長姓名修正，並包含視窗自由縮放與高速設定游標修正。可拖曳視窗邊框或角落放大縮小，畫面維持原比例；F11／Alt+Enter 離開全螢幕後回到先前尺寸。原版重畫仍會主動隱藏游標。驗證範圍見[姓名修正](docs/re/036-formation-commander-names.md)與[游標呈現調查](docs/re/033-cursor-presentation.md)。
+[難度模式展示影片](dist-all/v.1.0.7-20261103/promo/HighReward-v.1.0.7-20261103-promo.mp4)為 60 秒 1080p30 本機完整版實錄，包含難度選擇、債務比較、北方三間飛機商店停用的地圖標示及 F2 主題切換，配樂沿用原版錄音。商店停用只適用高難度。
+
+本機 [v.1.0.7-20261103 完整版](dist-all/v.1.0.7-20261103/full-local/) 包含難度切換、城市編成的隊長姓名修正、視窗自由縮放與高速設定游標修正。可拖曳視窗邊框或角落放大縮小，畫面維持原比例；F11／Alt+Enter 離開全螢幕後回到先前尺寸。原版重畫仍會主動隱藏游標。驗證範圍見[難度模式](docs/re/037-difficulty-modes.md)、[姓名修正](docs/re/036-formation-commander-names.md)與[游標呈現調查](docs/re/033-cursor-presentation.md)。
 
 ![F1 五語幫助指令](docs/images/f1-help.png)
 
@@ -128,10 +130,11 @@ PTT Old-Games 版 2015 年 9 至 10 月的一串推文裡，有一則寫「當�
 | `tools/capture_promo.sh <名稱>` | 正常滑鼠與按鍵錄影；`HR_CAPTURE_BUNDLE_DIR` 可指定解出的 AppImage，`HR_CAPTURE_CONTROL_FILE` 可指定控制模板，收據位於 `workplace/out/<名稱>/` |
 | [繁中控制模板](tools/promo_control_zh-TW.json)、[英文控制模板](tools/promo_control_en.json) | F2／F1／F4、游標及正常新遊戲錄影輸入，名稱僅供定位 |
 | [姓名修正錄影模板](tools/promo-commander-names.json) | 正常新遊戲進城市編成，點選三位隊長與 F2 切換；以 `HR_PROMO_FOCUS=commander-names` 合成姓名修正影片，重跑方式見 [036](docs/re/036-formation-commander-names.md#本版推廣影片) |
+| [北方地圖原版模板](tools/promo-north-original.json)、[高難度模板](tools/promo-north-hard.json) | 錄製完整工具列、正常新遊戲及北方地圖；合成與驗收入口見 [037](docs/re/037-difficulty-modes.md#北方飛機商店推廣影片) |
 | `tools/l10n/capture_full.py` | Docker 內擷取五語新遊戲畫面及 F4 下次啟動切換 |
 | `tools/l10n/bakeglyphs.sh` | 從固定 Noto 來源重烘字模補丁 |
 
-目前交付目錄為 `dist-all/v.1.0.5-20261014/`：`full-local/` 是含遊戲的三平台完整版，`patch/` 是 GitHub 發行包，`promo/` 是完成的 60 秒推廣片與檢查，`smoke/` 保存本版畫面與交付紀錄，`SHA256SUMS.json` 保存雜湊。[本機推廣影片](dist-all/v.1.0.5-20261014/promo/HighReward-v.1.0.5-20261014-promo.mp4) 強調城市編成的三位隊長姓名修正，包含實際點選、姓名欄放大及 F2 主題切換。配樂取自原版程式與原廠 SB16 驅動的 DOSBox-X 播放錄音。含原版遊戲的完整版與原版配樂影片只留本機。
+現行本機交付為 `dist-all/v.1.0.7-20261103/`：`full-local/` 保存含遊戲的三平台完整版，`smoke/` 保存驗收畫面與紀錄，`promo/` 保存上方新版影片及驗收，`SHA256SUMS.json` 保存大小、雜湊及真正建包來源。本機只留最新安裝包；公開舊版由 [1.0.5 Release](https://github.com/wicanr2/high_reward_remastered/releases/tag/v.1.0.5-20261014) 下載。各版影片與歷史清冊保留。含原版遊戲的完整版與原版配樂影片只留本機。
 
 ## 文件與素材
 

@@ -1,0 +1,876 @@
+From 5c6cd647f38e1e999f45e767bcac6244b575293f Mon Sep 17 00:00:00 2001
+From: Chun-Yu Wang <wicanr2@gmail.com>
+Date: Wed, 4 Nov 2026 15:12:45 +0800
+Subject: [PATCH] =?UTF-8?q?=E6=96=B0=E5=A2=9E=E8=87=AA=E8=A8=82=E9=9B=A3?=
+ =?UTF-8?q?=E5=BA=A6=E8=A8=AD=E5=AE=9A=E8=88=87=E7=8D=A8=E7=AB=8B=E9=80=B2?=
+ =?UTF-8?q?=E5=BA=A6=E6=BA=96=E5=82=99?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ apps/hr/runtime/challenge_profile.go         | 299 ++++++++++++++++
+ apps/hr/runtime/challenge_publish_darwin.go  |   7 +
+ apps/hr/runtime/challenge_publish_linux.go   |   7 +
+ apps/hr/runtime/challenge_publish_other.go   |   9 +
+ apps/hr/runtime/challenge_publish_windows.go |  15 +
+ apps/hr/runtime/challenge_rules.go           | 125 +++++++
+ apps/hr/runtime/challenge_test.go            | 342 +++++++++++++++++++
+ 7 files changed, 804 insertions(+)
+ create mode 100644 apps/hr/runtime/challenge_profile.go
+ create mode 100644 apps/hr/runtime/challenge_publish_darwin.go
+ create mode 100644 apps/hr/runtime/challenge_publish_linux.go
+ create mode 100644 apps/hr/runtime/challenge_publish_other.go
+ create mode 100644 apps/hr/runtime/challenge_publish_windows.go
+ create mode 100644 apps/hr/runtime/challenge_rules.go
+ create mode 100644 apps/hr/runtime/challenge_test.go
+
+diff --git a/apps/hr/runtime/challenge_profile.go b/apps/hr/runtime/challenge_profile.go
+new file mode 100644
+index 0000000..5cb9b28
+--- /dev/null
++++ b/apps/hr/runtime/challenge_profile.go
+@@ -0,0 +1,299 @@
++package runtime
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++
++	"github.com/wicanr2/dosgolem/apps/hr/patch"
++)
++
++type ChallengeProfile struct {
++	Rules            ChallengeRules
++	Digest           string
++	DataDir, SaveDir string
++}
++
++const challengeRootMarker = "{\"mode\":\"custom-root-v1\",\"source_sha256\":\"" + patch.MainEXESHA256 + "\"}\n"
++
++func challengeDirectory(path string, create bool) error {
++	st, err := os.Lstat(path)
++	if os.IsNotExist(err) && create {
++		if err = os.MkdirAll(path, 0o755); err != nil {
++			return err
++		}
++		st, err = os.Lstat(path)
++	}
++	if err != nil {
++		return err
++	}
++	if !st.IsDir() || st.Mode()&os.ModeSymlink != 0 {
++		return fmt.Errorf("自訂難度必須使用一般目錄：%s", path)
++	}
++	return nil
++}
++
++// publishChallengeFile publishes a fully written temporary file without replacing
++// an existing destination. The platform helper also protects empty directories.
++func publishChallengeFile(path string, b []byte) error {
++	f, err := os.CreateTemp(filepath.Dir(path), ".challenge-write-*")
++	if err != nil {
++		return err
++	}
++	name := f.Name()
++	defer os.Remove(name)
++	if _, err = f.Write(b); err == nil {
++		err = f.Chmod(0o644)
++	}
++	if err == nil {
++		err = f.Sync()
++	}
++	closeErr := f.Close()
++	if err != nil {
++		return err
++	}
++	if closeErr != nil {
++		return closeErr
++	}
++	if err = publishChallengePath(name, path); err != nil {
++		// A concurrent publisher may have won; it must have identical bytes.
++		old, readErr := regularBytes(path)
++		if readErr != nil || !bytes.Equal(old, b) {
++			return fmt.Errorf("自訂難度檔案已存在或無法發布：%s：%w", path, err)
++		}
++	}
++	return nil
++}
++
++func isChallengeDigest(name string) bool {
++	if len(name) != 64 || strings.ToLower(name) != name {
++		return false
++	}
++	_, err := hex.DecodeString(name)
++	return err == nil
++}
++
++func challengeProfileMarker(r ChallengeRules, digest string) ([]byte, error) {
++	return json.Marshal(struct {
++		Mode         string         `json:"mode"`
++		SourceSHA256 string         `json:"source_sha256"`
++		Digest       string         `json:"config_sha256"`
++		Rules        ChallengeRules `json:"rules"`
++	}{"custom-v1", patch.MainEXESHA256, digest, r})
++}
++
++func validateChallengeProgress(path string, marker []byte) error {
++	if err := challengeDirectory(path, false); err != nil {
++		return err
++	}
++	b, err := regularBytes(filepath.Join(path, "difficulty.json"))
++	if err != nil {
++		return err
++	}
++	if !bytes.Equal(b, marker) {
++		return fmt.Errorf("自訂難度進度標記或完整設定不符")
++	}
++	entries, err := os.ReadDir(path)
++	if err != nil {
++		return err
++	}
++	seen := map[string]bool{}
++	index := ""
++	for _, entry := range entries {
++		name := entry.Name()
++		upper := strings.ToUpper(name)
++		allowed := name == "difficulty.json" || upper == "FNAME.DAT"
++		for i := 0; i < 5; i++ {
++			allowed = allowed || upper == fmt.Sprintf("GAMEFILE.%03d", i)
++		}
++		st, e := os.Lstat(filepath.Join(path, name))
++		if e != nil {
++			return e
++		}
++		if !allowed || !st.Mode().IsRegular() || seen[upper] {
++			return fmt.Errorf("自訂進度含未知、重複或非一般項目：%s", name)
++		}
++		seen[upper] = true
++		if upper == "FNAME.DAT" {
++			index = filepath.Join(path, name)
++		}
++		if strings.HasPrefix(upper, "GAMEFILE.") && st.Size() != 31839 {
++			return fmt.Errorf("自訂進度 %s 長度不符，保留原檔", name)
++		}
++	}
++	if index == "" {
++		return fmt.Errorf("自訂進度缺少 FNAME")
++	}
++	b, err = regularBytes(index)
++	if err != nil {
++		return err
++	}
++	return checkProfileIndex(b)
++}
++
++// PrepareChallengeProfile prepares storage only. No Session, CPU, balance hook,
++// language pack, existing player save, or original input is modified.
++func PrepareChallengeProfile(root, base string, rules ChallengeRules) (ChallengeProfile, error) {
++	var result ChallengeProfile
++	digest, err := rules.Digest()
++	if err != nil {
++		return result, err
++	}
++	if base == "" {
++		return result, fmt.Errorf("自訂難度必須指定存檔基底")
++	}
++	custom := filepath.Clean(base) + "-custom"
++	customReal, err := realTarget(custom)
++	if err != nil {
++		return result, err
++	}
++	for _, other := range []string{root, base, SavePath(base, DifficultyHard)} {
++		real, err := realTarget(other)
++		if err != nil {
++			return result, err
++		}
++		if insidePath(real, customReal) || insidePath(customReal, real) {
++			return result, fmt.Errorf("自訂難度根與原版或舊進度重疊")
++		}
++	}
++	if err = CheckRequiredFiles(root, true); err != nil {
++		return result, err
++	}
++	if err = challengeDirectory(custom, true); err != nil {
++		return result, err
++	}
++	rootMarkerPath := filepath.Join(custom, "root.json")
++	b, err := regularBytes(rootMarkerPath)
++	if os.IsNotExist(err) {
++		entries, e := os.ReadDir(custom)
++		if e != nil {
++			return result, e
++		}
++		if len(entries) != 0 {
++			return result, fmt.Errorf("自訂難度根已有未標記內容，保留並拒絕採用")
++		}
++		err = publishChallengeFile(rootMarkerPath, []byte(challengeRootMarker))
++	} else if err == nil && string(b) != challengeRootMarker {
++		err = fmt.Errorf("自訂難度根標記不符")
++	}
++	if err != nil {
++		return result, err
++	}
++	entries, err := os.ReadDir(custom)
++	if err != nil {
++		return result, err
++	}
++	for _, entry := range entries {
++		name := entry.Name()
++		st, e := os.Lstat(filepath.Join(custom, name))
++		if e != nil {
++			return result, e
++		}
++		if name == "root.json" && st.Mode().IsRegular() {
++			continue
++		}
++		if (name == "data-v1" || isChallengeDigest(name)) && st.IsDir() && st.Mode()&os.ModeSymlink == 0 {
++			continue
++		}
++		return result, fmt.Errorf("自訂難度根有未知或非一般項目：%s", name)
++	}
++	data := filepath.Join(custom, "data-v1")
++	if err = challengeDirectory(data, true); err != nil {
++		return result, err
++	}
++	required := map[string]RequiredFile{}
++	var projection []RequiredFile
++	for _, rf := range RequiredFiles() {
++		upper := strings.ToUpper(rf.Name)
++		if upper == "FNAME.DAT" || upper == "FNAME.DA_" || strings.HasPrefix(upper, "GAMEFILE.") {
++			continue
++		}
++		required[rf.Name] = rf
++		projection = append(projection, rf)
++	}
++	entries, err = os.ReadDir(data)
++	if err != nil {
++		return result, err
++	}
++	for _, entry := range entries {
++		st, e := os.Lstat(filepath.Join(data, entry.Name()))
++		if e != nil {
++			return result, e
++		}
++		if _, ok := required[entry.Name()]; !ok || !st.Mode().IsRegular() {
++			return result, fmt.Errorf("共用資料含未知或非一般檔：%s", entry.Name())
++		}
++	}
++	sources, err := os.ReadDir(root)
++	if err != nil {
++		return result, err
++	}
++	byName := map[string]string{}
++	for _, entry := range sources {
++		byName[strings.ToUpper(entry.Name())] = entry.Name()
++	}
++	for _, rf := range projection {
++		path := filepath.Join(data, rf.Name)
++		b, err := regularBytes(path)
++		if os.IsNotExist(err) {
++			b, err = regularBytes(filepath.Join(root, byName[rf.Name]))
++			if err != nil {
++				return result, err
++			}
++			sum := sha256.Sum256(b)
++			if int64(len(b)) != rf.Size || hex.EncodeToString(sum[:]) != rf.SHA256 {
++				return result, fmt.Errorf("自訂難度來源在複製前變更：%s", rf.Name)
++			}
++			if err = publishChallengeFile(path, b); err != nil {
++				return result, err
++			}
++		} else if err != nil {
++			return result, err
++		}
++		sum := sha256.Sum256(b)
++		if int64(len(b)) != rf.Size || hex.EncodeToString(sum[:]) != rf.SHA256 {
++			return result, fmt.Errorf("共用資料雜湊不符，保留原檔：%s", rf.Name)
++		}
++	}
++	path := filepath.Join(custom, digest)
++	marker, err := challengeProfileMarker(rules, digest)
++	if err != nil {
++		return result, err
++	}
++	if _, err = os.Lstat(path); os.IsNotExist(err) {
++		temp, err := os.MkdirTemp(custom, ".challenge-profile-*")
++		if err != nil {
++			return result, err
++		}
++		defer os.RemoveAll(temp) // Only this invocation's private directory.
++		if err = os.Chmod(temp, 0o755); err != nil {
++			return result, err
++		}
++		var index strings.Builder
++		for i := 0; i < 5; i++ {
++			fmt.Fprintf(&index, "%d ----/--/-- --/--/-- EMPTY\r\n", i)
++		}
++		if err = publishChallengeFile(filepath.Join(temp, "difficulty.json"), marker); err != nil {
++			return result, err
++		}
++		if err = publishChallengeFile(filepath.Join(temp, "fname.dat"), []byte(index.String())); err != nil {
++			return result, err
++		}
++		if err = publishChallengePath(temp, path); err != nil {
++			if checkErr := validateChallengeProgress(path, marker); checkErr != nil {
++				return result, fmt.Errorf("自訂進度發布失敗：%w", err)
++			}
++		}
++	} else if err != nil {
++		return result, err
++	}
++	if err = validateChallengeProgress(path, marker); err != nil {
++		return result, err
++	}
++	return ChallengeProfile{rules, digest, data, path}, nil
++}
+diff --git a/apps/hr/runtime/challenge_publish_darwin.go b/apps/hr/runtime/challenge_publish_darwin.go
+new file mode 100644
+index 0000000..6acb3d9
+--- /dev/null
++++ b/apps/hr/runtime/challenge_publish_darwin.go
+@@ -0,0 +1,7 @@
++package runtime
++
++import "golang.org/x/sys/unix"
++
++func publishChallengePath(from, to string) error {
++	return unix.RenamexNp(from, to, unix.RENAME_EXCL)
++}
+diff --git a/apps/hr/runtime/challenge_publish_linux.go b/apps/hr/runtime/challenge_publish_linux.go
+new file mode 100644
+index 0000000..8a1db72
+--- /dev/null
++++ b/apps/hr/runtime/challenge_publish_linux.go
+@@ -0,0 +1,7 @@
++package runtime
++
++import "golang.org/x/sys/unix"
++
++func publishChallengePath(from, to string) error {
++	return unix.Renameat2(unix.AT_FDCWD, from, unix.AT_FDCWD, to, unix.RENAME_NOREPLACE)
++}
+diff --git a/apps/hr/runtime/challenge_publish_other.go b/apps/hr/runtime/challenge_publish_other.go
+new file mode 100644
+index 0000000..596b994
+--- /dev/null
++++ b/apps/hr/runtime/challenge_publish_other.go
+@@ -0,0 +1,9 @@
++//go:build !linux && !darwin && !windows
++
++package runtime
++
++import "fmt"
++
++func publishChallengePath(from, to string) error {
++	return fmt.Errorf("此平台尚未支援自訂進度的不覆寫發布")
++}
+diff --git a/apps/hr/runtime/challenge_publish_windows.go b/apps/hr/runtime/challenge_publish_windows.go
+new file mode 100644
+index 0000000..1ea3bbd
+--- /dev/null
++++ b/apps/hr/runtime/challenge_publish_windows.go
+@@ -0,0 +1,15 @@
++package runtime
++
++import "golang.org/x/sys/windows"
++
++func publishChallengePath(from, to string) error {
++	a, err := windows.UTF16PtrFromString(from)
++	if err != nil {
++		return err
++	}
++	b, err := windows.UTF16PtrFromString(to)
++	if err != nil {
++		return err
++	}
++	return windows.MoveFileEx(a, b, 0)
++}
+diff --git a/apps/hr/runtime/challenge_rules.go b/apps/hr/runtime/challenge_rules.go
+new file mode 100644
+index 0000000..fc6a0a2
+--- /dev/null
++++ b/apps/hr/runtime/challenge_rules.go
+@@ -0,0 +1,125 @@
++package runtime
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"io"
++)
++
++// VehicleRule selects one strategy; Original also represents a disabled switch.
++type VehicleRule string
++
++const (
++	VehicleOriginal  VehicleRule = "original"
++	VehicleBalanced  VehicleRule = "balanced"
++	VehicleTransport VehicleRule = "transport"
++)
++
++// ChallengeRules is the profile identity defined by spec 017. It does not enable
++// gameplay hooks: spec 016 must be READY before a Session can consume these rules.
++type ChallengeRules struct {
++	Schema            int         `json:"schema"`
++	Revision          string      `json:"revision"`
++	DebtX5            bool        `json:"debt_x5"`
++	HalfRewards       bool        `json:"half_rewards"`
++	StagedStory       bool        `json:"staged_story"`
++	LateAircraftShops bool        `json:"late_aircraft_shops"`
++	Aircraft          VehicleRule `json:"aircraft"`
++	Tank              VehicleRule `json:"tank"`
++	WesternGuards     bool        `json:"western_guards"`
++	FortressDefenses  bool        `json:"fortress_defenses"`
++}
++
++func DefaultChallengeRules() ChallengeRules {
++	return ChallengeRules{1, "challenge-v1", true, true, true, true, VehicleBalanced, VehicleBalanced, true, true}
++}
++
++func (r ChallengeRules) Validate() error {
++	if r.Schema != 1 || r.Revision != "challenge-v1" {
++		return fmt.Errorf("自訂難度規則版本不符")
++	}
++	for _, v := range []VehicleRule{r.Aircraft, r.Tank} {
++		if v != VehicleOriginal && v != VehicleBalanced && v != VehicleTransport {
++			return fmt.Errorf("未知載具規則 %q", v)
++		}
++	}
++	return nil
++}
++
++func (r ChallengeRules) CanonicalJSON() ([]byte, error) {
++	if err := r.Validate(); err != nil {
++		return nil, err
++	}
++	return json.Marshal(r)
++}
++
++func (r ChallengeRules) Digest() (string, error) {
++	b, err := r.CanonicalJSON()
++	if err != nil {
++		return "", err
++	}
++	sum := sha256.Sum256(b)
++	return hex.EncodeToString(sum[:]), nil
++}
++
++// DecodeChallengeRules requires every exact key, including explicit false.
++// Tokenization detects duplicates after JSON has decoded Unicode key escapes.
++func DecodeChallengeRules(b []byte) (ChallengeRules, error) {
++	var zero ChallengeRules
++	d := json.NewDecoder(bytes.NewReader(b))
++	token, err := d.Token()
++	if err != nil || token != json.Delim('{') {
++		return zero, fmt.Errorf("自訂難度設定必須是 JSON 物件")
++	}
++	fields := map[string]json.RawMessage{}
++	for d.More() {
++		token, err = d.Token()
++		if err != nil {
++			return zero, err
++		}
++		key, ok := token.(string)
++		if !ok {
++			return zero, fmt.Errorf("自訂難度欄位名稱錯誤")
++		}
++		if _, exists := fields[key]; exists {
++			return zero, fmt.Errorf("自訂難度重複欄位 %q", key)
++		}
++		var raw json.RawMessage
++		if err := d.Decode(&raw); err != nil {
++			return zero, err
++		}
++		fields[key] = raw
++	}
++	if token, err = d.Token(); err != nil || token != json.Delim('}') {
++		return zero, fmt.Errorf("自訂難度設定不完整")
++	}
++	if _, err = d.Token(); err != io.EOF {
++		return zero, fmt.Errorf("自訂難度設定含尾隨內容")
++	}
++	var r ChallengeRules
++	expected := map[string]any{
++		"schema": &r.Schema, "revision": &r.Revision, "debt_x5": &r.DebtX5,
++		"half_rewards": &r.HalfRewards, "staged_story": &r.StagedStory,
++		"late_aircraft_shops": &r.LateAircraftShops, "aircraft": &r.Aircraft,
++		"tank": &r.Tank, "western_guards": &r.WesternGuards, "fortress_defenses": &r.FortressDefenses,
++	}
++	if len(fields) != len(expected) {
++		return zero, fmt.Errorf("自訂難度欄位數不符")
++	}
++	for key, target := range expected {
++		raw, found := fields[key]
++		if !found || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
++			return zero, fmt.Errorf("自訂難度缺少有效欄位 %q", key)
++		}
++		if err := json.Unmarshal(raw, target); err != nil {
++			return zero, fmt.Errorf("自訂難度欄位 %q：%w", key, err)
++		}
++	}
++	if err := r.Validate(); err != nil {
++		return zero, err
++	}
++	return r, nil
++}
+diff --git a/apps/hr/runtime/challenge_test.go b/apps/hr/runtime/challenge_test.go
+new file mode 100644
+index 0000000..5087be7
+--- /dev/null
++++ b/apps/hr/runtime/challenge_test.go
+@@ -0,0 +1,342 @@
++package runtime
++
++import (
++	"bytes"
++	"crypto/sha256"
++	"encoding/hex"
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"strings"
++	"sync"
++	"testing"
++)
++
++func TestChallengeRulesIdentityAndStrictJSON(t *testing.T) {
++	r := DefaultChallengeRules()
++	if !r.DebtX5 || !r.HalfRewards || !r.StagedStory || !r.LateAircraftShops || !r.WesternGuards || !r.FortressDefenses || r.Aircraft != VehicleBalanced || r.Tank != VehicleBalanced {
++		t.Fatal("預設不是八項全開及均衡載具")
++	}
++	if _, err := (ChallengeRules{}).Digest(); err == nil {
++		t.Fatal("零值被當作有效預設")
++	}
++	seen := map[string]bool{}
++	for mask := 0; mask < 64; mask++ {
++		for _, plane := range []VehicleRule{VehicleOriginal, VehicleBalanced, VehicleTransport} {
++			for _, tank := range []VehicleRule{VehicleOriginal, VehicleBalanced, VehicleTransport} {
++				q := r
++				q.DebtX5, q.HalfRewards, q.StagedStory = mask&1 != 0, mask&2 != 0, mask&4 != 0
++				q.LateAircraftShops, q.WesternGuards, q.FortressDefenses = mask&8 != 0, mask&16 != 0, mask&32 != 0
++				q.Aircraft, q.Tank = plane, tank
++				digest, err := q.Digest()
++				if err != nil || !isChallengeDigest(digest) || seen[digest] {
++					t.Fatal("組合身分重複或無效", mask, plane, tank, err)
++				}
++				seen[digest] = true
++				b, _ := q.CanonicalJSON()
++				decoded, err := DecodeChallengeRules(b)
++				if err != nil || decoded != q {
++					t.Fatal("設定往返失真", err)
++				}
++				var reordered map[string]any
++				json.Unmarshal(b, &reordered)
++				pretty, _ := json.MarshalIndent(reordered, "", " ")
++				decoded, err = DecodeChallengeRules(pretty)
++				if err != nil {
++					t.Fatal(err)
++				}
++				other, _ := decoded.Digest()
++				if other != digest {
++					t.Fatal("欄位順序或空白改變進度身分")
++				}
++			}
++		}
++	}
++	b, _ := r.CanonicalJSON()
++	s := string(b)
++	bad := []string{
++		`null`, `[]`, `{}`, s + `{}`, s + `x`, s[:len(s)-1],
++		strings.Replace(s, `"debt_x5":true,`, "", 1),
++		strings.Replace(s, `"debt_x5":true`, `"debt_x5":null`, 1),
++		strings.Replace(s, `"debt_x5":true`, `"Debt_x5":true`, 1),
++		strings.Replace(s, `"debt_x5":true`, `"debt_x5":1`, 1),
++		strings.Replace(s, `"schema":1`, `"schema":1.0`, 1),
++		strings.Replace(s, `"schema":1`, `"schema":2`, 1),
++		strings.Replace(s, `"challenge-v1"`, `"future"`, 1),
++		strings.Replace(s, `"aircraft":"balanced"`, `"aircraft":"unknown"`, 1),
++		strings.Replace(s, `"debt_x5":true`, `"debt_x5":true,"debt_x5":false`, 1),
++		strings.Replace(s, `"debt_x5":true`, `"debt_x5":true,"\u0064ebt_x5":false`, 1),
++		strings.Replace(s, `"debt_x5":true`, `"unknown":true`, 1),
++	}
++	for _, invalid := range bad {
++		if _, err := DecodeChallengeRules([]byte(invalid)); err == nil {
++			t.Fatalf("接受不完整或污染設定：%s", invalid)
++		}
++	}
++}
++
++func readChallengeFile(t *testing.T, path string) []byte {
++	t.Helper()
++	b, err := os.ReadFile(path)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return b
++}
++
++func writeChallengeFile(t *testing.T, path string, b []byte) {
++	t.Helper()
++	if err := os.WriteFile(path, b, 0o644); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestChallengeProfilesReuseAndShareData(t *testing.T) {
++	root := origRoot(t)
++	base := filepath.Join(t.TempDir(), "saves")
++	old, err := Open(root, Options{SaveDir: base, Difficulty: DifficultyHard, NoDiag: true})
++	if err != nil {
++		t.Fatal(err)
++	}
++	oldIndex := readChallengeFile(t, filepath.Join(old.d.Scratch, "fname.dat"))
++	if err := os.MkdirAll(base, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	writeChallengeFile(t, filepath.Join(base, "keep"), []byte("original-progress"))
++	originalMain := readChallengeFile(t, filepath.Join(root, "MAIN.EXE"))
++	r := DefaultChallengeRules()
++	a, err := PrepareChallengeProfile(root, base, r)
++	if err != nil {
++		t.Fatal(err)
++	}
++	game := bytes.Repeat([]byte{0x6a}, 31839)
++	writeChallengeFile(t, filepath.Join(a.SaveDir, "gamefile.000"), game)
++	index := readChallengeFile(t, filepath.Join(a.SaveDir, "fname.dat"))
++	r.Aircraft = VehicleTransport
++	b, err := PrepareChallengeProfile(root, base, r)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if a.SaveDir == b.SaveDir || a.Digest == b.Digest || a.DataDir != b.DataDir {
++		t.Fatal("進度未分開或資產重複投影")
++	}
++	entries, err := os.ReadDir(a.DataDir)
++	if err != nil || len(entries) != len(RequiredFiles())-1 {
++		t.Fatal("共用投影不是排除 FNAME 的完整資料集合", len(entries), err)
++	}
++	for _, rf := range RequiredFiles() {
++		if rf.Name == "FNAME.DAT" {
++			continue
++		}
++		b := readChallengeFile(t, filepath.Join(a.DataDir, rf.Name))
++		sum := sha256.Sum256(b)
++		if int64(len(b)) != rf.Size || hex.EncodeToString(sum[:]) != rf.SHA256 {
++			t.Fatal("共用投影與原始資料不符", rf.Name)
++		}
++	}
++	c, err := PrepareChallengeProfile(root, base, a.Rules)
++	if err != nil || c != a {
++		t.Fatal("切回設定未重用進度", err)
++	}
++	if !bytes.Equal(game, readChallengeFile(t, filepath.Join(c.SaveDir, "gamefile.000"))) || !bytes.Equal(index, readChallengeFile(t, filepath.Join(c.SaveDir, "fname.dat"))) {
++		t.Fatal("切換設定覆寫了進度")
++	}
++	if !bytes.Equal(oldIndex, readChallengeFile(t, filepath.Join(old.d.Scratch, "fname.dat"))) || string(readChallengeFile(t, filepath.Join(base, "keep"))) != "original-progress" || !bytes.Equal(originalMain, readChallengeFile(t, filepath.Join(root, "MAIN.EXE"))) {
++		t.Fatal("原版或舊高難度改變")
++	}
++	for _, name := range []string{"GAMEFILE.000", "FNAME.DAT", "FNAME.DA_", "fname.dat"} {
++		if _, err := os.Lstat(filepath.Join(a.DataDir, name)); !os.IsNotExist(err) {
++			t.Fatal("共用投影混入來源進度", name, err)
++		}
++	}
++	if _, err := PrepareChallengeProfile(a.DataDir, filepath.Join(t.TempDir(), "saves"), r); err == nil {
++		t.Fatal("共用投影被誤認成完整來源，未驗來源 FNAME")
++	}
++	if _, err := os.Stat(filepath.Join(b.SaveDir, "gamefile.000")); !os.IsNotExist(err) {
++		t.Fatal("新設定繼承其他組合存檔")
++	}
++	if _, err := Open(root, Options{SaveDir: a.SaveDir}); err == nil {
++		t.Fatal("原版接納了自訂進度")
++	}
++}
++
++func TestChallengeProfilesFailuresPreserveData(t *testing.T) {
++	root := origRoot(t)
++	for _, kind := range []string{"marker", "root-marker", "short", "duplicate-save", "duplicate-index", "unknown", "data", "data-progress", "data-backup", "data-save", "data-lower-index", "data-link", "profile-link", "empty-target", "publication-denied"} {
++		t.Run(kind, func(t *testing.T) {
++			base := filepath.Join(t.TempDir(), "saves")
++			r := DefaultChallengeRules()
++			p, err := PrepareChallengeProfile(root, base, r)
++			if err != nil {
++				t.Fatal(err)
++			}
++			protected := filepath.Join(p.SaveDir, "fname.dat")
++			switch kind {
++			case "marker":
++				protected = filepath.Join(p.SaveDir, "difficulty.json")
++				writeChallengeFile(t, protected, []byte("keep-wrong-marker"))
++			case "root-marker":
++				protected = filepath.Join(filepath.Dir(p.SaveDir), "root.json")
++				writeChallengeFile(t, protected, []byte("keep-wrong-root"))
++			case "short":
++				protected = filepath.Join(p.SaveDir, "gamefile.000")
++				writeChallengeFile(t, protected, []byte("keep-short-save"))
++			case "duplicate-save":
++				protected = filepath.Join(p.SaveDir, "gamefile.000")
++				writeChallengeFile(t, protected, make([]byte, 31839))
++				writeChallengeFile(t, filepath.Join(p.SaveDir, "GAMEFILE.000"), bytes.Repeat([]byte{1}, 31839))
++			case "duplicate-index":
++				writeChallengeFile(t, filepath.Join(p.SaveDir, "FNAME.DAT"), readChallengeFile(t, protected))
++			case "unknown":
++				protected = filepath.Join(p.SaveDir, "unknown")
++				writeChallengeFile(t, protected, []byte("keep-unknown"))
++			case "data":
++				protected = filepath.Join(p.DataDir, "MAIN.EXE")
++				writeChallengeFile(t, protected, []byte("keep-damaged-data"))
++			case "data-progress", "data-backup", "data-save", "data-lower-index":
++				name := map[string]string{"data-progress": "FNAME.DAT", "data-backup": "FNAME.DA_", "data-save": "GAMEFILE.004", "data-lower-index": "fname.dat"}[kind]
++				protected = filepath.Join(p.DataDir, name)
++				writeChallengeFile(t, protected, []byte("keep-injected-progress"))
++			case "data-link":
++				path := filepath.Join(p.DataDir, "MAIN.EXE")
++				if err := os.Remove(path); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.Symlink(filepath.Join(root, "MAIN.EXE"), path); err != nil {
++					t.Fatal(err)
++				}
++			case "profile-link":
++				r.Tank = VehicleTransport
++				digest, _ := r.Digest()
++				if err := os.Symlink(p.SaveDir, filepath.Join(filepath.Dir(p.SaveDir), digest)); err != nil {
++					t.Fatal(err)
++				}
++			case "empty-target":
++				r.Tank = VehicleTransport
++				digest, _ := r.Digest()
++				if err := os.Mkdir(filepath.Join(filepath.Dir(p.SaveDir), digest), 0o755); err != nil {
++					t.Fatal(err)
++				}
++			case "publication-denied":
++				r.Tank = VehicleTransport
++				dir := filepath.Dir(p.SaveDir)
++				if err := os.Chmod(dir, 0o555); err != nil {
++					t.Fatal(err)
++				}
++				t.Cleanup(func() {
++					if err := os.Chmod(dir, 0o755); err != nil {
++						t.Error(err)
++					}
++				})
++			}
++			before := readChallengeFile(t, protected)
++			if _, err := PrepareChallengeProfile(root, base, r); err == nil {
++				t.Fatal("接受不合法進度", kind)
++			}
++			if !bytes.Equal(before, readChallengeFile(t, protected)) {
++				t.Fatal("拒絕時覆寫原資料", kind)
++			}
++		})
++	}
++}
++
++func TestChallengeProfilesRootAliasesAndUnmarked(t *testing.T) {
++	root := origRoot(t)
++	for _, kind := range []string{"source", "old-hard", "base", "dangling", "unmarked", "ancestor"} {
++		t.Run(kind, func(t *testing.T) {
++			base := filepath.Join(t.TempDir(), "saves")
++			custom := base + "-custom"
++			switch kind {
++			case "source":
++				if err := os.Symlink(root, custom); err != nil {
++					t.Fatal(err)
++				}
++			case "base", "old-hard":
++				target := base
++				if kind == "old-hard" {
++					target += "-hard"
++				}
++				if err := os.Mkdir(target, 0o755); err != nil {
++					t.Fatal(err)
++				}
++				if err := os.Symlink(target, custom); err != nil {
++					t.Fatal(err)
++				}
++			case "dangling":
++				if err := os.Symlink(filepath.Join(t.TempDir(), "absent"), custom); err != nil {
++					t.Fatal(err)
++				}
++			case "unmarked":
++				if err := os.Mkdir(custom, 0o755); err != nil {
++					t.Fatal(err)
++				}
++				writeChallengeFile(t, filepath.Join(custom, "keep"), []byte("keep"))
++			case "ancestor":
++				ancestor := filepath.Join(t.TempDir(), "alias")
++				if err := os.Symlink(root, ancestor); err != nil {
++					t.Fatal(err)
++				}
++				base = filepath.Join(ancestor, "child")
++			}
++			if _, err := PrepareChallengeProfile(root, base, DefaultChallengeRules()); err == nil {
++				t.Fatal("接受根別名或未標記資料", kind)
++			}
++		})
++	}
++}
++
++func TestChallengePublicationAndConcurrentPreparation(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "kept")
++	writeChallengeFile(t, path, []byte("original"))
++	if err := publishChallengeFile(path, []byte("replacement")); err == nil || string(readChallengeFile(t, path)) != "original" {
++		t.Fatal("發布覆寫既有檔案", err)
++	}
++	parent := t.TempDir()
++	source, target := filepath.Join(parent, "ready"), filepath.Join(parent, "existing-empty")
++	if err := os.Mkdir(source, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Mkdir(target, 0o755); err != nil {
++		t.Fatal(err)
++	}
++	writeChallengeFile(t, filepath.Join(source, "kept"), []byte("complete-profile"))
++	before, err := os.Stat(target)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := publishChallengePath(source, target); err == nil {
++		t.Fatal("發布替換了已存在的空目錄")
++	}
++	after, err := os.Stat(target)
++	if err != nil || !os.SameFile(before, after) {
++		t.Fatal("既有空目錄身分改變", err)
++	}
++	if string(readChallengeFile(t, filepath.Join(source, "kept"))) != "complete-profile" {
++		t.Fatal("失敗時損壞候選資料")
++	}
++	root := origRoot(t)
++	base := filepath.Join(t.TempDir(), "saves")
++	a, err := PrepareChallengeProfile(root, base, DefaultChallengeRules())
++	if err != nil {
++		t.Fatal(err)
++	}
++	kept := readChallengeFile(t, filepath.Join(a.SaveDir, "difficulty.json"))
++	r := a.Rules
++	r.Tank = VehicleTransport
++	var wg sync.WaitGroup
++	errs := make([]error, 2)
++	for i := range errs {
++		wg.Add(1)
++		go func(i int) { defer wg.Done(); _, errs[i] = PrepareChallengeProfile(root, base, r) }(i)
++	}
++	wg.Wait()
++	if errs[0] != nil && errs[1] != nil {
++		t.Fatal("並行準備沒有任何成功發布", errs)
++	}
++	if _, err := PrepareChallengeProfile(root, base, r); err != nil {
++		t.Fatal("並行後進度無法重新開啟", err)
++	}
++	if !bytes.Equal(kept, readChallengeFile(t, filepath.Join(a.SaveDir, "difficulty.json"))) {
++		t.Fatal("並行準備改動另一組進度")
++	}
++}
+-- 
+2.39.5
+

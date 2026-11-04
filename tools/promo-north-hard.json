@@ -1,0 +1,389 @@
+[
+  {
+    "kind": "record",
+    "name": "difficulty-select",
+    "hold": 2
+  },
+  {
+    "kind": "key",
+    "key": "Right",
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "hard-selected",
+    "hold": 2
+  },
+  {
+    "kind": "key",
+    "key": "Return",
+    "hold": 3
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "wait",
+    "hold": 20
+  },
+  {
+    "kind": "shot",
+    "name": "hard-title",
+    "hold": 1
+  },
+  {
+    "kind": "record",
+    "name": "play-opening",
+    "hold": 1
+  },
+  {
+    "kind": "click",
+    "x": 624,
+    "y": 386,
+    "hold": 5
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "click",
+    "x": 800,
+    "y": 484,
+    "hold": 1.4
+  },
+  {
+    "kind": "shot",
+    "name": "map",
+    "hold": 1
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "debt-hard",
+    "hold": 1
+  },
+  {
+    "kind": "move",
+    "x": 1080,
+    "y": 694,
+    "hold": 1
+  },
+  {
+    "kind": "shot",
+    "name": "debt-hard",
+    "hold": 12
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "city-entry",
+    "hold": 1
+  },
+  {
+    "kind": "click",
+    "x": 700,
+    "y": 634,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "city-menu",
+    "hold": 1
+  },
+  {
+    "kind": "click",
+    "x": 520,
+    "y": 548,
+    "hold": 4
+  },
+  {
+    "kind": "shot",
+    "name": "formation",
+    "hold": 2
+  },
+  {
+    "kind": "click",
+    "x": 554,
+    "y": 216,
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "merchant",
+    "hold": 4
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "record",
+    "name": "theme-switch",
+    "hold": 2
+  },
+  {
+    "kind": "key",
+    "key": "F2",
+    "hold": 0.5
+  },
+  {
+    "kind": "wait_theme",
+    "theme": "hd",
+    "timeout": 60,
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "hd-formation",
+    "hold": 7
+  },
+  {
+    "kind": "key",
+    "key": "F2",
+    "hold": 0.5
+  },
+  {
+    "kind": "wait_theme",
+    "theme": "ai",
+    "timeout": 60,
+    "hold": 2
+  },
+  {
+    "kind": "shot",
+    "name": "ai-formation",
+    "hold": 7
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "key",
+    "key": "F2",
+    "hold": 4
+  },
+  {
+    "kind": "click",
+    "x": 900,
+    "y": 444,
+    "hold": 2,
+    "button": 3
+  },
+  {
+    "kind": "click",
+    "x": 900,
+    "y": 444,
+    "hold": 2,
+    "button": 3
+  },
+  {
+    "kind": "record",
+    "name": "north-map",
+    "hold": 1
+  },
+  {
+    "kind": "click",
+    "x": 1068,
+    "y": 92,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "world-north",
+    "hold": 2
+  },
+  {
+    "kind": "click",
+    "x": 230,
+    "y": 385,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "north-country",
+    "hold": 2
+  },
+  {
+    "kind": "click",
+    "x": 624,
+    "y": 595,
+    "hold": 5
+  },
+  {
+    "kind": "shot",
+    "name": "north-map",
+    "hold": 12
+  },
+  {
+    "kind": "stop_record"
+  },
+  {
+    "kind": "click",
+    "x": 718,
+    "y": 590,
+    "hold": 2
+  },
+  {
+    "kind": "click",
+    "x": 718,
+    "y": 590,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "town-57",
+    "hold": 1
+  },
+  {
+    "kind": "click",
+    "x": 900,
+    "y": 444,
+    "hold": 2,
+    "button": 3
+  },
+  {
+    "kind": "click",
+    "x": 766,
+    "y": 450,
+    "hold": 2
+  },
+  {
+    "kind": "click",
+    "x": 766,
+    "y": 450,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "town-60",
+    "hold": 1
+  },
+  {
+    "kind": "click",
+    "x": 900,
+    "y": 444,
+    "hold": 2,
+    "button": 3
+  },
+  {
+    "kind": "click",
+    "x": 430,
+    "y": 450,
+    "hold": 2
+  },
+  {
+    "kind": "click",
+    "x": 430,
+    "y": 450,
+    "hold": 3
+  },
+  {
+    "kind": "shot",
+    "name": "town-63",
+    "hold": 1
+  },
+  {
+    "kind": "finish"
+  }
+]
